@@ -15,7 +15,9 @@ operating system used for Host smoke
 
 The version in `.codex-plugin/plugin.json` must match the public README badges, `README_AI.md`, and the newest `CHANGELOG.md` entry.
 
-Do not create a release tag until the exact candidate commit has passed every required gate below.
+For a formal versioned release, `.agents/plugins/marketplace.json` must bind the Plugin Git source to the matching immutable semantic-version tag (`v<version>`), not to a mutable branch such as `main`.
+
+Do not create a release tag until the exact candidate commit has passed every pre-tag gate below.
 
 ## 2. Repository gates
 
@@ -144,14 +146,18 @@ force pushes to main are disabled
 
 These settings are repository administration state and cannot be proven by the project test suite alone.
 
-## 6. Tag and GitHub Release
+## 6. Tag, distribution smoke, and GitHub Release
 
-Only after the exact merged candidate passes repository and Host gates:
+Only after the exact merged candidate passes repository, Host, governance, and immutable Marketplace-source gates:
 
 1. confirm `main` still points to the validated candidate SHA;
 2. create the immutable semantic-version tag, for example `v2.1.1`, on that exact SHA;
-3. create the GitHub Release from that tag using the matching Changelog entry;
-4. do not move or recreate the release tag if `main` advances later.
+3. from a clean Codex environment, add the Marketplace from that exact tag and install the Plugin; confirm the installed Plugin reports the same version and exposes `/dispatch` and `/doctor`;
+4. confirm the Marketplace entry at the tag resolves the Plugin source from the same tag rather than a mutable branch;
+5. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
+6. do not move or recreate the release tag if `main` advances later.
+
+The post-tag distribution smoke is intentionally narrow. It verifies release packaging/identity and does not repeat the full Host behavior suite already completed on the exact candidate.
 
 ## 7. Public Plugin submission
 
