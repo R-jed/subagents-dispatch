@@ -20,6 +20,7 @@
 - `RESTART_REQUIRED` 明确定义为 pre-dispatch readiness outcome，不属于 Recovery/Agent lifecycle 状态；由于没有实际 spawn child，也不产生 Execution Receipt
 - **发布前工程收口**：README 示例明确只读工作可并行、同一代码目录只保留一个写入者；新增 first-use、Status、Steer 的真实 Host workload，Ruff lint、正式发布清单，以及版本号/Changelog 一致性回归检查
 - **Host 回归门**：新增 custom-role fresh-context spawn workload，固定检查首次 spawn 直接使用 `fork_turns: none`，并验证 pre-child rejection 不会被记作 Agent retry
+- **不可变发行身份**：Marketplace 的 Plugin Git source 由 rolling `main` 改为与 `plugin.json` 版本一致的 `v2.1.1` tag，并新增回归测试确保后续版本的 Marketplace source 始终绑定 `v<version>`；GitHub Release 只在 tag 绑定后的安装 smoke 通过后创建
 
 ## [2.1.0] - 2026-08-07
 
