@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
+MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 README_CN = ROOT / "README.md"
 README_EN = ROOT / "README_EN.md"
 README_AI = ROOT / "README_AI.md"
@@ -38,6 +39,19 @@ def test_latest_changelog_entry_matches_plugin_manifest():
     match = re.search(r"^## \[([^\]]+)\]", CHANGELOG.read_text(encoding="utf-8"), flags=re.MULTILINE)
     assert match, "CHANGELOG.md must contain a version heading"
     assert match.group(1) == version
+
+
+def test_marketplace_plugin_source_is_bound_to_release_tag():
+    version = current_version()
+    market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
+    plugins = market.get("plugins")
+    assert isinstance(plugins, list) and len(plugins) == 1
+    source = plugins[0].get("source")
+    assert source == {
+        "source": "url",
+        "url": "https://github.com/R-jed/subagents-dispatch.git",
+        "ref": f"v{version}",
+    }
 
 
 def test_release_checklist_keeps_static_and_host_gates_separate():
