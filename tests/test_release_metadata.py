@@ -54,7 +54,7 @@ def test_marketplace_plugin_source_is_bound_to_release_tag():
     }
 
 
-def test_release_checklist_keeps_static_and_host_gates_separate():
+def test_release_checklist_keeps_static_host_and_distribution_gates_separate():
     text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
     for marker in [
         "## 2. Repository gates",
@@ -63,6 +63,8 @@ def test_release_checklist_keeps_static_and_host_gates_separate():
         "subagents_dispatch_reader",
         "subagents_dispatch_worker",
         "## 4. Hard release blockers",
-        "## 6. Tag and GitHub Release",
+        "## 5. Repository governance before tagging",
+        "## 6. Tag, distribution smoke, and GitHub Release",
+        "Marketplace entry at the tag resolves the Plugin source from the same tag",
     ]:
         assert marker in text
