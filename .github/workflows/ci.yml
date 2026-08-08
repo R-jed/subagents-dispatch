@@ -57,3 +57,13 @@ jobs:
           python scripts/install-agents.py --codex-home "$target" --check
           python scripts/doctor.py --codex-home "$target" --check
           python scripts/install-agents.py --codex-home "$target"
+
+  policy-tests:
+    name: policy-tests
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all platform checks
+        shell: bash
+        run: test '${{ needs.test.result }}' = 'success'
