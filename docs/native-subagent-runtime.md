@@ -14,22 +14,20 @@ The distinction is deliberate:
 
 ## Explicit entry point and control intents
 
-Normal execution:
+The stable main Skill id is `subagents-dispatch`, displayed as **Subagents Dispatch**. In the Codex App, the user opens the Skill menu with `/` and selects that Skill. The exact slash/menu label rendered by a particular App build is verified directly from the UI during release validation rather than inferred from package metadata.
+
+Normal execution uses the task itself after explicit Skill selection.
+
+Explicit interaction-control payloads are:
 
 ```text
-/dispatch <task>
+preview <task>
+status
+steer <unit_id>: <guidance>
+takeover <unit_id>
 ```
 
-Explicit interaction controls:
-
-```text
-/dispatch preview <task>
-/dispatch status
-/dispatch steer <unit_id>: <guidance>
-/dispatch takeover <unit_id>
-```
-
-Codex CLI/IDE users may also open the Skill picker with `/skills`. Implicit invocation is disabled. The user chooses when adaptive delegation or dispatch control is worth applying.
+Implicit invocation is disabled. The user chooses when adaptive delegation or dispatch control is worth applying.
 
 Preview does not touch the native child runtime. Status is a one-shot observation. Steer and Takeover use native child-control capability when the current Host exposes it. The Plugin does not emulate unavailable Host controls with a background controller.
 
@@ -58,7 +56,7 @@ The exact project roles use Codex's native custom-Agent TOML mechanism. Personal
 
 The current supported Host behavior loads custom-Agent role declarations into the task/session configuration when that task starts. A role file written after startup does not become a newly selectable `agent_type` for the already-running task merely because the TOML now exists on disk.
 
-When an explicit `/dispatch` task actually needs a child, role readiness is checked before delegated implementation starts:
+When an explicit task run through Subagents Dispatch actually needs a child, role readiness is checked before delegated implementation starts:
 
 ```text
 exact required role already available
@@ -69,7 +67,7 @@ role unavailable + managed profiles cleanly absent
 -> run installer --check
 -> readiness outcome RESTART_REQUIRED
 -> do not attempt spawn_agent in the current task
--> ask for one fresh Codex task/session and rerun the original /dispatch
+-> ask for one fresh Codex task/session and rerun the original request through Subagents Dispatch
 
 role unavailable + managed profiles already exact
 -> current task still cannot use the role
@@ -80,12 +78,12 @@ role unavailable + managed profiles already exact
 role unavailable + unsafe/conflicting/unowned managed state
 -> USER_ACTION_REQUIRED
 -> do not overwrite, substitute a role, or spawn
--> use /doctor for the exact diagnosis when useful
+-> use Subagents Doctor for the exact diagnosis when useful
 ```
 
 `RESTART_REQUIRED` is a pre-dispatch readiness outcome, not a native child lifecycle state. No child attempt exists yet. On the fresh task, exact role availability is checked again; if it still fails despite exact installed profiles, the condition is treated as a Host/configuration limitation and fails closed.
 
-Routine first-use provisioning is bounded to the Plugin's fixed managed paths and is covered by the explicit `/dispatch` request once real delegation is already justified. It does not authorize `config.toml`, credentials, MCP configuration, repositories, unrelated Agent profiles, repair of unowned conflicts, migration, or upgrade changes.
+Routine first-use provisioning is bounded to the Plugin's fixed managed paths and is covered by explicit user selection/invocation of Subagents Dispatch once real delegation is already justified. It does not authorize `config.toml`, credentials, MCP configuration, repositories, unrelated Agent profiles, repair of unowned conflicts, migration, or upgrade changes.
 
 Preview and Status do not provision missing profiles solely to make a read-only answer richer.
 
@@ -235,7 +233,7 @@ structured_live
 
 A wake-up event does not imply deterministic insight into child progress.
 
-`/dispatch status` reads the best current evidence once and returns. It does not turn this completion surface into a private poll loop.
+The `status` control payload reads the best current evidence once and returns. It does not turn this completion surface into a private poll loop.
 
 ## Capacity
 
