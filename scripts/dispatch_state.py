@@ -963,6 +963,8 @@ def account_receipt(
     materialized_keys = (
         _materialized_unit_keys(materialized_units) if materialized_units is not None else None
     )
+    attempt_keys: set[tuple[str, int, str]] = set()
+    followup_keys: set[tuple[str, int, str]] = set()
     for event in unique:
         kind = event["kind"]
         if kind in MATERIALIZED_EVENT_KINDS:
@@ -982,6 +984,13 @@ def account_receipt(
                 raise ReceiptAccountingError(
                     f"materialized child for event {event['ref']} is unavailable"
                 )
+            identity_key = (unit_id, attempt, agent_id)
+            seen = followup_keys if kind == "followup" else attempt_keys
+            if identity_key in seen:
+                raise ReceiptAccountingError(
+                    f"duplicate materialized {kind} for event {event['ref']}"
+                )
+            seen.add(identity_key)
             model_lane = event.get("model_lane")
             activity = event.get("activity")
             if activity not in PUBLIC_ACTIVITIES:

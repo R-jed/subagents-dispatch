@@ -634,6 +634,12 @@ def test_receipt_persists_unique_events_and_requires_observed_model_evidence(tmp
             ],
             temp_root=tmp_path,
         )
+    with pytest.raises(module.ReceiptAccountingError, match="duplicate materialized attempt"):
+        module.persist_receipt_events(
+            "thread-1",
+            [{**event, "ref": "attempt:duplicate-ref"}],
+            temp_root=tmp_path,
+        )
     with pytest.raises(module.ReceiptAccountingError, match="observed model evidence"):
         module.account_receipt(
             [receipt_event("attempt:U2:A1", "attempt", "U2", 1, "agent-2", model_lane="Sol High", activity="decide")],
