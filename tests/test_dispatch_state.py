@@ -530,20 +530,19 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
         {"unit_id": "U1", "attempt": 1, "agent_id": "agent-1"},
         {"unit_id": "U2", "attempt": 1, "agent_id": "agent-2a", "control_state": "FAILED"},
         {"unit_id": "U2", "attempt": 2, "agent_id": "agent-2b", "control_state": "RUNNING"},
-        {"unit_id": "U3", "attempt": 1, "agent_id": "agent-3"},
-        {"unit_id": "U3", "attempt": 2, "agent_id": "agent-4"},
+        {"unit_id": "U3", "attempt": 1, "agent_id": "agent-3", "role": "advisor"},
+        {"unit_id": "U3", "attempt": 2, "agent_id": "agent-4", "role": "advisor"},
     ]
     events = [
         receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
         receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
         receipt_event("followup:U1:A1:F1", "followup", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="execute"),
         receipt_event("retry:U2:A2", "retry", "U2", 2, "agent-2b"),
-        receipt_event("review-attempt:U3:A1", "reviewer_attempt", "U3", 1, "agent-3", model_lane="Sol High", model_evidence_source="native", activity="review"),
+        receipt_event("review-attempt:U3:A1", "reviewer_attempt", "U3", 1, "agent-3", model_lane="Sol High", model_evidence_source="native", activity="review", review_artifact_id=first_artifact),
         receipt_event("review-round:U3:R1", "review_round", "U3", 1, "agent-3", verdict="rework_required", review_artifact_id=first_artifact),
         receipt_event("rework:U1:R1", "semantic_rework", "U1", 1, "agent-1", review_artifact_id=first_artifact),
-        receipt_event("review-attempt:U3:A2", "reviewer_attempt", "U3", 2, "agent-4", model_lane="Sol High", model_evidence_source="native", activity="review"),
+        receipt_event("review-attempt:U3:A2", "reviewer_attempt", "U3", 2, "agent-4", model_lane="Sol High", model_evidence_source="native", activity="review", review_artifact_id=second_artifact),
         receipt_event("review-round:U3:R2", "review_round", "U3", 2, "agent-4", verdict="passed", review_artifact_id=second_artifact),
-        receipt_event("recovery:U1:REBIND", "recovery", "U1", 1, "agent-1", action="rebind"),
         {"ref": "control:status:1", "kind": "control", "action": "Status"},
         {"ref": "control:status:1", "kind": "control", "action": "Status"},
     ]
@@ -559,7 +558,7 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     assert summary["semantic_reworks"] == 1
     assert summary["reviewer_attempts"] == 2
     assert summary["review"] == {"rounds": 2, "reworks": 1, "verdict": "passed"}
-    assert summary["recoveries"] == 1
+    assert summary["recoveries"] == 0
     assert summary["controls"] == [{"action": "Status", "count": 1}]
 
     with pytest.raises(module.ReceiptAccountingError, match="conflicting event ref"):
@@ -575,7 +574,12 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
 def test_receipt_formatter_localizes_public_activity_without_internal_roles():
     module = load_module()
     materialized = [
-        {"unit_id": f"U{index}", "attempt": 1, "agent_id": f"agent-{index}"}
+        {
+            "unit_id": f"U{index}",
+            "attempt": 1,
+            "agent_id": f"agent-{index}",
+            "role": "advisor" if index == 5 else "worker",
+        }
         for index in range(1, 6)
     ]
     summary = module.account_receipt(
@@ -584,7 +588,7 @@ def test_receipt_formatter_localizes_public_activity_without_internal_roles():
             receipt_event("a2", "attempt", "U2", 1, "agent-2", model_lane="Terra XHigh", model_evidence_source="native", activity="investigate"),
             receipt_event("a3", "attempt", "U3", 1, "agent-3", model_lane="Luna Max", model_evidence_source="native", activity="execute"),
             receipt_event("a4", "attempt", "U4", 1, "agent-4", model_lane="Sol High", model_evidence_source="native", activity="decide"),
-            receipt_event("a5", "reviewer_attempt", "U5", 1, "agent-5", model_lane="Sol High", model_evidence_source="native", activity="review"),
+            receipt_event("a5", "reviewer_attempt", "U5", 1, "agent-5", model_lane="Sol High", model_evidence_source="native", activity="review", review_artifact_id="sha256:" + "c" * 64),
             receipt_event("r1", "review_round", "U5", 1, "agent-5", verdict="passed", review_artifact_id="sha256:" + "c" * 64),
         ],
         materialized_units=materialized,
@@ -679,7 +683,34 @@ def test_receipt_rejects_unbound_review_rework_and_recovery_claims():
     for event, message in [
         ({"ref": "review:fake", "kind": "review_round", "verdict": "passed"}, "reviewer"),
         ({"ref": "rework:fake", "kind": "semantic_rework"}, "correction"),
-        ({"ref": "recovery:fake", "kind": "recovery", "action": "rebind"}, "rebind"),
+        ({"ref": "recovery:fake", "kind": "recovery", "action": "rebind"}, "unsupported kind"),
     ]:
         with pytest.raises(module.ReceiptAccountingError, match=message):
             module.account_receipt([event], materialized_units=materialized)
+
+    artifact_id = "sha256:" + "d" * 64
+    worker_review = [
+        receipt_event(
+            "reviewer:worker",
+            "reviewer_attempt",
+            "U1",
+            1,
+            "agent-1",
+            activity="review",
+            review_artifact_id=artifact_id,
+        ),
+        receipt_event(
+            "review-round:worker",
+            "review_round",
+            "U1",
+            1,
+            "agent-1",
+            verdict="passed",
+            review_artifact_id=artifact_id,
+        ),
+    ]
+    with pytest.raises(module.ReceiptAccountingError, match="Advisor review"):
+        module.account_receipt(
+            worker_review,
+            materialized_units=[{**materialized[0], "role": "worker"}],
+        )

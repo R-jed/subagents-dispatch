@@ -897,7 +897,6 @@ RECEIPT_EVENT_KINDS = {
     "semantic_rework",
     "reviewer_attempt",
     "review_round",
-    "recovery",
     "control",
 }
 PUBLIC_ACTIVITIES = {"read", "investigate", "execute", "decide", "review"}
@@ -968,6 +967,10 @@ def account_receipt(
         (record.get("unit_id"), record.get("attempt")): record
         for record in materialized_units or []
     }
+    materialized_records = {
+        (record.get("unit_id"), record.get("attempt"), record.get("agent_id")): record
+        for record in materialized_units or []
+    }
     followup_event_keys = {
         (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
         for event in unique
@@ -975,6 +978,13 @@ def account_receipt(
     }
     reviewer_event_keys = {
         (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
+        for event in unique
+        if event["kind"] == "reviewer_attempt"
+    }
+    reviewer_artifacts = {
+        (event.get("unit_id"), event.get("attempt"), event.get("agent_id")): event.get(
+            "review_artifact_id"
+        )
         for event in unique
         if event["kind"] == "reviewer_attempt"
     }
@@ -990,7 +1000,6 @@ def account_receipt(
     rework_keys: set[tuple[str, int, str]] = set()
     review_keys: set[tuple[str, int, str]] = set()
     review_artifacts: set[str] = set()
-    recovery_keys: set[tuple[str, str, int, str]] = set()
     for event in unique:
         kind = event["kind"]
         if kind in MATERIALIZED_EVENT_KINDS:
@@ -1036,6 +1045,18 @@ def account_receipt(
             if kind == "followup":
                 focused_followups += 1
             if kind == "reviewer_attempt":
+                artifact_id = event.get("review_artifact_id")
+                materialized_record = materialized_records.get(identity_key)
+                if (
+                    activity != "review"
+                    or materialized_record is None
+                    or materialized_record.get("role") != "advisor"
+                    or not isinstance(artifact_id, str)
+                    or REVIEW_ARTIFACT_PATTERN.fullmatch(artifact_id) is None
+                ):
+                    raise ReceiptAccountingError(
+                        f"reviewer event {event['ref']} requires an Advisor review bound to an artifact"
+                    )
                 reviewer_attempts += 1
         elif kind == "retry":
             unit_id = event.get("unit_id")
@@ -1080,6 +1101,7 @@ def account_receipt(
                 review_key not in reviewer_event_keys
                 or not isinstance(artifact_id, str)
                 or REVIEW_ARTIFACT_PATTERN.fullmatch(artifact_id) is None
+                or reviewer_artifacts.get(review_key) != artifact_id
             ):
                 raise ReceiptAccountingError(
                     f"review event {event['ref']} requires a materialized reviewer and artifact identity"
@@ -1090,22 +1112,6 @@ def account_receipt(
             review_artifacts.add(artifact_id)
             review_rounds += 1
             review_verdict = verdict
-        elif kind == "recovery":
-            action = event.get("action")
-            recovery_identity = (
-                event.get("unit_id"),
-                event.get("attempt"),
-                event.get("agent_id"),
-            )
-            recovery_key = (action, *recovery_identity)
-            if action != "rebind" or materialized_keys is None or recovery_identity not in materialized_keys:
-                raise ReceiptAccountingError(
-                    f"recovery event {event['ref']} requires a materialized rebind identity"
-                )
-            if recovery_key in recovery_keys:
-                raise ReceiptAccountingError(f"duplicate recovery for event {event['ref']}")
-            recovery_keys.add(recovery_key)
-            recoveries += 1
         elif kind == "control":
             action = event.get("action")
             if action not in {"Status", "Steer", "Takeover"}:

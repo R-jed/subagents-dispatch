@@ -130,7 +130,6 @@ replacement retry       -> Recovery retry; its new attempt ref reports the pass
 semantic rework         -> Review rework only when a correction pass actually begins
 reviewer attempt        -> Dispatch pass, even if no verdict is produced
 review round            -> Review round only after an actual verdict
-runtime recovery        -> Recovery fact such as unambiguous rebind
 explicit control        -> Control use
 ```
 
@@ -160,7 +159,7 @@ A control action does not create a delegated work pass by itself.
 
 The Review axis reports the independent Final Review loop only. It does not claim that the overall user task is complete.
 
-A review round exists only when a materialized fresh independent reviewer produces an actual verdict against the exact candidate. The round binds the reviewer `unit_id`, `attempt`, and `agent_id` plus the candidate's `review_artifact_id`; one reviewer attempt and one artifact identity can each contribute at most one round.
+A review round exists only when a materialized fresh independent Advisor produces an actual verdict against the exact candidate. Both the reviewer-attempt and round events bind the same reviewer `unit_id`, `attempt`, `agent_id`, and candidate `review_artifact_id`; one reviewer attempt and one artifact identity can each contribute at most one round.
 
 Chinese states may include:
 
@@ -204,7 +203,7 @@ Runtime failure, timeout, tool failure, or a replacement Agent attempt is not re
 
 Recovery retry increments only when a confirmed materialized Agent attempt is replaced under the bounded Recovery contract: the first attempt is confirmed `FAILED`, and its replacement is the materialized second attempt. The retry event carries and matches that replacement's exact `unit_id`, `attempt=2`, and `agent_id`; duplicate refs cannot recount the same replacement. A pre-child spawn rejection is never a retry.
 
-A runtime rebind recovery fact likewise carries the exact materialized `unit_id`, `attempt`, and `agent_id`. Unsupported, unbound, or duplicate generic recovery claims fail closed.
+Generic runtime recovery claims are not counted because the terminal capsule does not retain enough transition history to prove them. Record only the evidence-bound retry fact above; do not infer a recovery count from a normal materialized child or caller-supplied `rebind` label.
 
 When retry occurred, add an exceptional line:
 
