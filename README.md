@@ -7,7 +7,7 @@
 <p align="center"><em> Codex子代理调度框架。</em></p>
 
 <p align="center">
-  <a href="README_EN.md">English</a> · <a href="README_AI.md">AI Agent</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a> · <a href="LICENSE">MIT</a>
+  <a href="README_EN.md">English</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a>
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ subagents-dispatch 是一个 Codex 插件。它负责把一个大任务拆给几
 
 ## 怎么用
 
-想先看看准备怎么分工，不真的启动小助手：
+想先看看准备怎么分工，不真的启动子代理：
 ```text
 /subagents dispatch preview 给 /api/users 加分页参数，补上测试
 ```
@@ -42,7 +42,7 @@ subagents-dispatch 是一个 Codex 插件。它负责把一个大任务拆给几
 /subagents dispatch status
 ```
 
-想给正在工作的小助手补一句新要求：
+想给正在工作的子代理补一句新要求：
 ```text
 /subagents dispatch steer U2: 先看现有的分页中间件
 ```

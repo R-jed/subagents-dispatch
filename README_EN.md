@@ -7,7 +7,7 @@
 <p align="center"><em>One command. Parallel agents. Controlled results.</em></p>
 
 <p align="center">
-  <a href="README.md">中文</a> · <a href="README_AI.md">AI Agent</a> · <a href="docs/plugin-installation.md">Install</a> · <a href="docs/architecture.md">Architecture</a> · <a href="LICENSE">MIT</a>
+  <a href="README.md">中文</a> · <a href="docs/plugin-installation.md">Install</a> · <a href="docs/architecture.md">Architecture</a>
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
 
 > **If you are an AI Agent, jump to [README_AI.md](README_AI.md) and follow the instructions strictly.**
 
-Hand the parts of a big task to a few specialist Agents. Discovery runs in parallel, writing never fights, and Main takes the results back for acceptance.
+Hand the parts of a big task to a few subagents. Discovery runs in parallel, writing never fights, and Main takes the results back for acceptance.
 
 ## Quick start
 
@@ -42,7 +42,7 @@ Check how far a running task has come:
 /subagents dispatch status
 ```
 
-Add a requirement to a running Agent:
+Add a requirement to a running subagent:
 ```text
 /subagents dispatch steer U2: check existing pagination middleware first
 ```
@@ -62,17 +62,17 @@ Facts only. No hidden reasoning, and it does not estimate token usage or currenc
 
 ## Handoff Capsule: evidence-bound handoffs
 
-Each child starts with fresh context. Nothing passed on, and the next Agent re-checks what the last one established. A Handoff Capsule is a small bridge: Main packs verified facts and hands them to the next responsibility.
+Each subagent starts with fresh context. Nothing passed on, and the next subagent re-checks what the last one established. A Handoff Capsule is a small bridge: Main packs verified facts and hands them to the next responsibility.
 
 - **Pass verified facts**. Only facts Main has checked and accepted can enter the capsule
 - **Mark `DO NOT REDO`**
-- **Main is the acceptance boundary**. A child claim does not become task truth by itself
+- **Main is the acceptance boundary**. A subagent claim does not become task truth by itself
 - **Carry `STALE IF` conditions**. Source changes can invalidate accepted evidence
 
 ## Four core invariants
 
 - **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main, Worker, or Solver. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
-- **One delegation layer** — child Agents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
+- **One delegation layer** — subagents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
 - **UNKNOWN means do not guess** — when state cannot be established, there is no replacement Agent, retry, or semantic reroute
 - **Receipts report facts** — does not estimate token usage or currency cost from model names, elapsed time, or output length
 
