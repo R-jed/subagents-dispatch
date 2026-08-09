@@ -1,6 +1,6 @@
 {
   "name": "subagents-dispatch",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Let the main Codex session lead a specialist Subagent team with adaptive delegation, preview, live control, and evidence-bound handoffs.",
   "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",
@@ -23,9 +23,9 @@
     "logo": "./assets/subagents-dispatch-logo.svg",
     "screenshots": [],
     "defaultPrompt": [
-      "Use /subagents-dispatch:dispatch to complete this task. Lead the work and delegate only when it adds value.",
-      "Use /subagents-dispatch:dispatch when the user asks to preview, inspect, steer, or take back delegated work.",
-      "Use /subagents-dispatch:doctor to diagnose this subagents-dispatch installation and configuration."
+      "Use $dispatch to complete this task. Lead the work and delegate only when it adds value.",
+      "Use $dispatch for preview, status, steering, or safe takeover of delegated work.",
+      "Use $doctor to diagnose this subagents-dispatch installation and configuration."
     ]
   }
 }
