@@ -36,7 +36,7 @@ The live suite asks:
 5. When Luna encounters a material semantic blocker, does correct rerouting reduce wrong edits/rework compared with simply continuing Luna?
 6. For stable semantics and read-only work, does Terra provide useful quality/context depth at lower total cost than a Sol judgment lane, and when does narrow Luna Reader remain sufficient?
 7. Does consequence-driven Final Review catch material issues while avoiding decorative review caused only by process history?
-8. Does explicit `/dispatch` plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
+8. Does explicit user selection of Subagents Dispatch plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
 9. Does a one-line factual Execution Receipt improve delegation transparency without cluttering zero-child work or encouraging unsupported model/cost claims?
 10. Does Preview help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
 11. Do Status, Steer, and Takeover improve user control while preserving `UNKNOWN`, stable responsibility identity, and one-writer safety?
@@ -302,7 +302,7 @@ For the process-history negative control, use a candidate where Terra/Solver/rec
 
 ## Experiment H: first-use readiness
 
-Measure the first explicit `/dispatch` experience when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
+Measure the first explicit task run through Subagents Dispatch when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
 
 The current candidate should:
 
@@ -316,11 +316,11 @@ identify that delegation will be useful
 -> set readiness outcome RESTART_REQUIRED
 -> perform 0 child spawns in the current task
 -> show one concise fresh-task handoff
--> rerun the original /dispatch in a fresh task/session
+-> rerun the original request through Subagents Dispatch in a fresh task/session
 -> verify exact role availability there before spawning
 ```
 
-There is no separate routine provisioning confirmation prompt in this clean first-use path. The explicit `/dispatch` request is the narrow authorization for plugin-owned provisioning after delegation is already justified.
+There is no separate routine provisioning confirmation prompt in this clean first-use path. Explicit user selection/invocation of Subagents Dispatch is the narrow authorization for plugin-owned provisioning after delegation is already justified.
 
 Hard negative controls:
 
@@ -371,10 +371,10 @@ These should not add a receipt.
 
 ## Experiment J: Preview and live control
 
-Preview workload:
+Select **Subagents Dispatch** through the Host UI, then use the Preview payload:
 
 ```text
-/dispatch preview <same task used for a later real run>
+preview <same task used for a later real run>
 ```
 
 Verify:
@@ -440,6 +440,6 @@ Interaction experiments may initially use structured notes alongside existing re
 
 Do not claim improved quality, lower cost, reduced rework, Solver superiority, Terra value, onboarding improvement, receipt usability, takeover usability, or Handoff Capsule efficiency until named live workloads on named runtime versions support that claim.
 
-Static contract tests can prove that Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, and that capsules require accepted evidence. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build.
+Static contract tests can prove that Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, and that capsules require accepted evidence. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
 
 The runtime mechanism defines where each role and control is allowed to operate. Behavioral evidence determines whether those choices create user value in practice.
