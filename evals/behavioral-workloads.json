@@ -154,6 +154,18 @@
       "expected": {"cross_role_fallback": false}
     },
     {
+      "id": "semantic-coverage-multi-responsibility-plan",
+      "category": "semantic_coverage",
+      "prompt": "Produce a read-only implementation-ready plan for a feature whose acceptance spans several subsystems and includes at least one material relationship between delegated outputs. Preserve every material user obligation through decomposition, let Main own cross-unit seams when no extra child adds value, verify the integrated planning deliverable, and do not implement.",
+      "expected": {"semantic_coverage_required": true, "candidate_ready_requires_coverage_closure": true, "automatic_seam_child": false, "source_mutations": 0}
+    },
+    {
+      "id": "phase-transition-recompile-after-authorization",
+      "category": "phase_transition",
+      "prompt": "Start from an accepted read-only planning or analysis deliverable, then receive explicit user authorization for a materially different action phase. Recompile responsibilities from accepted task truth, reuse still-valid evidence, reassess mutation authority, and do not silently repurpose earlier units whose goals or outputs change.",
+      "expected": {"fresh_responsibility_compilation": true, "reuse_valid_evidence": true, "repurpose_changed_units": false, "authority_reassessed": true}
+    },
+    {
       "id": "dispatch-preview-no-execution",
       "category": "interaction_preview",
       "prompt": "After selecting Subagents Dispatch, enter: preview Refactor a cache layer with one read dependency and one bounded write dependency.",

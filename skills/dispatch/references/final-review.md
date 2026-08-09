@@ -34,14 +34,16 @@ If process history leaves a real material uncertainty that deterministic verific
 
 Before review, the main session must establish:
 
-- implementation is complete enough for acceptance;
-- actual complete artifact/diff has been inspected;
+- the requested deliverable is complete enough for acceptance;
+- the actual complete deliverable, artifact, and relevant diff/state have been inspected as applicable;
 - scope and invariants are checked;
-- relevant deterministic verification has run;
+- semantic coverage closure against current material obligations is complete;
+- material cross-responsibility seams and integrated relationships have been verified;
+- relevant deterministic or reproducible verification has run;
 - remaining material risks are recorded;
 - the review reasons are finalized.
 
-If ordinary acceptance is still failing, continue normal routing. Do not use review to replace unfinished execution.
+If ordinary acceptance is still failing or a material obligation remains silently uncovered, continue normal routing. Do not use review to replace unfinished execution, missing integration, or incomplete semantic coverage.
 
 ## 3. Bind the artifact
 

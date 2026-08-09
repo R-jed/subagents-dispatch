@@ -18,7 +18,7 @@ interaction.md
 -> Preview, Status, Steer, Takeover, Execution Receipt, usage/cost evidence boundary
 
 router-core.md
--> delegation value, capability selection, responsibility packets, adaptive scheduling
+-> delegation value, capability selection, responsibility packets, semantic coverage closure, phase-transition recompilation, adaptive scheduling
 
 handoff-capsule.md
 -> compact Main-accepted evidence transfer between responsibilities
@@ -46,8 +46,9 @@ README files explain the product; they are not runtime policy owners. `evals/` m
 Normal task execution is:
 
 ```text
-understand outcome + acceptance
+understand outcome + acceptance + material obligations
 -> preserve upstream workflow truth when another Skill/plan already owns it
+-> decompose only when useful and preserve semantic coverage
 -> decide whether delegation adds value
 -> choose the capability actually needed
 -> ensure required native role readiness
@@ -57,13 +58,15 @@ understand outcome + acceptance
    -> unsafe/conflicting/unowned state: USER_ACTION_REQUIRED
 -> keep zero/one delegated responsibility on the lightweight path
 -> use TeamPlan only when multi-responsibility coordination needs it
+-> verify every material obligation and cross-responsibility seam still has an owner
 -> run the smallest useful ready set
 -> verify child claims against actual artifacts/evidence
 -> promote only accepted reusable facts into a Handoff Capsule when worthwhile
 -> classify unresolved blockers
 -> recover within the bounded attempt contract
 -> integrate accepted outputs
--> verify the combined candidate
+-> verify semantic coverage against the combined candidate
+-> if task phase/authority changes materially, recompile responsibilities from accepted task truth
 -> run independent Final Review only when the candidate requires it
 -> deliver or report the exact blocker
 -> append one compact factual execution receipt when a child was actually spawned
@@ -163,9 +166,11 @@ OPEN QUESTIONS
 STALE IF
 ```
 
-A capsule cannot grant ownership, mutation authority, permission, broader scope, external impact, role escalation, or acceptance changes. Raw child reasoning is excluded. Relevant artifact drift invalidates affected capsule facts until narrow re-verification.
+A capsule cannot grant ownership, mutation authority, permission, broader scope, external impact, role escalation, acceptance changes, or later-phase authorization. Raw child reasoning is excluded. Relevant artifact drift invalidates affected capsule facts until narrow re-verification.
 
 New children still use fresh context (`fork_turns: none`). The mechanism transmits distilled accepted task truth rather than conversation history.
+
+A material phase transition may reuse still-valid capsule evidence in newly compiled responsibilities. The capsule is not an execution manifest and does not preserve an obsolete responsibility identity across a changed goal/output.
 
 ## Roles
 
@@ -190,6 +195,28 @@ Native Codex capacity is an upper bound, never a target. Zero children is normal
 Task size, file count, spare capacity, or one failed attempt does not select a role by itself.
 
 When another active Skill or accepted plan already owns goal, decomposition, stage order, dependencies, outputs, acceptance, or quality gates, subagents-dispatch preserves that workflow and coordinates around it. It does not create a competing planner.
+
+## Semantic coverage and phase transitions
+
+Main derives material obligations from current task truth. The set is task-specific: an obligation is material when dropping it would materially change the requested outcome or acceptance. The runtime does not maintain a fixed domain taxonomy of requirements.
+
+Delegation may repartition work, but it must not erase those obligations. After decomposition, each material obligation must be owned by one delegated responsibility, several cooperating responsibilities, or explicitly by Main for integration/verification.
+
+When one obligation crosses several delegated outputs, Main identifies the material seam and keeps an owner on the relationship. A new child is optional and is created only when that seam is a genuinely distinct responsibility worth delegating.
+
+This creates a semantic layer above structural TeamPlan validity:
+
+```text
+structural validity
+-> IDs / DAG / ownership / integration order are coherent
+
+semantic coverage closure
+-> current material obligations and cross-unit seams remain owned and verified
+```
+
+A valid DAG does not prove semantic completeness.
+
+When an accepted deliverable later feeds a materially different phase, intent, or authority envelope, Main recompiles from current accepted task truth. Still-valid evidence can be reused, but prior responsibilities are not silently repurposed when their goals/outputs change, and prior readiness does not grant later mutation or external-action authority.
 
 ## Lightweight path and TeamPlan
 
@@ -221,7 +248,9 @@ TeamPlan does not choose models or team size. `router-core.md` chooses capabilit
 
 Steering that stays inside one unchanged responsibility does not revise TeamPlan. A pure Main takeover also does not invent `role: main` or require a revision. Delegated role reassignment, dependency changes, ownership-scope changes, deliverable changes, scope changes, or acceptance changes use the ordinary revision rules.
 
-`validate_team_plan.py` derives allowed delegated roles from `policy-contract.json` and validates exact plan shape, unit identity, dependency references/cycles, safe relative ownership paths, read-only write violations, same-ready-layer write overlap, revision shape, and integration order.
+`validate_team_plan.py` derives allowed delegated roles from `policy-contract.json` and validates exact plan shape, unit identity, dependency references/cycles, safe relative ownership paths, read-only write violations, same-ready-layer write overlap, revision shape, and integration order. It intentionally remains structural and does not infer natural-language requirements or prove semantic coverage.
+
+A structurally ready downstream unit can still be semantically unready. For example, a reviewer that consumes an integrated deliverable waits until Main has actually materialized and verified that deliverable, even when all predecessor units are accepted.
 
 ## Mutation authority and writer safety
 
@@ -246,6 +275,8 @@ Sol Solver
 Concurrent writers require genuine filesystem isolation and semantic independence. Different files are insufficient proof: shared APIs, schemas, migrations, lockfiles, generated artifacts, persistent state, or external systems can still couple the work.
 
 Takeover does not weaken this rule. Main cannot write while the previous writer remains active or `UNKNOWN`.
+
+An earlier planning, analysis, audit, review, or verification phase can identify future writable work without authorizing it. Material authority changes are reassessed at the phase boundary.
 
 Main is always the final integration owner.
 
@@ -313,6 +344,8 @@ Because the current Host loads custom-Agent declarations when a task/session sta
 
 Final Review happens only after ordinary acceptance reaches a candidate that may need independent second judgment.
 
+Candidate Ready requires the requested deliverable itself to be complete enough for acceptance, semantic coverage closure to be satisfied, material seams to be verified, and relevant deterministic/reproducible verification to be complete.
+
 Trigger classes are machine-owned by `policy-contract.json` and are consequence-driven: public contract, persistent state, security/authorization boundary, data integrity, concurrency semantics, migration, verification gap, or explicit user request.
 
 Process history such as TeamPlan use, recovery, Terra/Solver use, file count, or diff size is not a trigger by itself.
@@ -348,7 +381,7 @@ review-artifact.py
 -> deterministic candidate identity for Final Review
 ```
 
-Preview, Status, Steer, Takeover, Receipt, and Handoff Capsule are Skill-level orchestration contracts. They do not require another executable controller.
+Preview, Status, Steer, Takeover, Receipt, and Handoff Capsule are Skill-level orchestration contracts. Semantic coverage closure and phase-transition recompilation are Main-level routing semantics. They do not require another executable controller, planner, persistent ledger, or requirement-specific validator.
 
 ## Evaluation boundary
 

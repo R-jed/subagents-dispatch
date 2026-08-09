@@ -48,6 +48,14 @@ If useful completion requires broader mutation than the packet grants, stop and 
 
 Steering never widens mutation authority. If requested steering would require broader writes or new semantics, return the change to Main instead of silently treating it as guidance.
 
+## 2B. Phase readiness does not grant later authority
+
+An accepted deliverable may make a later phase implementation-ready, remediation-ready, migration-ready, review-ready, deployment-ready, or otherwise actionable. Readiness does not grant permission to perform that later action.
+
+When task intent, scope, decision rights, mutation authority, or external impact materially changes, Main must establish the current authority envelope and recompile responsibilities from accepted task truth under `router-core.md`.
+
+Prior read-only, planning, analysis, audit, review, or verification work therefore cannot be silently converted into writable execution merely because the earlier work identified what should happen next. A Handoff Capsule or accepted plan can carry evidence and constraints, but it cannot carry broader authorization.
+
 ## 3. One writer per canonical checkout
 
 One canonical physical checkout has at most one active writing actor inside the current orchestration.
@@ -118,6 +126,8 @@ Judge compute expansion by the actual shape and cost of the orchestration, not b
 Do not evade consent by serializing expensive calls that would be material if run in parallel. Do not use parallelism to hide material compute expansion either.
 
 A user-requested takeover is not authorization for broader scope or permissions. It only requests a change in who continues the existing responsibility.
+
+An accepted plan, analysis, diagnosis, or other earlier-phase deliverable can describe future work in detail without authorizing that future work. When the user later authorizes a materially broader or different action phase, reassess authority at that boundary instead of treating the earlier artifact as permission.
 
 ## 6. Explicit invocation only
 
