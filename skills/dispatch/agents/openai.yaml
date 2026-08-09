@@ -1,7 +1,7 @@
 interface:
-  display_name: "Dispatch"
+  display_name: "Subagents Dispatch"
   short_description: "Adaptive delegation with preview, control, and safe handoffs"
-  default_prompt: "Use /subagents-dispatch:dispatch to complete this development task with adaptive native Subagent delegation. Support preview, status, steering, and safe takeover when explicitly requested."
+  default_prompt: "Use the Subagents Dispatch skill for this development task. Support preview, status, steering, and safe takeover when explicitly requested."
 
 policy:
   allow_implicit_invocation: false
