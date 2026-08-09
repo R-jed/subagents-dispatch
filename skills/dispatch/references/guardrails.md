@@ -74,7 +74,7 @@ Do not claim cross-session locking unless a real mechanism has been observed and
 
 ## 4. Adaptive fan-out still requires discipline
 
-Explicit `/dispatch` invocation authorizes adaptive delegation for the requested task under the user's existing scope and permissions.
+Explicit user selection/invocation of the Subagents Dispatch Skill authorizes adaptive delegation for the requested task under the user's existing scope and permissions.
 
 Project policy does not impose an ordinary numeric child ceiling. The main session may use as many simultaneously useful children as the task genuinely supports and the native runtime allows, provided every child has a distinct ready responsibility and the overall orchestration remains within the ordinary compute shape implied by the task.
 
@@ -105,7 +105,7 @@ Ask before materially expanding:
 Routine first-use provisioning is not a separate consent prompt when all of the following are true:
 
 ```text
-explicit /dispatch task
+explicit Subagents Dispatch task
 + real delegation is already justified
 + the managed profiles are cleanly absent
 + mutation is limited to the five fixed subagents-dispatch profiles, its ownership manifest, and installer lock
@@ -121,13 +121,13 @@ A user-requested takeover is not authorization for broader scope or permissions.
 
 ## 6. Explicit invocation only
 
-The product's supported user entrypoint is explicit `/dispatch`. Exact task and control forms are owned by `interaction.md`; `SKILL.md` keeps the minimum bootstrap grammar needed to recognize those intents before ordinary routing.
+The product's supported entrypoint is explicit user selection/invocation of the stable `subagents-dispatch` Skill, displayed as **Subagents Dispatch**. Exact task and control payloads are owned by `interaction.md`; `SKILL.md` keeps the minimum bootstrap grammar needed to recognize those intents before ordinary routing.
 
-Users may also open the Codex Skill picker with `/skills`.
+In the Codex App, the user opens the Skill menu with `/` and selects the Plugin Skill. The exact slash/menu label rendered by a particular App build is Host/UI evidence and is not derived here from package metadata.
 
 Do not silently add subagents-dispatch orchestration to an unrelated task through implicit Skill invocation.
 
-Explicit invocation is the signal that the user wants adaptive delegation or explicit dispatch control for this task. When real delegation is required, that same explicit invocation also authorizes the narrowly bounded routine first-use provisioning defined above. Normal task permissions and external-impact boundaries still apply.
+Explicit selection/invocation is the signal that the user wants adaptive delegation or explicit dispatch control for this task. When real delegation is required, that same explicit invocation also authorizes the narrowly bounded routine first-use provisioning defined above. Normal task permissions and external-impact boundaries still apply.
 
 ## 7. First-use readiness before delegated execution
 
@@ -139,12 +139,12 @@ After understanding that delegation is useful, but before starting delegated wor
 2. if it is unavailable, run the bundled non-mutating installer `--check`;
 3. if `--check` reports a clean `Not installed` state, automatically provision only the plugin-owned managed paths and run `--check` again;
 4. if the profiles are exact but the current task still lacks the role, enter `RESTART_REQUIRED` without attempting `spawn_agent`;
-5. ask the user to start one fresh Codex task/session and rerun the original `/dispatch` request;
+5. ask the user to start one fresh Codex task/session and rerun the original request through Subagents Dispatch;
 6. on the fresh task, check exact role availability again before delegated execution.
 
 `RESTART_REQUIRED` is a pre-dispatch readiness outcome. It is not `UNKNOWN`, `FAILED`, or any other Recovery/Agent lifecycle state because no child attempt has been created yet.
 
-When `--check` reports a symlink, collision, invalid ownership metadata, modified/unowned profile, or another non-clean failure, automatic provisioning stops. Do not overwrite or repair that state under routine first-use authority. Report the exact issue and direct the user to `/doctor` when useful.
+When `--check` reports a symlink, collision, invalid ownership metadata, modified/unowned profile, or another non-clean failure, automatic provisioning stops. Do not overwrite or repair that state under routine first-use authority. Report the exact issue and direct the user to Subagents Doctor when useful.
 
 Preview, status, and other non-spawning control operations do not provision missing roles merely to make their output more detailed.
 
