@@ -117,6 +117,6 @@ Keep the candidate at review-pending. Gather only the missing evidence when poss
 
 A required quality state does not authorize unlimited compute.
 
-The first ordinary fresh review after explicit `/dispatch` use may fit inside the normal bounded orchestration envelope. Repeated correction/re-review loops can become material compute expansion and require renewed consent under `guardrails.md`.
+The first ordinary fresh review after explicit `$dispatch` use may fit inside the normal bounded orchestration envelope. Repeated correction/re-review loops can become material compute expansion and require renewed consent under `guardrails.md`.
 
 If required review is outside the current consent envelope and the user declines it, report that independent assurance remains incomplete. Do not silently downgrade the review requirement.

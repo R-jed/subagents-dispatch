@@ -1,7 +1,7 @@
 interface:
   display_name: "Doctor"
   short_description: "Diagnose and maintain subagents-dispatch installation health"
-  default_prompt: "Use /subagents-dispatch:doctor to diagnose this subagents-dispatch installation and configuration."
+  default_prompt: "Use $doctor to diagnose this subagents-dispatch installation and configuration."
 
 policy:
   allow_implicit_invocation: false

@@ -4,233 +4,104 @@
   "cases": [
     {
       "id": "preview-never-spawns-or-mutates",
-      "input": {"request": "/dispatch preview refactor the cache layer"},
-      "expected": {
-        "mode": "preview",
-        "spawn_children": false,
-        "provision_agents": false,
-        "mutate_source": false,
-        "external_action": false,
-        "plan_is_provisional": true
-      }
+      "input": {"request": "$dispatch preview refactor the cache layer"},
+      "expected": {"mode": "preview", "spawn_children": false, "provision_agents": false, "mutate_source": false, "external_action": false, "plan_is_provisional": true}
     },
     {
       "id": "first-use-clean-absence-auto-provisions-then-restarts",
-      "input": {
-        "request": "/dispatch implement the bounded cache fix",
-        "delegation_worthwhile": true,
-        "required_role_available": false,
-        "managed_profile_check": "not_installed"
-      },
-      "expected": {
-        "routine_provisioning": true,
-        "separate_provisioning_prompt": false,
-        "run_installer": true,
-        "run_installer_check": true,
-        "readiness_outcome": "RESTART_REQUIRED",
-        "spawn_children_current_task": false,
-        "fresh_task_required": true
-      }
+      "input": {"request": "$dispatch implement the bounded cache fix", "delegation_worthwhile": true, "required_role_available": false, "managed_profile_check": "not_installed"},
+      "expected": {"routine_provisioning": true, "separate_provisioning_prompt": false, "run_installer": true, "run_installer_check": true, "readiness_outcome": "RESTART_REQUIRED", "spawn_children_current_task": false, "fresh_task_required": true}
     },
     {
       "id": "first-use-exact-profiles-but-role-unavailable-restarts-without-spawn",
-      "input": {
-        "request": "/dispatch implement the bounded cache fix",
-        "delegation_worthwhile": true,
-        "required_role_available": false,
-        "managed_profile_check": "exact"
-      },
-      "expected": {
-        "routine_provisioning": false,
-        "readiness_outcome": "RESTART_REQUIRED",
-        "spawn_children_current_task": false,
-        "fresh_task_required": true
-      }
+      "input": {"request": "$dispatch implement the bounded cache fix", "delegation_worthwhile": true, "required_role_available": false, "managed_profile_check": "exact"},
+      "expected": {"routine_provisioning": false, "readiness_outcome": "RESTART_REQUIRED", "spawn_children_current_task": false, "fresh_task_required": true}
     },
     {
       "id": "first-use-conflicting-managed-state-requires-user-action",
-      "input": {
-        "request": "/dispatch implement the bounded cache fix",
-        "delegation_worthwhile": true,
-        "required_role_available": false,
-        "managed_profile_check": "unowned_conflict"
-      },
-      "expected": {
-        "routine_overwrite": false,
-        "readiness_outcome": "USER_ACTION_REQUIRED",
-        "spawn_children_current_task": false,
-        "doctor_guidance": true
-      }
+      "input": {"request": "$dispatch implement the bounded cache fix", "delegation_worthwhile": true, "required_role_available": false, "managed_profile_check": "unowned_conflict"},
+      "expected": {"routine_overwrite": false, "readiness_outcome": "USER_ACTION_REQUIRED", "spawn_children_current_task": false, "doctor_guidance": true}
     },
     {
       "id": "custom-role-spawn-requires-fork-turns-none",
-      "input": {
-        "agent_type": "subagents_dispatch_reader",
-        "fork_turns": "all"
-      },
-      "expected": {
-        "spawn_call_valid": false,
-        "required_fork_turns": "none",
-        "full_history_allowed": false,
-        "omitted_fork_turns_allowed": false
-      }
+      "input": {"agent_type": "subagents_dispatch_reader", "fork_turns": "all"},
+      "expected": {"spawn_call_valid": false, "required_fork_turns": "none", "full_history_allowed": false, "omitted_fork_turns_allowed": false}
     },
     {
       "id": "status-is-one-shot-and-preserves-unknown",
-      "input": {"request": "/dispatch status", "native_state": "not_reported"},
-      "expected": {
-        "mode": "status",
-        "poll_loop": false,
-        "reported_state": "UNKNOWN",
-        "retry": false,
-        "replacement_work": false
-      }
+      "input": {"request": "$dispatch status", "native_state": "not_reported"},
+      "expected": {"mode": "status", "poll_loop": false, "reported_state": "UNKNOWN", "retry": false, "replacement_work": false}
     },
     {
       "id": "status-with-no-current-dispatch-does-not-invent-state",
-      "input": {"request": "/dispatch status", "current_dispatch": null},
-      "expected": {
-        "mode": "status",
-        "active_responsibilities": 0,
-        "reported_unknown_unit": false,
-        "search_other_sessions": false
-      }
+      "input": {"request": "$dispatch status", "current_dispatch": null},
+      "expected": {"mode": "status", "active_responsibilities": 0, "reported_unknown_unit": false, "search_other_sessions": false}
     },
     {
       "id": "status-page-task-is-not-control-status",
-      "input": {"request": "/dispatch status page is broken"},
-      "expected": {
-        "mode": "task",
-        "status_control": false
-      }
+      "input": {"request": "$dispatch status page is broken"},
+      "expected": {"mode": "task", "status_control": false}
     },
     {
       "id": "steer-preserves-responsibility-and-authority",
-      "input": {"request": "/dispatch steer U2: inspect the crash log before retrying the parser", "unit_state": "RUNNING"},
-      "expected": {
-        "mode": "steer",
-        "same_unit": true,
-        "same_attempt": true,
-        "same_role": true,
-        "authority_expands": false
-      }
+      "input": {"request": "$dispatch steer U2: inspect the crash log before retrying the parser", "unit_state": "RUNNING"},
+      "expected": {"mode": "steer", "same_unit": true, "same_attempt": true, "same_role": true, "authority_expands": false}
     },
     {
       "id": "steer-cannot-hide-material-scope-change",
-      "input": {"request": "/dispatch steer U2: also redesign the public API and write the migration"},
-      "expected": {
-        "mode": "steer_rejected_as_scope_change",
-        "requires_main_reclassification": true,
-        "silent_authority_expansion": false
-      }
+      "input": {"request": "$dispatch steer U2: also redesign the public API and write the migration"},
+      "expected": {"mode": "steer_rejected_as_scope_change", "requires_main_reclassification": true, "silent_authority_expansion": false}
     },
     {
       "id": "control-target-missing-fails-closed",
-      "input": {"request": "/dispatch takeover U99", "known_units": ["U1", "U2"]},
-      "expected": {
-        "target_resolved": false,
-        "ownership_transferred": false,
-        "invent_agent_id": false,
-        "search_other_sessions": false
-      }
+      "input": {"request": "$dispatch takeover U99", "known_units": ["U1", "U2"]},
+      "expected": {"target_resolved": false, "ownership_transferred": false, "invent_agent_id": false, "search_other_sessions": false}
     },
     {
       "id": "takeover-running-writer-settles-old-owner-first",
-      "input": {"request": "/dispatch takeover U2", "unit_state": "RUNNING", "unit_write": true},
-      "expected": {
-        "mode": "takeover",
-        "request_native_stop": true,
-        "main_write_before_stop_confirmation": false,
-        "preserve_one_writer": true
-      }
+      "input": {"request": "$dispatch takeover U2", "unit_state": "RUNNING", "unit_write": true},
+      "expected": {"mode": "takeover", "request_native_stop": true, "main_write_before_stop_confirmation": false, "preserve_one_writer": true}
     },
     {
       "id": "takeover-unknown-owner-does-not-force-transfer",
-      "input": {"request": "/dispatch takeover U2", "unit_state": "UNKNOWN", "unit_write": true},
-      "expected": {
-        "mode": "takeover_pending",
-        "ownership_transferred": false,
-        "main_conflicting_write": false,
-        "reported_state": "UNKNOWN"
-      }
+      "input": {"request": "$dispatch takeover U2", "unit_state": "UNKNOWN", "unit_write": true},
+      "expected": {"mode": "takeover_pending", "ownership_transferred": false, "main_conflicting_write": false, "reported_state": "UNKNOWN"}
     },
     {
       "id": "receipt-only-after-real-delegation",
       "input": {"children_spawned": 2, "roles": ["reader", "worker"], "retries": 0, "final_review": "not_required"},
-      "expected": {
-        "receipt": true,
-        "default_lines": 1,
-        "may_report_roles": true,
-        "may_report_retries": true,
-        "may_report_review_state": true
-      }
+      "expected": {"receipt": true, "default_lines": 1, "may_report_roles": true, "may_report_retries": true, "may_report_review_state": true}
     },
     {
       "id": "pre-child-spawn-rejection-does-not-count-as-retry",
-      "input": {
-        "first_spawn_rejected": true,
-        "first_spawn_child_identity": null,
-        "corrected_spawn_child_identity": "agent-1"
-      },
-      "expected": {
-        "materialized_agent_attempts": 1,
-        "retry_count": 0,
-        "receipt_retry": "no_retry",
-        "consume_attempt_budget_on_rejection": false
-      }
+      "input": {"first_spawn_rejected": true, "first_spawn_child_identity": null, "corrected_spawn_child_identity": "agent-1"},
+      "expected": {"materialized_agent_attempts": 1, "retry_count": 0, "receipt_retry": "no_retry", "consume_attempt_budget_on_rejection": false}
     },
     {
       "id": "blocked-delegated-outcome-still-has-receipt",
       "input": {"children_spawned": 1, "terminal_result": "blocked", "state": "UNKNOWN", "final_review": "not_reached"},
-      "expected": {
-        "receipt": true,
-        "default_lines": 1,
-        "may_report_blocker": true,
-        "must_preserve_unknown": true
-      }
+      "expected": {"receipt": true, "default_lines": 1, "may_report_blocker": true, "must_preserve_unknown": true}
     },
-    {
-      "id": "zero-child-completion-has-no-receipt",
-      "input": {"children_spawned": 0},
-      "expected": {"receipt": false}
-    },
+    {"id": "zero-child-completion-has-no-receipt", "input": {"children_spawned": 0}, "expected": {"receipt": false}},
     {
       "id": "receipt-never-guesses-model-or-cost",
       "input": {"children_spawned": 1, "configured_model": "gpt-5.6-luna", "observed_model": null, "token_usage": null},
-      "expected": {
-        "claim_observed_model": false,
-        "estimate_tokens": false,
-        "estimate_currency_cost": false
-      }
+      "expected": {"claim_observed_model": false, "estimate_tokens": false, "estimate_currency_cost": false}
     },
     {
       "id": "handoff-capsule-promotes-only-accepted-evidence",
-      "input": {
-        "child_claim": "cache invalidation is safe",
-        "main_verified": false,
-        "other_verified_fact": "the call path enters cache.py before store.py"
-      },
-      "expected": {
-        "claim_in_accepted_facts": false,
-        "verified_fact_may_enter_capsule": true,
-        "raw_child_transcript_forwarded": false
-      }
+      "input": {"child_claim": "cache invalidation is safe", "main_verified": false, "other_verified_fact": "the call path enters cache.py before store.py"},
+      "expected": {"claim_in_accepted_facts": false, "verified_fact_may_enter_capsule": true, "raw_child_transcript_forwarded": false}
     },
     {
       "id": "handoff-capsule-invalidates-on-relevant-drift",
       "input": {"capsule_depends_on": ["src/cache.py"], "mutated_after_acceptance": ["src/cache.py"]},
-      "expected": {
-        "capsule_still_authoritative": false,
-        "narrow_reverification_required": true
-      }
+      "expected": {"capsule_still_authoritative": false, "narrow_reverification_required": true}
     },
     {
       "id": "handoff-capsule-does-not-grant-write-authority",
       "input": {"capsule_mentions": ["src/cache.py"], "packet_mutation_authority": "none"},
-      "expected": {
-        "source_write_allowed": false,
-        "capsule_can_expand_authority": false
-      }
+      "expected": {"source_write_allowed": false, "capsule_can_expand_authority": false}
     }
   ]
 }
