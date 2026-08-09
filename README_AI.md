@@ -10,18 +10,16 @@ Repository:          R-jed/subagents-dispatch
 Repo marketplace id: subagents-dispatch
 Plugin id:           subagents-dispatch
 Plugin directory:    .
-Main Skill:          dispatch
-User command:        /dispatch
-Internal identity:   /subagents-dispatch:dispatch
-Doctor Skill:        doctor
-Doctor command:      /doctor
-Internal identity:   /subagents-dispatch:doctor
-Current version:     2.1.1
+Main Skill id:       subagents-dispatch
+Main display name:   Subagents Dispatch
+Doctor Skill id:     subagents-doctor
+Doctor display name: Subagents Doctor
+Current version:     2.1.2
 Distribution:        Codex Plugin
 License:             MIT
 ```
 
-Use these names exactly.
+Do not invent a Codex App slash-command string from these identifiers. The App's rendered slash entry is a Host/UI fact and must be verified directly during release testing. In user-facing guidance, refer to choosing **Subagents Dispatch** or **Subagents Doctor** from the App's `/` Skill menu unless an exact rendered command has been observed.
 
 ## Product model
 
@@ -31,7 +29,7 @@ Zero child Agents is normal. Several may run when distinct ready responsibilitie
 
 Version 2.1 adds explicit preview and live-control intents plus evidence-bound handoffs around the same orchestration kernel. Read `skills/dispatch/references/interaction.md` and `skills/dispatch/references/handoff-capsule.md` for the exact contract instead of reconstructing those rules here.
 
-`doctor` is operational maintenance. It diagnoses installation/configuration/Marketplace/profile state and may repair or upgrade only when the user explicitly asks. It does not own development routing or runtime delegation policy.
+`subagents-doctor` is operational maintenance. It diagnoses installation/configuration/Marketplace/profile state and may repair or upgrade only when the user explicitly asks. It does not own development routing or runtime delegation policy.
 
 ## Current roles
 
@@ -53,7 +51,7 @@ Do not reconstruct runtime policy from README prose. Read the canonical owner fo
 
 ```text
 skills/dispatch/SKILL.md
--> execution entry point, bootstrap command recognition, control loop, and pre-dispatch readiness outcome
+-> execution entry point, stable Skill identity, control loop, and pre-dispatch readiness outcome
 
 skills/dispatch/references/interaction.md
 -> preview, status, steering, user-requested takeover, execution receipt, usage/cost evidence boundary
@@ -109,10 +107,10 @@ Keep only these orientation-level facts here; use the owners above for exact sem
 - Missing runtime evidence stays missing; `UNKNOWN` is not silently converted into failure or replacement work.
 - Final Review is consequence-driven and bound to the exact candidate reviewed.
 - Interaction controls operate through Main and Codex Native Subagents. They do not add another scheduler, daemon, event bus, or lifecycle service.
-- Explicit `/dispatch` authorizes routine first-use provisioning only for subagents-dispatch's fixed managed profiles, ownership manifest, and installer lock when real delegation needs them. Unsafe, conflicting, or unowned state still fails closed.
-- Profiles provisioned during the current live task are treated as unavailable to that task's already-loaded Agent registry. Successful first-use provisioning ends pre-dispatch readiness as `RESTART_REQUIRED`; no child is spawned until a fresh Codex task/session reruns the request.
+- Explicit user selection/invocation of the Subagents Dispatch Skill authorizes routine first-use provisioning only for subagents-dispatch's fixed managed profiles, ownership manifest, and installer lock when real delegation needs them. Unsafe, conflicting, or unowned state still fails closed.
+- Profiles provisioned during the current live task are treated as unavailable to that task's already-loaded Agent registry. Successful first-use provisioning ends pre-dispatch readiness as `RESTART_REQUIRED`; no child is spawned until a fresh Codex task/session reruns the request through Subagents Dispatch.
 - `RESTART_REQUIRED` is a pre-dispatch readiness outcome, not a Recovery/Agent lifecycle state.
-- Doctor diagnosis is read-only by default; repair, upgrade, migration, and broader mutations require explicit mutation intent.
+- Subagents Doctor diagnosis is read-only by default; repair, upgrade, migration, and broader mutations require explicit mutation intent.
 
 ## Where to answer common questions
 
@@ -128,6 +126,6 @@ For install, update, first-run provisioning, `RESTART_REQUIRED`, or uninstall co
 
 For managed profile filenames, models, efforts, and sandbox intents, use `policy-contract.json`; inspect `scripts/install-agents.py` when lifecycle behavior matters.
 
-Do not claim benchmark wins, token savings, speedups, quality gains, exact runtime routes, token/cost attribution, or public directory availability unless current evidence supports the claim.
+Do not claim benchmark wins, token savings, speedups, quality gains, exact runtime routes, token/cost attribution, public directory availability, or an exact App slash entry unless current evidence supports the claim.
 
 For deeper technical questions, follow the owner map above rather than treating this README as normative policy.
