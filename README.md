@@ -60,7 +60,7 @@ Dispatch: 读取 → 实现 · 完成 · 未重试 · 无需最终复核
 
 只写确认过的事实，不猜 Token 用量和费用。
 
-## 交接包（Handoff Capsule）：避免后一个 Agent 从头再查一遍
+## 交接包 Handoff
 
 如果每一个子代理都从新鲜上下文开始任务，什么信息都不传递，后一个会把前一个任务再重新执行一遍。交接包就是一份小交接文件，主会话把核实过的信息放进去交给下一个子代理。
 
@@ -69,22 +69,22 @@ Dispatch: 读取 → 实现 · 完成 · 未重试 · 无需最终复核
 - **主会话负责把关**。子代理说完成了不算，检查过证据才当成已知事实
 - **`STALE IF` 表示出现这些变化，旧结论作废**
 
-## 四条必须守住的规则
+## 子代理规则
 
 - **同一份代码，同一时间只让一个写入者修改**。同一次 subagents-dispatch 调度里，同一个 Git 工作目录同一时间最多只有一个写入者实际改文件，这个写入者只能是主会话、Worker 或 Solver。前一个写入者还没有确认停止，主会话不会抢着改同一份代码。其他独立的 Codex 会话、编辑器、自动化脚本和外部程序不受这个规则控制
-- **子 Agent 不能继续叫更多子 Agent**。分工只由主会话安排
-- **`UNKNOWN` 就停下来确认，不靠猜**。不会随便换一个 Agent 顶上，不会自动重试，也不会偷偷改变任务路线
+- **子代理不能继续叫更多子代理**。分工只由主会话安排
+- **`UNKNOWN` 就停下来确认，不靠猜**。不会随便换一个子代理顶上，不会自动重试，也不会偷偷改变任务路线
 - **只报告确认过的事实**。执行摘要不会根据模型名称、运行时间或输出长度去猜 Token 用量和费用
 
 ## 角色
 
-| 角色 | 干什么 |
-|------|--------|
-| Luna Reader | 读代码、追调用链、收集事实 |
-| Luna Worker | 需求和做法清楚时负责实现和测试 |
-| Sol Solver | 一边实现一边做技术判断 |
-| Terra Investigator | 大范围只读调查和证据整理 |
-| Sol Advisor | 独立技术判断，或需要时做最终复核 |
+| 角色 | 插件内命名 | 干什么 |
+|------|-----------|--------|
+| Luna Reader | subagents_dispatch_reader | 读代码、追调用链、收集事实 |
+| Luna Worker | subagents_dispatch_worker | 需求和做法清楚时负责实现和测试 |
+| Sol Solver | subagents_dispatch_solver | 一边实现一边做技术判断 |
+| Terra Investigator | subagents_dispatch_investigator | 大范围只读调查和证据整理 |
+| Sol Advisor | subagents_dispatch_advisor | 独立技术判断，或需要时做最终复核 |
 
 主会话判断，值得分工才叫人。
 
@@ -95,7 +95,7 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-装好开启新会话。第一次通过 **subagents dispatch** 确实需要子代理时，subagents-dispatch 会自动准备自己的 5 个 Agent 配置文件。你不需要理解 TOML，也不用为这些内部配置多点一次确认。配置准备完会请你新开一个任务，再从 `/` 菜单选择 **Subagents Dispatch** 并重跑刚才的请求，不会先做一次明知道看不到新 Agent 的失败尝试。文件有冲突或路径不安全就停下来，交给 **subagents doctor**。
+首次安装需运行一次 `/subagents dispatch`，创建 5 个子代理配置文件，然后开启新会话用 `/subagents dispatch` 执行任务。
 
 ## 更新
 
@@ -113,7 +113,7 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-跑过 Agent 任务的还要删这六个文件：
+跑过子代理任务的还要删这六个文件：
 
 ```bash
 rm ~/.codex/agents/subagents-dispatch-reader.toml
@@ -123,13 +123,6 @@ rm ~/.codex/agents/subagents-dispatch-investigator.toml
 rm ~/.codex/agents/subagents-dispatch-advisor.toml
 rm ~/.codex/.subagents-dispatch-agents.json
 ```
-
-## 常见问题
-
-**要学什么吗？** 不用，装好输 `/subagents dispatch` 加任务。
-**会把代码搞乱吗？** 同一时间只有一个写入者，写代码不打架。
-**要盯着吗？** 不用，结束有一行执行摘要。
-**活很简单呢？** 简单任务不硬拆。
 
 ## 项目结构
 
@@ -153,7 +146,12 @@ rm ~/.codex/.subagents-dispatch-agents.json
 - [安装说明](docs/plugin-installation.md)
 - [架构说明](docs/architecture.md)
 - [Codex 原生 Subagent 运行边界](docs/native-subagent-runtime.md)
+- [行为评估](docs/behavioral-evals.md)
+- [OpenAI 参考](docs/openai-references.md)
 - [AI Agent 项目参考](README_AI.md)
+- [变更日志](CHANGELOG.md)
+- [隐私说明](PRIVACY.md)
+- [服务条款](TERMS.md)
 
 ## 许可证
 

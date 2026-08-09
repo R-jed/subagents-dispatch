@@ -155,7 +155,6 @@ def test_public_docs_keep_product_identity_while_ai_reference_points_to_policy_o
         assert directive in text
         assert "Subagents Dispatch" in text
         assert "Subagents Doctor" in text
-        assert "`/`" in text
         assert version in text
         assert "Sol Solver" in text
         assert "preview" in text

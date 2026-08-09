@@ -60,7 +60,7 @@ Dispatch: Reader → Worker · complete · no retry · not required
 
 Facts only. No hidden reasoning, and it does not estimate token usage or currency cost.
 
-## Handoff Capsule: evidence-bound handoffs
+## Handoff Capsule
 
 Each subagent starts with fresh context. Nothing passed on, and the next subagent re-checks what the last one established. A Handoff Capsule is a small bridge: Main packs verified facts and hands them to the next responsibility.
 
@@ -69,22 +69,22 @@ Each subagent starts with fresh context. Nothing passed on, and the next subagen
 - **Main is the acceptance boundary**. A subagent claim does not become task truth by itself
 - **Carry `STALE IF` conditions**. Source changes can invalidate accepted evidence
 
-## Four core invariants
+## Subagent rules
 
 - **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main, Worker, or Solver. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
 - **One delegation layer** — subagents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
-- **UNKNOWN means do not guess** — when state cannot be established, there is no replacement Agent, retry, or semantic reroute
+- **UNKNOWN means do not guess** — when state cannot be established, there is no replacement subagent, retry, or semantic reroute
 - **Receipts report facts** — does not estimate token usage or currency cost from model names, elapsed time, or output length
 
 ## Roles
 
-| Role | What it does |
-|------|-------------|
-| Luna Reader | read code, trace call paths, gather facts |
-| Luna Worker | implementation and tests when the behavior is already decided |
-| Sol Solver | implementation that needs judgment calls along the way |
-| Terra Investigator | broad read-only investigation, evidence synthesis |
-| Sol Advisor | independent technical judgment or final review |
+| Role | Plugin name | What it does |
+|------|-------------|--------------|
+| Luna Reader | subagents_dispatch_reader | read code, trace call paths, gather facts |
+| Luna Worker | subagents_dispatch_worker | implementation and tests when the behavior is already decided |
+| Sol Solver | subagents_dispatch_solver | implementation that needs judgment calls along the way |
+| Terra Investigator | subagents_dispatch_investigator | broad read-only investigation, evidence synthesis |
+| Sol Advisor | subagents_dispatch_advisor | independent technical judgment or final review |
 
 Most work stays in Main.
 
@@ -95,7 +95,7 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Start a new Codex session. The first task through **Subagents Dispatch** that needs a child automatically prepares subagents-dispatch's five managed Agent profiles without asking you to make a TOML-level setup decision. It then asks you to open one fresh task, choose **Subagents Dispatch** from the `/` menu again, and rerun the original request. It does not first attempt to spawn a role that the current task cannot see. Conflicting or unsafe paths stop with **Subagents Doctor** guidance.
+On first install, run `/subagents dispatch` once to create the five subagent profiles, then start a new session and use `/subagents dispatch` for tasks.
 
 ## Update
 
@@ -113,7 +113,7 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-If you ran Agent tasks, also delete these files:
+If you ran subagent tasks, also delete these files:
 
 ```bash
 rm ~/.codex/agents/subagents-dispatch-reader.toml
@@ -123,13 +123,6 @@ rm ~/.codex/agents/subagents-dispatch-investigator.toml
 rm ~/.codex/agents/subagents-dispatch-advisor.toml
 rm ~/.codex/.subagents-dispatch-agents.json
 ```
-
-## FAQ
-
-**Do I need to learn anything first?** No. Install, type `/subagents dispatch`, add your task.
-**Can it break my code?** One writer at a time. Writing never fights.
-**Do I have to watch it work?** No. It ends with a one-line receipt.
-**My task is simple?** Simple tasks are not force-split.
 
 ## Repository layout
 
@@ -153,7 +146,12 @@ rm ~/.codex/.subagents-dispatch-agents.json
 - [Installation](docs/plugin-installation.md)
 - [Architecture](docs/architecture.md)
 - [Codex Native Subagent runtime boundaries](docs/native-subagent-runtime.md)
+- [Behavioral evals](docs/behavioral-evals.md)
+- [OpenAI references](docs/openai-references.md)
 - [AI Agent project reference](README_AI.md)
+- [Changelog](CHANGELOG.md)
+- [Privacy](PRIVACY.md)
+- [Terms](TERMS.md)
 
 ## License
 

@@ -203,7 +203,6 @@ def test_public_readmes_use_prefixed_app_skill_names_without_inventing_exact_sla
         assert UPGRADE in text
         assert PLUGIN_REMOVE in text
         assert MARKETPLACE_REMOVE in text
-        assert "`/`" in text
         assert "$dispatch" not in text
         assert "$doctor" not in text
 
