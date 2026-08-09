@@ -75,14 +75,16 @@ There is no fixed Luna → Terra → Sol path and no fixed Agent count.
 
 ## Interaction control surface
 
-Interaction controls are handled by Main before ordinary task routing:
+Interaction controls are handled by Main before ordinary task routing after the user explicitly selects/invokes the stable `subagents-dispatch` Skill, displayed as **Subagents Dispatch**. The exact App slash/menu label is a Host/UI fact and is not derived by this architecture document.
+
+Control payloads are:
 
 ```text
-/dispatch preview <task>
-/dispatch status
-/dispatch steer <unit_id>: <guidance>
-/dispatch takeover <unit_id>
-/dispatch takeover <unit_id>: <guidance>
+preview <task>
+status
+steer <unit_id>: <guidance>
+takeover <unit_id>
+takeover <unit_id>: <guidance>
 ```
 
 These are orchestration controls over Codex Native Subagents, not a second command runtime.
@@ -303,7 +305,7 @@ The five TOML profiles are native Codex custom-Agent definitions. `install-agent
 
 The installer derives expected profile names/routes from `policy-contract.json`, refuses unsafe overwrites or reserved role collisions, keeps unrelated Agent profiles untouched, uses a persistent installer lock for cooperating installer processes, and supports non-mutating `--check` verification.
 
-Explicit `/dispatch` provides routine first-use authority only when real delegation needs a role and the managed profiles are cleanly absent. That automatic path is limited to the five fixed profiles, ownership manifest, and installer lock. Repair, migration, upgrade, unsafe collisions, and unowned state remain user-controlled.
+Explicit user selection/invocation of Subagents Dispatch provides routine first-use authority only when real delegation needs a role and the managed profiles are cleanly absent. That automatic path is limited to the five fixed profiles, ownership manifest, and installer lock. Repair, migration, upgrade, unsafe collisions, and unowned state remain user-controlled.
 
 Because the current Host loads custom-Agent declarations when a task/session starts, profiles installed while a task is already live do not make a newly missing role selectable in that same task. Successful first-use provisioning therefore ends with `RESTART_REQUIRED`, performs zero child spawns in the current task, and asks for one fresh task/session. Preview and Status never provision roles simply to produce richer output.
 
