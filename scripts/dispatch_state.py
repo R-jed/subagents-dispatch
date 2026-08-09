@@ -529,6 +529,11 @@ def prepare_spawn(
         current = max(same_unit, key=lambda item: item["attempt"])
         if current["control_state"] != "FAILED" or record.get("attempt") != current["attempt"] + 1:
             raise StatePayloadError("cannot spawn a replacement for an unresolved unit")
+    if record.get("writer") is True and any(
+        item["writer"] is True and item["control_state"] in ACTIVE_STATES
+        for item in _latest_units(prepared)
+    ):
+        raise StatePayloadError("cannot prepare a second active writer")
     prepared["units"].append(record)
     _touch(prepared, now)
     validate_state_payload(prepared)
@@ -761,6 +766,10 @@ def remove_state(
         _, _, path, _ = _paths(identity, temp_root, create=True)
         if not path.exists():
             return False
+        payload = load_state(identity, temp_root=temp_root)
+        assert payload is not None
+        if any(record["control_state"] in ACTIVE_STATES for record in _latest_units(payload)):
+            raise StatePayloadError("cannot remove state with active or uncertain work")
         _reject_symlink(path, "state file")
         path.unlink()
         return True

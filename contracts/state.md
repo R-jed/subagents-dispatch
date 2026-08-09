@@ -139,6 +139,8 @@ atomic replace
 
 Receipt events use the same mutation boundary. `accounting_refs` contains unique structured events keyed by a stable `ref`; `persist_receipt_events` re-reads, merges, validates, and atomically replaces the capsule while holding the state lock. Reconciliation or resume may persist the same event again without incrementing visible totals.
 
+`prepare_spawn` rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; active, interrupted, pending, or unknown work must be settled first.
+
 Reject unsafe symlinked state roots, thread directories, state files, or locks. Use restrictive local file permissions where the platform supports them. Validate the thread-id path component before constructing filesystem paths.
 
 The lock coordinates state-file updates only. It is not a scheduler lock and must not be held while waiting for long-running child execution.

@@ -165,3 +165,43 @@ def test_doctor_without_thread_id_does_not_create_dispatch_state(tmp_path: Path)
     assert "Layer: Dispatch state: UNKNOWN" in result.stdout
     assert "CODEX_THREAD_ID" in result.stdout
     assert not temp_root.exists()
+
+
+def test_doctor_scans_existing_state_without_thread_id(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    temp_root = tmp_path / "temp"
+    state_dir = temp_root / "subagents-dispatch" / "other-thread"
+    state_dir.mkdir(parents=True)
+    state = {
+        "schema_version": "1.0",
+        "root_thread_id": "other-thread",
+        "locale": "en",
+        "created_at": "2026-07-01T00:00:00Z",
+        "updated_at": "2026-07-01T00:00:00Z",
+        "team_plan_revision": None,
+        "units": [],
+        "accounting_refs": [],
+        "controls": [],
+        "pending_takeover": None,
+    }
+    state_file = state_dir / "active.json"
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+    state_file.chmod(0o600)
+    lock_file = state_dir / "active.lock"
+    lock_file.touch(mode=0o600)
+
+    result = run_doctor(
+        home,
+        "--check",
+        "--json",
+        "--temp-root",
+        str(temp_root),
+        env={"CODEX_THREAD_ID": ""},
+    )
+    report = json.loads(result.stdout)
+    layer = next(item for item in report["layers"] if item["name"] == "Dispatch state")
+
+    assert layer["status"] == "WARN"
+    assert layer["details"]["current_thread"] is None
+    assert layer["details"]["stale_count"] == 1

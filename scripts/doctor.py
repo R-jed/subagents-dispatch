@@ -280,19 +280,17 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
     root, entries, root_error = _state_entries(temp_root)
     if root_error:
         return _layer("Dispatch state", "FAIL", root_error, mutated=False)
-    if thread_id is None or not thread_id.strip():
-        return _layer(
-            "Dispatch state",
-            "UNKNOWN",
-            "CODEX_THREAD_ID is unavailable; thread-scoped state was not read or created",
-            mutated=False,
-        )
-    try:
-        identity = resolve_thread_id(thread_id)
-    except StateIdentityError as exc:
-        return _layer("Dispatch state", "UNKNOWN", f"invalid CODEX_THREAD_ID: {exc}", mutated=False)
     if root is None:
         return _layer("Dispatch state", "FAIL", "dispatch state root cannot be resolved", mutated=False)
+    identity: str | None = None
+    thread_issue: str | None = None
+    if thread_id is None or not thread_id.strip():
+        thread_issue = "CODEX_THREAD_ID is unavailable; all existing state was scanned read-only"
+    else:
+        try:
+            identity = resolve_thread_id(thread_id)
+        except StateIdentityError as exc:
+            thread_issue = f"invalid CODEX_THREAD_ID: {exc}; all existing state was scanned read-only"
 
     corrupt: list[str] = []
     unsafe: list[str] = []
@@ -348,7 +346,9 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
 
     details = {
         "current_thread": identity,
-        "current_state": "present" if any(entry.name == identity for entry in entries) else "absent",
+        "current_state": "unknown"
+        if identity is None
+        else ("present" if any(entry.name == identity for entry in entries) else "absent"),
         "active_orchestration": bool(active_units),
         "active_units": sorted(set(active_units)),
         "stale_count": len(set(stale)),
@@ -378,6 +378,8 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
             stale_after_days=int(DEFAULT_STALE_AFTER.total_seconds() // 86400),
             **details,
         )
+    if thread_issue is not None:
+        return _layer("Dispatch state", "UNKNOWN", thread_issue, capsules_read=readable, **details)
     return _layer(
         "Dispatch state",
         "OK",

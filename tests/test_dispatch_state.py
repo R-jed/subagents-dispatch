@@ -178,6 +178,19 @@ def test_prepare_spawn_is_persisted_before_host_identity_exists(tmp_path: Path):
         module.prepare_spawn(prepared, unit(task_id="task-2"), temp_root=tmp_path)
 
 
+def test_prepare_spawn_rejects_a_second_active_writer(tmp_path: Path):
+    module = load_module()
+    state = capsule(module, "thread-1")
+    state["units"] = [unit(state="RUNNING", agent_id="agent-1")]
+
+    with pytest.raises(module.StatePayloadError, match="active writer"):
+        module.prepare_spawn(
+            state,
+            unit(unit_id="U2", task_id="task-2", native_task_name="sd-u2-a1-execute"),
+            temp_root=tmp_path,
+        )
+
+
 def test_reconcile_unambiguously_binds_spawn_and_host_truth_wins():
     module = load_module()
     state = capsule(module, "thread-1")
@@ -380,6 +393,17 @@ def test_normal_cleanup_and_stale_cleanup_preserve_uncertain_active_state(tmp_pa
 
     assert module.remove_state("current", temp_root=tmp_path) is True
     assert module.load_state("current", temp_root=tmp_path) is None
+
+
+def test_remove_state_rejects_active_or_uncertain_work(tmp_path: Path):
+    module = load_module()
+    state = capsule(module, "thread-1")
+    state["units"] = [unit(state="UNKNOWN", agent_id="agent-1")]
+    module.write_state(state, temp_root=tmp_path)
+
+    with pytest.raises(module.StatePayloadError, match="active or uncertain"):
+        module.remove_state("thread-1", temp_root=tmp_path)
+    assert module.load_state("thread-1", temp_root=tmp_path) is not None
 
 
 def test_stale_cleanup_rechecks_state_before_deleting(tmp_path: Path, monkeypatch):
