@@ -11,27 +11,24 @@ DISPATCH = "$dispatch"
 DOCTOR = "$doctor"
 PICKER = "/skills"
 LEGACY_NAMESPACED = ("/subagents-dispatch:dispatch", "/subagents-dispatch:doctor")
-BARE_DISPATCH = re.compile(r"(?<![\w$])/dispatch(?=\s|`|$)")
-BARE_DOCTOR = re.compile(r"(?<![\w$])/doctor(?=\s|`|$)")
+BARE_DISPATCH_COMMAND = re.compile(r"(?m)^[ \t]*/dispatch(?:\s|$)")
+BARE_DOCTOR_COMMAND = re.compile(r"(?m)^[ \t]*/doctor(?:\s|$)")
+FALSE_ENTRYPOINT_CLAIMS = (
+    "supported user entrypoint is explicit `/dispatch`",
+    "User command:        /dispatch",
+    "Doctor command:      /doctor",
+)
 
 ACTIVE_SURFACES = [
     ROOT / "README.md",
     ROOT / "README_EN.md",
     ROOT / "README_AI.md",
     ROOT / ".codex-plugin" / "plugin.json",
-    ROOT / "skills" / "dispatch" / "SKILL.md",
-    ROOT / "skills" / "dispatch" / "agents" / "openai.yaml",
-    ROOT / "skills" / "doctor" / "SKILL.md",
-    ROOT / "skills" / "doctor" / "agents" / "openai.yaml",
-    ROOT / "skills" / "dispatch" / "references" / "interaction.md",
-    ROOT / "skills" / "dispatch" / "references" / "guardrails.md",
-    ROOT / "docs" / "plugin-installation.md",
-    ROOT / "docs" / "architecture.md",
-    ROOT / "docs" / "native-subagent-runtime.md",
-    ROOT / "docs" / "behavioral-evals.md",
-    ROOT / "docs" / "release-checklist.md",
-    ROOT / "evals" / "interaction-cases.json",
-    ROOT / "evals" / "behavioral-workloads.json",
+    *sorted((ROOT / "skills").rglob("*.md")),
+    *sorted((ROOT / "skills").rglob("openai.yaml")),
+    *sorted((ROOT / "docs").glob("*.md")),
+    *sorted((ROOT / "evals").glob("*.json")),
+    ROOT / "evals" / "README.md",
 ]
 
 
@@ -51,14 +48,21 @@ def test_plugin_and_skill_ui_metadata_use_native_skill_mentions():
 
 def test_active_surfaces_do_not_advertise_stale_slash_entrypoints():
     failures: list[str] = []
+    seen: set[Path] = set()
     for path in ACTIVE_SURFACES:
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
         text = path.read_text(encoding="utf-8")
         if any(value in text for value in LEGACY_NAMESPACED):
             failures.append(f"{path}: legacy namespaced slash identity")
-        if BARE_DISPATCH.search(text):
-            failures.append(f"{path}: bare /dispatch entrypoint")
-        if BARE_DOCTOR.search(text):
-            failures.append(f"{path}: bare /doctor entrypoint")
+        if BARE_DISPATCH_COMMAND.search(text):
+            failures.append(f"{path}: bare /dispatch command example")
+        if BARE_DOCTOR_COMMAND.search(text):
+            failures.append(f"{path}: bare /doctor command example")
+        for claim in FALSE_ENTRYPOINT_CLAIMS:
+            if claim in text:
+                failures.append(f"{path}: false entrypoint claim {claim!r}")
     assert not failures, "\n".join(failures)
 
 
