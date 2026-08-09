@@ -32,7 +32,7 @@ Raw Host/rollout evidence
 
 Direct human Codex App observation
 -> what appears in the `/` Skill menu, exact rendered entry names, visible namespace/prefix,
-   duplicate/conflicting entries, and which Plugin/Skill is actually selected by a menu item
+   duplicate/conflicting entries, post-selection presentation, and which Plugin/Skill is actually selected
 
 Model self-report
 -> explanatory only; it cannot by itself close a Host/UI gate about the model's own registration or selection
@@ -45,10 +45,11 @@ the two Plugin Skills are visible in the App `/` menu
 their exact user-visible names contain a product-specific prefix and are distinguishable from generic skills
 a generic conflicting entry such as an unrelated `doctor` is not mistaken for this Plugin's Doctor
 selecting each entry binds to the expected subagents-dispatch Plugin Skill
+the post-selection UI form is recorded, including whether the App shows a Skill chip, namespace, literal slash text, or another form
 full App restart refreshes the visible registry when that behavior is material to the candidate
 ```
 
-Record screenshots or equivalent direct UI notes for those gates. Raw Host evidence may supplement the UI observation by proving the selected Skill source/path, but the model's prose claim that it is registered is insufficient on its own.
+Record screenshots or equivalent direct UI notes for those gates. If the App does not render a literal slash-command string after selection, record that fact instead of inventing one. Raw Host evidence may supplement the UI observation by proving the selected Skill source/path, but the model's prose claim that it is registered is insufficient on its own.
 
 ## 2. Repository gates
 
@@ -97,11 +98,11 @@ Human App gate:
 1. fully restart the Codex App when the candidate changes installed Skill metadata;
 2. type `/` to open the App Skill menu;
 3. confirm both prefixed entries are visible;
-4. record the exact rendered slash/menu labels and any namespace the UI displays;
+4. record the exact rendered entry labels, any visible namespace, and the post-selection presentation;
 5. confirm there is no ambiguity with generic or unrelated skills such as `doctor`;
 6. select each entry once and retain raw Host/rollout evidence when available to confirm it maps to the expected installed Plugin Skill.
 
-Do not derive the App's rendered slash command from SKILL.md, `plugin.json`, folder names, another product's syntax, or model self-report. The UI observation is the source of truth for the user-facing App command string.
+Do not derive a literal App slash-command string from SKILL.md, `plugin.json`, folder names, another product's syntax, or model self-report. The App may render a display-name menu entry and then bind the selection as a Skill chip instead of leaving slash text in the composer. Direct UI observation is the source of truth for the user-facing selection flow.
 
 Separately, run an unrelated ordinary task and use raw Host evidence to confirm subagents-dispatch does not implicitly activate.
 
@@ -210,7 +211,7 @@ Only after the exact merged candidate passes repository, Host, human App UI, gov
 3. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
 4. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
 5. fully restart the Codex App when required for registry refresh;
-6. human-check the `/` menu again and confirm the same two prefixed Skill entries are present and select the expected tagged Plugin payload;
+6. human-check the `/` menu again and confirm the same two prefixed Skill entries are present and select the expected tagged Plugin payload, recording the post-selection presentation rather than assuming a slash string;
 7. use raw Host/rollout evidence for any behavior gate that cannot be established from UI alone;
 8. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
 9. do not move or recreate the release tag if `main` advances later.
