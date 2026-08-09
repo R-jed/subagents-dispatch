@@ -23,15 +23,17 @@ def cases() -> dict[str, dict]:
     return result
 
 
-def test_skill_exposes_control_intents_without_implicit_orchestration():
+def test_skill_exposes_control_payloads_without_inventing_app_slash_syntax():
     text = SKILL.read_text(encoding="utf-8")
     for form in [
-        "/dispatch preview <task>",
-        "/dispatch status",
-        "/dispatch steer <unit_id>: <guidance>",
-        "/dispatch takeover <unit_id>",
+        "preview <task>",
+        "status",
+        "steer <unit_id>: <guidance>",
+        "takeover <unit_id>",
     ]:
         assert form in text
+    assert "name: subagents-dispatch" in text
+    assert "App rendering and selection are release-gated with direct human UI evidence" in text
     assert "Handle an explicit control intent before ordinary routing" in text
     assert "Preview performs no delegated execution or mutation" in text
 
