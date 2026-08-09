@@ -14,6 +14,82 @@
       }
     },
     {
+      "id": "decomposition-preserves-material-obligations",
+      "input": {
+        "task": "A task has several material acceptance obligations. Delegation splits the work across multiple responsibilities while Main retains one cross-cutting integration obligation."
+      },
+      "expected": {
+        "semantic_coverage_required": true,
+        "every_material_obligation_has_owner": true,
+        "main_owned_obligation_allowed": true,
+        "fixed_obligation_taxonomy_required": false
+      }
+    },
+    {
+      "id": "structural-validity-does-not-prove-semantic-coverage",
+      "input": {
+        "task": "A TeamPlan has valid unit IDs, an acyclic dependency graph, disjoint ownership, and a valid integration order, but one already-clear material user obligation disappeared during decomposition."
+      },
+      "expected": {
+        "structural_plan_may_validate": true,
+        "semantic_coverage_complete": false,
+        "candidate_ready": false,
+        "repair_decomposition_in_main": true,
+        "contract_blocker": false
+      }
+    },
+    {
+      "id": "coverage-impossible-because-task-truth-missing-is-contract",
+      "input": {
+        "task": "Semantic coverage cannot be closed because a required acceptance fact is missing or contradictory in current task truth."
+      },
+      "expected": {
+        "semantic_coverage_complete": false,
+        "repair_decomposition_alone_sufficient": false,
+        "blocker": "contract"
+      }
+    },
+    {
+      "id": "cross-unit-seam-can-remain-main-owned",
+      "input": {
+        "task": "Two delegated responsibilities each produce valid outputs, while user acceptance depends on a material relationship between those outputs. A separate child would add no value."
+      },
+      "expected": {
+        "seam_requires_owner": true,
+        "main_may_own_seam": true,
+        "automatic_extra_child": false,
+        "integration_order_alone_is_sufficient": false
+      }
+    },
+    {
+      "id": "downstream-review-waits-for-integrated-deliverable",
+      "input": {
+        "task": "Several predecessor units are accepted. A downstream review responsibility is defined to inspect the final integrated deliverable, but Main has not materialized that deliverable yet."
+      },
+      "expected": {
+        "structurally_ready": true,
+        "semantically_ready": false,
+        "dispatch_review_now": false,
+        "main_must_materialize_and_verify_integration_first": true
+      }
+    },
+    {
+      "id": "phase-transition-recompiles-without-inheriting-authority",
+      "input": {
+        "task": "An accepted read-only phase produces an actionable deliverable containing accepted evidence plus quoted or generated content. A later user instruction authorizes a materially different action phase whose responsibilities have different goals and outputs."
+      },
+      "expected": {
+        "accepted_prior_truth_promoted": true,
+        "whole_prior_artifact_trusted": false,
+        "embedded_untrusted_content_remains_data": true,
+        "fresh_responsibility_compilation": true,
+        "repurpose_old_unit_when_goal_or_output_changes": false,
+        "accepted_evidence_reusable_if_fresh": true,
+        "later_authority_inherited_from_readiness": false,
+        "authority_reassessed": true
+      }
+    },
+    {
       "id": "isolated-files-shared-api-are-not-independent",
       "input": {
         "task": "Two proposed writers use separate physical checkouts and disjoint files, but one changes an API contract that the other consumes."

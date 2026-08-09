@@ -19,6 +19,12 @@ def test_final_review_is_linked_and_semantically_triggered():
     review = (REFS / "final-review.md").read_text(encoding="utf-8")
     assert "references/final-review.md" in skill
     assert "Candidate Ready" in review
+    assert "requested deliverable is complete enough for acceptance" in review
+    assert "semantic coverage closure" in review
+    assert "For Git-backed deliverables" in review
+    assert "For a non-Git deliverable" in review
+    assert "deterministic SHA-256 digest" in review
+    assert "Do not hash a summary" in review
     assert "Process history" in review
     for trigger in contract()["final_review"]["trigger_codes"]:
         assert trigger in review

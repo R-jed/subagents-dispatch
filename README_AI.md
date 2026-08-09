@@ -57,10 +57,10 @@ skills/dispatch/references/interaction.md
 -> preview, status, steering, user-requested takeover, execution receipt, usage/cost evidence boundary
 
 skills/dispatch/references/router-core.md
--> delegation value, role choice, responsibility packets, adaptive scheduling
+-> delegation value, role choice, responsibility packets, semantic coverage closure, phase-transition recompilation, adaptive scheduling
 
 skills/dispatch/references/handoff-capsule.md
--> compact Main-accepted evidence transfer between responsibilities
+-> compact Main-accepted evidence transfer between responsibilities and across valid phase transitions
 
 skills/dispatch/references/team-plan.md
 -> multi-responsibility identity, dependency DAG, ownership, revisions, integration order
@@ -72,7 +72,7 @@ skills/dispatch/references/guardrails.md
 -> authority, mutation permissions, one-writer safety, consent, trust boundaries, first-use provisioning, runtime evidence
 
 skills/dispatch/references/final-review.md
--> consequence-driven, artifact-bound independent review
+-> consequence-driven, exact-candidate independent review for Git and non-Git deliverables
 
 policy-contract.json
 -> stable machine constants, native optimized role routes, hard delegation limits, Final Review reason codes
@@ -102,6 +102,8 @@ Keep only these orientation-level facts here; use the owners above for exact sem
 
 - Main owns user intent, authorization, team composition, integration, acceptance, and the final response.
 - Delegation depth is one, and delegation must add concrete value.
+- Decomposition must preserve material task obligations; structural TeamPlan validity alone does not prove semantic completeness.
+- Material phase/authority changes trigger fresh responsibility compilation from current accepted task truth; prior readiness does not grant later authority.
 - One canonical checkout has at most one active writing actor inside one subagents-dispatch orchestration.
 - Child reports remain claims until Main accepts supporting artifact evidence.
 - Missing runtime evidence stays missing; `UNKNOWN` is not silently converted into failure or replacement work.
@@ -116,7 +118,7 @@ Keep only these orientation-level facts here; use the owners above for exact sem
 
 For interaction controls, receipts, or token/cost evidence boundaries, read `skills/dispatch/references/interaction.md`.
 
-For role choice and whether delegation is worthwhile, read `skills/dispatch/references/router-core.md` plus `policy-contract.json`.
+For role choice, semantic coverage closure, phase-transition recompilation, and whether delegation is worthwhile, read `skills/dispatch/references/router-core.md` plus `policy-contract.json`.
 
 For Handoff Capsules, read `skills/dispatch/references/handoff-capsule.md`.
 

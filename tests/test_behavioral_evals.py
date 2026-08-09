@@ -121,6 +121,8 @@ def test_behavioral_registry_and_schema_remain_valid_measurement_surfaces():
         "process-history-does-not-force-review",
         "public-contract-final-review-required",
         "main-route-observability",
+        "semantic-coverage-multi-responsibility-plan",
+        "phase-transition-recompile-after-authorization",
         "dispatch-first-use-restart-required",
         "dispatch-status-preserves-unknown",
         "dispatch-steer-preserves-responsibility",

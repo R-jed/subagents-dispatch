@@ -15,6 +15,24 @@
       }
     },
     {
+      "id": "preview-preserves-visible-material-obligations",
+      "input": {
+        "selected_skill": "subagents-dispatch",
+        "request": "preview a multi-responsibility task with a visible cross-cutting acceptance obligation",
+        "material_obligation_visible": true,
+        "cross_responsibility_seam_visible": true
+      },
+      "expected": {
+        "mode": "preview",
+        "material_obligation_preserved": true,
+        "visible_seam_owned": true,
+        "main_owned_seam_allowed": true,
+        "create_requirement_ledger": false,
+        "spawn_decorative_child": false,
+        "plan_is_provisional": true
+      }
+    },
+    {
       "id": "first-use-clean-absence-auto-provisions-then-restarts",
       "input": {
         "selected_skill": "subagents-dispatch",

@@ -44,6 +44,8 @@ Main may perform bounded read-only inspection when that evidence is needed to pr
 
 A useful preview states only the likely responsibilities, role choices, important dependencies, expected writing owner, and whether Final Review is likely from facts already known. It is provisional. New evidence during real execution may change the route.
 
+Even though Preview is provisional and runs before ordinary routing, its decomposition must preserve the material obligations already visible in current task truth. If a visible material obligation spans likely responsibilities, Preview should show the Main-owned integration/verification seam when that helps the user understand the shape. Do not create a requirement ledger, persistent TeamPlan, or decorative child merely to make preview topology complete. Unknown or evidence-dependent obligations may remain explicitly provisional rather than being guessed.
+
 Do not run runtime-evidence diagnostics merely to make the preview look more precise. Do not claim that a requested model will be the observed runtime model.
 
 ## Status

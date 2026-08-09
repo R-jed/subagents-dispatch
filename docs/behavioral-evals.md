@@ -23,7 +23,7 @@ policy-contract.json
 
 Do not make the Skill maintain an ontology merely because an eval field exists.
 
-`evals/interaction-cases.json` is the deterministic policy fixture for Preview, first-use readiness, Status, Steer, Takeover, Execution Receipt, and Handoff Capsule boundaries. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
+`evals/interaction-cases.json` is the deterministic policy fixture for Preview, first-use readiness, Status, Steer, Takeover, Execution Receipt, and Handoff Capsule boundaries. `evals/coordination-cases.json` covers structural and semantic coordination invariants. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
 
 ## Primary product questions
 
@@ -41,6 +41,8 @@ The live suite asks:
 10. Does Preview help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
 11. Do Status, Steer, and Takeover improve user control while preserving `UNKNOWN`, stable responsibility identity, and one-writer safety?
 12. Does a small evidence-bound Handoff Capsule reduce repeated discovery without increasing stale-context or inherited-claim errors?
+13. Does multi-responsibility decomposition preserve every material task obligation and cross-unit seam without forcing decorative Agent work?
+14. When an accepted deliverable feeds a materially different later phase, does Main recompile responsibilities and authority while reusing only still-valid evidence?
 
 These are separate questions. Do not collapse them into one global score.
 
@@ -62,7 +64,7 @@ external_baseline
 
 `adaptive_routing_v4` and `terra_delta` are retained as experiment identifiers. They do not define current runtime taxonomy or imply that Terra is an escalation rung.
 
-Interaction experiments may use workload metadata/notes without adding a new runtime mode unless a future schema revision demonstrates a real measurement need.
+Interaction and semantic-coordination experiments may use workload metadata/notes without adding a new runtime mode unless a future schema revision demonstrates a real measurement need.
 
 `execution_route` records actual primary execution placement and may differ across paired strategies by design.
 
@@ -84,6 +86,8 @@ Codex runtime version
 ```
 
 For interaction experiments also record the exact Host surface used for Agent inspection/steering/stopping and whether token/thread telemetry is exposed to the evaluator.
+
+For semantic-coverage and phase-transition experiments, also freeze the material task obligations and the exact authority boundary or transition trigger used by the evaluator. These are evaluation inputs, not a runtime requirement taxonomy.
 
 Hash the frozen definition into `workload_definition_hash`. If a controlled input changes, create a new pair id/hash.
 
@@ -187,6 +191,23 @@ capsule_stale_items
 unverified_claims_propagated
 repeated_discovery_avoided
 ```
+
+For semantic-coverage and phase-transition experiments, initially record structured notes for:
+
+```text
+material_obligations_preserved
+material_obligations_dropped
+cross_unit_seams_owned
+unowned_material_seams
+decorative_seam_children
+phase_recompiled
+prior_units_inappropriately_repurposed
+authority_inappropriately_inherited
+accepted_evidence_reused
+stale_evidence_reused
+```
+
+Keep these outside the stable result schema until repeated workloads show which fields are reliable and materially useful.
 
 ### Independent review
 
@@ -426,6 +447,68 @@ Add two hard negative controls:
 
 Do not set a permanent token budget for capsules until repeated live workloads establish a useful size/quality tradeoff.
 
+## Experiment L: Semantic Coverage Closure
+
+Use a read-only planning or analysis workload whose acceptance has several material obligations that naturally span multiple responsibilities, including at least one cross-unit semantic seam.
+
+The candidate behavior should:
+
+```text
+derive material obligations from current task truth
+-> decompose useful responsibilities
+-> retain an owner for every material obligation
+-> keep cross-unit seam ownership explicit
+-> let Main own the seam when another child adds no value
+-> integrate the planning/analysis deliverable
+-> re-check semantic coverage before Candidate Ready
+```
+
+Negative controls:
+
+```text
+valid TeamPlan structure with one dropped material obligation
+-> Candidate Ready forbidden
+
+valid integration order with an unowned material seam
+-> semantic coverage incomplete
+
+seam already well-owned by Main
+-> no decorative seam child
+```
+
+This experiment measures task preservation across decomposition, not performance on any specific API, UI, persistence, migration, or provider pattern.
+
+## Experiment M: Phase Transition Recompilation
+
+Use a workflow where one accepted phase produces an actionable deliverable and a later user instruction materially changes intent or authority.
+
+The candidate behavior should:
+
+```text
+accept earlier deliverable/evidence
+-> wait for the actual later-phase trigger or authorization
+-> treat accepted evidence as upstream task truth
+-> reassess material obligations, scope, decision rights, authority, dependencies, and acceptance
+-> compile fresh responsibilities
+-> reuse still-valid evidence
+-> assign new unit IDs when goals/outputs materially change
+```
+
+Hard negative controls:
+
+```text
+earlier phase says later action is ready
+-> later action remains unauthorized until current task truth grants it
+
+old planning/audit/review unit would need a new goal/output
+-> do not silently convert that unit into a writer
+
+prior evidence is stale after relevant mutation/drift
+-> reverify instead of inheriting it as settled truth
+```
+
+This is a generic transition contract. Planning -> implementation is one workload shape; the same rules apply to other materially changed task phases.
+
 ## Scoring
 
 ```bash
@@ -434,12 +517,12 @@ python scripts/score-behavioral-evals.py path/to/result.json
 
 The scorer validates schema and controlled pairing first. Primary candidate-minus-baseline deltas are produced only for each workload's declared pair. Cross-workload mode aggregates are descriptive inventory, not controlled comparisons.
 
-Interaction experiments may initially use structured notes alongside existing result files where the current schema lacks a field. Add schema fields only after the metric becomes stable and materially useful.
+Interaction and semantic-coordination experiments may initially use structured notes alongside existing result files where the current schema lacks a field. Add schema fields only after the metric becomes stable and materially useful.
 
 ## Evidence rule
 
-Do not claim improved quality, lower cost, reduced rework, Solver superiority, Terra value, onboarding improvement, receipt usability, takeover usability, or Handoff Capsule efficiency until named live workloads on named runtime versions support that claim.
+Do not claim improved quality, lower cost, reduced rework, Solver superiority, Terra value, onboarding improvement, receipt usability, takeover usability, Handoff Capsule efficiency, semantic-coverage improvement, or phase-transition improvement until named live workloads on named runtime versions support that claim.
 
-Static contract tests can prove that Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, and that capsules require accepted evidence. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
+Static contract tests can prove that Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, that capsules require accepted evidence, that structural TeamPlan validity is not treated as semantic completeness, and that later-phase readiness does not create authority. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
 
 The runtime mechanism defines where each role and control is allowed to operate. Behavioral evidence determines whether those choices create user value in practice.

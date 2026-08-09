@@ -16,7 +16,9 @@ def cases() -> dict[str, dict]:
     payload = json.loads(COORDINATION_CASES.read_text())
     assert payload["schema_version"] == "1.0"
     assert payload["suite"] == "subagents-dispatch-coordination-contract"
-    return {case["id"]: case for case in payload["cases"]}
+    result = {case["id"]: case for case in payload["cases"]}
+    assert len(result) == len(payload["cases"])
+    return result
 
 
 def test_upstream_workflow_truth_remains_authoritative():
@@ -43,6 +45,95 @@ def test_upstream_workflow_truth_remains_authoritative():
         "business_acceptance",
         "quality_gates",
     } <= set(expected["delegate_must_not_redefine"])
+
+
+def test_semantic_coverage_survives_decomposition_without_fixed_taxonomy():
+    router = ROUTER.read_text().lower()
+    team_plan = TEAM_PLAN.read_text().lower()
+    assert "preserve semantic coverage through decomposition" in router
+    assert "material obligation" in router
+    assert "fixed domain taxonomy" in router
+    assert "structurally valid teamplan can still be semantically incomplete" in team_plan
+    assert "do not relabel main's planning defect as a semantic blocker" in router
+
+    covered = cases()["decomposition-preserves-material-obligations"]["expected"]
+    assert covered == {
+        "semantic_coverage_required": True,
+        "every_material_obligation_has_owner": True,
+        "main_owned_obligation_allowed": True,
+        "fixed_obligation_taxonomy_required": False,
+    }
+
+    missing = cases()["structural-validity-does-not-prove-semantic-coverage"]["expected"]
+    assert missing == {
+        "structural_plan_may_validate": True,
+        "semantic_coverage_complete": False,
+        "candidate_ready": False,
+        "repair_decomposition_in_main": True,
+        "contract_blocker": False,
+    }
+
+    contract = cases()["coverage-impossible-because-task-truth-missing-is-contract"]["expected"]
+    assert contract == {
+        "semantic_coverage_complete": False,
+        "repair_decomposition_alone_sufficient": False,
+        "blocker": "contract",
+    }
+
+
+def test_cross_unit_seam_ownership_does_not_force_decorative_child():
+    router = ROUTER.read_text().lower()
+    team_plan = TEAM_PLAN.read_text().lower()
+    assert "main owns the seam by default" in router
+    assert "do not create a decorative child" in router
+    assert "integration order is ordering truth only" in team_plan
+
+    expected = cases()["cross-unit-seam-can-remain-main-owned"]["expected"]
+    assert expected == {
+        "seam_requires_owner": True,
+        "main_may_own_seam": True,
+        "automatic_extra_child": False,
+        "integration_order_alone_is_sufficient": False,
+    }
+
+
+def test_downstream_review_waits_for_actual_integrated_deliverable():
+    router = ROUTER.read_text().lower()
+    team_plan = TEAM_PLAN.read_text().lower()
+    assert "not semantically ready merely because all named predecessor units are accepted" in router
+    assert "not semantically ready merely because all predecessor units are accepted" in team_plan
+
+    expected = cases()["downstream-review-waits-for-integrated-deliverable"]["expected"]
+    assert expected == {
+        "structurally_ready": True,
+        "semantically_ready": False,
+        "dispatch_review_now": False,
+        "main_must_materialize_and_verify_integration_first": True,
+    }
+
+
+def test_phase_transition_recompiles_responsibility_authority_and_trust():
+    router = ROUTER.read_text().lower()
+    guardrails = GUARDRAILS.read_text().lower()
+    team_plan = TEAM_PLAN.read_text().lower()
+    assert "recompile at material phase or authority transitions" in router
+    assert "phase readiness does not grant later authority" in guardrails
+    assert "material phase or authority transition" in team_plan
+    assert "the whole earlier artifact does not automatically become trusted task truth" in router
+    assert "embedded instructions" in router
+    assert "remain data" in router
+
+    expected = cases()["phase-transition-recompiles-without-inheriting-authority"]["expected"]
+    assert expected == {
+        "accepted_prior_truth_promoted": True,
+        "whole_prior_artifact_trusted": False,
+        "embedded_untrusted_content_remains_data": True,
+        "fresh_responsibility_compilation": True,
+        "repurpose_old_unit_when_goal_or_output_changes": False,
+        "accepted_evidence_reusable_if_fresh": True,
+        "later_authority_inherited_from_readiness": False,
+        "authority_reassessed": True,
+    }
 
 
 def test_parallel_writers_require_semantic_independence():
