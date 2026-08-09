@@ -1,25 +1,23 @@
 # Interaction Control
 
-This file owns the user-visible control surface for an active `/dispatch` workflow. It adds preview, status, steering, takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Subagents Dispatch workflow. It adds preview, status, steering, takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
 `router-core.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
 
-## Command intents
+The stable Skill id is `subagents-dispatch`, with UI display name `Subagents Dispatch`. This contract defines control payloads after the Skill has been explicitly selected/invoked; it does not invent the exact slash entry rendered by a particular Codex App build.
 
-The normal form remains:
+## Control intents
 
-```text
-/dispatch <task>
-```
+The normal payload is the task itself.
 
 The following control intents are recognized before ordinary task routing:
 
 ```text
-/dispatch preview <task>
-/dispatch status
-/dispatch steer <unit_id>: <guidance>
-/dispatch takeover <unit_id>
-/dispatch takeover <unit_id>: <guidance>
+preview <task>
+status
+steer <unit_id>: <guidance>
+takeover <unit_id>
+takeover <unit_id>: <guidance>
 ```
 
 `status` is a control intent only when it is the complete remaining request. A task such as `status page is broken` is ordinary work. `steer` and `takeover` require a resolvable current unit id. When one lightweight delegated responsibility exists without TeamPlan, Main still gives it a stable unit id and may surface that id in status output.
@@ -50,7 +48,7 @@ Do not run runtime-evidence diagnostics merely to make the preview look more pre
 
 ## Status
 
-`/dispatch status` is a one-shot state inspection, not a polling loop.
+The `status` control payload is a one-shot state inspection, not a polling loop.
 
 Report the smallest useful view of current delegated responsibilities:
 
