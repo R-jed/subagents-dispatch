@@ -4,7 +4,7 @@
   "cases": [
     {
       "id": "preview-never-spawns-or-mutates",
-      "input": {"request": "/dispatch preview refactor the cache layer"},
+      "input": {"selected_skill": "subagents-dispatch", "request": "preview refactor the cache layer"},
       "expected": {
         "mode": "preview",
         "spawn_children": false,
@@ -17,7 +17,8 @@
     {
       "id": "first-use-clean-absence-auto-provisions-then-restarts",
       "input": {
-        "request": "/dispatch implement the bounded cache fix",
+        "selected_skill": "subagents-dispatch",
+        "request": "implement the bounded cache fix",
         "delegation_worthwhile": true,
         "required_role_available": false,
         "managed_profile_check": "not_installed"
@@ -35,7 +36,8 @@
     {
       "id": "first-use-exact-profiles-but-role-unavailable-restarts-without-spawn",
       "input": {
-        "request": "/dispatch implement the bounded cache fix",
+        "selected_skill": "subagents-dispatch",
+        "request": "implement the bounded cache fix",
         "delegation_worthwhile": true,
         "required_role_available": false,
         "managed_profile_check": "exact"
@@ -50,7 +52,8 @@
     {
       "id": "first-use-conflicting-managed-state-requires-user-action",
       "input": {
-        "request": "/dispatch implement the bounded cache fix",
+        "selected_skill": "subagents-dispatch",
+        "request": "implement the bounded cache fix",
         "delegation_worthwhile": true,
         "required_role_available": false,
         "managed_profile_check": "unowned_conflict"
@@ -77,7 +80,7 @@
     },
     {
       "id": "status-is-one-shot-and-preserves-unknown",
-      "input": {"request": "/dispatch status", "native_state": "not_reported"},
+      "input": {"selected_skill": "subagents-dispatch", "request": "status", "native_state": "not_reported"},
       "expected": {
         "mode": "status",
         "poll_loop": false,
@@ -88,7 +91,7 @@
     },
     {
       "id": "status-with-no-current-dispatch-does-not-invent-state",
-      "input": {"request": "/dispatch status", "current_dispatch": null},
+      "input": {"selected_skill": "subagents-dispatch", "request": "status", "current_dispatch": null},
       "expected": {
         "mode": "status",
         "active_responsibilities": 0,
@@ -98,7 +101,7 @@
     },
     {
       "id": "status-page-task-is-not-control-status",
-      "input": {"request": "/dispatch status page is broken"},
+      "input": {"selected_skill": "subagents-dispatch", "request": "status page is broken"},
       "expected": {
         "mode": "task",
         "status_control": false
@@ -106,7 +109,7 @@
     },
     {
       "id": "steer-preserves-responsibility-and-authority",
-      "input": {"request": "/dispatch steer U2: inspect the crash log before retrying the parser", "unit_state": "RUNNING"},
+      "input": {"selected_skill": "subagents-dispatch", "request": "steer U2: inspect the crash log before retrying the parser", "unit_state": "RUNNING"},
       "expected": {
         "mode": "steer",
         "same_unit": true,
@@ -117,7 +120,7 @@
     },
     {
       "id": "steer-cannot-hide-material-scope-change",
-      "input": {"request": "/dispatch steer U2: also redesign the public API and write the migration"},
+      "input": {"selected_skill": "subagents-dispatch", "request": "steer U2: also redesign the public API and write the migration"},
       "expected": {
         "mode": "steer_rejected_as_scope_change",
         "requires_main_reclassification": true,
@@ -126,7 +129,7 @@
     },
     {
       "id": "control-target-missing-fails-closed",
-      "input": {"request": "/dispatch takeover U99", "known_units": ["U1", "U2"]},
+      "input": {"selected_skill": "subagents-dispatch", "request": "takeover U99", "known_units": ["U1", "U2"]},
       "expected": {
         "target_resolved": false,
         "ownership_transferred": false,
@@ -136,7 +139,7 @@
     },
     {
       "id": "takeover-running-writer-settles-old-owner-first",
-      "input": {"request": "/dispatch takeover U2", "unit_state": "RUNNING", "unit_write": true},
+      "input": {"selected_skill": "subagents-dispatch", "request": "takeover U2", "unit_state": "RUNNING", "unit_write": true},
       "expected": {
         "mode": "takeover",
         "request_native_stop": true,
@@ -146,7 +149,7 @@
     },
     {
       "id": "takeover-unknown-owner-does-not-force-transfer",
-      "input": {"request": "/dispatch takeover U2", "unit_state": "UNKNOWN", "unit_write": true},
+      "input": {"selected_skill": "subagents-dispatch", "request": "takeover U2", "unit_state": "UNKNOWN", "unit_write": true},
       "expected": {
         "mode": "takeover_pending",
         "ownership_transferred": false,
