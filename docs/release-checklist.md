@@ -49,13 +49,24 @@ A green branch run does not replace the pull-request merge-result run. A green p
 
 Run these against the same candidate that will be tagged.
 
-### Plugin discovery
+### Plugin and Skill discovery
 
-Confirm the installed Plugin exposes `/dispatch` and `/doctor`, while unrelated ordinary tasks do not implicitly invoke subagents-dispatch.
+After installing the Plugin, open a fresh Codex task/session and confirm the Skill registry contains:
+
+```text
+Dispatch -> explicit invocation $dispatch
+Doctor   -> explicit invocation $doctor
+```
+
+When the Host exposes source/path metadata, confirm both Skills come from the installed `subagents-dispatch@subagents-dispatch` payload for the candidate version. `/skills` may be used to open the Skill picker.
+
+Bare `/dispatch` and `/doctor` slash commands are not a Skill-discovery requirement and must not be advertised as the supported Plugin entrypoint.
+
+Confirm one harmless explicit `$dispatch` request and one read-only `$doctor` request are accepted. Unrelated ordinary tasks must not implicitly invoke subagents-dispatch.
 
 ### First-use readiness
 
-Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Run a real `/dispatch` task that genuinely needs delegation and confirm:
+Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Run a real `$dispatch` task that genuinely needs delegation and confirm:
 
 ```text
 clean absence -> bounded automatic provisioning
@@ -68,7 +79,7 @@ no unrelated Codex state is modified
 
 ### Fresh-task role discovery and spawn context
 
-Open one fresh Codex task/session and rerun the same request. Confirm the exact required custom Agent role is available before spawning.
+Open one fresh Codex task/session and rerun the same `$dispatch` request. Confirm the exact required custom Agent role is available before spawning.
 
 At minimum, prove real Host spawn for:
 
@@ -97,17 +108,17 @@ Run two genuinely independent read-only responsibilities. Confirm unit identity 
 
 ### Status and steering
 
-While a child is active, confirm `/dispatch status` is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
+While a child is active, confirm `$dispatch status` is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
 
-Confirm `/dispatch steer` keeps the same responsibility, attempt, role, and authority. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
+Confirm `$dispatch steer` keeps the same responsibility, attempt, role, and authority. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
 
 ### Takeover and writer safety
 
-While a writing child is active, request takeover. Main must remain read-only until Host evidence establishes that the old writer is stopped, terminal, or closed. `UNKNOWN` does not authorize a conflicting write.
+While a writing child is active, use `$dispatch takeover <unit_id>`. Main must remain read-only until Host evidence establishes that the old writer is stopped, terminal, or closed. `UNKNOWN` does not authorize a conflicting write.
 
 ### Doctor safety
 
-Exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
+Use `$doctor` to exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
 
 ### Update and uninstall
 
@@ -120,6 +131,8 @@ Run the documented uninstall flow and confirm unrelated Agent profiles and Codex
 Do not release if any of these are observed on the supported Host candidate:
 
 ```text
+installed/enabled Plugin does not register Dispatch or Doctor in a fresh-session Skill registry
+$dispatch or $doctor cannot be explicitly invoked on the supported Host
 fresh task cannot resolve the exact required custom Agent role
 Luna Reader or Worker cannot be spawned on the supported Host
 first-use stale task attempts a child spawn after provisioning
@@ -129,6 +142,7 @@ UNKNOWN is treated as FAILED
 Main writes before a previous writer is proven settled during takeover
 modified or unowned Agent configuration is overwritten automatically
 subagents-dispatch implicitly activates on unrelated ordinary tasks
+public docs or Plugin metadata advertise unsupported bare /dispatch, /doctor, or legacy namespaced slash identities as the entrypoint
 ```
 
 Keep Codex Host limitations separate from project defects in the validation report.
@@ -151,13 +165,15 @@ These settings are repository administration state and cannot be proven by the p
 Only after the exact merged candidate passes repository, Host, governance, and immutable Marketplace-source gates:
 
 1. confirm `main` still points to the validated candidate SHA;
-2. create the immutable semantic-version tag, for example `v2.1.1`, on that exact SHA;
-3. from a clean Codex environment, add the Marketplace from that exact tag and install the Plugin; confirm the installed Plugin reports the same version and exposes `/dispatch` and `/doctor`;
-4. confirm the Marketplace entry at the tag resolves the Plugin source from the same tag rather than a mutable branch;
-5. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
-6. do not move or recreate the release tag if `main` advances later.
+2. create the immutable semantic-version tag, for example `v2.1.2`, on that exact SHA;
+3. from a clean Codex environment, add the Marketplace from that exact tag and install the Plugin; confirm the installed Plugin reports the same version;
+4. open a fresh task/session and confirm **Dispatch** and **Doctor** are present in the Skill registry, `$dispatch` and `$doctor` are accepted, and both resolve to the installed tagged Plugin payload;
+5. confirm the Marketplace entry at the tag resolves the Plugin source from the same tag rather than a mutable branch;
+6. confirm an ordinary task does not implicitly activate subagents-dispatch;
+7. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
+8. do not move or recreate the release tag if `main` advances later.
 
-The post-tag distribution smoke is intentionally narrow. It verifies release packaging/identity and does not repeat the full Host behavior suite already completed on the exact candidate.
+The post-tag distribution smoke is intentionally narrow. It verifies release packaging/identity and Skill discovery; it does not repeat the full Host behavior suite already completed on the exact candidate.
 
 ## 7. Public Plugin submission
 
