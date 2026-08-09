@@ -6,13 +6,15 @@ The live suite uses controlled paired workloads where a meaningful paired compar
 
 ## Measurement boundary
 
-`evals/` is a measurement surface. Historical labels such as `adaptive_routing_v4` remain experiment labels only. Current runtime policy is owned by the canonical dispatch references and `policy-contract.json`.
+`evals/` is a measurement surface. Historical labels such as `adaptive_routing_v4` remain experiment labels only. Historical runs stay comparable because recorded experiment labels remain frozen with the result data. Do not make the Skill maintain an ontology of experiment labels; runtime behavior still comes from the canonical policy owners.
 
 `evals/interaction-cases.json` is the deterministic fixture for Preview, first-use readiness, Status, Steer, Takeover, Execution Receipt, and Handoff Capsule boundaries. `evals/behavioral-workloads.json` contains frozen real-Host workload shapes and no claimed benchmark results.
 
 ## Freeze controlled inputs
 
-Before a paired run, freeze the exact prompt bytes, repository/base revision, starting state, acceptance rubric, verification commands, permission posture, tool surface, Codex runtime version, and any route evidence that materially affects the experiment. Hash the definition; changed controlled inputs require a new pair id/hash.
+Before a paired run, freeze the exact user prompt bytes, repository/base revision, starting state, acceptance rubric, verification commands, permission posture, tool surface, Codex runtime version, and any route evidence that materially affects the experiment. Record the `workload_definition_hash` for that frozen definition; changed controlled inputs require a new pair id/hash.
+
+Keep `execution_route` explicit. It is the experimental variable only when the workload's declared comparison allows route strategy to differ; otherwise it stays a controlled field along with the other causal inputs.
 
 ## Core evidence rules
 
