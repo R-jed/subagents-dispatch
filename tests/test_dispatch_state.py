@@ -1,3 +1,4 @@
+import builtins
 import importlib.util
 import json
 import os
@@ -16,6 +17,18 @@ def load_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_module_import_does_not_require_posix_fcntl(monkeypatch):
+    original_import = builtins.__import__
+
+    def import_without_fcntl(name, *args, **kwargs):
+        if name == "fcntl":
+            raise ImportError("fcntl is unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_fcntl)
+    load_module()
 
 
 def capsule(module, thread_id: str, *, updated_at: str = "2026-08-10T00:00:00Z") -> dict:
@@ -369,17 +382,45 @@ def test_normal_cleanup_and_stale_cleanup_preserve_uncertain_active_state(tmp_pa
     assert module.load_state("current", temp_root=tmp_path) is None
 
 
+def test_stale_cleanup_rechecks_state_before_deleting(tmp_path: Path, monkeypatch):
+    module = load_module()
+    stale = capsule(module, "thread-1", updated_at="2026-07-01T00:00:00Z")
+    stale["units"] = [unit(state="CLOSED", agent_id="agent-1")]
+    module.write_state(stale, temp_root=tmp_path)
+    original_is_stale = module.is_stale
+    refreshed = False
+
+    def refresh_during_cleanup(payload, **kwargs):
+        nonlocal refreshed
+        if not refreshed:
+            refreshed = True
+            fresh = dict(payload)
+            fresh["updated_at"] = "2026-08-10T00:00:00Z"
+            module.write_state(fresh, temp_root=tmp_path)
+        return original_is_stale(payload, **kwargs)
+
+    monkeypatch.setattr(module, "is_stale", refresh_during_cleanup)
+    report = module.cleanup_stale_states(
+        temp_root=tmp_path,
+        now="2026-08-10T00:00:01Z",
+    )
+
+    assert report["removed"] == []
+    assert report["fresh"] == ["thread-1"]
+    assert module.load_state("thread-1", temp_root=tmp_path)["updated_at"] == "2026-08-10T00:00:00Z"
+
+
 def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     module = load_module()
     events = [
-        {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "activity": "read"},
-        {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "activity": "read"},
-        {"ref": "followup:U1:A1:F1", "kind": "followup", "model_lane": "Luna Max", "activity": "execute"},
+        {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
+        {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
+        {"ref": "followup:U1:A1:F1", "kind": "followup", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "execute"},
         {"ref": "retry:U2:A2", "kind": "retry"},
-        {"ref": "review-attempt:U3:A1", "kind": "reviewer_attempt", "model_lane": "Sol High", "activity": "review"},
+        {"ref": "review-attempt:U3:A1", "kind": "reviewer_attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "review"},
         {"ref": "review-round:U3:R1", "kind": "review_round", "verdict": "rework_required"},
         {"ref": "rework:U2:R1", "kind": "semantic_rework"},
-        {"ref": "review-attempt:U3:A2", "kind": "reviewer_attempt", "model_lane": "Sol High", "activity": "review"},
+        {"ref": "review-attempt:U3:A2", "kind": "reviewer_attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "review"},
         {"ref": "review-round:U3:R2", "kind": "review_round", "verdict": "passed"},
         {"ref": "recovery:U1:REBIND", "kind": "recovery", "action": "rebind"},
         {"ref": "control:status:1", "kind": "control", "action": "Status"},
@@ -403,8 +444,8 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     with pytest.raises(module.ReceiptAccountingError, match="conflicting event ref"):
         module.account_receipt(
             [
-                {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "activity": "read"},
-                {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Sol High", "activity": "decide"},
+                {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
+                {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "decide"},
             ]
         )
 
@@ -413,11 +454,11 @@ def test_receipt_formatter_localizes_public_activity_without_internal_roles():
     module = load_module()
     summary = module.account_receipt(
         [
-            {"ref": "a1", "kind": "attempt", "model_lane": "Luna Max", "activity": "read"},
-            {"ref": "a2", "kind": "attempt", "model_lane": "Terra XHigh", "activity": "investigate"},
-            {"ref": "a3", "kind": "attempt", "model_lane": "Luna Max", "activity": "execute"},
-            {"ref": "a4", "kind": "attempt", "model_lane": "Sol High", "activity": "decide"},
-            {"ref": "a5", "kind": "reviewer_attempt", "model_lane": "Sol High", "activity": "review"},
+            {"ref": "a1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
+            {"ref": "a2", "kind": "attempt", "model_lane": "Terra XHigh", "model_evidence_source": "native", "activity": "investigate"},
+            {"ref": "a3", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "execute"},
+            {"ref": "a4", "kind": "attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "decide"},
+            {"ref": "a5", "kind": "reviewer_attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "review"},
             {"ref": "r1", "kind": "review_round", "verdict": "passed"},
         ]
     )
@@ -429,6 +470,36 @@ def test_receipt_formatter_localizes_public_activity_without_internal_roles():
     english = module.format_receipt(summary, locale="en")
     assert "Dispatch: Luna Max Read · Terra XHigh Investigate · Luna Max Execute · Sol High Decide · Sol High Review" in english
     assert "Review: 1 round · passed" in english
+
+
+def test_receipt_persists_unique_events_and_requires_observed_model_evidence(tmp_path: Path):
+    module = load_module()
+    module.write_state(capsule(module, "thread-1"), temp_root=tmp_path)
+    event = {
+        "ref": "attempt:U1:A1",
+        "kind": "attempt",
+        "model_lane": "Luna Max",
+        "model_evidence_source": "native",
+        "activity": "execute",
+    }
+
+    module.persist_receipt_events("thread-1", [event], temp_root=tmp_path)
+    module.persist_receipt_events("thread-1", [event], temp_root=tmp_path)
+    persisted = module.load_state("thread-1", temp_root=tmp_path)
+
+    assert persisted["accounting_refs"] == [event]
+    assert module.account_receipt(persisted["accounting_refs"])["dispatch"] == [
+        {"model_lane": "Luna Max", "activity": "execute", "count": 1}
+    ]
+    with pytest.raises(module.ReceiptAccountingError, match="observed model evidence"):
+        module.account_receipt(
+            [{"ref": "attempt:U2:A1", "kind": "attempt", "model_lane": "Sol High", "activity": "decide"}]
+        )
+
+    unobserved = module.account_receipt(
+        [{"ref": "attempt:U3:A1", "kind": "attempt", "activity": "read"}]
+    )
+    assert module.format_receipt(unobserved, locale="en").startswith("Dispatch: Read")
 
 
 def test_zero_child_receipt_is_minimal_and_status_reconciliation_is_idempotent():

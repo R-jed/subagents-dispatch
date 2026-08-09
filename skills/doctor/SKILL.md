@@ -32,3 +32,19 @@ Use deterministic owners instead of reproducing their logic:
 Report Plugin, Skills, managed Agent profiles, dispatch state, Codex Host, and runtime route evidence separately as `OK`, `WARN`, `FAIL`, or `UNKNOWN`. Configuration is not runtime observation. Do not edit Codex config files directly, simulate missing Host controls, or delete ambiguous state. Do not invent App slash syntax or claim App-visible labels without direct observation.
 
 Use `scripts/doctor.py --check` for the deterministic report. Use `--runtime-evidence <file>` only when route evidence is explicitly required; it delegates normalization to `scripts/runtime-evidence.py` and keeps requested, accepted, and observed layers separate. `--repair`, `--migrate-legacy`, and `--cleanup-stale` are explicit mutation intents. Preserve unresolved writers and corrupt capsules for review.
+
+## Explicit live route workflow
+
+Run this workflow only when the user explicitly requests live route verification. The Doctor Skill—not `scripts/doctor.py`—may create five bounded native children, one for each exact configured role:
+
+```text
+subagents_dispatch_reader
+subagents_dispatch_worker
+subagents_dispatch_solver
+subagents_dispatch_investigator
+subagents_dispatch_advisor
+```
+
+Spawn each controlled child with `fork_turns = none`, delegation depth one, a no-op verification responsibility, and no authority beyond what the role check requires. Capture requested route, Host-accepted role identity, parent/root identity, child identity, and only the model, effort, and permission facts the Host actually exposes. Stop or settle every smoke child before returning.
+
+Normalize each role record through `scripts/runtime-evidence.py`. Report configured, accepted, and observed layers separately. A matching accepted role is not observed runtime proof. If model, effort, ancestry, or permission evidence is unavailable, report that field and the affected verdict as `UNKNOWN`; never copy configured values into observed columns. Any observed mismatch is `FAIL` and quarantines only that route claim.

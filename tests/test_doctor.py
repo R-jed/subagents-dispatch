@@ -59,6 +59,22 @@ def test_doctor_reports_exact_six_layers_and_unobserved_runtime_is_not_unhealthy
     assert "Layer: Runtime route evidence: UNKNOWN" in output
     assert "not run" in output
 
+    json_result = run_doctor(
+        home,
+        "--check",
+        "--json",
+        "--temp-root",
+        str(tmp_path / "temp"),
+        env={"CODEX_THREAD_ID": "doctor-test"},
+    )
+    report = json.loads(json_result.stdout)
+    profiles = next(layer for layer in report["layers"] if layer["name"] == "Managed Agent profiles")
+    state = next(layer for layer in report["layers"] if layer["name"] == "Dispatch state")
+    assert profiles["details"]["legacy_status"] == "migration_complete"
+    assert state["details"]["state_lock_health"] == "not_present"
+    assert state["details"]["schema_health"] == "ok"
+    assert state["details"]["unexpected_repository_state"] == []
+
 
 def test_doctor_explicit_runtime_evidence_keeps_configured_and_observed_distinct(tmp_path: Path):
     home = tmp_path / "codex-home"
@@ -80,6 +96,41 @@ def test_doctor_explicit_runtime_evidence_keeps_configured_and_observed_distinct
     assert "Layer: Runtime route evidence: UNKNOWN" in result.stdout
     assert "configured/requested" in result.stdout
     assert "observed runtime route was not reported" in result.stdout
+
+
+def test_doctor_accepts_agreeing_native_and_local_route_evidence(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    evidence = tmp_path / "runtime.json"
+    route = {
+        "thread_id": "11111111-1111-7111-8111-111111111111",
+        "parent_thread_id": "22222222-2222-7222-8222-222222222222",
+        "agent_role": "subagents_dispatch_worker",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "sandbox_policy_type": "workspace-write",
+        "permission_profile_type": "default",
+    }
+    evidence.write_text(
+        json.dumps(
+            {
+                "subject": "child",
+                "expected": {
+                    **route,
+                    "runtime_observation_required": True,
+                    "requires_enforced_read_only": False,
+                },
+                "native": route,
+                "local": route,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_doctor(home, "--check", "--runtime-evidence", str(evidence))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Layer: Runtime route evidence: OK" in result.stdout
 
 
 def test_doctor_preserves_corrupt_dispatch_state(tmp_path: Path):

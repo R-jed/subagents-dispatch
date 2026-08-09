@@ -62,7 +62,7 @@ Canonical control entry names remain `Status`, `Steer`, and `Takeover` so the re
 
 ## Dispatch axis
 
-The Dispatch axis reports materialized delegated work passes in first-materialization order, aggregated by model lane plus public activity.
+The Dispatch axis reports materialized delegated work passes in first-materialization order. It includes a model lane only when current native runtime evidence observed that model; otherwise it reports the public activity without a model name.
 
 Chinese example:
 
@@ -114,6 +114,10 @@ followup:U1:A1:F1
 attempt:U2:A1
 review:U3:A1
 ```
+
+The active root-thread capsule stores the structured event bound to each reference. `persist_receipt_events` merges and writes those events under the state lock; identical references are idempotent and conflicting reuse of one reference fails closed. Visible totals are always derived from the persisted unique events.
+
+A materialized event may include `model_lane` only with `model_evidence_source: native` or `both`. Requested, configured, accepted, or local-only route values must not appear as observed model facts in a receipt.
 
 Aggregation is derived from unique materialized references plus their role/activity binding. Seeing the same Host event again after resume must not increment the visible count twice.
 

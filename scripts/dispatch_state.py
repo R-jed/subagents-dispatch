@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import copy
 import errno
-import fcntl
 import json
 import os
 import re
@@ -284,6 +283,13 @@ def validate_state_payload(
     if not isinstance(payload.get("controls"), list):
         raise StatePayloadError("controls must be an array")
     _validate_units(payload["units"])
+    try:
+        unique_accounting = _unique_receipt_events(payload["accounting_refs"])
+        account_receipt(unique_accounting)
+    except ReceiptAccountingError as exc:
+        raise StatePayloadError(f"invalid accounting_refs: {exc}") from exc
+    if len(unique_accounting) != len(payload["accounting_refs"]):
+        raise StatePayloadError("accounting_refs must contain unique stable refs")
     for field in ("created_at", "updated_at"):
         try:
             _parse_timestamp(payload.get(field))
@@ -394,21 +400,42 @@ def state_lock(
         descriptor = os.open(lock_path, flags, 0o600)
     except OSError as exc:
         raise StateLockError(f"cannot open state lock: {exc}") from exc
+    locked = False
     try:
-        os.fchmod(descriptor, 0o600)
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, 0o600)
         if not stat.S_ISREG(os.fstat(descriptor).st_mode):
             raise StateLockError("state lock must be a regular file")
-        operation = fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB)
         try:
-            fcntl.flock(descriptor, operation)
+            if os.name == "nt":
+                import msvcrt
+
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                operation = msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK
+                msvcrt.locking(descriptor, operation, 1)
+            else:
+                import fcntl
+
+                operation = fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB)
+                fcntl.flock(descriptor, operation)
+            locked = True
         except OSError as exc:
-            if exc.errno in {errno.EACCES, errno.EAGAIN}:
+            if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
                 raise StateLockError("state is already locked") from exc
             raise StateLockError(f"cannot acquire state lock: {exc}") from exc
         yield
     finally:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            if locked:
+                if os.name == "nt":
+                    import msvcrt
+
+                    os.lseek(descriptor, 0, os.SEEK_SET)
+                    msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(descriptor, fcntl.LOCK_UN)
         finally:
             os.close(descriptor)
 
@@ -417,18 +444,20 @@ def _write_unlocked(path: Path, encoded: bytes) -> None:
     descriptor, temporary_name = tempfile.mkstemp(prefix=".active.", suffix=".tmp", dir=path.parent)
     temporary = Path(temporary_name)
     try:
-        os.fchmod(descriptor, 0o600)
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "wb", closefd=True) as stream:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
         os.chmod(path, 0o600)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        if os.name != "nt":
+            directory_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -788,11 +817,29 @@ def cleanup_stale_states(
             report["fresh"].append(identity)
             continue
         active = any(record["control_state"] in ACTIVE_STATES for record in _latest_units(payload))
-        if active and (can_discard_active is None or not can_discard_active(payload)):
+        active_discard_approved = bool(
+            active and can_discard_active is not None and can_discard_active(payload)
+        )
+        if active and not active_discard_approved:
             report["retained_active"].append(identity)
             continue
-        remove_state(identity, temp_root=temp_root)
-        report["removed"].append(identity)
+        with state_lock(identity, temp_root=temp_root):
+            current = load_state(identity, temp_root=temp_root)
+            if current is None:
+                continue
+            if not is_stale(current, now=now, stale_after=stale_after):
+                report["fresh"].append(identity)
+                continue
+            current_active = any(
+                record["control_state"] in ACTIVE_STATES for record in _latest_units(current)
+            )
+            if current_active and (not active_discard_approved or current != payload):
+                report["retained_active"].append(identity)
+                continue
+            _, _, path, _ = _paths(identity, temp_root, create=True)
+            _reject_symlink(path, "state file")
+            path.unlink()
+            report["removed"].append(identity)
     return report
 
 
@@ -842,7 +889,7 @@ def account_receipt(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Derive receipt axes from stable materialization refs, never mutable counters."""
     unique = _unique_receipt_events(events)
     dispatch: list[dict[str, Any]] = []
-    dispatch_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    dispatch_by_key: dict[tuple[str | None, str], dict[str, Any]] = {}
     controls: list[dict[str, Any]] = []
     controls_by_action: dict[str, dict[str, Any]] = {}
     focused_followups = 0
@@ -858,8 +905,13 @@ def account_receipt(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         if kind in {"attempt", "followup", "reviewer_attempt"}:
             model_lane = event.get("model_lane")
             activity = event.get("activity")
-            if not _nonempty(model_lane) or activity not in PUBLIC_ACTIVITIES:
-                raise ReceiptAccountingError(f"materialized event {event['ref']} lacks public lane/activity")
+            if activity not in PUBLIC_ACTIVITIES:
+                raise ReceiptAccountingError(f"materialized event {event['ref']} lacks public activity")
+            if model_lane is not None:
+                if not _nonempty(model_lane) or event.get("model_evidence_source") not in {"native", "both"}:
+                    raise ReceiptAccountingError(
+                        f"materialized event {event['ref']} lacks observed model evidence"
+                    )
             key = (model_lane, activity)
             aggregate = dispatch_by_key.get(key)
             if aggregate is None:
@@ -913,6 +965,33 @@ def account_receipt(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def persist_receipt_events(
+    thread_id: str | None,
+    events: Sequence[Mapping[str, Any]],
+    *,
+    temp_root: str | os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    now: datetime | str | None = None,
+) -> dict[str, Any]:
+    """Atomically persist unique receipt events in the active root-thread capsule."""
+    incoming = _unique_receipt_events(events)
+    account_receipt(incoming)
+    identity = resolve_thread_id(thread_id)
+    with state_lock(identity, temp_root=temp_root):
+        payload = load_state(identity, temp_root=temp_root, max_bytes=max_bytes)
+        if payload is None:
+            raise ReceiptAccountingError("active dispatch state is unavailable")
+        merged = _unique_receipt_events([*payload["accounting_refs"], *incoming])
+        account_receipt(merged)
+        payload["accounting_refs"] = merged
+        _touch(payload, now)
+        validate_state_payload(payload, thread_id=identity, max_bytes=max_bytes)
+        encoded = _serialized_payload(payload, max_bytes=max_bytes)
+        _, _, path, _ = _paths(identity, temp_root, create=True)
+        _write_unlocked(path, encoded)
+        return payload
+
+
 ACTIVITY_LABELS = {
     "zh": {
         "read": "读取",
@@ -960,7 +1039,8 @@ def format_receipt(summary: Mapping[str, Any], *, locale: str) -> str:
     for item in summary["dispatch"]:
         count = item["count"]
         suffix = f"×{count}" if count > 1 else ""
-        dispatch_parts.append(f"{item['model_lane']} {activity_labels[item['activity']]}{suffix}")
+        model = f"{item['model_lane']} " if item["model_lane"] is not None else ""
+        dispatch_parts.append(f"{model}{activity_labels[item['activity']]}{suffix}")
     lines = [("编排: " if locale == "zh" else "Dispatch: ") + " · ".join(dispatch_parts)]
 
     controls = summary.get("controls", [])

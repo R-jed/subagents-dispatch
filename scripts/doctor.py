@@ -19,6 +19,7 @@ if sys.platform == "win32":
 from dispatch_state import (  # type: ignore[import-not-found]
     ACTIVE_STATES,
     DEFAULT_STALE_AFTER,
+    LOCK_FILE,
     STATE_DIRECTORY,
     StateCorruptError,
     StateIdentityError,
@@ -43,7 +44,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_MANIFEST = ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE_MANIFEST = ROOT / ".agents" / "plugins" / "marketplace.json"
 EXPECTED_SKILLS = ("dispatch", "preview", "status", "steer", "takeover", "doctor")
-EXPECTED_VERSION = "2.1.2"
 
 
 def fail(message: str) -> None:
@@ -129,7 +129,8 @@ def diagnose_plugin() -> dict[str, Any]:
     mismatches: list[str] = []
     if payload.get("name") != "subagents-dispatch":
         mismatches.append("name")
-    if payload.get("version") != EXPECTED_VERSION:
+    version = payload.get("version")
+    if not isinstance(version, str) or not version.strip():
         mismatches.append("version")
     if payload.get("skills") != "./skills/":
         mismatches.append("skills path")
@@ -141,14 +142,14 @@ def diagnose_plugin() -> dict[str, Any]:
     assert marketplace is not None
     plugins = marketplace.get("plugins")
     source = plugins[0].get("source") if isinstance(plugins, list) and plugins and isinstance(plugins[0], dict) else None
-    if not isinstance(source, dict) or source.get("ref") != f"v{EXPECTED_VERSION}":
+    if not isinstance(source, dict) or source.get("ref") != f"v{version}":
         return _layer(
             "Plugin",
             "FAIL",
             "marketplace source is not pinned to the packaged release",
-            expected_ref=f"v{EXPECTED_VERSION}",
+            expected_ref=f"v{version}",
         )
-    return _layer("Plugin", "OK", "manifest and packaged identity match", version=EXPECTED_VERSION)
+    return _layer("Plugin", "OK", "manifest and packaged identity match", version=version)
 
 
 def diagnose_skills() -> dict[str, Any]:
@@ -204,8 +205,19 @@ def check_current_installation(codex_home: Path) -> tuple[bool, list[str]]:
 
 def diagnose_profiles(codex_home: Path) -> dict[str, Any]:
     healthy, issues = check_current_installation(codex_home)
+    legacy = detect_legacy_state(codex_home)
+    legacy_status = format_migration_state(legacy)
+    legacy_requires_review = legacy.legacy_only or legacy.mixed or legacy.ownership_unknown
     if healthy:
-        return _layer("Managed Agent profiles", "OK", "installer --check passed", verifier="install-agents.py --check")
+        return _layer(
+            "Managed Agent profiles",
+            "WARN" if legacy_requires_review else "OK",
+            "installer --check passed; legacy state requires explicit review"
+            if legacy_requires_review
+            else "installer --check passed",
+            verifier="install-agents.py --check",
+            legacy_status=legacy_status,
+        )
     detail = " ".join(issues)
     status = "WARN" if "Not installed" in detail or "missing" in detail.lower() else "FAIL"
     return _layer(
@@ -214,6 +226,7 @@ def diagnose_profiles(codex_home: Path) -> dict[str, Any]:
         "installer --check did not report an exact managed set",
         issues=issues,
         verifier="install-agents.py --check",
+        legacy_status=legacy_status,
     )
 
 
@@ -251,6 +264,18 @@ def _state_entries(temp_root: Path) -> tuple[Path | None, list[Path], str | None
     return root, sorted(root.iterdir(), key=lambda item: item.name), None
 
 
+def _unexpected_repository_state() -> list[str]:
+    ignored = {".git", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__"}
+    unexpected: list[str] = []
+    for path in ROOT.rglob("active.json"):
+        relative = path.relative_to(ROOT)
+        if any(part in ignored for part in relative.parts):
+            continue
+        if STATE_DIRECTORY in relative.parts[:-1]:
+            unexpected.append(relative.as_posix())
+    return sorted(unexpected)
+
+
 def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str, Any]:
     root, entries, root_error = _state_entries(temp_root)
     if root_error:
@@ -274,6 +299,8 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
     stale: list[str] = []
     active_writers: list[str] = []
     ambiguous_writers: list[str] = []
+    active_units: list[str] = []
+    lock_issues: list[str] = []
     readable = 0
     for entry in entries:
         if entry.is_symlink() or not entry.is_dir():
@@ -292,6 +319,11 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
         if payload is None:
             continue
         readable += 1
+        lock_path = entry / LOCK_FILE
+        if lock_path.is_symlink() or (lock_path.exists() and not lock_path.is_file()):
+            lock_issues.append(entry_id)
+        elif not lock_path.exists():
+            lock_issues.append(entry_id)
         try:
             if is_stale(payload):
                 stale.append(entry_id)
@@ -299,6 +331,11 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
             corrupt.append(entry_id)
             continue
         latest = _latest_units(payload)
+        active_units.extend(
+            f"{entry_id}:{record.get('unit_id', '?')}"
+            for record in latest
+            if record.get("control_state") in ACTIVE_STATES
+        )
         writers = [
             record
             for record in latest
@@ -309,34 +346,44 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
             if len(writers) > 1:
                 ambiguous_writers.append(entry_id)
 
-    if corrupt or unsafe:
+    details = {
+        "current_thread": identity,
+        "current_state": "present" if any(entry.name == identity for entry in entries) else "absent",
+        "active_orchestration": bool(active_units),
+        "active_units": sorted(set(active_units)),
+        "stale_count": len(set(stale)),
+        "state_lock_health": "issue" if lock_issues else ("ok" if entries else "not_present"),
+        "lock_issues": sorted(set(lock_issues)),
+        "schema_health": "issue" if corrupt else "ok",
+        "unexpected_repository_state": _unexpected_repository_state(),
+        "mutated": False,
+    }
+    if corrupt or unsafe or details["unexpected_repository_state"]:
         return _layer(
             "Dispatch state",
             "FAIL",
             "corrupt or unsafe state is preserved for explicit review",
             corrupt=sorted(set(corrupt)),
             unsafe=sorted(set(unsafe)),
-            mutated=False,
+            **details,
         )
-    if stale or active_writers or ambiguous_writers:
+    if stale or active_writers or ambiguous_writers or lock_issues:
         return _layer(
             "Dispatch state",
             "WARN",
             "stale or unresolved writer state is retained; no automatic deletion occurred",
-            current_thread=identity,
             stale=sorted(set(stale)),
             active_writers=sorted(set(active_writers)),
             ambiguous_writers=sorted(set(ambiguous_writers)),
             stale_after_days=int(DEFAULT_STALE_AFTER.total_seconds() // 86400),
-            mutated=False,
+            **details,
         )
     return _layer(
         "Dispatch state",
         "OK",
         "thread-scoped state is absent or valid",
-        current_thread=identity,
         capsules_read=readable,
-        mutated=False,
+        **details,
     )
 
 
@@ -390,7 +437,7 @@ def _runtime_status(result: dict[str, Any]) -> tuple[str, str]:
         return "FAIL", "runtime route evidence conflicts with the requested or accepted route"
     route = result.get("route_evidence", {})
     source = route.get("source") if isinstance(route, dict) else None
-    if status in {"observed", "matched"} and source == "native":
+    if status in {"observed", "matched"} and source in {"native", "both"}:
         return "OK", "observed runtime route evidence is consistent"
     if status in {"observed", "matched", "partial", "not_exposed", "not_observed"}:
         return "UNKNOWN", "configured/requested values are not observed runtime proof; observed runtime route was not reported"

@@ -62,3 +62,18 @@ def test_plugin_starter_prompts_cover_all_skills_without_guessed_slash_syntax():
     for label in ["Dispatch", "Preview", "Status", "Steer", "Takeover", "Doctor"]:
         assert label in prompts
     assert not re.search(r"(?<![A-Za-z0-9_.-])/(?:dispatch|preview|status|steer|takeover|doctor)\b", prompts, re.I)
+
+
+def test_doctor_skill_defines_explicit_five_role_live_route_workflow():
+    skill = (SKILLS / "doctor" / "SKILL.md").read_text(encoding="utf-8")
+    for role in [
+        "subagents_dispatch_reader",
+        "subagents_dispatch_worker",
+        "subagents_dispatch_solver",
+        "subagents_dispatch_investigator",
+        "subagents_dispatch_advisor",
+    ]:
+        assert role in skill
+    assert "fork_turns = none" in skill
+    assert "scripts/runtime-evidence.py" in skill
+    assert "UNKNOWN" in skill
