@@ -902,6 +902,7 @@ RECEIPT_EVENT_KINDS = {
 }
 PUBLIC_ACTIVITIES = {"read", "investigate", "execute", "decide", "review"}
 MATERIALIZED_EVENT_KINDS = {"attempt", "followup", "reviewer_attempt"}
+REVIEW_ARTIFACT_PATTERN = re.compile(r"sha256:[0-9a-f]{64}\Z")
 REVIEW_VERDICTS = {
     "passed",
     "rework_required",
@@ -967,9 +968,29 @@ def account_receipt(
         (record.get("unit_id"), record.get("attempt")): record
         for record in materialized_units or []
     }
+    followup_event_keys = {
+        (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
+        for event in unique
+        if event["kind"] == "followup"
+    }
+    reviewer_event_keys = {
+        (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
+        for event in unique
+        if event["kind"] == "reviewer_attempt"
+    }
+    gap_review_artifacts = {
+        event.get("review_artifact_id")
+        for event in unique
+        if event["kind"] == "review_round"
+        and event.get("verdict") in {"rework_required", "redesign_required"}
+    }
     attempt_keys: set[tuple[str, int, str]] = set()
     followup_keys: set[tuple[str, int, str]] = set()
     retry_keys: set[tuple[str, int, str]] = set()
+    rework_keys: set[tuple[str, int, str]] = set()
+    review_keys: set[tuple[str, int, str]] = set()
+    review_artifacts: set[str] = set()
+    recovery_keys: set[tuple[str, str, int, str]] = set()
     for event in unique:
         kind = event["kind"]
         if kind in MATERIALIZED_EVENT_KINDS:
@@ -1039,16 +1060,51 @@ def account_receipt(
             retry_keys.add(retry_key)
             retries += 1
         elif kind == "semantic_rework":
+            correction_key = (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
+            artifact_id = event.get("review_artifact_id")
+            if correction_key not in followup_event_keys or artifact_id not in gap_review_artifacts:
+                raise ReceiptAccountingError(
+                    f"rework event {event['ref']} requires a materialized correction and bound review gap"
+                )
+            if correction_key in rework_keys:
+                raise ReceiptAccountingError(f"duplicate rework for event {event['ref']}")
+            rework_keys.add(correction_key)
             semantic_reworks += 1
         elif kind == "review_round":
             verdict = event.get("verdict")
             if verdict not in REVIEW_VERDICTS:
                 raise ReceiptAccountingError(f"review event {event['ref']} has invalid verdict")
+            review_key = (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
+            artifact_id = event.get("review_artifact_id")
+            if (
+                review_key not in reviewer_event_keys
+                or not isinstance(artifact_id, str)
+                or REVIEW_ARTIFACT_PATTERN.fullmatch(artifact_id) is None
+            ):
+                raise ReceiptAccountingError(
+                    f"review event {event['ref']} requires a materialized reviewer and artifact identity"
+                )
+            if review_key in review_keys or artifact_id in review_artifacts:
+                raise ReceiptAccountingError(f"duplicate review round for event {event['ref']}")
+            review_keys.add(review_key)
+            review_artifacts.add(artifact_id)
             review_rounds += 1
             review_verdict = verdict
         elif kind == "recovery":
-            if not _nonempty(event.get("action")):
-                raise ReceiptAccountingError(f"recovery event {event['ref']} requires action")
+            action = event.get("action")
+            recovery_identity = (
+                event.get("unit_id"),
+                event.get("attempt"),
+                event.get("agent_id"),
+            )
+            recovery_key = (action, *recovery_identity)
+            if action != "rebind" or materialized_keys is None or recovery_identity not in materialized_keys:
+                raise ReceiptAccountingError(
+                    f"recovery event {event['ref']} requires a materialized rebind identity"
+                )
+            if recovery_key in recovery_keys:
+                raise ReceiptAccountingError(f"duplicate recovery for event {event['ref']}")
+            recovery_keys.add(recovery_key)
             recoveries += 1
         elif kind == "control":
             action = event.get("action")

@@ -160,7 +160,7 @@ A control action does not create a delegated work pass by itself.
 
 The Review axis reports the independent Final Review loop only. It does not claim that the overall user task is complete.
 
-A review round exists only when a fresh independent review produces an actual review verdict against the bound candidate.
+A review round exists only when a materialized fresh independent reviewer produces an actual verdict against the exact candidate. The round binds the reviewer `unit_id`, `attempt`, and `agent_id` plus the candidate's `review_artifact_id`; one reviewer attempt and one artifact identity can each contribute at most one round.
 
 Chinese states may include:
 
@@ -198,9 +198,13 @@ a candidate or complete delegated result exists
 -> a correction pass actually begins
 ```
 
+The rework event binds that materialized focused follow-up and the `review_artifact_id` of the review round that reported the concrete gap. An unbound claim is not a rework.
+
 Runtime failure, timeout, tool failure, or a replacement Agent attempt is not rework.
 
 Recovery retry increments only when a confirmed materialized Agent attempt is replaced under the bounded Recovery contract: the first attempt is confirmed `FAILED`, and its replacement is the materialized second attempt. The retry event carries and matches that replacement's exact `unit_id`, `attempt=2`, and `agent_id`; duplicate refs cannot recount the same replacement. A pre-child spawn rejection is never a retry.
+
+A runtime rebind recovery fact likewise carries the exact materialized `unit_id`, `attempt`, and `agent_id`. Unsupported, unbound, or duplicate generic recovery claims fail closed.
 
 When retry occurred, add an exceptional line:
 
