@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.1-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.2-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/Codex-Native%20Subagents-111827.svg" alt="Codex Native Subagents">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
@@ -24,14 +24,12 @@ subagents-dispatch is a Codex plugin that hands the right work to a specialist A
 
 ## Quick start
 
-You ask Codex to add pagination to `/api/users` and write the tests.
+In the Codex App, type `/` to open the Skill menu and choose **Subagents Dispatch**, then enter the task.
 
-Without the plugin, the main session does everything itself: reads the code, changes the implementation, writes the tests, one step at a time.
+For example:
 
-With it, one line is enough:
-
-```
-/dispatch Add pagination to /api/users, with tests
+```text
+Add pagination to /api/users, with tests
 ```
 
 Main decides what is worth splitting. For example, one Reader can inspect the existing API while another Reader inspects the related tests, so those read-only tasks can run in parallel. Once the evidence is clear, one Worker can make the implementation and test changes. Read-only discovery may run concurrently, but the same checkout never has two active writers. Main then checks, integrates, and delivers.
@@ -40,35 +38,37 @@ Simple tasks are not force-split to look collaborative. A subagent only starts w
 
 ## Control surface
 
-Preview the delegation plan without spawning:
+Choose **Subagents Dispatch** from the `/` menu, then use these control intents.
 
-```
-/dispatch preview Add pagination to /api/users, with tests
+Preview without spawning:
+
+```text
+preview Add pagination to /api/users, with tests
 ```
 
 Check status during execution:
 
-```
-/dispatch status
+```text
+status
 ```
 
 Guide a running Agent:
 
-```
-/dispatch steer U2: check existing pagination middleware first
+```text
+steer U2: check existing pagination middleware first
 ```
 
 Take back control:
 
-```
-/dispatch takeover U2
+```text
+takeover U2
 ```
 
 ## Compact execution receipt
 
 When a task spawns Agents, it ends with a one-line receipt:
 
-```
+```text
 Dispatch: Reader → Worker · complete · no retry · not required
 ```
 
@@ -113,9 +113,9 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Start a new Codex session after installing the Plugin. The first `/dispatch` task that actually needs a child automatically prepares subagents-dispatch's five managed Agent profiles without asking you to make a TOML-level setup decision. Codex loads custom-Agent registrations when a task starts, so that first setup task ends by asking you to open one fresh task and rerun the original `/dispatch`; it does not first attempt to spawn a role that the current task cannot see. After the profiles were present before task startup, later tasks can delegate normally.
+Start a new Codex session after installing the Plugin. The first task run through **Subagents Dispatch** that actually needs a child automatically prepares subagents-dispatch's five managed Agent profiles without asking you to make a TOML-level setup decision. Codex loads custom-Agent registrations when a task starts, so that first setup task ends by asking you to open one fresh task, choose **Subagents Dispatch** from the `/` menu again, and rerun the original request. It does not first attempt to spawn a role that the current task cannot see. After the profiles were present before task startup, later tasks can delegate normally.
 
-If an existing managed path is conflicting, modified without proven ownership, or unsafe, subagents-dispatch does not overwrite it and stops with `/doctor` guidance.
+If an existing managed path is conflicting, modified without proven ownership, or unsafe, subagents-dispatch does not overwrite it and stops with **Subagents Doctor** guidance.
 
 ## Uninstall
 
@@ -148,17 +148,13 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Or ask Doctor:
-
-```
-/doctor Upgrade subagents-dispatch
-```
+Or choose **Subagents Doctor** from the `/` menu and ask it to upgrade subagents-dispatch.
 
 Start a new Codex session after updating.
 
 ## Repository layout
 
-```
+```text
 .
 ├── .agents/plugins/                  # Codex Marketplace registration
 ├── .codex-plugin/                    # plugin manifest
@@ -166,8 +162,8 @@ Start a new Codex session after updating.
 ├── policy-contract.json              # role definitions and core constraints
 ├── scripts/                          # installer, validators, runtime evidence tools
 ├── skills/
-│   ├── dispatch/                     # main Skill, interaction controls, runtime rules
-│   └── doctor/                       # install diagnostics and upgrade
+│   ├── dispatch/                     # Subagents Dispatch Skill
+│   └── doctor/                       # Subagents Doctor Skill
 ├── docs/                             # architecture and runtime boundary docs
 ├── evals/                            # static and behavioral evaluation data
 └── tests/                            # regression tests
