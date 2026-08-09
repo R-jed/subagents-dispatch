@@ -54,17 +54,25 @@ def test_marketplace_plugin_source_is_bound_to_release_tag():
     }
 
 
-def test_release_checklist_keeps_static_host_and_distribution_gates_separate():
+def test_release_checklist_separates_repository_host_human_ui_and_distribution_evidence():
     text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
     for marker in [
+        "### Evidence ownership",
+        "Repository/API/CI evidence",
+        "Raw Host/rollout evidence",
+        "Direct human Codex App observation",
+        "Model self-report",
+        "cannot by itself close a Host/UI gate",
         "## 2. Repository gates",
         "## 3. Real Codex Host gates",
+        "Human App gate",
+        "record the exact rendered slash/menu labels",
         "RESTART_REQUIRED",
         "subagents_dispatch_reader",
         "subagents_dispatch_worker",
         "## 4. Hard release blockers",
         "## 5. Repository governance before tagging",
         "## 6. Tag, distribution smoke, and GitHub Release",
-        "Marketplace entry at the tag resolves the Plugin source from the same tag",
+        "Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch",
     ]:
         assert marker in text
