@@ -38,7 +38,7 @@ def test_skill_exposes_control_payloads_without_inventing_app_slash_syntax():
     assert "Preview performs no delegated execution or mutation" in text
 
 
-def test_preview_is_strictly_non_executing():
+def test_preview_is_strictly_non_executing_and_preserves_visible_obligations():
     text = INTERACTION.read_text(encoding="utf-8").lower()
     for phrase in [
         "child spawn        forbidden",
@@ -47,6 +47,9 @@ def test_preview_is_strictly_non_executing():
         "external action    forbidden",
         "persistent teamplan creation forbidden",
         "it is provisional",
+        "preserve the material obligations already visible",
+        "main-owned integration/verification seam",
+        "do not create a requirement ledger",
     ]:
         assert phrase in text
 
@@ -57,6 +60,17 @@ def test_preview_is_strictly_non_executing():
         "provision_agents": False,
         "mutate_source": False,
         "external_action": False,
+        "plan_is_provisional": True,
+    }
+
+    coverage = cases()["preview-preserves-visible-material-obligations"]["expected"]
+    assert coverage == {
+        "mode": "preview",
+        "material_obligation_preserved": True,
+        "visible_seam_owned": True,
+        "main_owned_seam_allowed": True,
+        "create_requirement_ledger": False,
+        "spawn_decorative_child": False,
         "plan_is_provisional": True,
     }
 
