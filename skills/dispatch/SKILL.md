@@ -7,7 +7,7 @@ description: Lead Codex Native Subagents with adaptive delegation, preview and l
 
 subagents-dispatch is a thin leadership layer over Codex Native Subagents. The current user-facing main session is the team leader and always owns the user's goal, authorization, team composition, integration, acceptance, and final response.
 
-The supported explicit user invocation is `$dispatch`; users may also choose **Dispatch** from `/skills`. A bare `/dispatch` slash command is not part of this Plugin contract. The user can preview the likely dispatch, inspect active work, steer one responsibility, or explicitly take a responsibility back into Main.
+The user does not choose an Agent count, model ladder, Luna/Terra/Sol sequence, or recovery strategy. The user can preview the likely dispatch, inspect active work, steer one responsibility, or explicitly take a responsibility back into Main.
 
 ## Runtime policy owners
 
@@ -48,14 +48,14 @@ Do not recreate these rules in another ledger or local taxonomy.
 
 Use `references/interaction.md`.
 
-Recognize these forms inside the explicitly invoked Dispatch Skill:
+Recognize these forms:
 
 ```text
-$dispatch preview <task>
-$dispatch status
-$dispatch steer <unit_id>: <guidance>
-$dispatch takeover <unit_id>
-$dispatch takeover <unit_id>: <guidance>
+/dispatch preview <task>
+/dispatch status
+/dispatch steer <unit_id>: <guidance>
+/dispatch takeover <unit_id>
+/dispatch takeover <unit_id>: <guidance>
 ```
 
 Preview performs no delegated execution or mutation. Status is one-shot inspection. Steering keeps the same responsibility and authority. Takeover settles the old owner before Main assumes that responsibility.
@@ -128,19 +128,19 @@ Handle the result conservatively:
 -> the on-disk profiles are exact while the current task cannot use that role
 -> readiness outcome: RESTART_REQUIRED
 -> do not attempt spawn_agent in this task
--> ask for one fresh Codex task/session and rerun the original $dispatch request
+-> ask for one fresh Codex task/session and rerun the original /dispatch request
 
 --check reports a clean Not installed state
--> explicit $dispatch already authorizes routine first-use provisioning of only the plugin-owned managed paths
+-> explicit /dispatch already authorizes routine first-use provisioning of only the plugin-owned managed paths
 -> run the installer, then --check
 -> if both succeed: RESTART_REQUIRED
 -> do not attempt spawn_agent in this task
--> ask for one fresh Codex task/session and rerun the original $dispatch request
+-> ask for one fresh Codex task/session and rerun the original /dispatch request
 
 --check reports collision, unsafe path, modified/unowned state, invalid ownership metadata, or another non-clean failure
 -> USER_ACTION_REQUIRED
 -> do not overwrite, repair, substitute a role, or spawn a child
--> report the exact failure and direct the user to $doctor when useful
+-> report the exact failure and direct the user to /doctor when useful
 ```
 
 Routine provisioning may manage only subagents-dispatch's five fixed native custom-Agent profiles plus its ownership manifest and installer lock. It does not authorize `config.toml`, credentials, MCP configuration, repositories, unrelated Agent profiles, broader repair, migration, or upgrade mutation. Those boundaries live in `references/guardrails.md`.

@@ -5,9 +5,7 @@ description: Diagnose subagents-dispatch installation, Codex host and marketplac
 
 # doctor
 
-Use this Skill for subagents-dispatch installation, configuration, Marketplace, managed-profile, legacy-migration, repair, and upgrade work. Development routing remains owned by `$dispatch`.
-
-The supported explicit invocation is `$doctor`; users may also choose **Doctor** from `/skills`. A bare `/doctor` slash command is not part of the Plugin contract.
+Use this Skill for subagents-dispatch installation, configuration, Marketplace, managed-profile, legacy-migration, repair, and upgrade work. Development routing remains owned by `/dispatch`.
 
 Diagnosis is read-only by default. Do not mutate Plugin, Marketplace, Codex configuration, or Agent profile state unless the user explicitly asks to install, repair, migrate, or upgrade. Never edit Codex config files directly when the supported Codex CLI can perform the operation. Do not use `marketplace remove` as a generic reset.
 
@@ -16,8 +14,8 @@ Diagnosis is read-only by default. Do not mutate Plugin, Marketplace, Codex conf
 ```text
 marketplace: subagents-dispatch
 plugin:      subagents-dispatch@subagents-dispatch
-main skill:  dispatch  (explicit: $dispatch; picker: /skills -> Dispatch)
-doctor:      doctor    (explicit: $doctor; picker: /skills -> Doctor)
+main skill:  /dispatch (internal: /subagents-dispatch:dispatch)
+doctor:      /doctor   (internal: /subagents-dispatch:doctor)
 ```
 
 The managed-profile installer is:
@@ -104,7 +102,7 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Then start a fresh Codex session and invoke `$doctor` again against the installed package.
+Then start a fresh Codex session and run `/doctor` again against the installed package.
 
 ## Upgrade Plugin
 
@@ -115,7 +113,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-After upgrade, start a fresh Codex session and invoke `$doctor` again. The new Doctor should run its own installer checks and legacy diagnostics before repairing profiles. This prevents an older running package from writing newer managed state.
+After upgrade, start a fresh Codex session and invoke `/doctor` again. The new Doctor should run its own installer checks and legacy diagnostics before repairing profiles. This prevents an older running package from writing newer managed state.
 
 ## Report
 
