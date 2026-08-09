@@ -200,7 +200,7 @@ a candidate or complete delegated result exists
 
 Runtime failure, timeout, tool failure, or a replacement Agent attempt is not rework.
 
-Recovery retry increments only when a confirmed materialized Agent attempt is replaced under the bounded Recovery contract. A pre-child spawn rejection is never a retry.
+Recovery retry increments only when a confirmed materialized Agent attempt is replaced under the bounded Recovery contract: the first attempt is confirmed `FAILED`, and its replacement is the materialized second attempt. The retry event carries and matches that replacement's exact `unit_id`, `attempt=2`, and `agent_id`; duplicate refs cannot recount the same replacement. A pre-child spawn rejection is never a retry.
 
 When retry occurred, add an exceptional line:
 

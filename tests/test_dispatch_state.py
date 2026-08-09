@@ -526,6 +526,8 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     module = load_module()
     materialized = [
         {"unit_id": "U1", "attempt": 1, "agent_id": "agent-1"},
+        {"unit_id": "U2", "attempt": 1, "agent_id": "agent-2a", "control_state": "FAILED"},
+        {"unit_id": "U2", "attempt": 2, "agent_id": "agent-2b", "control_state": "RUNNING"},
         {"unit_id": "U3", "attempt": 1, "agent_id": "agent-3"},
         {"unit_id": "U3", "attempt": 2, "agent_id": "agent-4"},
     ]
@@ -533,7 +535,7 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
         receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
         receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
         receipt_event("followup:U1:A1:F1", "followup", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="execute"),
-        {"ref": "retry:U2:A2", "kind": "retry"},
+        receipt_event("retry:U2:A2", "retry", "U2", 2, "agent-2b"),
         receipt_event("review-attempt:U3:A1", "reviewer_attempt", "U3", 1, "agent-3", model_lane="Sol High", model_evidence_source="native", activity="review"),
         {"ref": "review-round:U3:R1", "kind": "review_round", "verdict": "rework_required"},
         {"ref": "rework:U2:R1", "kind": "semantic_rework"},
@@ -638,6 +640,12 @@ def test_receipt_persists_unique_events_and_requires_observed_model_evidence(tmp
         module.persist_receipt_events(
             "thread-1",
             [{**event, "ref": "attempt:duplicate-ref"}],
+            temp_root=tmp_path,
+        )
+    with pytest.raises(module.ReceiptAccountingError, match="materialized replacement"):
+        module.persist_receipt_events(
+            "thread-1",
+            [receipt_event("retry:U999:A2", "retry", "U999", 2, "agent-999")],
             temp_root=tmp_path,
         )
     with pytest.raises(module.ReceiptAccountingError, match="observed model evidence"):

@@ -963,8 +963,13 @@ def account_receipt(
     materialized_keys = (
         _materialized_unit_keys(materialized_units) if materialized_units is not None else None
     )
+    unit_attempts = {
+        (record.get("unit_id"), record.get("attempt")): record
+        for record in materialized_units or []
+    }
     attempt_keys: set[tuple[str, int, str]] = set()
     followup_keys: set[tuple[str, int, str]] = set()
+    retry_keys: set[tuple[str, int, str]] = set()
     for event in unique:
         kind = event["kind"]
         if kind in MATERIALIZED_EVENT_KINDS:
@@ -1012,6 +1017,26 @@ def account_receipt(
             if kind == "reviewer_attempt":
                 reviewer_attempts += 1
         elif kind == "retry":
+            unit_id = event.get("unit_id")
+            attempt = event.get("attempt")
+            agent_id = event.get("agent_id")
+            retry_key = (unit_id, attempt, agent_id)
+            prior = unit_attempts.get((unit_id, 1))
+            if (
+                attempt != 2
+                or not _nonempty(unit_id)
+                or not _nonempty(agent_id)
+                or materialized_keys is None
+                or retry_key not in materialized_keys
+                or prior is None
+                or prior.get("control_state") != "FAILED"
+            ):
+                raise ReceiptAccountingError(
+                    f"retry event {event['ref']} requires a failed first attempt and materialized replacement"
+                )
+            if retry_key in retry_keys:
+                raise ReceiptAccountingError(f"duplicate retry for event {event['ref']}")
+            retry_keys.add(retry_key)
             retries += 1
         elif kind == "semantic_rework":
             semantic_reworks += 1
