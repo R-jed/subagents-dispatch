@@ -35,18 +35,20 @@ def current_version() -> str:
     return json.loads(MANIFEST.read_text(encoding="utf-8"))["version"]
 
 
-def test_skill_and_openai_metadata_keep_one_explicit_entrypoint():
+def test_skill_and_openai_metadata_keep_prefixed_explicit_identity():
     skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
     match = re.match(r"^---\n(.*?)\n---\n", skill, re.S)
     assert match
     frontmatter = yaml.safe_load(match.group(1))
-    assert frontmatter["name"] == "dispatch"
+    assert frontmatter["name"] == "subagents-dispatch"
     assert frontmatter["description"].strip()
 
     openai = yaml.safe_load((SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8"))
-    assert openai["interface"]["display_name"] == "Dispatch"
-    assert "/subagents-dispatch:dispatch" in openai["interface"]["default_prompt"]
+    assert openai["interface"]["display_name"] == "Subagents Dispatch"
+    assert "Subagents Dispatch" in openai["interface"]["default_prompt"]
     assert openai["policy"]["allow_implicit_invocation"] is False
+    for stale in ["$dispatch", "/dispatch", "/subagents-dispatch:dispatch"]:
+        assert stale not in openai["interface"]["default_prompt"]
 
 
 def test_policy_contract_is_the_single_machine_role_source():
@@ -151,11 +153,15 @@ def test_public_docs_keep_product_identity_while_ai_reference_points_to_policy_o
     for name, directive in directives.items():
         text = (ROOT / name).read_text(encoding="utf-8")
         assert directive in text
-        assert "/dispatch" in text
+        assert "Subagents Dispatch" in text
+        assert "Subagents Doctor" in text
+        assert "`/`" in text
         assert version in text
         assert "Sol Solver" in text
-        assert "/dispatch preview" in text
-        assert "/dispatch takeover" in text
+        assert "preview" in text
+        assert "takeover" in text
+        assert "$dispatch" not in text
+        assert "$doctor" not in text
 
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     assert f"Current version:     {version}" in ai
@@ -163,27 +169,25 @@ def test_public_docs_keep_product_identity_while_ai_reference_points_to_policy_o
         assert name in ai
 
 
-def test_canonical_docs_use_user_command_not_namespaced_identity():
-    user_facing_files = {
-        REFS / "interaction.md": ["/dispatch"],
-        REFS / "guardrails.md": ["/dispatch"],
-        REFS / "final-review.md": ["/dispatch"],
-        ROOT / "docs" / "native-subagent-runtime.md": ["/dispatch"],
-    }
-    for path, required in user_facing_files.items():
+def test_canonical_docs_do_not_leak_unverified_namespaced_or_dollar_entrypoints():
+    user_facing_files = [
+        REFS / "interaction.md",
+        REFS / "guardrails.md",
+        REFS / "final-review.md",
+        ROOT / "docs" / "native-subagent-runtime.md",
+    ]
+    for path in user_facing_files:
         text = path.read_text(encoding="utf-8")
-        for cmd in required:
-            assert cmd in text, f"{path.name} missing user command {cmd!r}"
-        assert "/subagents-dispatch:dispatch" not in text, (
-            f"{path.name} leaks namespaced identity to user-facing content"
-        )
+        for stale in ["$dispatch", "$doctor", "/subagents-dispatch:dispatch", "/subagents-dispatch:doctor"]:
+            assert stale not in text, f"{path.name} leaks unverified user entrypoint {stale!r}"
 
 
-def test_readme_ai_distinguishes_user_command_from_internal_identity():
+def test_readme_ai_distinguishes_stable_skill_identity_from_host_rendered_command():
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
-    assert "User command:        /dispatch" in ai
-    assert "Internal identity:   /subagents-dispatch:dispatch" in ai
-    assert "Doctor command:      /doctor" in ai
-    assert "Internal identity:   /subagents-dispatch:doctor" in ai
+    assert "Main Skill id:       subagents-dispatch" in ai
+    assert "Main display name:   Subagents Dispatch" in ai
+    assert "Doctor Skill id:     subagents-doctor" in ai
+    assert "Doctor display name: Subagents Doctor" in ai
+    assert "Do not invent a Codex App slash-command string" in ai
     assert "Plugin directory:    ." in ai
     assert "plugins/subagents-dispatch" not in ai
