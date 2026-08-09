@@ -62,7 +62,9 @@ Do not spawn duplicate, speculative, already-satisfied, or decorative work. Chil
 
 ## 5. Consent is for material expansion
 
-Ask before materially expanding permissions, agreed scope, external or irreversible actions, compute far beyond reasonable expectation, broad speculative fan-out, or repeated expensive correction/re-review loops.
+Ask before materially expanding permissions, agreed scope, external or irreversible actions, compute far beyond reasonable expectation, broad speculative fan-out, or repeated expensive correction/re-review loops. That kind of increase is a material compute expansion when it materially exceeds the reasonable task envelope.
+
+Repeated expensive Solver, Advisor, Investigator calls or repeated correction/re-review loops require renewed consent when they become a material compute expansion.
 
 Routine first-use provisioning is not a separate consent prompt when all of the following are true:
 
@@ -118,11 +120,11 @@ Every new project child uses fresh context. Treat this as a tool-call preconditi
 new project child + exact project agent_type -> fork_turns: none
 ```
 
-Before invoking `spawn_agent`, Main verifies that `fork_turns` is present and exactly `none`. Full-history (`all`) and omitted `fork_turns` are forbidden. The bounded responsibility packet is the child's complete task context.
+Before invoking `spawn_agent`, Main verifies that `fork_turns` is present and exactly `none`. Full-history (`all`) and omitted `fork_turns` are forbidden for project children. The bounded responsibility packet is the child's complete task context.
 
 If the call is malformed, correct it before invoking the Host. Do not intentionally send a known-invalid full-history custom-role combination as a capability probe.
 
-A Host rejection before it returns any inspectable child identity is a pre-attempt spawn rejection. It does not create an Agent attempt, consume the two-attempt recovery budget, or increment the execution receipt retry count. Ambiguous child creation remains `UNKNOWN` and does not authorize replacement work.
+A Host rejection before it returns any inspectable child identity is a pre-attempt spawn rejection. It does not create an Agent attempt and does not consume the two-attempt recovery budget. It also does not increment the execution receipt retry count. Ambiguous child creation remains `UNKNOWN` and does not authorize replacement work.
 
 ## 8. Runtime evidence is on demand
 
@@ -146,7 +148,7 @@ Do not estimate token usage or currency cost from model names, elapsed time, out
 
 ## 10. Read-only guarantees
 
-A configured read-only profile is intent, not proof of Host enforcement. When hard read-only isolation is required, demand native evidence or keep the responsibility in Main/blocked. Otherwise behavioral read-only requires no observed mutation and must retain residual permission risk.
+A configured read-only profile is intent, not proof of Host enforcement. When hard read-only isolation is required, demand native evidence or keep the responsibility in the main session/blocked. Otherwise behavioral read-only requires no observed mutation and must retain residual permission risk.
 
 ## 11. External actions
 
