@@ -1,6 +1,6 @@
 {
   "name": "subagents-dispatch",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Let the main Codex session lead a specialist Subagent team with adaptive delegation, preview, live control, and evidence-bound handoffs.",
   "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",
@@ -11,7 +11,7 @@
   "interface": {
     "displayName": "subagents-dispatch",
     "shortDescription": "Adaptive Subagent delegation with preview and live control.",
-    "longDescription": "subagents-dispatch lets the current session act as team leader. It keeps work in Main when that is best, previews likely delegation without spawning when asked, assigns distinct ready responsibilities to native Subagents when delegation adds value, lets users inspect, steer, or safely take back active responsibilities, reuses Main-verified evidence through compact handoff capsules, coordinates dependencies and integration when several responsibilities are active, keeps recovery bounded, preserves one-writer safety, reports a compact factual execution receipt after real delegation, and uses fresh independent review only when the final artifact genuinely warrants it. Doctor handles installation, configuration, managed-profile, and upgrade diagnostics.",
+    "longDescription": "subagents-dispatch lets the current session act as team leader. It keeps work in Main when that is best, previews likely delegation without spawning when asked, assigns distinct ready responsibilities to native Subagents when delegation adds value, lets users inspect, steer, or safely take back active responsibilities, reuses Main-verified evidence through compact handoff capsules, coordinates dependencies and integration when several responsibilities are active, keeps recovery bounded, preserves one-writer safety, reports a compact factual execution receipt after real delegation, and uses fresh independent review only when the final artifact genuinely warrants it. Subagents Doctor handles installation, configuration, managed-profile, and upgrade diagnostics.",
     "developerName": "R-jed",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -23,9 +23,9 @@
     "logo": "./assets/subagents-dispatch-logo.svg",
     "screenshots": [],
     "defaultPrompt": [
-      "Use /subagents-dispatch:dispatch to complete this task. Lead the work and delegate only when it adds value.",
-      "Use /subagents-dispatch:dispatch when the user asks to preview, inspect, steer, or take back delegated work.",
-      "Use /subagents-dispatch:doctor to diagnose this subagents-dispatch installation and configuration."
+      "Use the Subagents Dispatch skill to complete this task. Lead the work and delegate only when it adds value.",
+      "Use the Subagents Dispatch skill to preview, inspect, steer, or safely take back delegated work.",
+      "Use the Subagents Doctor skill to diagnose this subagents-dispatch installation and configuration."
     ]
   }
 }
