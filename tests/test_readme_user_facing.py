@@ -13,41 +13,32 @@ DIRECTIVE_ZH = "如果你是 AI Agent，请跳转到 [README_AI.md](README_AI.md
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
 PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
 UPGRADE = "codex plugin marketplace upgrade subagents-dispatch"
-MAIN_SKILL = "/dispatch"
-DOCTOR_SKILL = "/doctor"
-MAIN_SKILL_NAMESPACED = "/subagents-dispatch:dispatch"
-DOCTOR_SKILL_NAMESPACED = "/subagents-dispatch:doctor"
+MAIN_SKILL_ID = "subagents-dispatch"
+DOCTOR_SKILL_ID = "subagents-doctor"
+MAIN_DISPLAY = "Subagents Dispatch"
+DOCTOR_DISPLAY = "Subagents Doctor"
 ROLE_LABELS = ["Luna Reader", "Luna Worker", "Sol Solver", "Terra Investigator", "Sol Advisor"]
-CONTROL_FORMS = ["/dispatch preview", "/dispatch status", "/dispatch steer", "/dispatch takeover"]
+CONTROL_PAYLOADS = ["preview", "status", "steer", "takeover"]
 README_LOGO = "assets/subagents-dispatch-banner.png"
 
 
 def test_public_readmes_keep_product_identity_install_use_update_and_controls():
-    assert "subagents-dispatch" in ZH
-    assert VERSION in ZH
-    assert DIRECTIVE_ZH in ZH
-    assert MAIN_SKILL in ZH
-    assert DOCTOR_SKILL in ZH
-    assert CANONICAL_MARKETPLACE in ZH
-    assert PLUGIN_ADD in ZH
-    assert UPGRADE in ZH
-    for role in ROLE_LABELS:
-        assert role in ZH
-    for form in CONTROL_FORMS:
-        assert form in ZH
-
-    assert "subagents-dispatch" in EN
-    assert VERSION in EN
-    assert DIRECTIVE_EN in EN
-    assert MAIN_SKILL in EN
-    assert DOCTOR_SKILL in EN
-    assert CANONICAL_MARKETPLACE in EN
-    assert PLUGIN_ADD in EN
-    assert UPGRADE in EN
-    for role in ROLE_LABELS:
-        assert role in EN
-    for form in CONTROL_FORMS:
-        assert form in EN
+    for text, directive in [(ZH, DIRECTIVE_ZH), (EN, DIRECTIVE_EN)]:
+        assert "subagents-dispatch" in text
+        assert VERSION in text
+        assert directive in text
+        assert MAIN_DISPLAY in text
+        assert DOCTOR_DISPLAY in text
+        assert "`/`" in text
+        assert CANONICAL_MARKETPLACE in text
+        assert PLUGIN_ADD in text
+        assert UPGRADE in text
+        assert "$dispatch" not in text
+        assert "$doctor" not in text
+        for role in ROLE_LABELS:
+            assert role in text
+        for payload in CONTROL_PAYLOADS:
+            assert payload in text
 
     assert "## 安装" in ZH and "## 快速开始" in ZH and "## 更新" in ZH
     assert "## 四条必须守住的规则" in ZH and "## 运行中控制" in ZH
@@ -149,7 +140,7 @@ def test_public_readmes_describe_safe_takeover_receipt_handoff_writer_and_first_
     assert "其他独立的 Codex 会话、编辑器、自动化脚本和外部程序不受这个规则控制" in ZH
     assert "自动准备自己的 5 个 Agent 配置文件" in ZH
     assert "你不需要理解 TOML，也不用为这些内部配置多点一次确认" in ZH
-    assert "新开一个任务，再运行刚才那条 `/dispatch`" in ZH
+    assert "新开一个任务，再从 `/` 菜单选择 **Subagents Dispatch** 并重跑刚才的请求" in ZH
     assert "不会先做一次明知道看不到新 Agent 的失败尝试" in ZH
     assert "previous writer is confirmed stopped or terminal" in EN
     assert "does not estimate token usage or currency cost" in EN
@@ -157,7 +148,7 @@ def test_public_readmes_describe_safe_takeover_receipt_handoff_writer_and_first_
     assert "Other Codex sessions, editors, hooks, and external processes are outside this guarantee" in EN
     assert "automatically prepares subagents-dispatch's five managed Agent profiles" in EN
     assert "without asking you to make a TOML-level setup decision" in EN
-    assert "open one fresh task and rerun the original `/dispatch`" in EN
+    assert "open one fresh task, choose **Subagents Dispatch** from the `/` menu again, and rerun the original request" in EN
     assert "does not first attempt to spawn a role that the current task cannot see" in EN
 
 
@@ -165,10 +156,10 @@ def test_ai_reference_is_an_index_to_canonical_policy_owners():
     for phrase in [
         "R-jed/subagents-dispatch",
         "Repo marketplace id: subagents-dispatch",
-        f"User command:        {MAIN_SKILL}",
-        f"Internal identity:   {MAIN_SKILL_NAMESPACED}",
-        f"Doctor command:      {DOCTOR_SKILL}",
-        f"Internal identity:   {DOCTOR_SKILL_NAMESPACED}",
+        f"Main Skill id:       {MAIN_SKILL_ID}",
+        f"Main display name:   {MAIN_DISPLAY}",
+        f"Doctor Skill id:     {DOCTOR_SKILL_ID}",
+        f"Doctor display name: {DOCTOR_DISPLAY}",
         f"Current version:     {VERSION}",
         "Distribution:        Codex Plugin",
         "subagents_dispatch_reader",
@@ -187,10 +178,11 @@ def test_ai_reference_is_an_index_to_canonical_policy_owners():
         "doctor/SKILL.md",
         "docs/plugin-installation.md",
         "scripts/policy.py",
+        "Do not invent a Codex App slash-command string",
     ]:
         assert phrase in AI
     assert "not a second copy of runtime policy" in AI
-    for command in [CANONICAL_MARKETPLACE, PLUGIN_ADD, UPGRADE, "/dispatch preview <task>"]:
+    for command in [CANONICAL_MARKETPLACE, PLUGIN_ADD, UPGRADE, "/subagents-dispatch:dispatch", "$dispatch"]:
         assert command not in AI
 
 
