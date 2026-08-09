@@ -11,6 +11,8 @@ The current stable Skill identity is `subagents-doctor`. Do not infer or hard-co
 
 Diagnosis is read-only by default. Do not mutate Plugin, Marketplace, Codex configuration, Agent profile state, dispatch state, repositories, or unrelated files unless the user explicitly asks for a supported mutation.
 
+Never edit Codex config files directly when the supported Codex CLI can perform the operation. Do not use `marketplace remove` as a generic reset.
+
 ## Diagnostic model
 
 Doctor reports six independent health layers:
