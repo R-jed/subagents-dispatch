@@ -1,7 +1,7 @@
 {
   "schema_version": "4.0",
   "suite": "subagents-dispatch-live-behavior",
-  "note": "These are frozen workload shapes for real paired Codex sessions. This file contains no claimed benchmark results.",
+  "note": "These are frozen workload shapes for real paired Codex sessions. This file contains no claimed benchmark results. Interaction prompts assume the Subagents Dispatch Skill has already been selected through the Host UI unless the workload explicitly tests Skill discovery.",
   "workloads": [
     {
       "id": "simple-main-session-fix",
@@ -156,37 +156,37 @@
     {
       "id": "dispatch-preview-no-execution",
       "category": "interaction_preview",
-      "prompt": "/dispatch preview Refactor a cache layer with one read dependency and one bounded write dependency.",
+      "prompt": "After selecting Subagents Dispatch, enter: preview Refactor a cache layer with one read dependency and one bounded write dependency.",
       "expected": {"child_spawns": 0, "profile_provisioning": 0, "source_mutations": 0, "external_actions": 0, "provisional_plan": true}
     },
     {
       "id": "dispatch-first-use-restart-required",
       "category": "interaction_first_use",
-      "prompt": "With subagents-dispatch Agent profiles absent before task startup, run an explicit /dispatch task that genuinely requires a Reader and validate the first-use readiness handoff.",
+      "prompt": "With subagents-dispatch Agent profiles absent before task startup, select Subagents Dispatch and run a task that genuinely requires a Reader; validate the first-use readiness handoff.",
       "expected": {"profile_provisioning": 1, "routine_provisioning_prompts": 0, "child_spawns_before_restart": 0, "restart_required": true, "fresh_task_role_check_required": true, "conflict_overwrites": 0}
     },
     {
       "id": "dispatch-custom-role-fresh-context-spawn",
       "category": "interaction_spawn_context",
-      "prompt": "With exact managed profiles already available in a fresh Codex task, run a bounded /dispatch Reader responsibility and inspect the first custom-role spawn call plus the terminal receipt.",
+      "prompt": "With exact managed profiles already available in a fresh Codex task, select Subagents Dispatch, run a bounded Reader responsibility, and inspect the first custom-role spawn call plus the terminal receipt.",
       "expected": {"first_spawn_agent_type": "subagents_dispatch_reader", "first_spawn_fork_turns": "none", "full_history_spawn_calls": 0, "omitted_fork_turns_calls": 0, "pre_child_rejections_count_as_agent_attempt": false, "pre_child_rejections_increment_receipt_retry": false}
     },
     {
       "id": "dispatch-status-preserves-unknown",
       "category": "interaction_status",
-      "prompt": "While a delegated responsibility is active but the Host cannot establish its exact current state, run /dispatch status once.",
+      "prompt": "While a delegated responsibility is active but the Host cannot establish its exact current state, select Subagents Dispatch and enter the status control payload once.",
       "expected": {"one_shot": true, "child_spawns": 0, "retries": 0, "source_mutations": 0, "unknown_preserved": true}
     },
     {
       "id": "dispatch-steer-preserves-responsibility",
       "category": "interaction_steer",
-      "prompt": "While a read-only delegated responsibility is running, steer it toward the existing tests first; then use a negative control that asks the same Reader to edit source.",
+      "prompt": "While a read-only delegated responsibility is running, select Subagents Dispatch and steer it toward the existing tests first; then use a negative control that asks the same Reader to edit source.",
       "expected": {"same_unit": true, "same_attempt": true, "replacement_children": 0, "authority_unchanged": true, "unsupported_host_reports_limitation": true, "scope_change_requires_reclassification": true}
     },
     {
       "id": "dispatch-takeover-running-writer",
       "category": "interaction_takeover",
-      "prompt": "While U2 is a running writing child, request /dispatch takeover U2 and continue the responsibility in Main.",
+      "prompt": "While U2 is a running writing child, select Subagents Dispatch and enter the takeover U2 control payload, then continue the responsibility in Main.",
       "expected": {"native_stop_before_transfer": true, "main_conflicting_writes_before_settlement": 0, "unknown_does_not_transfer": true}
     },
     {
