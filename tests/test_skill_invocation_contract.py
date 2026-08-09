@@ -17,6 +17,9 @@ FALSE_ENTRYPOINT_CLAIMS = (
     "supported user entrypoint is explicit `/dispatch`",
     "User command:        /dispatch",
     "Doctor command:      /doctor",
+    "An explicit /dispatch task",
+    "current /dispatch task",
+    "or /doctor",
 )
 
 ACTIVE_SURFACES = [
@@ -29,6 +32,7 @@ ACTIVE_SURFACES = [
     *sorted((ROOT / "docs").glob("*.md")),
     *sorted((ROOT / "evals").glob("*.json")),
     ROOT / "evals" / "README.md",
+    *sorted((ROOT / "scripts").glob("*.py")),
 ]
 
 
