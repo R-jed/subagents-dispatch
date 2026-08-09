@@ -4,7 +4,7 @@
 
 <h1 align="center">subagents-dispatch</h1>
 
-<p align="center"><em>一个指令，多人并行，结果可控。</em></p>
+<p align="center"><em>Codex 子代理调度框架。</em></p>
 
 <p align="center">
   <a href="README_EN.md">English</a> · <a href="README_AI.md">AI Agent</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a> · <a href="LICENSE">MIT</a>
@@ -20,9 +20,7 @@
 
 > **如果你是 AI Agent，请跳转到 [README_AI.md](README_AI.md) 并严格按照说明操作。**
 
-subagents-dispatch 是一个装进 Codex 的插件。它的活只有一件：把一个大任务拆给几个专门的小助手去干，主会话自己留下目标、盯着进度，最后把结果收回来验收。
-
-不用学新东西，不用配文件。装上插件，选一个菜单，说一句人话，剩下的交给它。
+subagents-dispatch 是一个 Codex 插件。它负责把一个大任务拆给几个专门的小助手去干，主会话留目标、盯进度，最后验收结果。
 
 ## 快速开始
 
@@ -161,9 +159,6 @@ rm ~/.codex/.subagents-dispatch-agents.json
 ```
 
 ## 常见问题
-
-**我需要先学什么吗？**
-不用。装上插件，从 `/` 菜单选 **Subagents Dispatch**，说清楚要干什么就行。
 
 **会不会有几个 Agent 同时改代码，把文件搞乱？**
 同一次调度里不会。系统会保证同一份代码同一时间最多只有一个写入者，避免多个 Agent 并发抢写。但任何代码修改本身仍可能有 bug，所以主会话最后还会检查和验证结果。
