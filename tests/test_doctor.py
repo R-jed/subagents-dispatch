@@ -217,6 +217,44 @@ def test_doctor_without_thread_id_does_not_create_dispatch_state(tmp_path: Path)
     assert not temp_root.exists()
 
 
+def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    temp_root = tmp_path / "temp"
+    state_dir = temp_root / "subagents-dispatch" / "thread-pending"
+    state_dir.mkdir(parents=True)
+    state = {
+        "schema_version": "1.0",
+        "root_thread_id": "thread-pending",
+        "locale": "en",
+        "created_at": "2026-08-10T00:00:00Z",
+        "updated_at": "2026-08-10T00:00:00Z",
+        "team_plan_revision": None,
+        "units": [],
+        "accounting_refs": [],
+        "controls": [],
+        "pending_takeover": {"unit_id": "U1", "status": "pending"},
+    }
+    state_file = state_dir / "active.json"
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+    state_file.chmod(0o600)
+    (state_dir / "active.lock").touch(mode=0o600)
+
+    result = run_doctor(
+        home,
+        "--check",
+        "--json",
+        "--temp-root",
+        str(temp_root),
+        env={"CODEX_THREAD_ID": "thread-pending"},
+    )
+    report = json.loads(result.stdout)
+    layer = next(item for item in report["layers"] if item["name"] == "Dispatch state")
+    assert layer["status"] == "WARN"
+    assert layer["details"]["active_orchestration"] is True
+    assert layer["details"]["pending_takeovers"] == ["thread-pending"]
+
+
 def test_doctor_scans_existing_state_without_thread_id(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)

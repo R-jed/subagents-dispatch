@@ -303,6 +303,7 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
     active_writers: list[str] = []
     ambiguous_writers: list[str] = []
     active_units: list[str] = []
+    pending_takeovers: list[str] = []
     lock_issues: list[str] = []
     readable = 0
     for entry in entries:
@@ -334,6 +335,8 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
             corrupt.append(entry_id)
             continue
         latest = _latest_units(payload)
+        if payload.get("pending_takeover") is not None:
+            pending_takeovers.append(entry_id)
         active_units.extend(
             f"{entry_id}:{record.get('unit_id', '?')}"
             for record in latest
@@ -354,8 +357,9 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
         "current_state": "unknown"
         if identity is None
         else ("present" if any(entry.name == identity for entry in entries) else "absent"),
-        "active_orchestration": bool(active_units),
+        "active_orchestration": bool(active_units or pending_takeovers),
         "active_units": sorted(set(active_units)),
+        "pending_takeovers": sorted(set(pending_takeovers)),
         "stale_count": len(set(stale)),
         "state_lock_health": "issue" if lock_issues else ("ok" if entries else "not_present"),
         "lock_issues": sorted(set(lock_issues)),
@@ -372,7 +376,7 @@ def diagnose_dispatch_state(temp_root: Path, thread_id: str | None) -> dict[str,
             unsafe=sorted(set(unsafe)),
             **details,
         )
-    if stale or active_writers or ambiguous_writers or lock_issues:
+    if stale or active_writers or ambiguous_writers or pending_takeovers or lock_issues:
         return _layer(
             "Dispatch state",
             "WARN",
