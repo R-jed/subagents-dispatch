@@ -41,11 +41,11 @@ def test_public_readmes_keep_product_identity_install_use_update_and_controls():
             assert payload in text
 
     assert "## 安装" in ZH and "## 快速开始" in ZH and "## 更新" in ZH
-    assert "## 四条必须守住的规则" in ZH and "## 运行中控制" in ZH
+    assert "## 四条必须守住的规则" in ZH and "## 怎么用" in ZH
     assert "## 执行摘要：最后告诉你刚才做了什么" in ZH
     assert "## 交接包（Handoff Capsule）：避免后一个 Agent 从头再查一遍" in ZH
     assert "## Install" in EN and "## Quick start" in EN and "## Update" in EN
-    assert "## Four core invariants" in EN and "## Control surface" in EN
+    assert "## Four core invariants" in EN and "## How to use" in EN
     assert "## Compact execution receipt" in EN and "## Handoff Capsule: evidence-bound handoffs" in EN
 
 
