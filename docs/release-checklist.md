@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist for a formal subagents-dispatch release candidate. Static repository checks and real Codex Host checks are separate gates; neither substitutes for the other.
+Use this checklist for a formal subagents-dispatch release candidate. Static repository checks, raw Host evidence, and direct human App UI observations are separate evidence classes; none may silently substitute for another.
 
 ## 1. Candidate identity
 
@@ -18,6 +18,37 @@ The version in `.codex-plugin/plugin.json` must match the public README badges, 
 For a formal versioned release, `.agents/plugins/marketplace.json` must bind the Plugin Git source to the matching immutable semantic-version tag (`v<version>`), not to a mutable branch such as `main`.
 
 Do not create a release tag until the exact candidate commit has passed every pre-tag gate below.
+
+### Evidence ownership
+
+Use the strongest evidence source available for each gate.
+
+```text
+Repository/API/CI evidence
+-> version, SHA, tree contents, branch/ruleset state, CI, tag peel, Release state
+
+Raw Host/rollout evidence
+-> spawn_agent arguments, child identity, lifecycle events, retry accounting, implicit activation
+
+Direct human Codex App observation
+-> what appears in the `/` Skill menu, exact rendered entry names, visible namespace/prefix,
+   duplicate/conflicting entries, and which Plugin/Skill is actually selected by a menu item
+
+Model self-report
+-> explanatory only; it cannot by itself close a Host/UI gate about the model's own registration or selection
+```
+
+The following App facts require direct human observation and cannot be delegated entirely to the Codex instance under test:
+
+```text
+the two Plugin Skills are visible in the App `/` menu
+their exact user-visible names contain a product-specific prefix and are distinguishable from generic skills
+a generic conflicting entry such as an unrelated `doctor` is not mistaken for this Plugin's Doctor
+selecting each entry binds to the expected subagents-dispatch Plugin Skill
+full App restart refreshes the visible registry when that behavior is material to the candidate
+```
+
+Record screenshots or equivalent direct UI notes for those gates. Raw Host evidence may supplement the UI observation by proving the selected Skill source/path, but the model's prose claim that it is registered is insufficient on its own.
 
 ## 2. Repository gates
 
@@ -49,13 +80,34 @@ A green branch run does not replace the pull-request merge-result run. A green p
 
 Run these against the same candidate that will be tagged.
 
-### Plugin discovery
+### Plugin and App Skill discovery
 
-Confirm the installed Plugin exposes `/dispatch` and `/doctor`, while unrelated ordinary tasks do not implicitly invoke subagents-dispatch.
+Package identity must be:
+
+```text
+Plugin:        subagents-dispatch
+Main Skill:    subagents-dispatch
+Display name:  Subagents Dispatch
+Doctor Skill:  subagents-doctor
+Display name:  Subagents Doctor
+```
+
+Human App gate:
+
+1. fully restart the Codex App when the candidate changes installed Skill metadata;
+2. type `/` to open the App Skill menu;
+3. confirm both prefixed entries are visible;
+4. record the exact rendered slash/menu labels and any namespace the UI displays;
+5. confirm there is no ambiguity with generic or unrelated skills such as `doctor`;
+6. select each entry once and retain raw Host/rollout evidence when available to confirm it maps to the expected installed Plugin Skill.
+
+Do not derive the App's rendered slash command from SKILL.md, `plugin.json`, folder names, another product's syntax, or model self-report. The UI observation is the source of truth for the user-facing App command string.
+
+Separately, run an unrelated ordinary task and use raw Host evidence to confirm subagents-dispatch does not implicitly activate.
 
 ### First-use readiness
 
-Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Run a real `/dispatch` task that genuinely needs delegation and confirm:
+Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Through the human-verified Subagents Dispatch App entry, run a real task that genuinely needs delegation and confirm:
 
 ```text
 clean absence -> bounded automatic provisioning
@@ -68,7 +120,7 @@ no unrelated Codex state is modified
 
 ### Fresh-task role discovery and spawn context
 
-Open one fresh Codex task/session and rerun the same request. Confirm the exact required custom Agent role is available before spawning.
+Open one fresh Codex task/session and rerun the same request through Subagents Dispatch. Confirm the exact required custom Agent role is available before spawning.
 
 At minimum, prove real Host spawn for:
 
@@ -97,17 +149,17 @@ Run two genuinely independent read-only responsibilities. Confirm unit identity 
 
 ### Status and steering
 
-While a child is active, confirm `/dispatch status` is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
+Invoke Subagents Dispatch through the human-verified App entry and use the `status` control payload while a child is active. Confirm it is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
 
-Confirm `/dispatch steer` keeps the same responsibility, attempt, role, and authority. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
+Use the `steer <unit_id>: <guidance>` control payload and confirm steering keeps the same responsibility, attempt, role, and authority. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
 
 ### Takeover and writer safety
 
-While a writing child is active, request takeover. Main must remain read-only until Host evidence establishes that the old writer is stopped, terminal, or closed. `UNKNOWN` does not authorize a conflicting write.
+While a writing child is active, invoke the `takeover <unit_id>` control payload. Main must remain read-only until Host evidence establishes that the old writer is stopped, terminal, or closed. `UNKNOWN` does not authorize a conflicting write.
 
 ### Doctor safety
 
-Exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
+Through the human-verified Subagents Doctor App entry, exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
 
 ### Update and uninstall
 
@@ -120,6 +172,9 @@ Run the documented uninstall flow and confirm unrelated Agent profiles and Codex
 Do not release if any of these are observed on the supported Host candidate:
 
 ```text
+Codex App `/` menu does not expose both prefixed Plugin Skills
+the App-visible entries are ambiguous with generic/unrelated skills
+an App entry selects the wrong Plugin/Skill
 fresh task cannot resolve the exact required custom Agent role
 Luna Reader or Worker cannot be spawned on the supported Host
 first-use stale task attempts a child spawn after provisioning
@@ -148,16 +203,19 @@ These settings are repository administration state and cannot be proven by the p
 
 ## 6. Tag, distribution smoke, and GitHub Release
 
-Only after the exact merged candidate passes repository, Host, governance, and immutable Marketplace-source gates:
+Only after the exact merged candidate passes repository, Host, human App UI, governance, and immutable Marketplace-source gates:
 
 1. confirm `main` still points to the validated candidate SHA;
-2. create the immutable semantic-version tag, for example `v2.1.1`, on that exact SHA;
-3. from a clean Codex environment, add the Marketplace from that exact tag and install the Plugin; confirm the installed Plugin reports the same version and exposes `/dispatch` and `/doctor`;
-4. confirm the Marketplace entry at the tag resolves the Plugin source from the same tag rather than a mutable branch;
-5. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
-6. do not move or recreate the release tag if `main` advances later.
+2. create the immutable semantic-version tag, for example `v2.1.2`, on that exact SHA;
+3. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
+4. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
+5. fully restart the Codex App when required for registry refresh;
+6. human-check the `/` menu again and confirm the same two prefixed Skill entries are present and select the expected tagged Plugin payload;
+7. use raw Host/rollout evidence for any behavior gate that cannot be established from UI alone;
+8. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
+9. do not move or recreate the release tag if `main` advances later.
 
-The post-tag distribution smoke is intentionally narrow. It verifies release packaging/identity and does not repeat the full Host behavior suite already completed on the exact candidate.
+The post-tag distribution smoke is intentionally narrow. It verifies immutable packaging/identity plus the human-visible App Skill entry and does not repeat the full Host behavior suite already completed on the exact candidate.
 
 ## 7. Public Plugin submission
 
