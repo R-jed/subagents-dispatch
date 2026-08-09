@@ -161,8 +161,8 @@ rm ~/.codex/.subagents-dispatch-agents.json
 **Do I need to learn anything first?**
 No. Install the plugin, pick **Subagents Dispatch** from the `/` menu, and say what you want in plain words.
 
-**Can it break my code?**
-No. One hard rule: at most one writer on the same code at the same time. Discovery can run in parallel; writing never fights.
+**Can multiple Agents overwrite each other's changes?**
+Not within one dispatch. The same checkout has at most one active writer at a time, which prevents concurrent writer conflicts. Any code change can still contain bugs, so Main checks and verifies the result before delivery.
 
 **Do I have to watch it work?**
 No. When a task spawns Agents, it ends with a one-line receipt that tells you what ran, whether anything retried, and whether a review happened.
