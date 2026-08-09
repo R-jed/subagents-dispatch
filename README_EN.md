@@ -24,68 +24,87 @@ subagents-dispatch is a Codex plugin that hands the right work to a specialist A
 
 ## Quick start
 
-After installation, open a fresh Codex session. Use `/skills` to select **Dispatch**, or invoke it directly with `$dispatch`.
+In the Codex App, type `/` to open the Skill menu and choose **Subagents Dispatch**, then enter the task.
 
 For example:
 
-```
-$dispatch Add pagination to /api/users, with tests
+```text
+Add pagination to /api/users, with tests
 ```
 
-Main decides what is worth splitting. One Reader can inspect the API while another checks related tests; those read-only responsibilities may run in parallel. Once the evidence is clear, one Worker can implement and test the change. The same checkout never has two active writers. Main verifies, integrates, and delivers the final result.
+Main decides what is worth splitting. For example, one Reader can inspect the existing API while another Reader inspects the related tests, so those read-only tasks can run in parallel. Once the evidence is clear, one Worker can make the implementation and test changes. Read-only discovery may run concurrently, but the same checkout never has two active writers. Main then checks, integrates, and delivers.
 
-Simple work is not force-split to look collaborative. A child starts only when delegation adds concrete value.
+Simple tasks are not force-split to look collaborative. A subagent only starts when it is genuinely faster, safer, or a better fit.
 
 ## Control surface
 
-All controls use the same Dispatch Skill:
+Choose **Subagents Dispatch** from the `/` menu, then use these control intents.
 
-```
-$dispatch preview Add pagination to /api/users, with tests
-$dispatch status
-$dispatch steer U2: check existing pagination middleware first
-$dispatch takeover U2
+Preview without spawning:
+
+```text
+preview Add pagination to /api/users, with tests
 ```
 
-Preview does not spawn. Status is one-shot inspection. Steer keeps the same responsibility and authority. Takeover settles the old owner before Main continues the responsibility.
+Check status during execution:
+
+```text
+status
+```
+
+Guide a running Agent:
+
+```text
+steer U2: check existing pagination middleware first
+```
+
+Take back control:
+
+```text
+takeover U2
+```
 
 ## Compact execution receipt
 
-When a task actually spawns Agents, the final response includes one factual line:
+When a task spawns Agents, it ends with a one-line receipt:
 
-```
+```text
 Dispatch: Reader → Worker · complete · no retry · not required
 ```
 
-The receipt reports only inspectable orchestration facts. It exposes no hidden reasoning and does not estimate token usage or currency cost.
+The receipt covers verifiable facts only: which roles ran, whether anything retried, whether a final review happened. It exposes no hidden reasoning and does not estimate token usage or currency cost.
 
 ## Handoff Capsule: evidence-bound handoffs
 
-Each child receives fresh context. A Handoff Capsule lets Main pass forward facts it has already verified without forwarding an entire transcript.
+Each child receives fresh context. With nothing passed on, the next Agent often re-checks what the previous one already established.
 
-- **Pass verified facts**. Only facts Main checked and accepted can enter the capsule
-- **Mark `DO NOT REDO`**. Reliable completed discovery can be explicitly skipped downstream
-- **Main is the acceptance boundary**. A child claim is not inherited task truth until Main verifies it
-- **Carry `STALE IF` conditions**. Relevant artifact drift invalidates old evidence and triggers narrow re-verification
+A Handoff Capsule is a small bridge. Main packs the facts it has verified and accepted into it, then hands them to the next responsibility.
+
+- **Pass verified facts**. Only facts Main has checked and accepted can enter the capsule
+- **Mark `DO NOT REDO`**. Work already satisfied by valid evidence can be marked as do not repeat
+- **Main is the acceptance boundary**. A child claim does not become inherited task truth by itself
+- **Carry `STALE IF` conditions**. Source changes can invalidate previously accepted evidence
 
 ## Four core invariants
 
-- **One writer**. Within one subagents-dispatch orchestration, the same checkout has at most one active writer. Main remains read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
-- **One delegation layer**. Child Agents do not create more project Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
-- **UNKNOWN means do not guess**. Missing runtime state does not trigger a replacement Agent, automatic retry, or semantic reroute
-- **Receipts report facts**. Token usage and currency cost are not inferred from model names, elapsed time, or output length
+These hold no matter how many responsibilities a task splits into:
+
+- **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main, Worker, or Solver. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
+- **One delegation layer** — child Agents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
+- **UNKNOWN means do not guess** — when state cannot be established, there is no replacement Agent, retry, or semantic reroute
+- **Receipts report facts** — does not estimate token usage or currency cost from model names, elapsed time, or output length
 
 ## Roles
 
 | Role | What it does |
 |------|-------------|
 | Luna Reader | read code, trace call paths, gather facts |
-| Luna Worker | implementation and tests when behavior is already decided |
-| Sol Solver | implementation that needs material judgment along the way |
-| Terra Investigator | broader read-only technical investigation and evidence synthesis |
+| Luna Worker | implementation and tests when the behavior is already decided |
+| Sol Solver | implementation that needs judgment calls along the way |
+| Terra Investigator | broad read-only investigation, evidence synthesis |
 | Sol Advisor | independent technical judgment or final review |
 
-Simple work stays in Main. Delegation follows the actual responsibility; there is no fixed team size or fixed pipeline.
+Simple work stays in Main. Delegation happens when parallelism, isolation, or specialist capability justifies the cost. No fixed team size, no fixed pipeline.
 
 ## Install
 
@@ -94,27 +113,31 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Start a fresh Codex session after installing. Use `/skills` to select **Dispatch** or **Doctor**, or invoke them directly as `$dispatch` and `$doctor`.
+Start a new Codex session after installing the Plugin. The first task run through **Subagents Dispatch** that actually needs a child automatically prepares subagents-dispatch's five managed Agent profiles without asking you to make a TOML-level setup decision. Codex loads custom-Agent registrations when a task starts, so that first setup task ends by asking you to open one fresh task, choose **Subagents Dispatch** from the `/` menu again, and rerun the original request. It does not first attempt to spawn a role that the current task cannot see. After the profiles were present before task startup, later tasks can delegate normally.
 
-The first `$dispatch` task that genuinely needs a child automatically prepares subagents-dispatch's five managed Agent profiles without asking you to make a TOML-level setup decision. Codex loads custom-Agent registrations when a task starts, so that setup task ends with `RESTART_REQUIRED` and asks you to open one fresh task and rerun the original `$dispatch`. It does not first attempt to spawn a role the current task cannot see.
-
-If a managed path is conflicting, modified without proven ownership, symlinked, or otherwise unsafe, subagents-dispatch fails closed and points you to `$doctor` for diagnosis.
+If an existing managed path is conflicting, modified without proven ownership, or unsafe, subagents-dispatch does not overwrite it and stops with **Subagents Doctor** guidance.
 
 ## Uninstall
 
 ```bash
+# Remove plugin registration
 codex plugin remove subagents-dispatch@subagents-dispatch
+
+# Remove marketplace registration and snapshot cache
 codex plugin marketplace remove subagents-dispatch
 ```
 
-If delegated work previously provisioned the Agent profiles, also remove only these managed files:
+If you previously ran tasks that needed Agents, also delete these files:
 
 ```bash
+# Delete 5 Agent profiles
 rm ~/.codex/agents/subagents-dispatch-reader.toml
 rm ~/.codex/agents/subagents-dispatch-worker.toml
 rm ~/.codex/agents/subagents-dispatch-solver.toml
 rm ~/.codex/agents/subagents-dispatch-investigator.toml
 rm ~/.codex/agents/subagents-dispatch-advisor.toml
+
+# Delete install manifest
 rm ~/.codex/.subagents-dispatch-agents.json
 ```
 
@@ -125,17 +148,13 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Or invoke Doctor explicitly:
+Or choose **Subagents Doctor** from the `/` menu and ask it to upgrade subagents-dispatch.
 
-```
-$doctor Upgrade subagents-dispatch
-```
-
-Start a fresh Codex session after updating.
+Start a new Codex session after updating.
 
 ## Repository layout
 
-```
+```text
 .
 ├── .agents/plugins/                  # Codex Marketplace registration
 ├── .codex-plugin/                    # plugin manifest
@@ -143,8 +162,8 @@ Start a fresh Codex session after updating.
 ├── policy-contract.json              # role definitions and core constraints
 ├── scripts/                          # installer, validators, runtime evidence tools
 ├── skills/
-│   ├── dispatch/                     # main Skill, interaction controls, runtime rules
-│   └── doctor/                       # install diagnostics and upgrade
+│   ├── dispatch/                     # Subagents Dispatch Skill
+│   └── doctor/                       # Subagents Doctor Skill
 ├── docs/                             # architecture and runtime boundary docs
 ├── evals/                            # static and behavioral evaluation data
 └── tests/                            # regression tests

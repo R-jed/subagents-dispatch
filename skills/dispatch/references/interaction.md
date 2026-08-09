@@ -1,27 +1,23 @@
 # Interaction Control
 
-This file owns the user-visible control surface for an active `$dispatch` workflow. It adds preview, status, steering, takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Subagents Dispatch workflow. It adds preview, status, steering, takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
 `router-core.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
 
-## Skill invocation and control intents
+The stable Skill id is `subagents-dispatch`, with UI display name `Subagents Dispatch`. This contract defines control payloads after the Skill has been explicitly selected/invoked; it does not invent the exact slash entry rendered by a particular Codex App build.
 
-The supported explicit invocation is the Host-resolved Dispatch Skill mention:
+## Control intents
 
-```text
-$dispatch <task>
-```
+The normal payload is the task itself.
 
-Users may also open `/skills` and choose **Dispatch**. A bare `/dispatch` slash command is not part of the Plugin contract.
-
-The following control intents are recognized inside the same Dispatch Skill before ordinary task routing:
+The following control intents are recognized before ordinary task routing:
 
 ```text
-$dispatch preview <task>
-$dispatch status
-$dispatch steer <unit_id>: <guidance>
-$dispatch takeover <unit_id>
-$dispatch takeover <unit_id>: <guidance>
+preview <task>
+status
+steer <unit_id>: <guidance>
+takeover <unit_id>
+takeover <unit_id>: <guidance>
 ```
 
 `status` is a control intent only when it is the complete remaining request. A task such as `status page is broken` is ordinary work. `steer` and `takeover` require a resolvable current unit id. When one lightweight delegated responsibility exists without TeamPlan, Main still gives it a stable unit id and may surface that id in status output.
@@ -52,7 +48,7 @@ Do not run runtime-evidence diagnostics merely to make the preview look more pre
 
 ## Status
 
-`$dispatch status` is a one-shot state inspection, not a polling loop.
+The `status` control payload is a one-shot state inspection, not a polling loop.
 
 Report the smallest useful view of current delegated responsibilities:
 
@@ -147,11 +143,11 @@ final review   not required | ship | fix-first | rethink | INSUFFICIENT_EVIDENCE
 
 The retry slot counts only replacement Agent attempts after a materialized prior attempt was confirmed `FAILED` under `recovery.md`. A `spawn_agent` call rejected before the Host returns any child identity is not an Agent retry, does not consume an attempt, and must leave the receipt at `no retry` / `未重试` unless a later real Agent attempt is actually retried.
 
-`pending` here means takeover pending. `main takeover` is the state-slot spelling of the existing `main_takeover` recovery action. Slot coherence: a `fix-first`, `rethink`, or `INSUFFICIENT_EVIDENCE` final review must not pair with state `complete`; `not reached` pairs with `blocked`, `pending`, or `main takeover`. When a blocker or `UNKNOWN` writer is material, append a short closing note; never convert `UNKNOWN` into failure or replacement work.
+`pending` here means takeover pending. `main takeover` is the state-slot spelling of the existing `main_takeover` recovery action. Slot coherence: a `fix-first`, `rethink`, or `INSUFFICIENT_EVIDENCE` final review must not pair with state `complete`; `not reached` pairs with `blocked`, `pending`, or `main takeover`. When a blocker or `UNKNOWN` writer is material, append a short closing note (for example `takeover pending on UNKNOWN writer`); never convert `UNKNOWN` into failure or replacement work.
 
 ### Language
 
-Emit the receipt in the language of the user's current request/thread. Chinese requests use the localized terms below; English requests keep the native terms above. For mixed-language requests, follow the language of the main clause; when the request language is neither Chinese nor English, fall back to English. This rule applies to the receipt only, not to the rest of the terminal output. Contract keywords stay in English in both languages: `UNKNOWN`, `DO NOT REDO`, `STALE IF`. `Main` stays English when it appears as a standalone keyword and is localized only as a state-slot value.
+Emit the receipt in the language of the user's current request/thread. Chinese requests use the localized terms below; English requests keep the native terms above. For mixed-language requests, follow the language of the main clause; when the request language is neither Chinese nor English, fall back to English. This rule applies to the receipt only, not to the rest of the terminal output. Contract keywords stay in English in both languages: `UNKNOWN`, `DO NOT REDO`, `STALE IF`. `Main` stays English when it appears as a standalone keyword (for example `Main takeover`), and is localized only as a state-slot value.
 
 Chinese mapping:
 

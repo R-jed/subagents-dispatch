@@ -8,15 +8,16 @@ from urllib.parse import urlparse
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / ".codex-plugin" / "plugin.json"
-SKILLS_ROOT = ROOT / "skills"
+PLUGIN_ROOT = ROOT
+MANIFEST = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
+SKILLS_ROOT = PLUGIN_ROOT / "skills"
 MAIN_SKILL_ROOT = SKILLS_ROOT / "dispatch"
 DOCTOR_SKILL_ROOT = SKILLS_ROOT / "doctor"
 MAIN_OPENAI_YAML = MAIN_SKILL_ROOT / "agents" / "openai.yaml"
 DOCTOR_OPENAI_YAML = DOCTOR_SKILL_ROOT / "agents" / "openai.yaml"
-POLICY = ROOT / "policy-contract.json"
-MAIN_INVOCATION = "$dispatch"
-DOCTOR_INVOCATION = "$doctor"
+POLICY = PLUGIN_ROOT / "policy-contract.json"
+MAIN_DISPLAY_NAME = "Subagents Dispatch"
+DOCTOR_DISPLAY_NAME = "Subagents Doctor"
 
 
 def test_plugin_manifest_has_public_legal_links_and_stays_skills_only():
@@ -26,7 +27,10 @@ def test_plugin_manifest_has_public_legal_links_and_stays_skills_only():
     assert payload["skills"] == "./skills/"
     for unsupported_component in ["mcpServers", "apps", "hooks"]:
         assert unsupported_component not in payload
-    for field, suffix in [("privacyPolicyURL", "/PRIVACY.md"), ("termsOfServiceURL", "/TERMS.md")]:
+    for field, suffix in [
+        ("privacyPolicyURL", "/PRIVACY.md"),
+        ("termsOfServiceURL", "/TERMS.md"),
+    ]:
         parsed = urlparse(interface[field])
         assert parsed.scheme == "https" and parsed.netloc
         assert parsed.path.endswith(suffix)
@@ -34,28 +38,34 @@ def test_plugin_manifest_has_public_legal_links_and_stays_skills_only():
     assert (ROOT / "TERMS.md").is_file()
 
 
-def test_plugin_starter_prompts_cover_main_and_doctor_within_supported_limit():
+def test_plugin_starter_prompts_cover_main_and_doctor_without_inventing_app_command_syntax():
     prompts = json.loads(MANIFEST.read_text(encoding="utf-8"))["interface"]["defaultPrompt"]
     assert 1 <= len(prompts) <= 3
-    assert any(MAIN_INVOCATION in prompt for prompt in prompts)
-    assert any(DOCTOR_INVOCATION in prompt for prompt in prompts)
+    assert any(MAIN_DISPLAY_NAME in prompt for prompt in prompts)
+    assert any(DOCTOR_DISPLAY_NAME in prompt for prompt in prompts)
+    assert all(MAIN_DISPLAY_NAME in prompt or DOCTOR_DISPLAY_NAME in prompt for prompt in prompts)
     assert all(len(prompt) <= 128 for prompt in prompts)
-    assert all("/subagents-dispatch:" not in prompt for prompt in prompts)
+    for stale in ["$dispatch", "$doctor", "/dispatch", "/doctor", "/subagents-dispatch:"]:
+        assert all(stale not in prompt for prompt in prompts)
 
 
-def test_openai_skill_metadata_uses_each_explicit_invocation():
+def test_openai_skill_metadata_uses_prefixed_display_identity_and_explicit_only_policy():
     main = yaml.safe_load(MAIN_OPENAI_YAML.read_text(encoding="utf-8"))
     doctor = yaml.safe_load(DOCTOR_OPENAI_YAML.read_text(encoding="utf-8"))
-    for payload, invocation in [(main, MAIN_INVOCATION), (doctor, DOCTOR_INVOCATION)]:
+
+    for payload, display_name in [(main, MAIN_DISPLAY_NAME), (doctor, DOCTOR_DISPLAY_NAME)]:
         interface = payload["interface"]
+        assert interface["display_name"] == display_name
         assert 25 <= len(interface["short_description"]) <= 64
-        assert invocation in interface["default_prompt"]
+        assert display_name in interface["default_prompt"]
         assert payload["policy"]["allow_implicit_invocation"] is False
+        for stale in ["$dispatch", "$doctor", "/dispatch", "/doctor", "/subagents-dispatch:"]:
+            assert stale not in interface["default_prompt"]
 
 
 def test_managed_agent_profiles_follow_policy_owned_native_shape():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    profile_dir = ROOT / "agent-profiles"
+    profile_dir = PLUGIN_ROOT / "agent-profiles"
     for role in policy["roles"].values():
         payload = tomllib.loads((profile_dir / role["profile_file"]).read_text(encoding="utf-8"))
         assert payload["name"] == role["agent_type"]

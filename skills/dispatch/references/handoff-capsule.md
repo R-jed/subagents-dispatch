@@ -1,6 +1,6 @@
 # Handoff Capsule
 
-A Handoff Capsule is a compact, evidence-bound context bridge between responsibilities in one `/dispatch` workflow. It reduces repeated repository discovery while preserving the fresh-context benefits of native Subagents.
+A Handoff Capsule is a compact, evidence-bound context bridge between responsibilities in one Subagents Dispatch workflow. It reduces repeated repository discovery while preserving the fresh-context benefits of native Subagents.
 
 The capsule is optional and ephemeral by default. It is not a memory database, transcript summary, second TeamPlan, or persistent project ledger.
 

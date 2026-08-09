@@ -136,7 +136,7 @@ def installation_locks(
             if state.ownership_unknown:
                 fail(
                     "Refusing automatic legacy migration because ownership metadata is missing, invalid, or unsafe. "
-                    "Run --legacy-status or $doctor and resolve the preserved legacy files explicitly."
+                    "Run --legacy-status or Subagents Doctor and resolve the preserved legacy files explicitly."
                 )
             with managed_lock(
                 codex_home,
@@ -294,7 +294,7 @@ def preflight_agents_dir(path: Path, *, check_only: bool) -> None:
         fail(
             f"Not installed: managed Agent profiles have not been provisioned yet "
             f"(agents directory missing: {path}). "
-            "An explicit $dispatch task that needs delegation can provision these plugin-owned profiles automatically; "
+            "An explicit Subagents Dispatch task that needs delegation can provision these plugin-owned profiles automatically; "
             "newly provisioned roles require a fresh Codex task/session before spawn."
         )
 
@@ -326,7 +326,7 @@ def preflight_profiles(
             if check_only:
                 fail(
                     f"Not installed: managed Agent profile is missing ({target}). "
-                    "An explicit $dispatch task that needs delegation can provision this plugin-owned profile automatically; "
+                    "An explicit Subagents Dispatch task that needs delegation can provision this plugin-owned profile automatically; "
                     "newly provisioned roles require a fresh Codex task/session before spawn."
                 )
             continue
@@ -459,7 +459,7 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
         if legacy_state.ownership_unknown:
             fail(
                 "Refusing automatic legacy migration because ownership metadata is missing, invalid, or unsafe. "
-                "Run --legacy-status or $doctor and resolve the preserved legacy files explicitly."
+                "Run --legacy-status or Subagents Doctor and resolve the preserved legacy files explicitly."
             )
         if legacy_state.legacy_only or legacy_state.mixed:
             print(f"Legacy state detected: {format_migration_state(legacy_state)}")
@@ -553,9 +553,9 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
             "review it explicitly instead of repeating automatic migration."
         )
     print(
-        "Profile files are ready. If the current $dispatch task could not see the required role before this install, "
+        "Profile files are ready. If the current Subagents Dispatch task could not see the required role before this install, "
         "its readiness outcome is RESTART_REQUIRED: do not attempt spawn_agent in that task; "
-        "start a fresh Codex task/session and rerun the request."
+        "start a fresh Codex task/session and rerun the request through Subagents Dispatch."
     )
 
 

@@ -6,14 +6,14 @@
 
 ### Fixed
 
-- **Skill 调用协议**：根据 Codex CLI 0.147.0 的真实 fresh-session registry 验证，将公开入口统一为 `$dispatch` 和 `$doctor`；`/skills` 作为 Skill 选择器入口，不再把不存在的裸 `/dispatch`、`/doctor` 或旧 namespaced slash 形式描述为 Plugin 命令
-- **Plugin UI 元数据**：`.codex-plugin/plugin.json` 与两个 `agents/openai.yaml` 的 starter/default prompts 改为 Host 实际接受的 `$dispatch` / `$doctor`
-- **发行验收标准**：发布 smoke 改为验证 tagged Plugin 的 Skill registry、Skill source/path、`$dispatch` / `$doctor` 显式调用和无隐式激活，不再以裸 slash command discovery 作为 packaging 判据
-- **文档与评估同步**：README、AI reference、安装/架构/原生运行文档、Interaction/Guardrails、静态 fixtures 和 live workloads 统一到真实 Skill invocation surface，并增加防止旧入口回归的测试
+- **Codex App 用户入口**：撤销把 `$dispatch` / `$doctor` 当成唯一公开入口的错误文档化；App 使用 `/` 打开 Skill 菜单，具体渲染的 slash entry 由真实 App UI 验证，不再从底层 Skill mention 或其他产品语法推导
+- **Skill 身份冲突**：主 Skill 改为稳定 ID `subagents-dispatch`、显示名 `Subagents Dispatch`；诊断 Skill 改为稳定 ID `subagents-doctor`、显示名 `Subagents Doctor`，避免通用 `dispatch` / `doctor` 名称与其他项目 Skill 混淆
+- **发行证据责任**：发布清单明确区分 Repository/API/CI、raw Host/rollout、人工 App UI 与模型自报四类证据；App `/` 菜单中的实际条目、前缀、冲突和选择绑定必须由人工直接观察，不能由被测 Codex 自证
+- **合同恢复**：撤回上一版 2.1.2 候选中过度压缩的 runtime、Guardrails、eval 和测试合同，恢复到已经过 Host 回归的成熟 2.1.1 基线，再叠加最小的 2.1.2 身份修复
 
 ### Changed
 
-- **不可变发行身份**：Marketplace Plugin source 绑定 `v2.1.2`；先前已创建但未发布 GitHub Release 的 `v2.1.1` tag 保持不可变，不移动或重建
+- **不可变发行身份**：Marketplace Plugin source 绑定未来 `v2.1.2`；已存在的 `v2.1.1` tag 保持不可变且不创建对应 GitHub Release
 
 ## [2.1.1] - 2026-08-08
 
