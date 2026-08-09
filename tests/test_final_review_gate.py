@@ -5,9 +5,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 SKILL = PLUGIN / "skills" / "dispatch"
-REFS = SKILL / "references"
+CONTRACTS = PLUGIN / "contracts"
 PROFILES = PLUGIN / "agent-profiles"
-POLICY = PLUGIN / "policy-contract.json"
+POLICY = CONTRACTS / "policy.json"
 
 
 def contract():
@@ -16,8 +16,8 @@ def contract():
 
 def test_final_review_is_linked_and_semantically_triggered():
     skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-    review = (REFS / "final-review.md").read_text(encoding="utf-8")
-    assert "references/final-review.md" in skill
+    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
+    assert "../../contracts/final-review.md" in skill
     assert "Candidate Ready" in review
     assert "requested deliverable is complete enough for acceptance" in review
     assert "semantic coverage closure" in review
@@ -33,7 +33,7 @@ def test_final_review_is_linked_and_semantically_triggered():
 def test_current_advisor_route_matches_policy_and_is_fresh():
     spec = contract()["roles"]["advisor"]
     advisor = tomllib.loads((PROFILES / spec["profile_file"]).read_text(encoding="utf-8"))
-    review = (REFS / "final-review.md").read_text(encoding="utf-8")
+    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
     assert "agent_type: subagents_dispatch_advisor" in review
     assert "fork_turns: none" in review
     assert advisor["name"] == spec["agent_type"]
@@ -43,7 +43,7 @@ def test_current_advisor_route_matches_policy_and_is_fresh():
 
 
 def test_review_lifecycle_remains_fail_closed_and_artifact_bound():
-    review = (REFS / "final-review.md").read_text(encoding="utf-8")
+    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
     for phrase in [
         "review_artifact_id",
         "review-artifact.py",
@@ -61,8 +61,8 @@ def test_review_lifecycle_remains_fail_closed_and_artifact_bound():
 
 
 def test_sol_review_is_selective_outside_required_assurance():
-    router = (REFS / "router-core.md").read_text(encoding="utf-8").lower()
-    review = (REFS / "final-review.md").read_text(encoding="utf-8").lower()
+    router = (CONTRACTS / "routing.md").read_text(encoding="utf-8").lower()
+    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8").lower()
     assert "final review" in router
     assert "candidate" in router and "independent second judgment" in router
     assert "process history" in review

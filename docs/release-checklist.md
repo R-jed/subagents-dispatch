@@ -77,6 +77,24 @@ idempotent reinstall
 
 A green branch run does not replace the pull-request merge-result run. A green pull-request run does not replace the final `main` push run for the merged candidate.
 
+This project is maintained by one maintainer. A short-lived branch and pull request are optional; a validated change may be updated directly on `main` when repository governance permits it. In either path, run the same local gates before updating `main`.
+
+Deterministic local gate:
+
+```bash
+python -m json.tool .codex-plugin/plugin.json >/dev/null
+python -m json.tool .agents/plugins/marketplace.json >/dev/null
+python -m ruff check scripts tests --ignore E402
+python -m pytest -q
+tmp_home="$(mktemp -d)"
+python scripts/install-agents.py --codex-home "$tmp_home"
+python scripts/install-agents.py --codex-home "$tmp_home" --check
+python scripts/doctor.py --codex-home "$tmp_home" --check
+python scripts/install-agents.py --codex-home "$tmp_home"
+```
+
+The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; run that exact pinned validator in the Ubuntu validation environment. Do not report App or Host smoke as passed until direct App observation and raw Host evidence are recorded.
+
 ## 3. Real Codex Host gates
 
 Run these against the same candidate that will be tagged.
@@ -87,19 +105,21 @@ Package identity must be:
 
 ```text
 Plugin:        subagents-dispatch
-Main Skill:    subagents-dispatch
-Display name:  Subagents Dispatch
-Doctor Skill:  subagents-doctor
-Display name:  Subagents Doctor
+Skill:         dispatch  -> intended label Dispatch
+Skill:         preview   -> intended label Preview
+Skill:         status    -> intended label Status
+Skill:         steer     -> intended label Steer
+Skill:         takeover  -> intended label Takeover
+Skill:         doctor    -> intended label Doctor
 ```
 
 Human App gate:
 
 1. fully restart the Codex App when the candidate changes installed Skill metadata;
 2. type `/` to open the App Skill menu;
-3. confirm both prefixed entries are visible;
+3. confirm all six entries are visible;
 4. record the exact rendered entry labels, any visible namespace, and the post-selection presentation;
-5. confirm there is no ambiguity with generic or unrelated skills such as `doctor`;
+5. confirm there is no ambiguity with unrelated Skills that use the same generic labels;
 6. select each entry once and retain raw Host/rollout evidence when available to confirm it maps to the expected installed Plugin Skill.
 
 Do not derive a literal App slash-command string from SKILL.md, `plugin.json`, folder names, another product's syntax, or model self-report. The App may render a display-name menu entry and then bind the selection as a Skill chip instead of leaving slash text in the composer. Direct UI observation is the source of truth for the user-facing selection flow.
@@ -108,7 +128,7 @@ Separately, run an unrelated ordinary task and use raw Host evidence to confirm 
 
 ### First-use readiness
 
-Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Through the human-verified Subagents Dispatch App entry, run a real task that genuinely needs delegation and confirm:
+Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Through the human-verified Dispatch App entry, run a real task that genuinely needs delegation and confirm:
 
 ```text
 clean absence -> bounded automatic provisioning
@@ -121,7 +141,7 @@ no unrelated Codex state is modified
 
 ### Fresh-task role discovery and spawn context
 
-Open one fresh Codex task/session and rerun the same request through Subagents Dispatch. Confirm the exact required custom Agent role is available before spawning.
+Open one fresh Codex task/session and rerun the same request through Dispatch. Confirm the exact required custom Agent role is available before spawning.
 
 At minimum, prove real Host spawn for:
 
@@ -150,7 +170,7 @@ Run two genuinely independent read-only responsibilities. Confirm unit identity 
 
 ### Status and steering
 
-Invoke Subagents Dispatch through the human-verified App entry and use the `status` control payload while a child is active. Confirm it is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
+Invoke Status through the human-verified App entry while a child is active. Confirm it is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
 
 Use the `steer <unit_id>: <guidance>` control payload and confirm steering keeps the same responsibility, attempt, role, and authority. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
 
@@ -160,7 +180,7 @@ While a writing child is active, invoke the `takeover <unit_id>` control payload
 
 ### Doctor safety
 
-Through the human-verified Subagents Doctor App entry, exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
+Through the human-verified Doctor App entry, exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
 
 ### Update and uninstall
 
@@ -181,7 +201,7 @@ Luna Reader or Worker cannot be spawned on the supported Host
 first-use stale task attempts a child spawn after provisioning
 normal project-child spawn uses fork_turns other than none or omits fork_turns
 pre-child spawn rejection is counted as an Agent retry or receipt retry
-UNKNOWN is treated as FAILED
+For a release gate that explicitly requires observed evidence, `UNKNOWN` blocks that gate. A normal Doctor run remains healthy when route evidence was not requested and therefore reports `UNKNOWN`; it must not be relabeled as a runtime pass.
 Main writes before a previous writer is proven settled during takeover
 modified or unowned Agent configuration is overwritten automatically
 subagents-dispatch implicitly activates on unrelated ordinary tasks

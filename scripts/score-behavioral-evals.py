@@ -18,7 +18,7 @@ from policy import load_policy_contract
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "evals" / "behavioral-result.schema.json"
 WORKLOADS = ROOT / "evals" / "behavioral-workloads.json"
-POLICY = ROOT / "policy-contract.json"
+POLICY = ROOT / "contracts" / "policy.json"
 
 PAIR_CONTROL_FIELDS = (
     "workload_definition_hash",

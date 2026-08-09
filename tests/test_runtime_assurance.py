@@ -7,8 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
-SKILL = PLUGIN / "skills" / "dispatch"
-GUARDRAILS = SKILL / "references" / "guardrails.md"
+GUARDRAILS = PLUGIN / "contracts" / "guardrails.md"
 RUNTIME_DOC = ROOT / "docs" / "native-subagent-runtime.md"
 RUNTIME_VERIFIER = PLUGIN / "scripts" / "runtime-evidence.py"
 RUNTIME_CASES = ROOT / "evals" / "runtime-assurance-cases.json"

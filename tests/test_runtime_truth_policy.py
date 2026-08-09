@@ -6,12 +6,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 SKILL = PLUGIN / "skills" / "dispatch"
-POLICY = PLUGIN / "policy-contract.json"
+CONTRACTS = PLUGIN / "contracts"
+POLICY = PLUGIN / "contracts" / "policy.json"
 
 
 def test_runtime_evidence_is_diagnostic_not_default_hot_path():
-    guardrails = (SKILL / "references" / "guardrails.md").read_text(encoding="utf-8")
-    router = (SKILL / "references" / "router-core.md").read_text(encoding="utf-8")
+    guardrails = (CONTRACTS / "guardrails.md").read_text(encoding="utf-8")
+    router = (CONTRACTS / "routing.md").read_text(encoding="utf-8")
     assert "Runtime evidence is on demand" in guardrails
     assert "Do not run runtime-evidence diagnostics for every ordinary child" in guardrails
     assert "Main-session Sol dedup is an optimization" in router
@@ -31,9 +32,9 @@ def test_runtime_verifier_supports_main_and_child_subjects_and_policy_reference(
 
 def test_exact_project_roles_have_no_cross_role_fallback():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-    assert "fail closed as a Host/configuration limitation" in skill
-    assert "do not substitute another role" in skill
+    guardrails = (CONTRACTS / "guardrails.md").read_text(encoding="utf-8")
+    assert "Host/configuration limitation and fail closed" in guardrails
+    assert "Do not substitute another role" in guardrails
     assert set(spec["agent_type"] for spec in policy["roles"].values()) == {
         "subagents_dispatch_reader",
         "subagents_dispatch_worker",
@@ -44,16 +45,15 @@ def test_exact_project_roles_have_no_cross_role_fallback():
 
 
 def test_new_project_children_use_explicit_fresh_context():
-    skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    guardrails = (CONTRACTS / "guardrails.md").read_text(encoding="utf-8")
     runtime = (ROOT / "docs" / "native-subagent-runtime.md").read_text(encoding="utf-8")
-    assert "`fork_turns` is present and exactly `none`" in skill
-    assert "Never send `fork_turns: all` for a project child" in skill
-    assert "never omit `fork_turns`" in skill
+    assert "`fork_turns` is present and exactly `none`" in guardrails
+    assert "omitted `fork_turns` are forbidden" in guardrails
     assert "fork_turns=none" in runtime
 
 
 def test_consent_writer_and_explicit_invocation_are_guardrail_owned():
-    guardrails = (SKILL / "references" / "guardrails.md").read_text(encoding="utf-8")
+    guardrails = (CONTRACTS / "guardrails.md").read_text(encoding="utf-8")
     for phrase in [
         "Project policy does not impose an ordinary numeric child ceiling",
         "Child count by itself is not a consent trigger",
@@ -69,13 +69,13 @@ def test_consent_writer_and_explicit_invocation_are_guardrail_owned():
 
 
 def test_first_use_readiness_occurs_before_delegated_execution():
-    guardrails = (SKILL / "references" / "guardrails.md").read_text(encoding="utf-8")
+    guardrails = (CONTRACTS / "guardrails.md").read_text(encoding="utf-8")
     skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert "First-use readiness before delegated execution" in guardrails
-    assert "Ensure required native roles are ready before delegated execution" in skill
-    assert "RESTART_REQUIRED" in skill
-    assert "do not attempt spawn_agent in this task" in skill
-    assert "No Agent attempt exists yet" in skill
+    assert "../../contracts/guardrails.md" in skill
+    assert "RESTART_REQUIRED" in guardrails
+    assert "without attempting `spawn_agent`" in guardrails
+    assert "no child attempt has been created yet" in guardrails
 
 
 def test_profile_lifecycle_comes_from_policy_and_installer_not_user_docs():
@@ -88,11 +88,11 @@ def test_profile_lifecycle_comes_from_policy_and_installer_not_user_docs():
     assert 'MANIFEST_NAME = ".subagents-dispatch-agents.json"' in installer
     assert 'LOCK_NAME = ".subagents-dispatch-agents.lock"' in installer
     assert "from policy import load_policy_contract" in installer
-    assert 'POLICY_CONTRACT_PATH = ROOT / "policy-contract.json"' in policy_loader
+    assert 'POLICY_CONTRACT_PATH = ROOT / "contracts" / "policy.json"' in policy_loader
 
 
 def test_process_history_is_not_a_final_review_trigger():
-    final_review = (SKILL / "references" / "final-review.md").read_text(encoding="utf-8")
+    final_review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
     for phrase in ["Terra use", "Solver use", "recovery", "a large diff"]:
         assert phrase in final_review
     assert "is not a trigger by itself" in final_review

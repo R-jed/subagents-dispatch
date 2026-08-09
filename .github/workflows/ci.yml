@@ -53,10 +53,12 @@ jobs:
         shell: bash
         run: |
           target="$RUNNER_TEMP/subagents-dispatch-companion"
+          state_root="$RUNNER_TEMP/subagents-dispatch-state"
           python scripts/install-agents.py --codex-home "$target"
           python scripts/install-agents.py --codex-home "$target" --check
-          python scripts/doctor.py --codex-home "$target" --check
+          python scripts/doctor.py --codex-home "$target" --check --temp-root "$state_root" --thread-id ci-doctor
           python scripts/install-agents.py --codex-home "$target"
+          python scripts/install-agents.py --codex-home "$target" --check
 
   policy-tests:
     name: policy-tests

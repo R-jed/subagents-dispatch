@@ -9,39 +9,49 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 After installation, start a new Codex session.
 
-In the Codex App, type `/` to open the Skill menu. This Plugin's two user-facing Skill identities are:
+In the Codex App, open the Skill menu. This Plugin packages six explicit Skill identities:
 
 ```text
-Subagents Dispatch
-Subagents Doctor
+Dispatch
+Preview
+Status
+Steer
+Takeover
+Doctor
 ```
 
 The exact slash entry rendered by the App is a Host/UI fact. Release validation records it directly from the App instead of deriving it from package metadata.
 
 ## First delegated run
 
-The Plugin package and its five managed custom-Agent profiles have separate local lifecycle state. On the first explicit task run through **Subagents Dispatch** that actually needs a child, Dispatch checks those five profiles before delegated execution.
+The Plugin package and its five managed custom-Agent profiles have separate local lifecycle state. On the first explicit task run through **Dispatch** that actually needs a child, Dispatch checks those five profiles before delegated execution.
 
-If the profiles are absent and the managed paths are safe, Dispatch automatically provisions only subagents-dispatch's five fixed Agent profiles plus its ownership manifest and installer lock, then runs the bundled installer `--check`. This routine first-use provisioning is covered by the explicit Subagents Dispatch request; it does not modify `config.toml`, credentials, MCP configuration, repositories, or unrelated Agent profiles.
+If the profiles are absent and the managed paths are safe, Dispatch automatically provisions only subagents-dispatch's five fixed Agent profiles plus its ownership manifest and installer lock, then runs the bundled installer `--check`. This routine first-use provisioning is covered by the explicit Dispatch request; it does not modify `config.toml`, credentials, MCP configuration, repositories, or unrelated Agent profiles.
 
-Codex loads custom-Agent role declarations when a task/session starts. Profiles created during the current live task are therefore not available to that task's in-memory Agent registry. After successful first-use provisioning, Dispatch enters `RESTART_REQUIRED`, does not attempt to spawn the newly installed roles in the current task, and asks you to start one fresh Codex task/session, select **Subagents Dispatch** again, and rerun the original request. Once the profiles were present before task startup, later tasks can delegate normally.
+Codex loads custom-Agent role declarations when a task/session starts. Profiles created during the current live task are therefore not available to that task's in-memory Agent registry. After successful first-use provisioning, Dispatch enters `RESTART_REQUIRED`, does not attempt to spawn the newly installed roles in the current task, and asks you to start one fresh Codex task/session, select **Dispatch** again, and rerun the original request. Once the profiles were present before task startup, later tasks can delegate normally.
 
-If a managed path is symlinked, conflicting, modified without proven ownership, or otherwise unsafe, automatic provisioning fails closed. Nothing unrelated is overwritten; use **Subagents Doctor** for the exact diagnosis and next action.
+If a managed path is symlinked, conflicting, modified without proven ownership, or otherwise unsafe, automatic provisioning fails closed. Nothing unrelated is overwritten; use **Doctor** for the exact diagnosis and next action.
 
 Preview, Status, and other non-spawning control operations do not provision missing profiles.
 
-For normal development work, choose **Subagents Dispatch** from the App's `/` Skill menu and enter the task.
+For normal development work, choose **Dispatch** from the App's Skill menu and enter the task. Choose **Preview**, **Status**, **Steer**, or **Takeover** for the corresponding control. Use **Doctor** for installation, configuration, and managed-profile diagnostics.
 
-Optional 2.1 controls use the same Skill. After selecting it, use these payload shapes:
+## Doctor diagnostics
+
+Doctor is deterministic and read-only by default. It reports exactly six layers:
 
 ```text
-preview <task>
-status
-steer <unit_id>: <guidance>
-takeover <unit_id>
+Plugin
+Skills
+Managed Agent profiles
+Dispatch state
+Codex Host
+Runtime route evidence
 ```
 
-Use **Subagents Doctor** for installation, configuration, managed-profile, and upgrade diagnostics.
+`OK`, `WARN`, `FAIL`, and `UNKNOWN` are reported separately. A configured profile is configured truth only; it is not observed runtime route proof. Missing Host capability is `UNKNOWN` with the supported limitation recorded; an externally captured capability record may be supplied with `--host-evidence <file>`. Runtime route integrity is not run during normal diagnosis; pass explicit evidence to `scripts/doctor.py --runtime-evidence <file>` when that claim matters. Doctor never spawns a child, edits `config.toml`, credentials, MCP configuration, repositories, or unrelated profiles.
+
+Stale, corrupt, ambiguous, or unresolved-writer temporary state is reported and preserved. Repair, migration, and stale cleanup require explicit Doctor intent (`--repair`, `--migrate-legacy`, or `--cleanup-stale`).
 
 ## Update
 
@@ -52,7 +62,7 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 Start a new Codex session after updating.
 
-Subagents Doctor can perform the supported upgrade flow when explicitly requested. Choose **Subagents Doctor** from the App's `/` Skill menu and ask it to upgrade subagents-dispatch.
+Doctor can run the supported managed-profile repair or legacy migration only when explicitly requested. A Plugin upgrade still follows the Marketplace commands above and requires a fresh Codex session afterward.
 
 ## Uninstall
 

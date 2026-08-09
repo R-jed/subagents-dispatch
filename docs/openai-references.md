@@ -18,4 +18,4 @@ Platform surfaces can change independently of this repository. Re-check the curr
 
 In particular, the existence of an App Server or Hooks event does not imply that an ordinary installed Skill receives that event. subagents-dispatch reports token/model/runtime facts only through evidence the active execution path can actually access.
 
-Project behavior remains owned by `policy-contract.json`, `skills/dispatch/SKILL.md`, and the normative files under `skills/dispatch/references/`.
+Project behavior remains owned by the six explicit Skills under `skills/` and the canonical contracts under `contracts/`.

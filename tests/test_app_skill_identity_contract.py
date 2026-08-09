@@ -44,16 +44,13 @@ def test_active_surfaces_do_not_publish_unverified_or_legacy_skill_entrypoints()
     assert not violations, "Active product surfaces publish stale/unverified Skill entrypoints:\n" + "\n".join(violations)
 
 
-def test_active_surfaces_keep_prefixed_stable_skill_identity_and_human_ui_gate():
-    dispatch = (ROOT / "skills" / "dispatch" / "SKILL.md").read_text(encoding="utf-8")
-    doctor = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
+def test_active_surfaces_keep_explicit_skill_identity_and_human_ui_gate():
     release = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
     ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
 
-    assert "name: subagents-dispatch" in dispatch
-    assert "name: subagents-doctor" in doctor
-    assert "Subagents Dispatch" in dispatch
-    assert "Subagents Doctor" in doctor
+    for skill_id in ["dispatch", "preview", "status", "steer", "takeover", "doctor"]:
+        skill = (ROOT / "skills" / skill_id / "SKILL.md").read_text(encoding="utf-8")
+        assert f"name: {skill_id}\n" in skill
     assert "Direct human Codex App observation" in release
     assert "cannot by itself close a Host/UI gate" in release
     assert "record the exact rendered entry labels" in release

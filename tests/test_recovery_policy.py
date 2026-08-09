@@ -8,9 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 SCRIPTS = PLUGIN / "scripts"
-POLICY = PLUGIN / "policy-contract.json"
-SKILL_ROOT = PLUGIN / "skills" / "dispatch"
-RECOVERY = SKILL_ROOT / "references" / "recovery.md"
+POLICY = PLUGIN / "contracts" / "policy.json"
+RECOVERY = PLUGIN / "contracts" / "recovery.md"
 LEDGER_SCRIPT = SCRIPTS / "validate_team_ledger.py"
 
 
@@ -40,6 +39,7 @@ def attempt(
     state="COMPLETED",
     followups=0,
     adopted=True,
+    accepted=None,
     failure_origin="none",
     task_blocker="none",
 ):
@@ -53,6 +53,7 @@ def attempt(
         "control_state": state,
         "followup_count": followups,
         "adopted": adopted,
+        "accepted": adopted if accepted is None else accepted,
         "failure_origin": failure_origin,
         "task_blocker": task_blocker,
     }
@@ -243,8 +244,22 @@ def test_failure_state_and_adoption_consistency_fail_closed():
     payload = single_ledger(attempt(state="FAILED", adopted=False, failure_origin="none"))
     assert any("FAILED requires a failure_origin" in error for error in validate(payload)["errors"])
 
-    payload = single_ledger(attempt(state="CLOSED", adopted=False))
-    assert any("CLOSED requires adopted=true" in error for error in validate(payload)["errors"])
+    payload = single_ledger(attempt(state="CLOSED", adopted=False, accepted=False))
+    assert validate(payload)["ledger_valid"] is True
+
+    payload = single_ledger(attempt(state="COMPLETED", adopted=True, accepted=False))
+    assert any("adopted=true requires accepted evidence" in error for error in validate(payload)["errors"])
+
+
+def test_interrupted_is_nonfinal_and_keeps_the_same_materialized_attempt():
+    payload = single_ledger(attempt(state="INTERRUPTED", adopted=False, accepted=False))
+    assert validate(payload)["ledger_valid"] is True
+
+    payload["attempts"].append(
+        attempt(task_id="task-2", attempt_no=2, agent_id="agent-2", state="RUNNING", adopted=False)
+    )
+    errors = validate(payload)["errors"]
+    assert any("second attempt requires the first attempt to be FAILED" in error for error in errors)
 
 
 def test_role_can_change_across_plan_revision_without_resetting_unit_identity():

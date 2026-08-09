@@ -11,31 +11,31 @@ The architecture aims for the smallest useful delegation graph: simple work stay
 Runtime policy is deliberately split by responsibility:
 
 ```text
-SKILL.md
--> thin execution control loop, control-intent entry point, and pre-dispatch role readiness
+skills/*/SKILL.md
+-> six thin explicit entry points into the shared contracts
 
-interaction.md
+contracts/interaction.md
 -> Preview, Status, Steer, Takeover, Execution Receipt, usage/cost evidence boundary
 
-router-core.md
+contracts/routing.md
 -> delegation value, capability selection, responsibility packets, semantic coverage closure, phase-transition recompilation, adaptive scheduling
 
-handoff-capsule.md
+contracts/handoff.md
 -> compact Main-accepted evidence transfer between responsibilities
 
-team-plan.md
+contracts/team-plan.md
 -> multi-responsibility identity, dependency DAG, delegated role assignment, ownership scope, revisions, integration order
 
-recovery.md
+contracts/recovery.md
 -> attempt identity, UNKNOWN, failure classification, bounded recovery, Main takeover semantics
 
-guardrails.md
+contracts/guardrails.md
 -> authority, mutation permissions, writer safety, consent, trust, first-use provisioning, runtime evidence
 
-final-review.md
+contracts/final-review.md
 -> consequence-driven exact-candidate independent assurance for Git and non-Git deliverables
 
-policy-contract.json
+contracts/policy.json
 -> stable machine constants and native optimized role/model routes
 ```
 
@@ -78,7 +78,7 @@ There is no fixed Luna → Terra → Sol path and no fixed Agent count.
 
 ## Interaction control surface
 
-Interaction controls are handled by Main before ordinary task routing after the user explicitly selects/invokes the stable `subagents-dispatch` Skill, displayed as **Subagents Dispatch**. The exact App slash/menu label is a Host/UI fact and is not derived by this architecture document.
+Interaction controls use the explicit `preview`, `status`, `steer`, and `takeover` Skills. Ordinary task routing starts through `dispatch`, while `doctor` owns diagnostics. Exact App presentation remains a Host/UI fact and is not derived by this architecture document.
 
 Control payloads are:
 
@@ -176,7 +176,7 @@ A material phase transition may reuse still-valid capsule evidence in newly comp
 
 ## Roles
 
-`policy-contract.json` remains the machine source of truth for the current native optimized role identity, model, effort, and sandbox intent.
+`contracts/policy.json` remains the machine source of truth for the current native optimized role identity, model, effort, and sandbox intent.
 
 | Role | Agent type | Route | Responsibility |
 | --- | --- | --- | --- |
@@ -246,11 +246,11 @@ integration owner/order
 final verification
 ```
 
-TeamPlan does not choose models or team size. `router-core.md` chooses capabilities; TeamPlan records delegated assignment and coordination truth.
+TeamPlan does not choose models or team size. `contracts/routing.md` chooses capabilities; TeamPlan records delegated assignment and coordination truth.
 
 Steering that stays inside one unchanged responsibility does not revise TeamPlan. A pure Main takeover also does not invent `role: main` or require a revision. Delegated role reassignment, dependency changes, ownership-scope changes, deliverable changes, scope changes, or acceptance changes use the ordinary revision rules.
 
-`validate_team_plan.py` derives allowed delegated roles from `policy-contract.json` and validates exact plan shape, unit identity, dependency references/cycles, safe relative ownership paths, read-only write violations, same-ready-layer write overlap, revision shape, and integration order. It intentionally remains structural and does not infer natural-language requirements or prove semantic coverage.
+`validate_team_plan.py` derives allowed delegated roles from `contracts/policy.json` and validates exact plan shape, unit identity, dependency references/cycles, safe relative ownership paths, read-only write violations, same-ready-layer write overlap, revision shape, and integration order. It intentionally remains structural and does not infer natural-language requirements or prove semantic coverage.
 
 A structurally ready downstream unit can still be semantically unready. For example, a reviewer that consumes an integrated deliverable waits until Main has actually materialized and verified that deliverable, even when all predecessor units are accepted.
 
@@ -336,9 +336,9 @@ The same evidence rule applies to Execution Receipts. No model/token/cost fact i
 
 The five TOML profiles are native Codex custom-Agent definitions. `install-agents.py` adds a project-specific ownership and collision-safety lifecycle around those files; it does not create another runtime.
 
-The installer derives expected profile names/routes from `policy-contract.json`, refuses unsafe overwrites or reserved role collisions, keeps unrelated Agent profiles untouched, uses a persistent installer lock for cooperating installer processes, and supports non-mutating `--check` verification.
+The installer derives expected profile names/routes from `contracts/policy.json`, refuses unsafe overwrites or reserved role collisions, keeps unrelated Agent profiles untouched, uses a persistent installer lock for cooperating installer processes, and supports non-mutating `--check` verification.
 
-Explicit user selection/invocation of Subagents Dispatch provides routine first-use authority only when real delegation needs a role and the managed profiles are cleanly absent. That automatic path is limited to the five fixed profiles, ownership manifest, and installer lock. Repair, migration, upgrade, unsafe collisions, and unowned state remain user-controlled.
+Explicit user selection/invocation of Dispatch provides routine first-use authority only when real delegation needs a role and the managed profiles are cleanly absent. That automatic path is limited to the five fixed profiles, ownership manifest, and installer lock. Repair, migration, upgrade, unsafe collisions, and unowned state remain user-controlled.
 
 Because the current Host loads custom-Agent declarations when a task/session starts, profiles installed while a task is already live do not make a newly missing role selectable in that same task. Successful first-use provisioning therefore ends with `RESTART_REQUIRED`, performs zero child spawns in the current task, and asks for one fresh task/session. Preview and Status never provision roles simply to produce richer output.
 
@@ -348,7 +348,7 @@ Final Review happens only after ordinary acceptance reaches a candidate that may
 
 Candidate Ready requires the requested deliverable itself to be complete enough for acceptance, semantic coverage closure to be satisfied, material seams to be verified, and relevant deterministic/reproducible verification to be complete.
 
-Trigger classes are machine-owned by `policy-contract.json` and are consequence-driven: public contract, persistent state, security/authorization boundary, data integrity, concurrency semantics, migration, verification gap, or explicit user request.
+Trigger classes are machine-owned by `contracts/policy.json` and are consequence-driven: public contract, persistent state, security/authorization boundary, data integrity, concurrency semantics, migration, verification gap, or explicit user request.
 
 Process history such as TeamPlan use, recovery, Terra/Solver use, file count, or diff size is not a trigger by itself.
 

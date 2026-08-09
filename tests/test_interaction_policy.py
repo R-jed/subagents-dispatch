@@ -6,11 +6,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = ROOT / "skills" / "dispatch"
 SKILL = SKILL_ROOT / "SKILL.md"
-INTERACTION = SKILL_ROOT / "references" / "interaction.md"
-HANDOFF = SKILL_ROOT / "references" / "handoff-capsule.md"
-RECOVERY = SKILL_ROOT / "references" / "recovery.md"
-GUARDRAILS = SKILL_ROOT / "references" / "guardrails.md"
-TEAM_PLAN = SKILL_ROOT / "references" / "team-plan.md"
+CONTRACTS = ROOT / "contracts"
+INTERACTION = CONTRACTS / "interaction.md"
+HANDOFF = CONTRACTS / "handoff.md"
+RECOVERY = CONTRACTS / "recovery.md"
+GUARDRAILS = CONTRACTS / "guardrails.md"
+TEAM_PLAN = CONTRACTS / "team-plan.md"
 CASES = ROOT / "evals" / "interaction-cases.json"
 
 
@@ -23,19 +24,12 @@ def cases() -> dict[str, dict]:
     return result
 
 
-def test_skill_exposes_control_payloads_without_inventing_app_slash_syntax():
-    text = SKILL.read_text(encoding="utf-8")
-    for form in [
-        "preview <task>",
-        "status",
-        "steer <unit_id>: <guidance>",
-        "takeover <unit_id>",
-    ]:
-        assert form in text
-    assert "name: subagents-dispatch" in text
-    assert "App rendering and selection are release-gated with direct human UI evidence" in text
-    assert "Handle an explicit control intent before ordinary routing" in text
-    assert "Preview performs no delegated execution or mutation" in text
+def test_explicit_control_skills_reference_the_shared_interaction_contract():
+    for skill_id in ["preview", "status", "steer", "takeover"]:
+        text = (ROOT / "skills" / skill_id / "SKILL.md").read_text(encoding="utf-8")
+        assert f"name: {skill_id}\n" in text
+        assert "../../contracts/interaction.md" in text
+    assert "without creating another Agent runtime" in INTERACTION.read_text(encoding="utf-8")
 
 
 def test_preview_is_strictly_non_executing_and_preserves_visible_obligations():
@@ -78,8 +72,8 @@ def test_preview_is_strictly_non_executing_and_preserves_visible_obligations():
 def test_first_use_auto_provisions_only_clean_absence_then_requires_fresh_task():
     skill = SKILL.read_text(encoding="utf-8")
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
-    assert "readiness outcome: RESTART_REQUIRED" in skill
-    assert "do not attempt spawn_agent in this task" in skill
+    assert "../../contracts/guardrails.md" in skill
+    assert "enter `RESTART_REQUIRED` without attempting `spawn_agent`" in guardrails
     assert "Routine first-use provisioning is not a separate consent prompt" in guardrails
     assert "`RESTART_REQUIRED` is a pre-dispatch readiness outcome" in guardrails
     assert "Do not overwrite or repair that state under routine first-use authority" in guardrails
@@ -125,6 +119,20 @@ def test_status_preserves_unknown_and_does_not_busy_poll():
     assert task_case == {"mode": "task", "status_control": False}
 
 
+def test_targetless_control_resolves_only_one_eligible_unit():
+    text = INTERACTION.read_text(encoding="utf-8")
+    assert "exactly one eligible unit" in text
+    assert "return the eligible unit ids as candidates" in text
+
+    one = cases()["targetless-control-one-eligible-auto-resolves"]["expected"]
+    assert one == {"target_resolved": True, "resolved_unit": "U2", "requires_choice": False}
+    many = cases()["targetless-control-multiple-eligible-requires-choice"]["expected"]
+    assert many == {"target_resolved": False, "candidates": ["U1", "U2"], "requires_choice": True}
+    interrupted = cases()["steer-interrupted-is-not-resume"]["expected"]
+    assert interrupted["resume_claimed"] is False
+    assert interrupted["replacement_children"] == 0
+
+
 def test_steering_preserves_responsibility_role_and_authority():
     text = INTERACTION.read_text(encoding="utf-8")
     for phrase in [
@@ -168,18 +176,16 @@ def test_takeover_is_main_takeover_and_never_steals_an_unknown_writer():
 
 def test_receipt_is_compact_factual_and_only_after_real_delegation():
     interaction = INTERACTION.read_text(encoding="utf-8")
-    guardrails = GUARDRAILS.read_text(encoding="utf-8")
-    assert "When at least one child was actually spawned" in interaction
-    assert "Do not emit the receipt for a zero-child task, preview, or status-only request" in interaction
-    assert "Keep the default receipt to one line" in guardrails
+    assert "unique stable event references" in interaction
+    assert "Explicit Dispatch with zero materialized children emits the minimal receipt" in interaction
     assert "does not estimate token counts or currency cost" in interaction
 
-    delegated = cases()["receipt-only-after-real-delegation"]["expected"]
+    delegated = cases()["receipt-after-materialized-delegation"]["expected"]
     assert delegated["receipt"] is True
-    assert delegated["default_lines"] == 1
+    assert delegated["axes"] == ["Dispatch", "Review"]
 
-    zero = cases()["zero-child-completion-has-no-receipt"]["expected"]
-    assert zero["receipt"] is False
+    zero = cases()["zero-child-dispatch-has-minimal-receipt"]["expected"]
+    assert zero == {"receipt": True, "minimal_lines": 2, "persistent_state": False}
 
     telemetry = cases()["receipt-never-guesses-model-or-cost"]["expected"]
     assert telemetry == {
@@ -191,7 +197,7 @@ def test_receipt_is_compact_factual_and_only_after_real_delegation():
 
 def test_handoff_capsule_contains_only_main_accepted_truth_and_cannot_grant_authority():
     handoff = HANDOFF.read_text(encoding="utf-8")
-    router = (SKILL_ROOT / "references" / "router-core.md").read_text(encoding="utf-8")
+    router = (CONTRACTS / "routing.md").read_text(encoding="utf-8")
     for phrase in [
         "Only facts Main has independently accepted",
         "A child assertion is not an accepted fact",

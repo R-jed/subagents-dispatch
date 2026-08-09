@@ -11,7 +11,7 @@
   "interface": {
     "displayName": "subagents-dispatch",
     "shortDescription": "Adaptive Subagent delegation with preview and live control.",
-    "longDescription": "subagents-dispatch lets the current session act as team leader. It keeps work in Main when that is best, previews likely delegation without spawning when asked, assigns distinct ready responsibilities to native Subagents when delegation adds value, lets users inspect, steer, or safely take back active responsibilities, reuses Main-verified evidence through compact handoff capsules, coordinates dependencies and integration when several responsibilities are active, keeps recovery bounded, preserves one-writer safety, reports a compact factual execution receipt after real delegation, and uses fresh independent review only when the final artifact genuinely warrants it. Subagents Doctor handles installation, configuration, managed-profile, and upgrade diagnostics.",
+    "longDescription": "subagents-dispatch lets the current session act as team leader through six explicit Skills. Dispatch starts or resumes value-driven orchestration. Preview predicts likely delegation without execution. Status observes once, Steer guides an unchanged attempt, Takeover safely returns responsibility to Main, and Doctor diagnoses installation and runtime health. Shared contracts preserve bounded recovery, one-writer safety, evidence-bound handoffs, compact factual receipts, and consequence-driven independent review.",
     "developerName": "R-jed",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -23,9 +23,12 @@
     "logo": "./assets/subagents-dispatch-logo.svg",
     "screenshots": [],
     "defaultPrompt": [
-      "Use the Subagents Dispatch skill to complete this task. Lead the work and delegate only when it adds value.",
-      "Use the Subagents Dispatch skill to preview, inspect, steer, or safely take back delegated work.",
-      "Use the Subagents Doctor skill to diagnose this subagents-dispatch installation and configuration."
+      "Use the Dispatch skill to complete this task, delegating only when it adds distinct value.",
+      "Use the Preview skill to predict how this task would be orchestrated without execution.",
+      "Use the Status skill to inspect the current orchestration once.",
+      "Use the Steer skill to guide one unchanged delegated attempt.",
+      "Use the Takeover skill to safely return one delegated responsibility to Main.",
+      "Use the Doctor skill to diagnose this subagents-dispatch installation and configuration."
     ]
   }
 }

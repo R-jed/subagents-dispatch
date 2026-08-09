@@ -11,14 +11,14 @@ The live suite uses controlled paired workloads where a meaningful paired compar
 Some schema/mode names remain from earlier Routing V4 experiments so historical runs stay comparable. They are experiment labels only. Current runtime policy is owned by:
 
 ```text
-interaction.md
-router-core.md
-handoff-capsule.md
-team-plan.md
-recovery.md
-guardrails.md
-final-review.md
-policy-contract.json
+contracts/interaction.md
+contracts/routing.md
+contracts/handoff.md
+contracts/team-plan.md
+contracts/recovery.md
+contracts/guardrails.md
+contracts/final-review.md
+contracts/policy.json
 ```
 
 Do not make the Skill maintain an ontology merely because an eval field exists.
@@ -36,7 +36,7 @@ The live suite asks:
 5. When Luna encounters a material semantic blocker, does correct rerouting reduce wrong edits/rework compared with simply continuing Luna?
 6. For stable semantics and read-only work, does Terra provide useful quality/context depth at lower total cost than a Sol judgment lane, and when does narrow Luna Reader remain sufficient?
 7. Does consequence-driven Final Review catch material issues while avoiding decorative review caused only by process history?
-8. Does explicit user selection of Subagents Dispatch plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
+8. Does explicit user selection of Dispatch plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
 9. Does a one-line factual Execution Receipt improve delegation transparency without cluttering zero-child work or encouraging unsupported model/cost claims?
 10. Does Preview help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
 11. Do Status, Steer, and Takeover improve user control while preserving `UNKNOWN`, stable responsibility identity, and one-writer safety?
@@ -323,7 +323,7 @@ For the process-history negative control, use a candidate where Terra/Solver/rec
 
 ## Experiment H: first-use readiness
 
-Measure the first explicit task run through Subagents Dispatch when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
+Measure the first explicit task run through Dispatch when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
 
 The current candidate should:
 
@@ -337,11 +337,11 @@ identify that delegation will be useful
 -> set readiness outcome RESTART_REQUIRED
 -> perform 0 child spawns in the current task
 -> show one concise fresh-task handoff
--> rerun the original request through Subagents Dispatch in a fresh task/session
+-> rerun the original request through Dispatch in a fresh task/session
 -> verify exact role availability there before spawning
 ```
 
-There is no separate routine provisioning confirmation prompt in this clean first-use path. Explicit user selection/invocation of Subagents Dispatch is the narrow authorization for plugin-owned provisioning after delegation is already justified.
+There is no separate routine provisioning confirmation prompt in this clean first-use path. Explicit user selection/invocation of Dispatch is the narrow authorization for plugin-owned provisioning after delegation is already justified.
 
 Hard negative controls:
 
@@ -392,7 +392,7 @@ These should not add a receipt.
 
 ## Experiment J: Preview and live control
 
-Select **Subagents Dispatch** through the Host UI, then use the Preview payload:
+Select **Preview** through the Host UI, then enter the task:
 
 ```text
 preview <same task used for a later real run>
@@ -415,6 +415,8 @@ Status workload verifies one-shot inspection and exact preservation of `UNKNOWN`
 Steer workload sends focused guidance that stays inside the same responsibility. A negative-control steer requests a material scope/role/authority change and should return to Main reclassification rather than silently updating the child contract.
 
 Takeover workload includes a writing child. Verify that Main does not perform a conflicting write before the native child is settled. Add a Host-ambiguity case where stop/terminal state cannot be established; the expected result is pending/UNKNOWN rather than forced ownership transfer.
+
+The static adversarial set in `evals/interaction-cases.json` covers the fifteen WORK §63 boundaries: `missing-thread-id`; `spawn-pending-no-match`, `spawn-pending-single-match`, and `spawn-pending-multiple-match`; `corrupt-capsule-active-writer`; `multi-targetless-steer` and `single-targetless-steer`; `interrupted-takeover`; `fix-first-without-correction`; `retry-then-rework`; `locale-persistence`; `unrelated-dispatch-with-unresolved-writer`; `repeated-status-dedupe`; `same-child-resume`; and `route-mismatch`.
 
 ## Experiment K: Handoff Capsule
 

@@ -5,10 +5,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
-SKILL = PLUGIN / "skills" / "dispatch"
-ROUTER = SKILL / "references" / "router-core.md"
-GUARDRAILS = SKILL / "references" / "guardrails.md"
-POLICY = PLUGIN / "policy-contract.json"
+CONTRACTS = PLUGIN / "contracts"
+ROUTER = CONTRACTS / "routing.md"
+GUARDRAILS = CONTRACTS / "guardrails.md"
+POLICY = PLUGIN / "contracts" / "policy.json"
 ROUTING_CASES = ROOT / "evals" / "routing-cases.json"
 
 
@@ -22,10 +22,11 @@ def routing_cases() -> dict[str, dict]:
     return {case["id"]: case for case in payload["cases"]}
 
 
-def test_machine_contract_keeps_only_the_two_hard_delegation_limits():
-    assert policy()["delegation"] == {
-        "max_depth": 1,
-        "max_active_writers_per_workspace": 1,
+def test_machine_contract_keeps_depth_and_semantic_writer_coordination():
+    assert policy()["delegation"] == {"max_depth": 1}
+    assert policy()["write_coordination"] == {
+        "mode": "single_writer",
+        "scope": "canonical_workspace",
     }
 
 

@@ -2,9 +2,9 @@
 
 TeamPlan is the lightweight coordination contract for tasks that need more than one delegated responsibility at the same time or need machine-checkable dependency and integration order.
 
-It does not choose models, replace Main, create another planner, or impose a project-level child-count target. `router-core.md` still decides whether delegation is useful and which specialist role owns each delegated responsibility. Main remains the integration and acceptance owner.
+It does not choose models, replace Main, create another planner, or impose a project-level child-count target. `routing.md` still decides whether delegation is useful and which specialist role owns each delegated responsibility. Main remains the integration and acceptance owner.
 
-A TeamPlan makes coordination structure explicit. It does not by itself prove that decomposition preserved every material obligation from user or upstream task truth. Semantic coverage remains a Main responsibility under `router-core.md`.
+A TeamPlan makes coordination structure explicit. It does not by itself prove that decomposition preserved every material obligation from user or upstream task truth. Semantic coverage remains a Main responsibility under `routing.md`.
 
 ## 1. When TeamPlan is required
 
@@ -70,7 +70,7 @@ ownership
 done_when
 ```
 
-Allowed roles come from `../../../policy-contract.json`. `role` records the delegated Subagent role assigned by the router for that plan revision. TeamPlan does not define a `main` role and does not independently choose a role or model.
+Allowed roles come from `policy.json`. `role` records the delegated Subagent role assigned by the router for that plan revision. TeamPlan does not define a `main` role and does not independently choose a role or model.
 
 If Recovery later performs `main_takeover`, delegated execution for that unit ends and Main continues the stable responsibility. Recovery owns that execution-state transition; TeamPlan does not rewrite the unit to an invalid `role: main`.
 
@@ -119,7 +119,7 @@ A taken-over unit becomes dependency-satisfied only after Main completes and acc
 
 Filesystem ownership does not create mutation authority. The responsibility packet remains the authorization source.
 
-Read-only roles, as defined by `policy-contract.json`, must not declare write ownership.
+Read-only roles, as defined by `policy.json`, must not declare write ownership.
 
 Units that are structurally ready at the same time must not declare overlapping write paths. If they would collide, add a real dependency, repartition ownership, or serialize the work.
 
@@ -176,10 +176,10 @@ Before multi-responsibility dispatch, validate the plan:
 python scripts/validate_team_plan.py /path/to/team-plan.json
 ```
 
-The validator checks the exact schema shape, unit identity, delegated roles from `policy-contract.json`, dependency validity and cycles, safe ownership paths, ready-layer write collisions, revision shape, and integration order.
+The validator checks the exact schema shape, unit identity, delegated roles from `policy.json`, dependency validity and cycles, safe ownership paths, ready-layer write collisions, revision shape, and integration order.
 
 When TeamPlan revisions are recorded in a recovery ledger, the ledger validator also rejects reuse of one `unit_id` for a changed goal or output.
 
-The validator is intentionally structural. It does not infer natural-language user requirements, decide which obligations are material, prove end-to-end semantic coverage, or decide whether an integrated artifact is actually ready for a downstream responsibility. Those remain Main-level semantic checks under `router-core.md`.
+The validator is intentionally structural. It does not infer natural-language user requirements, decide which obligations are material, prove end-to-end semantic coverage, or decide whether an integrated artifact is actually ready for a downstream responsibility. Those remain Main-level semantic checks under `routing.md`.
 
 It intentionally does not impose standard/expanded team sizes, fixed waves, model routing, Provider routing, a `main` pseudo-role, or a private scheduler. Native Codex capacity remains the concurrency ceiling; Main still chooses the smallest useful active set.

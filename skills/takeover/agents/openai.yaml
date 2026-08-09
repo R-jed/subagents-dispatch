@@ -1,0 +1,7 @@
+interface:
+  display_name: "Subagents Dispatch: Takeover"
+  short_description: "Safely return delegated work to Main"
+  default_prompt: "Use the Takeover skill to safely return one delegated responsibility to Main."
+
+policy:
+  allow_implicit_invocation: false

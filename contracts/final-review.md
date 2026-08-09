@@ -10,7 +10,7 @@ It is an assurance decision, not another execution stage and not a penalty for w
 
 ## 1. When review is required
 
-Use the semantic trigger codes in `../../../policy-contract.json`.
+Use the semantic trigger codes in `policy.json`.
 
 A fresh independent review is required when the current artifact materially involves:
 
@@ -123,6 +123,6 @@ Keep the candidate at review-pending. Gather only the missing evidence when poss
 
 A required quality state does not authorize unlimited compute.
 
-The first ordinary fresh review after explicit user selection/invocation of Subagents Dispatch may fit inside the normal bounded orchestration envelope. Repeated correction/re-review loops can become material compute expansion and require renewed consent under `guardrails.md`.
+The first ordinary fresh review after explicit user selection/invocation of Dispatch may fit inside the normal bounded orchestration envelope. Repeated correction/re-review loops can become material compute expansion and require renewed consent under `guardrails.md`.
 
 If required review is outside the current consent envelope and the user declines it, report that independent assurance remains incomplete. Do not silently downgrade the review requirement.

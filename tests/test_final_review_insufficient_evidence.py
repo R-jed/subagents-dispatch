@@ -5,7 +5,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 ADVISOR = PLUGIN / "agent-profiles" / "subagents-dispatch-advisor.toml"
-REVIEW = PLUGIN / "skills" / "dispatch" / "references" / "final-review.md"
+REVIEW = PLUGIN / "contracts" / "final-review.md"
 SCHEMA = ROOT / "evals" / "behavioral-result.schema.json"
 
 

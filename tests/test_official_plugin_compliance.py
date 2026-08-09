@@ -11,13 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = ROOT
 MANIFEST = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
 SKILLS_ROOT = PLUGIN_ROOT / "skills"
-MAIN_SKILL_ROOT = SKILLS_ROOT / "dispatch"
-DOCTOR_SKILL_ROOT = SKILLS_ROOT / "doctor"
-MAIN_OPENAI_YAML = MAIN_SKILL_ROOT / "agents" / "openai.yaml"
-DOCTOR_OPENAI_YAML = DOCTOR_SKILL_ROOT / "agents" / "openai.yaml"
-POLICY = PLUGIN_ROOT / "policy-contract.json"
-MAIN_DISPLAY_NAME = "Subagents Dispatch"
-DOCTOR_DISPLAY_NAME = "Subagents Doctor"
+SKILL_IDS = ["dispatch", "preview", "status", "steer", "takeover", "doctor"]
+POLICY = PLUGIN_ROOT / "contracts" / "policy.json"
 
 
 def test_plugin_manifest_has_public_legal_links_and_stays_skills_only():
@@ -38,26 +33,24 @@ def test_plugin_manifest_has_public_legal_links_and_stays_skills_only():
     assert (ROOT / "TERMS.md").is_file()
 
 
-def test_plugin_starter_prompts_cover_main_and_doctor_without_inventing_app_command_syntax():
+def test_plugin_starter_prompts_cover_all_skills_without_inventing_app_command_syntax():
     prompts = json.loads(MANIFEST.read_text(encoding="utf-8"))["interface"]["defaultPrompt"]
-    assert 1 <= len(prompts) <= 3
-    assert any(MAIN_DISPLAY_NAME in prompt for prompt in prompts)
-    assert any(DOCTOR_DISPLAY_NAME in prompt for prompt in prompts)
-    assert all(MAIN_DISPLAY_NAME in prompt or DOCTOR_DISPLAY_NAME in prompt for prompt in prompts)
+    assert len(prompts) == len(SKILL_IDS)
+    for skill_id in SKILL_IDS:
+        assert any(skill_id.title() in prompt for prompt in prompts)
     assert all(len(prompt) <= 128 for prompt in prompts)
     for stale in ["$dispatch", "$doctor", "/dispatch", "/doctor", "/subagents-dispatch:"]:
         assert all(stale not in prompt for prompt in prompts)
 
 
-def test_openai_skill_metadata_uses_prefixed_display_identity_and_explicit_only_policy():
-    main = yaml.safe_load(MAIN_OPENAI_YAML.read_text(encoding="utf-8"))
-    doctor = yaml.safe_load(DOCTOR_OPENAI_YAML.read_text(encoding="utf-8"))
-
-    for payload, display_name in [(main, MAIN_DISPLAY_NAME), (doctor, DOCTOR_DISPLAY_NAME)]:
+def test_openai_skill_metadata_uses_explicit_display_identity_and_explicit_only_policy():
+    for skill_id in SKILL_IDS:
+        payload = yaml.safe_load((SKILLS_ROOT / skill_id / "agents" / "openai.yaml").read_text(encoding="utf-8"))
+        action_name = skill_id.title()
         interface = payload["interface"]
-        assert interface["display_name"] == display_name
+        assert interface["display_name"] == f"Subagents Dispatch: {action_name}"
         assert 25 <= len(interface["short_description"]) <= 64
-        assert display_name in interface["default_prompt"]
+        assert action_name in interface["default_prompt"]
         assert payload["policy"]["allow_implicit_invocation"] is False
         for stale in ["$dispatch", "$doctor", "/dispatch", "/doctor", "/subagents-dispatch:"]:
             assert stale not in interface["default_prompt"]

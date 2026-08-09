@@ -94,7 +94,7 @@ Do not add MCP, hook, server, database, storage, or source-runtime trees merely 
 
 ## Why contracts are top-level
 
-The target control surface has six user-facing Skills. Preview, Status, Steer, Takeover, Doctor, and Dispatch all need some subset of the same orchestration semantics. Keeping those semantics under `skills/dispatch/references/` makes Dispatch look like the owner of rules that are actually shared product contracts.
+The target control surface has six user-facing Skills. Preview, Status, Steer, Takeover, Doctor, and Dispatch all need some subset of the same orchestration semantics. Keeping those semantics under `contracts/` makes their shared ownership explicit.
 
 The `contracts/` directory therefore becomes the single semantic kernel. Skill folders are adapters into it.
 

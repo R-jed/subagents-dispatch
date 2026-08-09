@@ -117,6 +117,21 @@ review:U3:A1
 
 Aggregation is derived from unique materialized references plus their role/activity binding. Seeing the same Host event again after resume must not increment the visible count twice.
 
+Use distinct stable refs for distinct accounting facts:
+
+```text
+materialized attempt    -> Dispatch pass
+focused follow-up       -> Dispatch pass + focused-follow-up fact
+replacement retry       -> Recovery retry; its new attempt ref reports the pass
+semantic rework         -> Review rework only when a correction pass actually begins
+reviewer attempt        -> Dispatch pass, even if no verdict is produced
+review round            -> Review round only after an actual verdict
+runtime recovery        -> Recovery fact such as unambiguous rebind
+explicit control        -> Control use
+```
+
+One ref may be observed repeatedly but contributes once. Reusing one ref for conflicting facts is corrupt accounting and fails closed. Reconciliation itself is not a work pass, retry, rework, or review round.
+
 ## Control axis
 
 Show Control only when an explicit control entry point was used against the active orchestration.

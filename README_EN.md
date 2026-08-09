@@ -25,37 +25,37 @@ Hand the parts of a big task to a few subagents. Discovery runs in parallel, wri
 ## Quick start
 
 ```text
-/subagents dispatch Add pagination to /api/users, with tests
+Choose Dispatch, then enter: Add pagination to /api/users, with tests
 ```
 
-One sentence, and the plugin decides how to split it. One Reader checks the existing API, another checks the tests; those run in parallel. Once the evidence is clear, one Worker writes the code. Simple tasks are not force-split.
+One sentence, and the plugin decides how to split it. One Read activity checks the existing API, another checks the tests; those run in parallel. Once the evidence is clear, an Execute activity writes the code. Simple tasks are not force-split.
 
 ## How to use
 
 Want to see the plan before anything starts:
 ```text
-/subagents dispatch preview Add pagination to /api/users, with tests
+Choose Preview, then enter: Add pagination to /api/users, with tests
 ```
 
 Check how far a running task has come:
 ```text
-/subagents dispatch status
+Choose Status
 ```
 
 Add a requirement to a running subagent:
 ```text
-/subagents dispatch steer U2: check existing pagination middleware first
+Choose Steer, then enter: U2: check existing pagination middleware first
 ```
 
 Stop a responsibility and take it over yourself:
 ```text
-/subagents dispatch takeover U2
+Choose Takeover, then enter: U2
 ```
 
 ## Compact execution receipt
 
 ```text
-Dispatch: Reader → Worker · complete · no retry · not required
+Dispatch: Luna Max Read → Luna Max Execute · complete · no retry · not required
 ```
 
 Facts only. No hidden reasoning, and it does not estimate token usage or currency cost.
@@ -71,20 +71,20 @@ Each subagent starts with fresh context. Nothing passed on, and the next subagen
 
 ## Subagent rules
 
-- **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main, Worker, or Solver. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
+- **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main or an Execute activity. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
 - **One delegation layer** — subagents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
 - **UNKNOWN means do not guess** — when state cannot be established, there is no replacement subagent, retry, or semantic reroute
 - **Receipts report facts** — does not estimate token usage or currency cost from model names, elapsed time, or output length
 
 ## Roles
 
-| Role | Plugin name | What it does |
+| Model lane | Public activity | What it does |
 |------|-------------|--------------|
-| Luna Reader | subagents_dispatch_reader | read code, trace call paths, gather facts |
-| Luna Worker | subagents_dispatch_worker | implementation and tests when the behavior is already decided |
-| Sol Solver | subagents_dispatch_solver | implementation that needs judgment calls along the way |
-| Terra Investigator | subagents_dispatch_investigator | broad read-only investigation, evidence synthesis |
-| Sol Advisor | subagents_dispatch_advisor | independent technical judgment or final review |
+| Luna Max | Read | read code, trace call paths, gather facts |
+| Luna Max | Execute | implementation and tests when the behavior is already decided |
+| Sol High | Execute | implementation that needs judgment calls along the way |
+| Terra XHigh | Investigate | broad read-only investigation, evidence synthesis |
+| Sol High | Decide / Review | independent technical judgment or final review |
 
 Most work stays in Main.
 
@@ -95,7 +95,7 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-On first install, run `/subagents dispatch` once to create the five subagent profiles, then start a new session and use `/subagents dispatch` for tasks.
+When delegation is first needed, choose Dispatch. The plugin safely creates the five subagent profiles, then asks you to start a new session and choose Dispatch again.
 
 ## Update
 
@@ -104,7 +104,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Or let **Subagents Doctor** upgrade it.
+Or choose **Doctor** and ask it to upgrade.
 
 ## Uninstall
 
@@ -131,11 +131,15 @@ rm ~/.codex/.subagents-dispatch-agents.json
 ├── .agents/plugins/                  # Codex Marketplace registration
 ├── .codex-plugin/                    # plugin manifest
 ├── agent-profiles/                   # five Agent profiles
-├── policy-contract.json              # role definitions and core constraints
+├── contracts/                        # shared orchestration contracts and role policy
 ├── scripts/                          # installer, validators, runtime evidence tools
 ├── skills/
-│   ├── dispatch/                     # Subagents Dispatch Skill
-│   └── doctor/                       # Subagents Doctor Skill
+│   ├── dispatch/                     # start or resume orchestration
+│   ├── preview/                      # predict without execution
+│   ├── status/                       # one-shot status
+│   ├── steer/                        # guide an existing delegation
+│   ├── takeover/                     # safely return work to Main
+│   └── doctor/                       # installation and runtime diagnostics
 ├── docs/                             # architecture and runtime boundary docs
 ├── evals/                            # static and behavioral evaluation data
 └── tests/                            # regression tests

@@ -1,26 +1,23 @@
 # Interaction Control
 
-This file owns the user-visible control semantics for an active Subagents Dispatch workflow. It adds preview, status, steering, takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Dispatch workflow. It defines Preview, Status, Steer, Takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
-`router-core.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
+`routing.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
 
-The stable Skill id is `subagents-dispatch`, with UI display name `Subagents Dispatch`. This contract defines control payloads after the Skill has been explicitly selected/invoked; it does not invent the exact slash entry rendered by a particular Codex App build.
+The stable interaction Skill ids are `preview`, `status`, `steer`, and `takeover`, with corresponding display names Preview, Status, Steer, and Takeover under the subagents-dispatch Plugin. This contract defines their inputs after explicit selection/invocation; it does not invent the exact slash entry rendered by a particular Codex App build.
 
 ## Control intents
 
-The normal payload is the task itself.
-
-The following control intents are recognized before ordinary task routing:
+The explicit interaction Skills accept these conceptual inputs:
 
 ```text
-preview <task>
-status
-steer <unit_id>: <guidance>
-takeover <unit_id>
-takeover <unit_id>: <guidance>
+Preview: <task>
+Status: optional <unit_id> zoom
+Steer: optional <unit_id> plus <guidance>
+Takeover: optional <unit_id> plus optional <guidance>
 ```
 
-`status` is a control intent only when it is the complete remaining request. A task such as `status page is broken` is ordinary work. `steer` and `takeover` require a resolvable current unit id. When one lightweight delegated responsibility exists without TeamPlan, Main still gives it a stable unit id and may surface that id in status output.
+An explicit unit id resolves by exact match only. Without an explicit id, exactly one eligible unit auto-resolves; zero eligible units reports none, and multiple eligible units return the eligible unit ids as candidates and require a user choice. Never guess from recency, prose similarity, an unrelated session, or an ineligible unit. When one lightweight delegated responsibility exists without TeamPlan, Main still gives it a stable unit id and may surface that id in Status output.
 
 If there is no current dispatch state in the conversation, Status reports that there are no current delegated responsibilities. Steer and Takeover stop with an exact target-not-found/current-state-unavailable message. They do not reconstruct an old task from memory, invent an Agent id, or search unrelated sessions to guess the target.
 
@@ -64,6 +61,8 @@ current blocker, when known
 
 Prefer native host state when it is exposed. When host evidence is insufficient, report `UNKNOWN` exactly. Status must not convert `UNKNOWN` to failure, trigger a retry, create replacement work, or mutate artifacts.
 
+Status performs at most one Host observation and one reconciliation pass. It defaults to the low-resolution list above and accepts an optional exact unit-id zoom. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
+
 When there is no current delegated responsibility, say so directly. Absence of an active unit is different from an existing unit whose runtime state is `UNKNOWN`.
 
 Do not busy-poll the host to manufacture certainty.
@@ -92,6 +91,8 @@ external impact
 If the requested guidance would materially change one of those facts, do not label it steering. Return the change to Main and use the ordinary TeamPlan revision, reroute, takeover, or user-authorization path as appropriate.
 
 If the target cannot be resolved to one current child, report the ambiguity or missing target instead of guessing.
+
+`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Dispatch-resume path and preserves its existing identity and accounting.
 
 ## Takeover
 
@@ -124,71 +125,15 @@ A takeover does not reset the unit's history or erase valid evidence. With TeamP
 
 ## Execution Receipt
 
-When at least one child was actually spawned, the terminal response for that dispatch includes one compact execution receipt after the ordinary result or blocker summary. This applies whether the requested work completed successfully or ended blocked/partial.
+`receipt.md` is the single source of truth for receipt accounting and presentation. Derive every axis from unique stable event references; repeated Status or reconciliation of the same event is idempotent. Keep materialized passes, focused follow-ups, retries, semantic rework, reviewer attempts, review rounds, and recovery as distinct facts.
 
-### Unified shape
+An ordinary delegated terminal response emits the applicable Dispatch, Control, Review, and exceptional Recovery axes after Main's result or blocker summary, whether the requested work completed successfully or ended blocked/partial. This also applies to `UNKNOWN` and takeover-pending outcomes.
 
-Emit the receipt as four fixed slots separated by `·`, plus an optional closing note when a blocker or `UNKNOWN` state is material. `→` connects role steps in execution order, and `×N` marks a role used N times. Keep the receipt to one line, with no free-text role descriptors.
+Explicit Dispatch with zero materialized children emits the minimal receipt defined by `receipt.md` and creates no persistent state. Preview and Status-only requests emit no terminal Dispatch Receipt.
 
-```text
-Dispatch: <role chain> · <state> · <retry> · <final review> [ · <blocker/UNKNOWN note>]
-```
+The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and never exposes the internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
 
-Slot enumerations:
-
-```text
-role chain     Reader×2 → Advisor        roles in execution order; `×N` after the role
-state          complete | blocked | pending | main takeover
-retry          no retry | retried N
-final review   not required | ship | fix-first | rethink | INSUFFICIENT_EVIDENCE | not reached
-```
-
-The retry slot counts only replacement Agent attempts after a materialized prior attempt was confirmed `FAILED` under `recovery.md`. A `spawn_agent` call rejected before the Host returns any child identity is not an Agent retry, does not consume an attempt, and must leave the receipt at `no retry` / `未重试` unless a later real Agent attempt is actually retried.
-
-`pending` here means takeover pending. `main takeover` is the state-slot spelling of the existing `main_takeover` recovery action. Slot coherence: a `fix-first`, `rethink`, or `INSUFFICIENT_EVIDENCE` final review must not pair with state `complete`; `not reached` pairs with `blocked`, `pending`, or `main takeover`. When a blocker or `UNKNOWN` writer is material, append a short closing note (for example `takeover pending on UNKNOWN writer`); never convert `UNKNOWN` into failure or replacement work.
-
-### Language
-
-Emit the receipt in the language of the user's current request/thread. Chinese requests use the localized terms below; English requests keep the native terms above. For mixed-language requests, follow the language of the main clause; when the request language is neither Chinese nor English, fall back to English. This rule applies to the receipt only, not to the rest of the terminal output. Contract keywords stay in English in both languages: `UNKNOWN`, `DO NOT REDO`, `STALE IF`. `Main` stays English when it appears as a standalone keyword (for example `Main takeover`), and is localized only as a state-slot value.
-
-Chinese mapping:
-
-```text
-Reader → 读取               complete → 完成
-Worker → 实现               blocked → 卡住
-Solver → 决策               pending → 待定
-Investigator → 调查         main takeover → 主会话接手
-Advisor → 审核              no retry → 未重试
-                            retried N → 重试 N 次
-
-not required → 无需最终复核
-ship → 最终复核通过
-fix-first → 先修再验
-rethink → 重新设计
-INSUFFICIENT_EVIDENCE → 证据不足
-not reached → 未做最终复核
-```
-
-Examples:
-
-```text
-Chinese: Dispatch: 读取×2 → 审核 · 完成 · 未重试 · 最终复核通过
-English: Dispatch: Reader×2 → Advisor · complete · no retry · ship
-Chinese: Dispatch: 读取 → 实现 · 完成 · 重试 1 次 · 无需最终复核
-English: Dispatch: Reader → Worker · complete · retried 1 · not required
-Chinese: Dispatch: 决策 → 审核 · 卡住 · 未重试 · 先修再验
-English: Dispatch: Solver → Advisor · blocked · no retry · fix-first
-Chinese: Dispatch: 读取 → 决策 · 主会话接手 · 未重试 · 未做最终复核 · 接管待定于 UNKNOWN 写入者
-English: Dispatch: Reader → Solver · main takeover · no retry · not reached · takeover pending on UNKNOWN writer
-```
-
-Do not emit the receipt for a zero-child task, preview, or status-only request. Do not turn it into a verbose trace.
-
-The receipt may report only inspectable orchestration facts such as semantic roles used, attempt/retry count, steering/takeover, and Final Review state. Concrete model identity or effort may appear only when current runtime evidence actually observed it and the detail is useful. Requested/configured model identity is never presented as observation.
-
-Never expose private chain-of-thought, hidden reasoning, raw child transcripts, credentials, or unrelated tool logs.
-
-If the user explicitly asks for delegation details, Main may expand the receipt into a short per-unit summary while preserving the same evidence rules.
+The receipt may report only inspectable orchestration facts. Never expose private reasoning, raw child transcripts, credentials, source contents, or unrelated tool logs.
 
 ## Usage and cost boundary
 

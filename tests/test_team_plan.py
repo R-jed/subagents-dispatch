@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 SCRIPTS = PLUGIN / "scripts"
 SCRIPT = SCRIPTS / "validate_team_plan.py"
-POLICY = PLUGIN / "policy-contract.json"
+POLICY = PLUGIN / "contracts" / "policy.json"
 
 
 def load_validator():

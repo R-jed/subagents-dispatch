@@ -2,7 +2,7 @@
 
 Recovery owns what happens to one delegated responsibility after dispatch. It distinguishes uncertain runtime state from confirmed failure and keeps retries bounded without turning failure into a model ladder.
 
-`router-core.md` decides which capability the unresolved work needs. `team-plan.md` owns dependency, delegated role, ownership scope, and integration truth when TeamPlan is active. `interaction.md` owns the user-facing status, steer, and takeover controls. This file owns attempt identity, lifecycle, failure classification, retry bounds, and the underlying Main takeover semantics.
+`routing.md` decides which capability the unresolved work needs. `team-plan.md` owns dependency, delegated role, ownership scope, and integration truth when TeamPlan is active. `interaction.md` owns the user-facing status, steer, and takeover controls. This file owns attempt identity, lifecycle, failure classification, retry bounds, and the underlying Main takeover semantics.
 
 ## Identity
 
@@ -40,6 +40,7 @@ Use only:
 PLANNED
 SPAWN_PENDING
 RUNNING
+INTERRUPTED
 COMPLETED
 FAILED
 UNKNOWN
@@ -51,6 +52,14 @@ Normal accepted execution is:
 ```text
 PLANNED -> SPAWN_PENDING -> RUNNING -> COMPLETED -> CLOSED
 ```
+
+An interrupted native turn is non-final:
+
+```text
+RUNNING -> INTERRUPTED -> RUNNING
+```
+
+Resuming keeps the same unit, task, attempt, Agent, role, responsibility, and authority. It creates no child, retry, focused follow-up, work pass, or semantic rework. `INTERRUPTED` does not prove that a writer is settled and is not the `Resume` operation itself.
 
 `COMPLETED` means the Agent produced a complete result. Main has not necessarily accepted it yet.
 
@@ -218,7 +227,7 @@ Already-dispatched work remains bound to the revision it received. If a structur
 
 Main inspects actual artifacts/evidence and marks an attempt adopted only when acceptance is supported.
 
-An adopted completed native Agent should be closed when the host exposes that control. `CLOSED` is lifecycle state, not correctness proof.
+An adopted completed native Agent should be closed when the host exposes that control. `CLOSED` is lifecycle state, not correctness proof, and may remain `adopted=false`. `adopted=true` requires completed accepted evidence; stopping or closing alone never creates acceptance.
 
 Stopped or superseded work may still contain useful evidence. Main verifies that evidence before reuse; stopping a child does not make its claims true.
 

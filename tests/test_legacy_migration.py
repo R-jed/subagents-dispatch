@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "scripts" / "install-agents.py"
 DOCTOR = ROOT / "scripts" / "doctor.py"
 PROFILE_SOURCE = ROOT / "agent-profiles"
-POLICY = json.loads((ROOT / "policy-contract.json").read_text(encoding="utf-8"))
+POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
 CURRENT_FILES = tuple(spec["profile_file"] for spec in POLICY["roles"].values())
 CURRENT_MANIFEST = ".subagents-dispatch-agents.json"
 LEGACY_MANIFEST = ".codex-delegate-agents.json"

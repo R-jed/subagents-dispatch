@@ -5,10 +5,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
-SKILL = PLUGIN / "skills" / "dispatch"
-ROUTER = SKILL / "references" / "router-core.md"
-GUARDRAILS = SKILL / "references" / "guardrails.md"
-TEAM_PLAN = SKILL / "references" / "team-plan.md"
+CONTRACTS = PLUGIN / "contracts"
+ROUTER = CONTRACTS / "routing.md"
+GUARDRAILS = CONTRACTS / "guardrails.md"
+TEAM_PLAN = CONTRACTS / "team-plan.md"
 COORDINATION_CASES = ROOT / "evals" / "coordination-cases.json"
 
 

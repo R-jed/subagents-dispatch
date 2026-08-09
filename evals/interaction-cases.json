@@ -102,6 +102,9 @@
       "expected": {
         "mode": "status",
         "poll_loop": false,
+        "host_observations": 1,
+        "reconciliation_passes": 1,
+        "semantic_transitions": 0,
         "reported_state": "UNKNOWN",
         "retry": false,
         "replacement_work": false
@@ -126,6 +129,16 @@
       }
     },
     {
+      "id": "targetless-control-one-eligible-auto-resolves",
+      "input": {"selected_skill": "steer", "request": "focus on the failing parser case", "eligible_units": ["U2"]},
+      "expected": {"target_resolved": true, "resolved_unit": "U2", "requires_choice": false}
+    },
+    {
+      "id": "targetless-control-multiple-eligible-requires-choice",
+      "input": {"selected_skill": "takeover", "request": "take over", "eligible_units": ["U1", "U2"]},
+      "expected": {"target_resolved": false, "candidates": ["U1", "U2"], "requires_choice": true}
+    },
+    {
       "id": "steer-preserves-responsibility-and-authority",
       "input": {"selected_skill": "subagents-dispatch", "request": "steer U2: inspect the crash log before retrying the parser", "unit_state": "RUNNING"},
       "expected": {
@@ -135,6 +148,11 @@
         "same_role": true,
         "authority_expands": false
       }
+    },
+    {
+      "id": "steer-interrupted-is-not-resume",
+      "input": {"selected_skill": "steer", "request": "continue", "unit_state": "INTERRUPTED"},
+      "expected": {"target_resolved": false, "resume_claimed": false, "replacement_children": 0}
     },
     {
       "id": "steer-cannot-hide-material-scope-change",
@@ -176,12 +194,12 @@
       }
     },
     {
-      "id": "receipt-only-after-real-delegation",
+      "id": "receipt-after-materialized-delegation",
       "input": {"children_spawned": 2, "roles": ["reader", "worker"], "retries": 0, "final_review": "not_required"},
       "expected": {
         "receipt": true,
-        "default_lines": 1,
-        "may_report_roles": true,
+        "axes": ["Dispatch", "Review"],
+        "uses_public_activities": true,
         "may_report_retries": true,
         "may_report_review_state": true
       }
@@ -205,15 +223,15 @@
       "input": {"children_spawned": 1, "terminal_result": "blocked", "state": "UNKNOWN", "final_review": "not_reached"},
       "expected": {
         "receipt": true,
-        "default_lines": 1,
+        "axes": ["Dispatch", "Review"],
         "may_report_blocker": true,
         "must_preserve_unknown": true
       }
     },
     {
-      "id": "zero-child-completion-has-no-receipt",
-      "input": {"children_spawned": 0},
-      "expected": {"receipt": false}
+      "id": "zero-child-dispatch-has-minimal-receipt",
+      "input": {"explicit_dispatch": true, "children_spawned": 0},
+      "expected": {"receipt": true, "minimal_lines": 2, "persistent_state": false}
     },
     {
       "id": "receipt-never-guesses-model-or-cost",
@@ -252,6 +270,94 @@
         "source_write_allowed": false,
         "capsule_can_expand_authority": false
       }
+    },
+    {
+      "id": "missing-thread-id",
+      "input": {"selected_skill": "status", "thread_id": null, "state_root": "present"},
+      "expected": {"reported_state": "UNKNOWN", "state_created": false, "search_other_sessions": false}
+    },
+    {
+      "id": "spawn-pending-no-match",
+      "input": {"unit_state": "SPAWN_PENDING", "native_children": []},
+      "expected": {"state": "UNKNOWN", "quarantine_reason": "native_identity_absent", "replacement_attempt": false}
+    },
+    {
+      "id": "spawn-pending-single-match",
+      "input": {
+        "unit_state": "SPAWN_PENDING",
+        "native_children": [{"native_task_name": "sd-u1-a1-execute", "agent_id": "agent-1", "state": "running"}]
+      },
+      "expected": {"state": "RUNNING", "identity_bound": true, "replacement_attempt": false}
+    },
+    {
+      "id": "spawn-pending-multiple-match",
+      "input": {
+        "unit_state": "SPAWN_PENDING",
+        "native_children": [
+          {"native_task_name": "sd-u1-a1-execute", "agent_id": "agent-1", "state": "running"},
+          {"native_task_name": "sd-u1-a1-execute", "agent_id": "agent-2", "state": "running"}
+        ]
+      },
+      "expected": {"state": "UNKNOWN", "quarantine_reason": "ambiguous_native_identity", "replacement_attempt": false}
+    },
+    {
+      "id": "corrupt-capsule-active-writer",
+      "input": {"capsule": "corrupt", "writer_state": "RUNNING"},
+      "expected": {"state": "UNKNOWN", "writer_preserved": true, "automatic_deletion": false, "main_write_allowed": false}
+    },
+    {
+      "id": "multi-targetless-steer",
+      "input": {"control": "Steer", "target": null, "eligible_units": ["U1", "U2"]},
+      "expected": {"resolved": false, "requires_choice": true, "replacement_children": 0}
+    },
+    {
+      "id": "single-targetless-steer",
+      "input": {"control": "Steer", "target": null, "eligible_units": ["U1"]},
+      "expected": {"resolved": true, "resolved_unit": "U1", "same_attempt": true}
+    },
+    {
+      "id": "interrupted-takeover",
+      "input": {"control": "Takeover", "unit_state": "INTERRUPTED", "unit_write": true},
+      "expected": {"ownership_transferred": false, "main_write_allowed": false, "resume_required": true}
+    },
+    {
+      "id": "fix-first-without-correction",
+      "input": {"review_verdict": "fix-first", "correction_started": false},
+      "expected": {"candidate_complete": false, "ship_allowed": false, "fresh_review_required": true}
+    },
+    {
+      "id": "retry-then-rework",
+      "input": {"retry_materialized": true, "review_found_gap": true, "correction_started": true},
+      "expected": {"retry_count": 1, "rework_count": 1, "retry_is_not_rework": true}
+    },
+    {
+      "id": "locale-persistence",
+      "input": {"initial_locale": "zh", "follow_up_control": "Status", "follow_up_locale": null},
+      "expected": {"receipt_locale": "zh", "control_labels": ["Status"], "language_switched": false}
+    },
+    {
+      "id": "unrelated-dispatch-with-unresolved-writer",
+      "input": {"current_thread": "thread-a", "other_thread_writer_state": "UNKNOWN"},
+      "expected": {"other_writer_deleted": false, "current_ownership_expanded": false, "writer_preserved": true}
+    },
+    {
+      "id": "repeated-status-dedupe",
+      "input": {"events": ["Status", "Status", "Status"], "same_observation": true},
+      "expected": {"control_count": 1, "work_pass_count": 0, "receipt_deduplicated": true}
+    },
+    {
+      "id": "same-child-resume",
+      "input": {"unit_state": "INTERRUPTED", "same_agent_id": "agent-1", "resume_requested": true},
+      "expected": {"operation": "resume_existing_child", "new_child": false, "attempt_changed": false}
+    },
+    {
+      "id": "route-mismatch",
+      "input": {
+        "requested": {"agent_role": "reader", "model": "gpt-5.6-luna", "effort": "max"},
+        "accepted": {"agent_role": "reader", "model": "gpt-5.6-luna", "effort": "max"},
+        "observed": {"agent_role": "worker", "model": "gpt-5.6-luna", "effort": "max"}
+      },
+      "expected": {"route_status": "conflict", "decision": "quarantine", "configuration_is_not_observed": true}
     }
   ]
 }

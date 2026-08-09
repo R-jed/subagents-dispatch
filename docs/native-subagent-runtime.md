@@ -14,7 +14,7 @@ The distinction is deliberate:
 
 ## Explicit entry point and control intents
 
-The stable main Skill id is `subagents-dispatch`, displayed as **Subagents Dispatch**. In the Codex App, the user opens the Skill menu with `/` and selects that Skill. The exact slash/menu label rendered by a particular App build is verified directly from the UI during release validation rather than inferred from package metadata.
+The Plugin packages six explicit Skill ids: `dispatch`, `preview`, `status`, `steer`, `takeover`, and `doctor`. Their intended display labels come from each `agents/openai.yaml`; the exact labels rendered by a particular App build are verified directly during release validation rather than inferred from repository metadata.
 
 Normal execution uses the task itself after explicit Skill selection.
 
@@ -56,7 +56,7 @@ The exact project roles use Codex's native custom-Agent TOML mechanism. Personal
 
 The current supported Host behavior loads custom-Agent role declarations into the task/session configuration when that task starts. A role file written after startup does not become a newly selectable `agent_type` for the already-running task merely because the TOML now exists on disk.
 
-When an explicit task run through Subagents Dispatch actually needs a child, role readiness is checked before delegated implementation starts:
+When an explicit task run through Dispatch actually needs a child, role readiness is checked before delegated implementation starts:
 
 ```text
 exact required role already available
@@ -67,7 +67,7 @@ role unavailable + managed profiles cleanly absent
 -> run installer --check
 -> readiness outcome RESTART_REQUIRED
 -> do not attempt spawn_agent in the current task
--> ask for one fresh Codex task/session and rerun the original request through Subagents Dispatch
+-> ask for one fresh Codex task/session and rerun the original request through Dispatch
 
 role unavailable + managed profiles already exact
 -> current task still cannot use the role
@@ -78,12 +78,12 @@ role unavailable + managed profiles already exact
 role unavailable + unsafe/conflicting/unowned managed state
 -> USER_ACTION_REQUIRED
 -> do not overwrite, substitute a role, or spawn
--> use Subagents Doctor for the exact diagnosis when useful
+-> use Doctor for the exact diagnosis when useful
 ```
 
 `RESTART_REQUIRED` is a pre-dispatch readiness outcome, not a native child lifecycle state. No child attempt exists yet. On the fresh task, exact role availability is checked again; if it still fails despite exact installed profiles, the condition is treated as a Host/configuration limitation and fails closed.
 
-Routine first-use provisioning is bounded to the Plugin's fixed managed paths and is covered by explicit user selection/invocation of Subagents Dispatch once real delegation is already justified. It does not authorize `config.toml`, credentials, MCP configuration, repositories, unrelated Agent profiles, repair of unowned conflicts, migration, or upgrade changes.
+Routine first-use provisioning is bounded to the Plugin's fixed managed paths and is covered by explicit user selection/invocation of Dispatch once real delegation is already justified. It does not authorize `config.toml`, credentials, MCP configuration, repositories, unrelated Agent profiles, repair of unowned conflicts, migration, or upgrade changes.
 
 Preview and Status do not provision missing profiles solely to make a read-only answer richer.
 
@@ -124,7 +124,7 @@ Main-session route evidence is optional optimization data.
 
 Only when the router has already established that material judgment needs Sol capability may trusted current-session model/effort metadata be used to avoid a redundant Advisor/Solver call.
 
-`policy-contract.json` owns the capability reference. `scripts/runtime-evidence.py` normalizes observed metadata.
+`contracts/policy.json` owns the capability reference. `scripts/runtime-evidence.py` normalizes observed metadata.
 
 Current reference is Solver, GPT-5.6 Sol `high`:
 
@@ -253,7 +253,7 @@ native runtime capacity
 
 The Host capacity is treated as an upper bound, never a target to fill. A single observed or configured capacity value applies only to that runtime/environment.
 
-Material compute expansion is governed by `skills/dispatch/references/guardrails.md`. Child count alone is not the trigger.
+Material compute expansion is governed by `contracts/guardrails.md`. Child count alone is not the trigger.
 
 ## Writer ownership
 
@@ -275,9 +275,9 @@ This session-local rule cannot exclude another Codex session, editor, hook, or e
 
 ## Context transfer
 
-Children normally use fresh context (`fork_turns=none`) and receive a compact responsibility packet from `skills/dispatch/references/router-core.md`.
+Children normally use fresh context (`fork_turns=none`) and receive a compact responsibility packet from `contracts/routing.md`.
 
-Fresh context does not require repeated discovery. When Main has already verified material evidence that a later responsibility can reuse, it may add a Handoff Capsule from `skills/dispatch/references/handoff-capsule.md`:
+Fresh context does not require repeated discovery. When Main has already verified material evidence that a later responsibility can reuse, it may add a Handoff Capsule from `contracts/handoff.md`:
 
 ```text
 artifact refs

@@ -9,19 +9,14 @@ PLUGIN_ROOT = ROOT
 PLUGIN = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 SKILLS_ROOT = PLUGIN_ROOT / "skills"
-MAIN_SKILL = SKILLS_ROOT / "dispatch"
-DOCTOR_SKILL = SKILLS_ROOT / "doctor"
+SKILL_IDS = {"dispatch", "preview", "status", "steer", "takeover", "doctor"}
 INSTALL_DOC = ROOT / "docs" / "plugin-installation.md"
-POLICY = PLUGIN_ROOT / "policy-contract.json"
+POLICY = PLUGIN_ROOT / "contracts" / "policy.json"
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
 PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
 UPGRADE = "codex plugin marketplace upgrade subagents-dispatch"
 PLUGIN_REMOVE = "codex plugin remove subagents-dispatch@subagents-dispatch"
 MARKETPLACE_REMOVE = "codex plugin marketplace remove subagents-dispatch"
-MAIN_SKILL_ID = "subagents-dispatch"
-DOCTOR_SKILL_ID = "subagents-doctor"
-MAIN_DISPLAY_NAME = "Subagents Dispatch"
-DOCTOR_DISPLAY_NAME = "Subagents Doctor"
 
 
 def test_plugin_manifest_and_marketplace_use_canonical_identity():
@@ -34,9 +29,9 @@ def test_plugin_manifest_and_marketplace_use_canonical_identity():
     assert payload["homepage"] == "https://github.com/R-jed/subagents-dispatch#readme"
     assert payload["interface"]["displayName"] == "subagents-dispatch"
     assert payload["interface"]["websiteURL"] == "https://github.com/R-jed/subagents-dispatch"
-    assert {path.name for path in SKILLS_ROOT.iterdir() if path.is_dir()} == {"dispatch", "doctor"}
-    assert (MAIN_SKILL / "SKILL.md").is_file()
-    assert (DOCTOR_SKILL / "SKILL.md").is_file()
+    assert {path.name for path in SKILLS_ROOT.iterdir() if path.is_dir()} == SKILL_IDS
+    for skill_id in SKILL_IDS:
+        assert (SKILLS_ROOT / skill_id / "SKILL.md").is_file()
 
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
     assert market == {
@@ -57,27 +52,21 @@ def test_plugin_manifest_and_marketplace_use_canonical_identity():
     }
 
 
-def test_skill_ids_are_product_prefixed_and_ui_names_are_distinct():
-    main = (MAIN_SKILL / "SKILL.md").read_text(encoding="utf-8")
-    doctor = (DOCTOR_SKILL / "SKILL.md").read_text(encoding="utf-8")
-    main_ui = (MAIN_SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8")
-    doctor_ui = (DOCTOR_SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8")
-
-    assert f"name: {MAIN_SKILL_ID}" in main
-    assert f"name: {DOCTOR_SKILL_ID}" in doctor
-    assert "name: dispatch\n" not in main
-    assert "name: doctor\n" not in doctor
-    assert f'display_name: "{MAIN_DISPLAY_NAME}"' in main_ui
-    assert f'display_name: "{DOCTOR_DISPLAY_NAME}"' in doctor_ui
-    assert "allow_implicit_invocation: false" in main_ui
-    assert "allow_implicit_invocation: false" in doctor_ui
+def test_skill_ids_and_ui_names_are_explicit_and_distinct():
+    for skill_id in SKILL_IDS:
+        root = SKILLS_ROOT / skill_id
+        skill = (root / "SKILL.md").read_text(encoding="utf-8")
+        ui = (root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        assert f"name: {skill_id}\n" in skill
+        assert f'display_name: "Subagents Dispatch: {skill_id.title()}"' in ui
+        assert "allow_implicit_invocation: false" in ui
 
 
 def test_plugin_starter_prompts_do_not_invent_host_command_syntax():
     payload = json.loads(PLUGIN.read_text(encoding="utf-8"))
     prompts = "\n".join(payload["interface"]["defaultPrompt"])
-    assert MAIN_DISPLAY_NAME in prompts
-    assert DOCTOR_DISPLAY_NAME in prompts
+    for skill_id in SKILL_IDS:
+        assert skill_id.title() in prompts
     for stale in ["$dispatch", "$doctor", "/dispatch", "/doctor", "/subagents-dispatch:dispatch", "/subagents-dispatch:doctor"]:
         assert stale not in prompts
 
@@ -132,37 +121,26 @@ def test_third_party_mit_notice_is_packaged_without_repository_pointer():
     assert "github.com/" not in text
 
 
-def test_main_skill_owns_profile_readiness_before_delegated_execution():
-    text = (MAIN_SKILL / "SKILL.md").read_text(encoding="utf-8")
-    assert "../../scripts/install-agents.py" in text
-    assert 'python "$installer" --check' in text
-    assert "RESTART_REQUIRED" in text
-    assert "do not attempt spawn_agent in this task" in text
-    assert "USER_ACTION_REQUIRED" in text
-    assert "On the fresh task, inspect exact role availability again" in text
-    assert "do not substitute another role" in text
+def test_dispatch_skill_is_a_thin_adapter_to_canonical_contracts():
+    text = (SKILLS_ROOT / "dispatch" / "SKILL.md").read_text(encoding="utf-8")
+    for name in ["policy.json", "routing.md", "guardrails.md", "state.md", "team-plan.md", "recovery.md", "handoff.md", "final-review.md", "receipt.md"]:
+        assert f"../../contracts/{name}" in text
 
 
 def test_doctor_reuses_supported_diagnostics_and_existing_installer():
-    text = (DOCTOR_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    text = (SKILLS_ROOT / "doctor" / "SKILL.md").read_text(encoding="utf-8")
     for phrase in [
-        "codex --version",
-        "codex doctor --json",
-        "codex plugin marketplace list --json",
-        "codex plugin list --available --json",
+        "../../contracts/policy.json",
+        "../../contracts/state.md",
+        "../../contracts/guardrails.md",
+        "../../scripts/doctor.py",
         "../../scripts/install-agents.py",
-        'python "$installer" --check',
-        CANONICAL_MARKETPLACE,
-        PLUGIN_ADD,
-        UPGRADE,
-        DOCTOR_SKILL_ID,
+        "../../scripts/runtime-evidence.py",
     ]:
         assert phrase in text
     assert "Diagnosis is read-only by default" in text
-    assert "explicitly asks" in text
-    assert "Never edit Codex config files directly" in text
-    assert "Do not use `marketplace remove` as a generic reset" in text
-    assert "start a fresh Codex session" in text
+    assert "explicit user intent" in text
+    assert "Do not edit Codex config files directly" in text
 
 
 def test_install_doc_contains_current_lifecycle_and_app_skill_menu_contract():
@@ -182,22 +160,26 @@ def test_install_doc_contains_current_lifecycle_and_app_skill_menu_contract():
         "## Uninstall",
         PLUGIN_REMOVE,
         MARKETPLACE_REMOVE,
-        "type `/` to open the Skill menu",
-        MAIN_DISPLAY_NAME,
-        DOCTOR_DISPLAY_NAME,
+        "six explicit Skill identities",
+        "Dispatch",
+        "Preview",
+        "Status",
+        "Steer",
+        "Takeover",
+        "Doctor",
         "exact slash entry rendered by the App is a Host/UI fact",
     ]:
         assert phrase in text
     assert "asks permission" not in text
 
 
-def test_public_readmes_use_prefixed_app_skill_names_without_inventing_exact_slash_entry():
+def test_public_readmes_use_explicit_skill_names_without_inventing_exact_slash_entry():
     version = json.loads(PLUGIN.read_text(encoding="utf-8"))["version"]
     for name in ["README.md", "README_EN.md"]:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert version in text
-        assert MAIN_DISPLAY_NAME in text
-        assert DOCTOR_DISPLAY_NAME in text
+        for skill_id in SKILL_IDS:
+            assert skill_id.title() in text
         assert CANONICAL_MARKETPLACE in text
         assert PLUGIN_ADD in text
         assert UPGRADE in text
@@ -208,12 +190,9 @@ def test_public_readmes_use_prefixed_app_skill_names_without_inventing_exact_sla
 
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     assert version in ai
-    assert MAIN_SKILL_ID in ai
-    assert DOCTOR_SKILL_ID in ai
-    assert MAIN_DISPLAY_NAME in ai
-    assert DOCTOR_DISPLAY_NAME in ai
+    for skill_id in SKILL_IDS:
+        assert f"`{skill_id}`" in ai
     assert "docs/plugin-installation.md" in ai
-    assert "RESTART_REQUIRED" in ai
     assert "Do not invent a Codex App slash-command string" in ai
     for command in [CANONICAL_MARKETPLACE, PLUGIN_ADD, UPGRADE, PLUGIN_REMOVE]:
         assert command not in ai

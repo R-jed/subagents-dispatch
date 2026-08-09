@@ -11,10 +11,7 @@ VERSION = MANIFEST["version"]
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
 PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
 UPGRADE = "codex plugin marketplace upgrade subagents-dispatch"
-MAIN_SKILL_ID = "subagents-dispatch"
-DOCTOR_SKILL_ID = "subagents-doctor"
-MAIN_DISPLAY = "Subagents Dispatch"
-DOCTOR_DISPLAY = "Subagents Doctor"
+SKILL_IDS = ["dispatch", "preview", "status", "steer", "takeover", "doctor"]
 README_LOGO = "assets/subagents-dispatch-banner.png"
 
 
@@ -26,9 +23,13 @@ def test_public_readmes_explain_the_current_repository_layout():
             ".agents/plugins/",
             ".codex-plugin/",
             "agent-profiles/",
-            "policy-contract.json",
+            "contracts/",
             "skills/",
             "dispatch/",
+            "preview/",
+            "status/",
+            "steer/",
+            "takeover/",
             "doctor/",
             "docs/",
             "evals/",
@@ -72,31 +73,24 @@ def test_ai_reference_is_an_index_to_canonical_policy_owners():
     for phrase in [
         "R-jed/subagents-dispatch",
         "Repo marketplace id: subagents-dispatch",
-        f"Main Skill id:       {MAIN_SKILL_ID}",
-        f"Main display name:   {MAIN_DISPLAY}",
-        f"Doctor Skill id:     {DOCTOR_SKILL_ID}",
-        f"Doctor display name: {DOCTOR_DISPLAY}",
         f"Current version:     {VERSION}",
         "Distribution:        Codex Plugin",
-        "subagents_dispatch_reader",
-        "subagents_dispatch_worker",
-        "subagents_dispatch_solver",
-        "subagents_dispatch_investigator",
-        "subagents_dispatch_advisor",
-        "interaction.md",
-        "router-core.md",
-        "handoff-capsule.md",
-        "team-plan.md",
-        "recovery.md",
-        "guardrails.md",
-        "final-review.md",
-        "policy-contract.json",
-        "doctor/SKILL.md",
+        "contracts/interaction.md",
+        "contracts/routing.md",
+        "contracts/handoff.md",
+        "contracts/team-plan.md",
+        "contracts/recovery.md",
+        "contracts/guardrails.md",
+        "contracts/final-review.md",
+        "contracts/policy.json",
+        "skills/<id>/SKILL.md",
         "docs/plugin-installation.md",
         "scripts/policy.py",
         "Do not invent a Codex App slash-command string",
     ]:
         assert phrase in AI
+    for skill_id in SKILL_IDS:
+        assert f"`{skill_id}`" in AI
     assert "not a second copy of runtime policy" in AI
     for command in [CANONICAL_MARKETPLACE, PLUGIN_ADD, UPGRADE, "/subagents-dispatch:dispatch", "$dispatch"]:
         assert command not in AI
@@ -112,13 +106,13 @@ def test_evals_readme_identifies_measurement_boundary_and_canonical_owners():
         "interaction-cases.json",
         "runtime-assurance-cases.json",
         "do not control how the plugin routes or coordinates work",
-        "interaction.md",
-        "router-core.md",
-        "handoff-capsule.md",
-        "team-plan.md",
-        "recovery.md",
-        "guardrails.md",
-        "final-review.md",
-        "policy-contract.json",
+        "`interaction.md`",
+        "`routing.md`",
+        "`handoff.md`",
+        "`team-plan.md`",
+        "`recovery.md`",
+        "`guardrails.md`",
+        "`final-review.md`",
+        "`policy.json`",
     ]:
         assert phrase in EVALS

@@ -11,18 +11,21 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 SKILL = PLUGIN / "skills" / "dispatch"
-REFS = SKILL / "references"
+CONTRACTS = PLUGIN / "contracts"
 PROFILES = PLUGIN / "agent-profiles"
-POLICY = PLUGIN / "policy-contract.json"
+POLICY = CONTRACTS / "policy.json"
 MANIFEST = PLUGIN / ".codex-plugin" / "plugin.json"
 CANONICAL_BLOCKERS = {"contract", "judgment", "investigation", "stalled"}
 RUNTIME_OWNERS = {
+    "policy.json",
+    "routing.md",
     "interaction.md",
-    "router-core.md",
-    "handoff-capsule.md",
+    "state.md",
+    "receipt.md",
     "team-plan.md",
     "recovery.md",
     "guardrails.md",
+    "handoff.md",
     "final-review.md",
 }
 
@@ -35,17 +38,17 @@ def current_version() -> str:
     return json.loads(MANIFEST.read_text(encoding="utf-8"))["version"]
 
 
-def test_skill_and_openai_metadata_keep_prefixed_explicit_identity():
+def test_dispatch_skill_and_openai_metadata_keep_explicit_identity():
     skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
     match = re.match(r"^---\n(.*?)\n---\n", skill, re.S)
     assert match
     frontmatter = yaml.safe_load(match.group(1))
-    assert frontmatter["name"] == "subagents-dispatch"
+    assert frontmatter["name"] == "dispatch"
     assert frontmatter["description"].strip()
 
     openai = yaml.safe_load((SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8"))
-    assert openai["interface"]["display_name"] == "Subagents Dispatch"
-    assert "Subagents Dispatch" in openai["interface"]["default_prompt"]
+    assert openai["interface"]["display_name"] == "Subagents Dispatch: Dispatch"
+    assert "Dispatch" in openai["interface"]["default_prompt"]
     assert openai["policy"]["allow_implicit_invocation"] is False
     for stale in ["$dispatch", "/dispatch", "/subagents-dispatch:dispatch"]:
         assert stale not in openai["interface"]["default_prompt"]
@@ -57,13 +60,15 @@ def test_policy_contract_is_the_single_machine_role_source():
     assert set(payload) == {
         "schema_version",
         "delegation",
+        "write_coordination",
         "capability_dedup",
         "roles",
         "final_review",
     }
-    assert payload["delegation"] == {
-        "max_depth": 1,
-        "max_active_writers_per_workspace": 1,
+    assert payload["delegation"] == {"max_depth": 1}
+    assert payload["write_coordination"] == {
+        "mode": "single_writer",
+        "scope": "canonical_workspace",
     }
     assert set(payload["roles"]) == {"reader", "worker", "solver", "investigator", "advisor"}
 
@@ -88,26 +93,25 @@ def test_agent_profiles_do_not_invent_semantic_blockers():
 
 
 def test_runtime_policy_has_focused_owners():
-    assert {path.name for path in REFS.glob("*.md")} == RUNTIME_OWNERS
+    assert {path.name for path in CONTRACTS.iterdir() if path.is_file()} == RUNTIME_OWNERS
     skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-    for name in RUNTIME_OWNERS:
-        assert f"references/{name}" in skill
-    assert "policy-contract.json" in skill
+    for name in RUNTIME_OWNERS - {"interaction.md"}:
+        assert f"../../contracts/{name}" in skill
 
 
 def test_team_plan_and_recovery_do_not_define_fixed_fanout_policy():
     delegation = contract()["delegation"]
-    assert set(delegation) == {"max_depth", "max_active_writers_per_workspace"}
+    assert delegation == {"max_depth": 1}
 
-    team_plan = (REFS / "team-plan.md").read_text(encoding="utf-8").lower()
-    recovery = (REFS / "recovery.md").read_text(encoding="utf-8").lower()
+    team_plan = (CONTRACTS / "team-plan.md").read_text(encoding="utf-8").lower()
+    recovery = (CONTRACTS / "recovery.md").read_text(encoding="utf-8").lower()
     assert "native codex capacity remains the concurrency ceiling" in team_plan
     assert "two-attempt bound limits automatic delegated recovery" in recovery
     assert "not a team-size or concurrency limit" in recovery
 
 
 def test_policy_owned_final_review_contract_has_one_ship_verdict():
-    review = (REFS / "final-review.md").read_text(encoding="utf-8")
+    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
     final_review = contract()["final_review"]
     triggers = set(final_review["trigger_codes"])
     assert triggers == {
@@ -153,10 +157,12 @@ def test_public_docs_keep_product_identity_while_ai_reference_points_to_policy_o
     for name, directive in directives.items():
         text = (ROOT / name).read_text(encoding="utf-8")
         assert directive in text
-        assert "Subagents Dispatch" in text
-        assert "Subagents Doctor" in text
+        assert "subagents-dispatch" in text
+        assert "Dispatch" in text
+        assert "Doctor" in text
         assert version in text
-        assert "Sol Solver" in text
+        assert "Sol High" in text
+        assert ("执行" in text) if name == "README.md" else ("Execute" in text)
         assert "preview" in text
         assert "takeover" in text
         assert "$dispatch" not in text
@@ -164,15 +170,15 @@ def test_public_docs_keep_product_identity_while_ai_reference_points_to_policy_o
 
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     assert f"Current version:     {version}" in ai
-    for name in [*sorted(RUNTIME_OWNERS), "policy-contract.json"]:
-        assert name in ai
+    for name in sorted(RUNTIME_OWNERS):
+        assert f"contracts/{name}" in ai
 
 
 def test_canonical_docs_do_not_leak_unverified_namespaced_or_dollar_entrypoints():
     user_facing_files = [
-        REFS / "interaction.md",
-        REFS / "guardrails.md",
-        REFS / "final-review.md",
+        CONTRACTS / "interaction.md",
+        CONTRACTS / "guardrails.md",
+        CONTRACTS / "final-review.md",
         ROOT / "docs" / "native-subagent-runtime.md",
     ]
     for path in user_facing_files:
@@ -181,12 +187,10 @@ def test_canonical_docs_do_not_leak_unverified_namespaced_or_dollar_entrypoints(
             assert stale not in text, f"{path.name} leaks unverified user entrypoint {stale!r}"
 
 
-def test_readme_ai_distinguishes_stable_skill_identity_from_host_rendered_command():
+def test_readme_ai_distinguishes_skill_ids_from_host_rendered_commands():
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
-    assert "Main Skill id:       subagents-dispatch" in ai
-    assert "Main display name:   Subagents Dispatch" in ai
-    assert "Doctor Skill id:     subagents-doctor" in ai
-    assert "Doctor display name: Subagents Doctor" in ai
+    for skill_id in ["dispatch", "preview", "status", "steer", "takeover", "doctor"]:
+        assert f"`{skill_id}`" in ai
     assert "Do not invent a Codex App slash-command string" in ai
     assert "Plugin directory:    ." in ai
     assert "plugins/subagents-dispatch" not in ai

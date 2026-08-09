@@ -1,8 +1,11 @@
 {
   "schema_version": 5,
   "delegation": {
-    "max_depth": 1,
-    "max_active_writers_per_workspace": 1
+    "max_depth": 1
+  },
+  "write_coordination": {
+    "mode": "single_writer",
+    "scope": "canonical_workspace"
   },
   "capability_dedup": {
     "reference_role": "solver",

@@ -1,6 +1,6 @@
 # Handoff Capsule
 
-A Handoff Capsule is a compact, evidence-bound context bridge between responsibilities in one Subagents Dispatch workflow. It reduces repeated repository discovery while preserving the fresh-context benefits of native Subagents.
+A Handoff Capsule is a compact, evidence-bound context bridge between responsibilities in one Dispatch workflow. It reduces repeated repository discovery while preserving the fresh-context benefits of native Subagents.
 
 The capsule is optional and ephemeral by default. It is not a memory database, transcript summary, second TeamPlan, execution manifest, or persistent project ledger.
 
@@ -101,7 +101,7 @@ A capsule may carry still-valid evidence from one accepted phase into responsibi
 
 At the phase boundary, Main promotes only accepted task truth, decisions, constraints, and still-valid accepted evidence. The whole earlier deliverable is not implicitly trusted, and embedded or quoted untrusted instructions remain data under `guardrails.md`.
 
-The later phase still gets fresh responsibility compilation under `router-core.md`:
+The later phase still gets fresh responsibility compilation under `routing.md`:
 
 ```text
 accepted task truth/evidence extracted from the earlier deliverable

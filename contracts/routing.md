@@ -8,7 +8,7 @@ The product goal is simple: delegate only when doing so improves the task, use L
 
 Do not build a model ladder, fixed team size, or Agent pipeline before understanding the task.
 
-`team-plan.md` owns multi-responsibility dependency and integration truth. `recovery.md` owns native attempt lifecycle and bounded recovery. `handoff-capsule.md` owns compact accepted-evidence transfer between responsibilities. This file owns delegation value, role selection, responsibility semantics, semantic coverage closure, phase-transition recompilation, and the Main-level ready frontier.
+`team-plan.md` owns multi-responsibility dependency and integration truth. `recovery.md` owns native attempt lifecycle and bounded recovery. `handoff.md` owns compact accepted-evidence transfer between responsibilities. This file owns delegation value, role selection, responsibility semantics, semantic coverage closure, phase-transition recompilation, and the Main-level ready frontier.
 
 ## 1. Minimal task state
 
@@ -134,7 +134,7 @@ Demanding, ambiguous, multi-step technical reasoning that still requires materia
 
 Main-session model identity never changes authority. It is consulted only when material judgment already requires Sol capability and trusted current-session metadata is already available or inexpensive to obtain.
 
-The policy-owned reference role is defined in `../../../policy-contract.json`. `../../../scripts/runtime-evidence.py` can normalize exact model/effort metadata when this optimization matters.
+The policy-owned reference role is defined in `policy.json`. `../scripts/runtime-evidence.py` can normalize exact model/effort metadata when this optimization matters.
 
 ```text
 covered
@@ -189,7 +189,7 @@ implement -> bounded-source-write only when the packet explicitly grants bounded
 
 Use `declared-output-only` when a responsibility may create or update a named report, generated output, or other explicit deliverable without gaining general source-edit authority.
 
-A Handoff Capsule is optional. Use it only when Main has already accepted evidence that would otherwise require meaningful repeated discovery. The capsule does not grant authority or transmit raw child reasoning. Its exact semantics live in `handoff-capsule.md`.
+A Handoff Capsule is optional. Use it only when Main has already accepted evidence that would otherwise require meaningful repeated discovery. The capsule does not grant authority or transmit raw child reasoning. Its exact semantics live in `handoff.md`.
 
 `INTEGRATION AFTER` is optional. It expresses integration order, not permission to execute through an unresolved semantic dependency.
 

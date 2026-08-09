@@ -6,7 +6,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY_CONTRACT_PATH = ROOT / "policy-contract.json"
+POLICY_CONTRACT_PATH = ROOT / "contracts" / "policy.json"
 
 
 def load_policy_contract(path: Path = POLICY_CONTRACT_PATH) -> dict[str, Any]:

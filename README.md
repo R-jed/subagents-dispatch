@@ -25,7 +25,7 @@ subagents-dispatch 是一个 Codex 插件。它负责把一个大任务拆给几
 ## 快速开始
 
 ```text
-/subagents dispatch 给 /api/users 加分页参数，补上测试
+选择 Dispatch，然后输入：给 /api/users 加分页参数，补上测试
 ```
 
 一句话任务，插件自己拆。查现有接口和查测试两件只读的活并行跑，查清了再派一个写代码的。简单任务不硬拆，值得分工才分配子代理。
@@ -34,28 +34,28 @@ subagents-dispatch 是一个 Codex 插件。它负责把一个大任务拆给几
 
 想先看看准备怎么分工，不真的启动子代理：
 ```text
-/subagents dispatch preview 给 /api/users 加分页参数，补上测试
+选择 Preview，然后输入：给 /api/users 加分页参数，补上测试
 ```
 
 任务在跑，想看看做到哪一步：
 ```text
-/subagents dispatch status
+选择 Status
 ```
 
 想给正在工作的子代理补一句新要求：
 ```text
-/subagents dispatch steer U2: 先看现有的分页中间件
+选择 Steer，然后输入：U2: 先看现有的分页中间件
 ```
 
 想停止某个职责，改由主会话接手：
 ```text
-/subagents dispatch takeover U2
+选择 Takeover，然后输入：U2
 ```
 
 ## 执行摘要：最后告诉你刚才做了什么
 
 ```text
-Dispatch: 读取 → 实现 · 完成 · 未重试 · 无需最终复核
+Dispatch: Luna Max 读取 → Luna Max 执行 · 完成 · 未重试 · 无需最终复核
 ```
 
 只写确认过的事实，不猜 Token 用量和费用。
@@ -71,20 +71,20 @@ Dispatch: 读取 → 实现 · 完成 · 未重试 · 无需最终复核
 
 ## 子代理规则
 
-- **同一份代码，同一时间只让一个写入者修改**。同一次 subagents-dispatch 调度里，同一个 Git 工作目录同一时间最多只有一个写入者实际改文件，这个写入者只能是主会话、Worker 或 Solver。前一个写入者还没有确认停止，主会话不会抢着改同一份代码。其他独立的 Codex 会话、编辑器、自动化脚本和外部程序不受这个规则控制
+- **同一份代码，同一时间只让一个写入者修改**。同一次 subagents-dispatch 调度里，同一个 Git 工作目录同一时间最多只有一个写入者实际改文件，这个写入者只能是主会话或执行活动。前一个写入者还没有确认停止，主会话不会抢着改同一份代码。其他独立的 Codex 会话、编辑器、自动化脚本和外部程序不受这个规则控制
 - **子代理不能继续叫更多子代理**。分工只由主会话安排
 - **`UNKNOWN` 就停下来确认，不靠猜**。不会随便换一个子代理顶上，不会自动重试，也不会偷偷改变任务路线
 - **只报告确认过的事实**。执行摘要不会根据模型名称、运行时间或输出长度去猜 Token 用量和费用
 
 ## 角色
 
-| 角色 | 插件内命名 | 干什么 |
+| 模型通道 | 对外活动 | 干什么 |
 |------|-----------|--------|
-| Luna Reader | subagents_dispatch_reader | 读代码、追调用链、收集事实 |
-| Luna Worker | subagents_dispatch_worker | 需求和做法清楚时负责实现和测试 |
-| Sol Solver | subagents_dispatch_solver | 一边实现一边做技术判断 |
-| Terra Investigator | subagents_dispatch_investigator | 大范围只读调查和证据整理 |
-| Sol Advisor | subagents_dispatch_advisor | 独立技术判断，或需要时做最终复核 |
+| Luna Max | 读取 | 读代码、追调用链、收集事实 |
+| Luna Max | 执行 | 需求和做法清楚时负责实现和测试 |
+| Sol High | 执行 | 实现过程中需要技术判断时负责执行 |
+| Terra XHigh | 调研 | 大范围只读调查和证据整理 |
+| Sol High | 决策 / 验收 | 独立技术判断，或需要时做最终复核 |
 
 主会话判断，值得分工才叫人。
 
@@ -95,7 +95,7 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-首次安装需运行一次 `/subagents dispatch`，创建 5 个子代理配置文件，然后开启新会话用 `/subagents dispatch` 执行任务。
+首次需要委派时选择 Dispatch；插件会安全创建 5 个子代理配置文件，然后要求开启新会话再选择 Dispatch 执行任务。
 
 ## 更新
 
@@ -104,7 +104,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-也可以让 **/subagents doctor** 帮你升级。
+也可以选择 **Doctor** 并要求它升级。
 
 ## 卸载
 
@@ -131,11 +131,15 @@ rm ~/.codex/.subagents-dispatch-agents.json
 ├── .agents/plugins/                  # Codex 插件市场注册
 ├── .codex-plugin/                    # 插件清单
 ├── agent-profiles/                   # 五个子代理配置文件
-├── policy-contract.json              # 角色定义和核心规则
+├── contracts/                        # 共享编排契约和角色规则
 ├── scripts/                          # 安装、检查和运行记录工具
 ├── skills/
-│   ├── dispatch/                     # Subagents Dispatch Skill
-│   └── doctor/                       # Subagents Doctor Skill
+│   ├── dispatch/                     # 开始或继续编排
+│   ├── preview/                      # 只预览，不执行
+│   ├── status/                       # 单次状态检查
+│   ├── steer/                        # 引导现有委派
+│   ├── takeover/                     # 安全收回委派
+│   └── doctor/                       # 安装和运行诊断
 ├── docs/                             # 架构和运行边界文档
 ├── evals/                            # 评估用例
 └── tests/                            # 回归测试

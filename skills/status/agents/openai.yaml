@@ -1,0 +1,7 @@
+interface:
+  display_name: "Subagents Dispatch: Status"
+  short_description: "Inspect the current orchestration once"
+  default_prompt: "Use the Status skill to inspect and reconcile the current orchestration without changing it."
+
+policy:
+  allow_implicit_invocation: false

@@ -23,6 +23,7 @@ CONTROL_STATES = {
     "PLANNED",
     "SPAWN_PENDING",
     "RUNNING",
+    "INTERRUPTED",
     "COMPLETED",
     "FAILED",
     "UNKNOWN",
@@ -48,6 +49,7 @@ ATTEMPT_FIELDS = {
     "control_state",
     "followup_count",
     "adopted",
+    "accepted",
     "failure_origin",
     "task_blocker",
 }
@@ -192,6 +194,8 @@ def validate_team_ledger_payload(payload: Any) -> dict[str, Any]:
 
         if not isinstance(record.get("adopted"), bool):
             errors.append(f"{prefix} adopted must be boolean")
+        if not isinstance(record.get("accepted"), bool):
+            errors.append(f"{prefix} accepted must be boolean")
 
         state = record.get("control_state")
         state_valid = isinstance(state, str) and state in CONTROL_STATES
@@ -237,14 +241,17 @@ def validate_team_ledger_payload(payload: Any) -> dict[str, Any]:
 
         if state_valid and state in {"PLANNED", "SPAWN_PENDING"} and agent_id is not None:
             errors.append(f"{prefix} must not claim agent_id before RUNNING")
-        if state_valid and state in {"RUNNING", "COMPLETED", "FAILED", "CLOSED"} and agent_id is None:
+        if state_valid and state in {"RUNNING", "INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"} and agent_id is None:
             errors.append(f"{prefix} requires agent_id in {state}")
 
         adopted = record.get("adopted")
+        accepted = record.get("accepted")
         if adopted is True and (not state_valid or state not in {"COMPLETED", "CLOSED"}):
             errors.append(f"{prefix} cannot be adopted before completion")
-        if state == "CLOSED" and adopted is not True:
-            errors.append(f"{prefix} CLOSED requires adopted=true")
+        if adopted is True and accepted is not True:
+            errors.append(f"{prefix} adopted=true requires accepted evidence")
+        if accepted is True and (not state_valid or state not in {"COMPLETED", "CLOSED"}):
+            errors.append(f"{prefix} accepted evidence requires completed or closed state")
 
         if state == "UNKNOWN":
             if failure_origin != "runtime_ambiguous":
@@ -257,7 +264,7 @@ def validate_team_ledger_payload(payload: Any) -> dict[str, Any]:
         if state == "FAILED":
             if failure_origin == "none":
                 errors.append(f"{prefix} FAILED requires a failure_origin")
-        elif state_valid and state in {"PLANNED", "SPAWN_PENDING", "RUNNING", "COMPLETED", "CLOSED"}:
+        elif state_valid and state in {"PLANNED", "SPAWN_PENDING", "RUNNING", "INTERRUPTED", "COMPLETED", "CLOSED"}:
             if failure_origin_valid and failure_origin != "none":
                 errors.append(f"{prefix} non-failure state requires failure_origin=none")
 

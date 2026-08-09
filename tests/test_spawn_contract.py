@@ -3,9 +3,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills" / "dispatch" / "SKILL.md"
-GUARDRAILS = ROOT / "skills" / "dispatch" / "references" / "guardrails.md"
-RECOVERY = ROOT / "skills" / "dispatch" / "references" / "recovery.md"
-INTERACTION = ROOT / "skills" / "dispatch" / "references" / "interaction.md"
+GUARDRAILS = ROOT / "contracts" / "guardrails.md"
+RECOVERY = ROOT / "contracts" / "recovery.md"
+INTERACTION = ROOT / "contracts" / "interaction.md"
+RECEIPT = ROOT / "contracts" / "receipt.md"
 CASES = ROOT / "evals" / "interaction-cases.json"
 WORKLOADS = ROOT / "evals" / "behavioral-workloads.json"
 
@@ -19,14 +20,7 @@ def test_project_child_spawn_requires_explicit_fresh_context_before_tool_call():
     skill = SKILL.read_text(encoding="utf-8")
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
 
-    for phrase in [
-        "Before every `spawn_agent` call for a new project child",
-        "fork_turns is present",
-        "fork_turns = none",
-        "Never send `fork_turns: all` for a project child",
-        "never omit `fork_turns`",
-    ]:
-        assert phrase in skill
+    assert "../../contracts/guardrails.md" in skill
 
     for phrase in [
         "new project child + exact project agent_type -> fork_turns: none",
@@ -46,7 +40,7 @@ def test_project_child_spawn_requires_explicit_fresh_context_before_tool_call():
 
 def test_pre_child_spawn_rejection_does_not_create_attempt_or_receipt_retry():
     recovery = RECOVERY.read_text(encoding="utf-8")
-    interaction = INTERACTION.read_text(encoding="utf-8")
+    receipt = RECEIPT.read_text(encoding="utf-8")
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
 
     for phrase in [
@@ -59,8 +53,8 @@ def test_pre_child_spawn_rejection_does_not_create_attempt_or_receipt_retry():
 
     assert "pre-attempt spawn rejection" in guardrails
     assert "does not consume the two-attempt recovery budget" in guardrails
-    assert "The retry slot counts only replacement Agent attempts" in interaction
-    assert "must leave the receipt at `no retry` / `未重试`" in interaction
+    assert "Recovery retry increments only when a confirmed materialized Agent attempt is replaced" in receipt
+    assert "A pre-child spawn rejection is never a retry" in receipt
 
     expected = by_id(CASES, "cases")["pre-child-spawn-rejection-does-not-count-as-retry"]["expected"]
     assert expected == {

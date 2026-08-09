@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
-POLICY = PLUGIN / "policy-contract.json"
+POLICY = PLUGIN / "contracts" / "policy.json"
 VERIFIER = PLUGIN / "scripts" / "runtime-evidence.py"
 
 
