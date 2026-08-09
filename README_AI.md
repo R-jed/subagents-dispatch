@@ -11,17 +11,17 @@ Repo marketplace id: subagents-dispatch
 Plugin id:           subagents-dispatch
 Plugin directory:    .
 Main Skill:          dispatch
-User command:        /dispatch
-Internal identity:   /subagents-dispatch:dispatch
+Explicit invocation: $dispatch
+Skill picker:        /skills -> Dispatch
 Doctor Skill:        doctor
-Doctor command:      /doctor
-Internal identity:   /subagents-dispatch:doctor
-Current version:     2.1.1
+Explicit invocation: $doctor
+Skill picker:        /skills -> Doctor
+Current version:     2.1.2
 Distribution:        Codex Plugin
 License:             MIT
 ```
 
-Use these names exactly.
+Do not describe `$dispatch` or `$doctor` as bare slash commands. The supported explicit Skill invocation is the Host-resolved `$skill` mention; `/skills` opens the Skill picker.
 
 ## Product model
 
@@ -53,7 +53,7 @@ Do not reconstruct runtime policy from README prose. Read the canonical owner fo
 
 ```text
 skills/dispatch/SKILL.md
--> execution entry point, bootstrap command recognition, control loop, and pre-dispatch readiness outcome
+-> execution entry point, control loop, and pre-dispatch readiness outcome
 
 skills/dispatch/references/interaction.md
 -> preview, status, steering, user-requested takeover, execution receipt, usage/cost evidence boundary
@@ -100,8 +100,6 @@ scripts/policy.py
 
 ## Stable boundaries worth remembering
 
-Keep only these orientation-level facts here; use the owners above for exact semantics:
-
 - Main owns user intent, authorization, team composition, integration, acceptance, and the final response.
 - Delegation depth is one, and delegation must add concrete value.
 - One canonical checkout has at most one active writing actor inside one subagents-dispatch orchestration.
@@ -109,10 +107,10 @@ Keep only these orientation-level facts here; use the owners above for exact sem
 - Missing runtime evidence stays missing; `UNKNOWN` is not silently converted into failure or replacement work.
 - Final Review is consequence-driven and bound to the exact candidate reviewed.
 - Interaction controls operate through Main and Codex Native Subagents. They do not add another scheduler, daemon, event bus, or lifecycle service.
-- Explicit `/dispatch` authorizes routine first-use provisioning only for subagents-dispatch's fixed managed profiles, ownership manifest, and installer lock when real delegation needs them. Unsafe, conflicting, or unowned state still fails closed.
-- Profiles provisioned during the current live task are treated as unavailable to that task's already-loaded Agent registry. Successful first-use provisioning ends pre-dispatch readiness as `RESTART_REQUIRED`; no child is spawned until a fresh Codex task/session reruns the request.
+- Explicit `$dispatch` authorizes routine first-use provisioning only for subagents-dispatch's fixed managed profiles, ownership manifest, and installer lock when real delegation needs them. Unsafe, conflicting, or unowned state still fails closed.
+- Profiles provisioned during the current live task are treated as unavailable to that task's already-loaded Agent registry. Successful first-use provisioning ends pre-dispatch readiness as `RESTART_REQUIRED`; no child is spawned until a fresh Codex task/session reruns the `$dispatch` request.
 - `RESTART_REQUIRED` is a pre-dispatch readiness outcome, not a Recovery/Agent lifecycle state.
-- Doctor diagnosis is read-only by default; repair, upgrade, migration, and broader mutations require explicit mutation intent.
+- Doctor diagnosis is read-only by default; repair, upgrade, migration, and broader mutations require explicit mutation intent through `$doctor`.
 
 ## Where to answer common questions
 
@@ -124,7 +122,7 @@ For Handoff Capsules, read `skills/dispatch/references/handoff-capsule.md`.
 
 For `UNKNOWN`, retries, replacement attempts, or Main takeover, read `skills/dispatch/references/recovery.md` and `skills/dispatch/references/guardrails.md`.
 
-For install, update, first-run provisioning, `RESTART_REQUIRED`, or uninstall commands, read `docs/plugin-installation.md`. For guided diagnosis or repair, read `skills/doctor/SKILL.md`.
+For install, update, first-run provisioning, `RESTART_REQUIRED`, or uninstall commands, read `docs/plugin-installation.md`. For guided diagnosis or repair, invoke `$doctor` and read `skills/doctor/SKILL.md`.
 
 For managed profile filenames, models, efforts, and sandbox intents, use `policy-contract.json`; inspect `scripts/install-agents.py` when lifecycle behavior matters.
 
