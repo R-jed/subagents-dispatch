@@ -18,8 +18,10 @@ PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
 UPGRADE = "codex plugin marketplace upgrade subagents-dispatch"
 PLUGIN_REMOVE = "codex plugin remove subagents-dispatch@subagents-dispatch"
 MARKETPLACE_REMOVE = "codex plugin marketplace remove subagents-dispatch"
-USER_COMMAND_DISPATCH = "/dispatch"
-USER_COMMAND_DOCTOR = "/doctor"
+MAIN_SKILL_ID = "subagents-dispatch"
+DOCTOR_SKILL_ID = "subagents-doctor"
+MAIN_DISPLAY_NAME = "Subagents Dispatch"
+DOCTOR_DISPLAY_NAME = "Subagents Doctor"
 
 
 def test_plugin_manifest_and_marketplace_use_canonical_identity():
@@ -55,6 +57,31 @@ def test_plugin_manifest_and_marketplace_use_canonical_identity():
     }
 
 
+def test_skill_ids_are_product_prefixed_and_ui_names_are_distinct():
+    main = (MAIN_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    doctor = (DOCTOR_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    main_ui = (MAIN_SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8")
+    doctor_ui = (DOCTOR_SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8")
+
+    assert f"name: {MAIN_SKILL_ID}" in main
+    assert f"name: {DOCTOR_SKILL_ID}" in doctor
+    assert "name: dispatch\n" not in main
+    assert "name: doctor\n" not in doctor
+    assert f'display_name: "{MAIN_DISPLAY_NAME}"' in main_ui
+    assert f'display_name: "{DOCTOR_DISPLAY_NAME}"' in doctor_ui
+    assert "allow_implicit_invocation: false" in main_ui
+    assert "allow_implicit_invocation: false" in doctor_ui
+
+
+def test_plugin_starter_prompts_do_not_invent_host_command_syntax():
+    payload = json.loads(PLUGIN.read_text(encoding="utf-8"))
+    prompts = "\n".join(payload["interface"]["defaultPrompt"])
+    assert MAIN_DISPLAY_NAME in prompts
+    assert DOCTOR_DISPLAY_NAME in prompts
+    for stale in ["$dispatch", "$doctor", "/dispatch", "/doctor", "/subagents-dispatch:dispatch", "/subagents-dispatch:doctor"]:
+        assert stale not in prompts
+
+
 def test_root_plugin_layout_and_canonical_ci_verifier_do_not_use_removed_subdirectory():
     assert PLUGIN.is_file()
     assert (ROOT / "skills" / "dispatch" / "SKILL.md").is_file()
@@ -78,7 +105,6 @@ def test_plugin_brand_assets_and_supported_components():
     for field in ["homepage", "repository"]:
         parsed = urlparse(payload[field])
         assert parsed.scheme == "https" and parsed.netloc
-    assert any("/subagents-dispatch:doctor" in prompt for prompt in interface["defaultPrompt"])
 
 
 def test_policy_contract_owns_the_five_packaged_profiles():
@@ -129,7 +155,7 @@ def test_doctor_reuses_supported_diagnostics_and_existing_installer():
         CANONICAL_MARKETPLACE,
         PLUGIN_ADD,
         UPGRADE,
-        "/subagents-dispatch:doctor",
+        DOCTOR_SKILL_ID,
     ]:
         assert phrase in text
     assert "Diagnosis is read-only by default" in text
@@ -139,7 +165,7 @@ def test_doctor_reuses_supported_diagnostics_and_existing_installer():
     assert "start a fresh Codex session" in text
 
 
-def test_install_doc_contains_the_current_install_update_uninstall_and_first_run_contract():
+def test_install_doc_contains_current_lifecycle_and_app_skill_menu_contract():
     text = INSTALL_DOC.read_text(encoding="utf-8")
     for phrase in [
         CANONICAL_MARKETPLACE,
@@ -156,31 +182,39 @@ def test_install_doc_contains_the_current_install_update_uninstall_and_first_run
         "## Uninstall",
         PLUGIN_REMOVE,
         MARKETPLACE_REMOVE,
-        USER_COMMAND_DISPATCH,
-        "/skills",
+        "type `/` to open the Skill menu",
+        MAIN_DISPLAY_NAME,
+        DOCTOR_DISPLAY_NAME,
+        "exact slash entry rendered by the App is a Host/UI fact",
     ]:
         assert phrase in text
     assert "asks permission" not in text
 
 
-def test_public_readmes_keep_commands_while_ai_reference_points_to_install_owner():
+def test_public_readmes_use_prefixed_app_skill_names_without_inventing_exact_slash_entry():
     version = json.loads(PLUGIN.read_text(encoding="utf-8"))["version"]
     for name in ["README.md", "README_EN.md"]:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert version in text
-        assert USER_COMMAND_DISPATCH in text
-        assert USER_COMMAND_DOCTOR in text
+        assert MAIN_DISPLAY_NAME in text
+        assert DOCTOR_DISPLAY_NAME in text
         assert CANONICAL_MARKETPLACE in text
         assert PLUGIN_ADD in text
         assert UPGRADE in text
         assert PLUGIN_REMOVE in text
         assert MARKETPLACE_REMOVE in text
+        assert "`/`" in text
+        assert "$dispatch" not in text
+        assert "$doctor" not in text
 
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     assert version in ai
-    assert USER_COMMAND_DISPATCH in ai
-    assert USER_COMMAND_DOCTOR in ai
+    assert MAIN_SKILL_ID in ai
+    assert DOCTOR_SKILL_ID in ai
+    assert MAIN_DISPLAY_NAME in ai
+    assert DOCTOR_DISPLAY_NAME in ai
     assert "docs/plugin-installation.md" in ai
     assert "RESTART_REQUIRED" in ai
+    assert "Do not invent a Codex App slash-command string" in ai
     for command in [CANONICAL_MARKETPLACE, PLUGIN_ADD, UPGRADE, PLUGIN_REMOVE]:
         assert command not in ai
