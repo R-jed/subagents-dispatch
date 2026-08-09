@@ -84,6 +84,16 @@ CONTROL_STATES = {
 }
 ACTIVE_STATES = {"SPAWN_PENDING", "RUNNING", "INTERRUPTED", "UNKNOWN"}
 NON_ACTIVE_STATES = {"COMPLETED", "FAILED", "CLOSED"}
+FAILURE_ORIGINS = {
+    "none",
+    "runtime_unavailable",
+    "permission_failure",
+    "tool_failure",
+    "timeout",
+    "quality_failure",
+    "runtime_ambiguous",
+}
+TASK_BLOCKERS = {"none", "contract", "judgment", "investigation", "stalled"}
 HOST_STATE_MAP = {
     "pending": "SPAWN_PENDING",
     "running": "RUNNING",
@@ -271,7 +281,9 @@ def validate_state_payload(
     _reject_forbidden_persisted_fields(payload)
     if payload.get("schema_version") != SCHEMA_VERSION:
         raise StatePayloadError("unsupported state schema_version")
-    identity = resolve_thread_id(thread_id or payload.get("root_thread_id"))
+    identity = resolve_thread_id(
+        thread_id if thread_id is not None else payload.get("root_thread_id")
+    )
     if payload.get("root_thread_id") != identity:
         raise StatePayloadError("root_thread_id does not match CODEX_THREAD_ID")
     if payload.get("locale") not in {"zh", "en"}:
@@ -285,7 +297,7 @@ def validate_state_payload(
     _validate_units(payload["units"])
     try:
         unique_accounting = _unique_receipt_events(payload["accounting_refs"])
-        account_receipt(unique_accounting)
+        account_receipt(unique_accounting, materialized_units=payload["units"])
     except ReceiptAccountingError as exc:
         raise StatePayloadError(f"invalid accounting_refs: {exc}") from exc
     if len(unique_accounting) != len(payload["accounting_refs"]):
@@ -362,11 +374,23 @@ def _validate_units(units: list[Any]) -> None:
             raise StatePayloadError(f"{prefix} adopted=true requires accepted evidence")
         if record["adopted"] and state not in {"COMPLETED", "CLOSED"}:
             raise StatePayloadError(f"{prefix} cannot be adopted before completion")
+        if record["accepted"] and state not in {"COMPLETED", "CLOSED"}:
+            raise StatePayloadError(f"{prefix} accepted evidence requires completion")
         if state == "UNKNOWN":
             if record["failure_origin"] != "runtime_ambiguous":
                 raise StatePayloadError(f"{prefix} UNKNOWN requires runtime_ambiguous")
         elif record["failure_origin"] == "runtime_ambiguous":
             raise StatePayloadError(f"{prefix} runtime_ambiguous requires UNKNOWN")
+        if record["failure_origin"] not in FAILURE_ORIGINS:
+            raise StatePayloadError(f"{prefix} has invalid failure_origin")
+        if record["blocker"] not in TASK_BLOCKERS:
+            raise StatePayloadError(f"{prefix} has invalid blocker")
+        if state == "FAILED" and record["failure_origin"] == "none":
+            raise StatePayloadError(f"{prefix} FAILED requires a failure_origin")
+        if state not in {"FAILED", "UNKNOWN"} and record["failure_origin"] != "none":
+            raise StatePayloadError(f"{prefix} non-failure state requires failure_origin=none")
+        if state not in {"FAILED", "UNKNOWN"} and record["blocker"] != "none":
+            raise StatePayloadError(f"{prefix} blocker belongs only on FAILED or UNKNOWN")
         by_unit.setdefault(record["unit_id"], []).append(record)
     for unit_id, records in by_unit.items():
         ordered = sorted(records, key=lambda item: item["attempt"])
@@ -469,7 +493,9 @@ def write_state(
     temp_root: str | os.PathLike[str] | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
 ) -> Path:
-    identity = resolve_thread_id(thread_id or payload.get("root_thread_id"))
+    identity = resolve_thread_id(
+        thread_id if thread_id is not None else payload.get("root_thread_id")
+    )
     validate_state_payload(payload, thread_id=identity, max_bytes=max_bytes)
     encoded = _serialized_payload(payload, max_bytes=max_bytes)
     with state_lock(identity, temp_root=temp_root):
@@ -519,26 +545,34 @@ def prepare_spawn(
     now: datetime | str | None = None,
 ) -> dict[str, Any]:
     """Persist SPAWN_PENDING before the caller invokes the native Host."""
-    prepared = copy.deepcopy(dict(payload))
-    validate_state_payload(prepared)
+    supplied = copy.deepcopy(dict(payload))
+    validate_state_payload(supplied)
+    identity = resolve_thread_id(supplied["root_thread_id"])
     record = copy.deepcopy(dict(unit))
     if record.get("control_state") != "SPAWN_PENDING" or record.get("agent_id") is not None:
         raise StatePayloadError("a prepared spawn must be SPAWN_PENDING without agent_id")
-    same_unit = [item for item in prepared["units"] if item["unit_id"] == record.get("unit_id")]
-    if same_unit:
-        current = max(same_unit, key=lambda item: item["attempt"])
-        if current["control_state"] != "FAILED" or record.get("attempt") != current["attempt"] + 1:
-            raise StatePayloadError("cannot spawn a replacement for an unresolved unit")
-    if record.get("writer") is True and any(
-        item["writer"] is True and item["control_state"] in ACTIVE_STATES
-        for item in _latest_units(prepared)
-    ):
-        raise StatePayloadError("cannot prepare a second active writer")
-    prepared["units"].append(record)
-    _touch(prepared, now)
-    validate_state_payload(prepared)
-    write_state(prepared, temp_root=temp_root)
-    return prepared
+    with state_lock(identity, temp_root=temp_root):
+        current_state = load_state(identity, temp_root=temp_root)
+        prepared = copy.deepcopy(current_state if current_state is not None else supplied)
+        same_unit = [
+            item for item in prepared["units"] if item["unit_id"] == record.get("unit_id")
+        ]
+        if same_unit:
+            current = max(same_unit, key=lambda item: item["attempt"])
+            if current["control_state"] != "FAILED" or record.get("attempt") != current["attempt"] + 1:
+                raise StatePayloadError("cannot spawn a replacement for an unresolved unit")
+        if record.get("writer") is True and any(
+            item["writer"] is True and item["control_state"] in ACTIVE_STATES
+            for item in _latest_units(prepared)
+        ):
+            raise StatePayloadError("cannot prepare a second active writer")
+        prepared["units"].append(record)
+        _touch(prepared, now)
+        validate_state_payload(prepared)
+        encoded = _serialized_payload(prepared, max_bytes=DEFAULT_MAX_BYTES)
+        _, _, path, _ = _paths(identity, temp_root, create=True)
+        _write_unlocked(path, encoded)
+        return prepared
 
 
 def _quarantine(record: dict[str, Any], reason: str) -> None:
@@ -768,8 +802,8 @@ def remove_state(
             return False
         payload = load_state(identity, temp_root=temp_root)
         assert payload is not None
-        if any(record["control_state"] in ACTIVE_STATES for record in _latest_units(payload)):
-            raise StatePayloadError("cannot remove state with active or uncertain work")
+        if _has_unresolved_work(payload):
+            raise StatePayloadError("cannot remove state with unresolved work")
         _reject_symlink(path, "state file")
         path.unlink()
         return True
@@ -783,6 +817,12 @@ def is_stale(
 ) -> bool:
     current = _parse_timestamp(_utc_text(now))
     return current - _parse_timestamp(payload.get("updated_at")) > stale_after
+
+
+def _has_unresolved_work(payload: Mapping[str, Any]) -> bool:
+    return payload.get("pending_takeover") is not None or any(
+        record["control_state"] not in NON_ACTIVE_STATES for record in _latest_units(payload)
+    )
 
 
 def cleanup_stale_states(
@@ -825,7 +865,7 @@ def cleanup_stale_states(
         if payload is None or not is_stale(payload, now=now, stale_after=stale_after):
             report["fresh"].append(identity)
             continue
-        active = any(record["control_state"] in ACTIVE_STATES for record in _latest_units(payload))
+        active = _has_unresolved_work(payload)
         active_discard_approved = bool(
             active and can_discard_active is not None and can_discard_active(payload)
         )
@@ -839,9 +879,7 @@ def cleanup_stale_states(
             if not is_stale(current, now=now, stale_after=stale_after):
                 report["fresh"].append(identity)
                 continue
-            current_active = any(
-                record["control_state"] in ACTIVE_STATES for record in _latest_units(current)
-            )
+            current_active = _has_unresolved_work(current)
             if current_active and (not active_discard_approved or current != payload):
                 report["retained_active"].append(identity)
                 continue
@@ -863,6 +901,7 @@ RECEIPT_EVENT_KINDS = {
     "control",
 }
 PUBLIC_ACTIVITIES = {"read", "investigate", "execute", "decide", "review"}
+MATERIALIZED_EVENT_KINDS = {"attempt", "followup", "reviewer_attempt"}
 REVIEW_VERDICTS = {
     "passed",
     "rework_required",
@@ -894,7 +933,19 @@ def _unique_receipt_events(events: Sequence[Mapping[str, Any]]) -> list[dict[str
     return unique
 
 
-def account_receipt(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def _materialized_unit_keys(units: Sequence[Mapping[str, Any]]) -> set[tuple[str, int, str]]:
+    return {
+        (record["unit_id"], record["attempt"], record["agent_id"])
+        for record in units
+        if _nonempty(record.get("agent_id"))
+    }
+
+
+def account_receipt(
+    events: Sequence[Mapping[str, Any]],
+    *,
+    materialized_units: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Derive receipt axes from stable materialization refs, never mutable counters."""
     unique = _unique_receipt_events(events)
     dispatch: list[dict[str, Any]] = []
@@ -909,9 +960,28 @@ def account_receipt(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     review_verdict: str | None = None
     recoveries = 0
 
+    materialized_keys = (
+        _materialized_unit_keys(materialized_units) if materialized_units is not None else None
+    )
     for event in unique:
         kind = event["kind"]
-        if kind in {"attempt", "followup", "reviewer_attempt"}:
+        if kind in MATERIALIZED_EVENT_KINDS:
+            unit_id = event.get("unit_id")
+            attempt = event.get("attempt")
+            agent_id = event.get("agent_id")
+            if (
+                not _nonempty(unit_id)
+                or not isinstance(attempt, int)
+                or isinstance(attempt, bool)
+                or not _nonempty(agent_id)
+            ):
+                raise ReceiptAccountingError(
+                    f"materialized event {event['ref']} requires unit, attempt, and child identity"
+                )
+            if materialized_keys is None or (unit_id, attempt, agent_id) not in materialized_keys:
+                raise ReceiptAccountingError(
+                    f"materialized child for event {event['ref']} is unavailable"
+                )
             model_lane = event.get("model_lane")
             activity = event.get("activity")
             if activity not in PUBLIC_ACTIVITIES:
@@ -984,14 +1054,13 @@ def persist_receipt_events(
 ) -> dict[str, Any]:
     """Atomically persist unique receipt events in the active root-thread capsule."""
     incoming = _unique_receipt_events(events)
-    account_receipt(incoming)
     identity = resolve_thread_id(thread_id)
     with state_lock(identity, temp_root=temp_root):
         payload = load_state(identity, temp_root=temp_root, max_bytes=max_bytes)
         if payload is None:
             raise ReceiptAccountingError("active dispatch state is unavailable")
         merged = _unique_receipt_events([*payload["accounting_refs"], *incoming])
-        account_receipt(merged)
+        account_receipt(merged, materialized_units=payload["units"])
         payload["accounting_refs"] = merged
         _touch(payload, now)
         validate_state_payload(payload, thread_id=identity, max_bytes=max_bytes)

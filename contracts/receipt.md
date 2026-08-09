@@ -115,7 +115,7 @@ attempt:U2:A1
 review:U3:A1
 ```
 
-The active root-thread capsule stores the structured event bound to each reference. `persist_receipt_events` merges and writes those events under the state lock; identical references are idempotent and conflicting reuse of one reference fails closed. Visible totals are always derived from the persisted unique events.
+The active root-thread capsule stores the structured event bound to each reference. Every materialized attempt, follow-up, or reviewer-attempt event carries its exact `unit_id`, integer `attempt`, and non-empty `agent_id`; that identity must match a materialized unit in the same capsule. `persist_receipt_events` checks this binding while holding the state lock, then merges and writes the events. Identical references are idempotent, while fabricated child identities or conflicting reuse of one reference fail closed. Visible totals are always derived from the persisted unique events.
 
 A materialized event may include `model_lane` only with `model_evidence_source: native` or `both`. Requested, configured, accepted, or local-only route values must not appear as observed model facts in a receipt.
 

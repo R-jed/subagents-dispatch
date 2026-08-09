@@ -264,14 +264,19 @@ def _state_entries(temp_root: Path) -> tuple[Path | None, list[Path], str | None
     return root, sorted(root.iterdir(), key=lambda item: item.name), None
 
 
-def _unexpected_repository_state() -> list[str]:
+def _unexpected_repository_state(root: Path = ROOT) -> list[str]:
     ignored = {".git", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__"}
     unexpected: list[str] = []
-    for path in ROOT.rglob("active.json"):
-        relative = path.relative_to(ROOT)
+    forbidden_prefixes = ("team-plan-", "ledger-", "receipt-", "recovery-")
+    for path in root.rglob("*"):
+        relative = path.relative_to(root)
         if any(part in ignored for part in relative.parts):
             continue
-        if STATE_DIRECTORY in relative.parts[:-1]:
+        if (
+            path.name.startswith(forbidden_prefixes)
+            or path.name == "active.json"
+            and STATE_DIRECTORY in relative.parts[:-1]
+        ):
             unexpected.append(relative.as_posix())
     return sorted(unexpected)
 
@@ -507,9 +512,16 @@ def run_explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str
         actions.append("installer migration" if args.migrate_legacy else "installer repair")
     if args.cleanup_stale:
         try:
+            active_thread_id = (
+                args.thread_id
+                if args.thread_id is not None
+                else os.environ.get("CODEX_THREAD_ID")
+            )
+            if active_thread_id is not None:
+                resolve_thread_id(active_thread_id)
             report = cleanup_stale_states(
                 temp_root=args.temp_root,
-                active_thread_id=args.thread_id or os.environ.get("CODEX_THREAD_ID"),
+                active_thread_id=active_thread_id,
             )
         except (StateIdentityError, StatePathError) as exc:
             fail(f"explicit stale cleanup failed safely: {exc}")

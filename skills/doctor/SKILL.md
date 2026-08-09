@@ -31,7 +31,7 @@ Use deterministic owners instead of reproducing their logic:
 
 Report Plugin, Skills, managed Agent profiles, dispatch state, Codex Host, and runtime route evidence separately as `OK`, `WARN`, `FAIL`, or `UNKNOWN`. Configuration is not runtime observation. Do not edit Codex config files directly, simulate missing Host controls, or delete ambiguous state. Do not invent App slash syntax or claim App-visible labels without direct observation.
 
-Use `scripts/doctor.py --check` for the deterministic report. Use `--runtime-evidence <file>` only when route evidence is explicitly required; it delegates normalization to `scripts/runtime-evidence.py` and keeps requested, accepted, and observed layers separate. `--repair`, `--migrate-legacy`, and `--cleanup-stale` are explicit mutation intents. Preserve unresolved writers and corrupt capsules for review.
+Use `scripts/doctor.py --check` for the deterministic report. Its dispatch-state layer scans existing temporary capsules even without a current thread identity and reports forbidden repository-local `team-plan-*`, `ledger-*`, `receipt-*`, `recovery-*`, and dispatch `active.json` state. Use `--runtime-evidence <file>` only when route evidence is explicitly required; it delegates normalization to `scripts/runtime-evidence.py` and keeps requested, accepted, and observed layers separate. `--repair`, `--migrate-legacy`, and `--cleanup-stale` are explicit mutation intents. Preserve unresolved writers, planned work, pending takeover, and corrupt capsules for review.
 
 ## Explicit live route workflow
 

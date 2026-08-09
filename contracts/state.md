@@ -139,7 +139,7 @@ atomic replace
 
 Receipt events use the same mutation boundary. `accounting_refs` contains unique structured events keyed by a stable `ref`; `persist_receipt_events` re-reads, merges, validates, and atomically replaces the capsule while holding the state lock. Reconciliation or resume may persist the same event again without incrementing visible totals.
 
-`prepare_spawn` rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; active, interrupted, pending, or unknown work must be settled first.
+`prepare_spawn` re-reads and updates authoritative state under the same lock and rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; planned, active, interrupted, pending-takeover, or unknown work must be settled first.
 
 Reject unsafe symlinked state roots, thread directories, state files, or locks. Use restrictive local file permissions where the platform supports them. Validate the thread-id path component before constructing filesystem paths.
 
@@ -151,7 +151,7 @@ Normal completion removes state immediately. Unexpected App or process terminati
 
 A default stale horizon of seven days is acceptable for non-current thread state. The current root thread is never removed merely because of age while it is actively being controlled. Before deleting a stale capsule that claims active native work, reconcile when reliable native identity is still available; otherwise fail closed rather than assuming a writer disappeared. Cleanup must re-read and revalidate the candidate under the state lock immediately before unlinking so concurrently refreshed state cannot be deleted from stale pre-lock evidence.
 
-Doctor may report current, stale, corrupt, and unsafe state. Diagnosis is read-only by default. Explicit cleanup may remove only state proven to belong to subagents-dispatch and safe to discard.
+Doctor may report current, stale, corrupt, unsafe, and forbidden repository-local state. Diagnosis is read-only by default. Explicit cleanup may remove only state proven to belong to subagents-dispatch and terminal; planned work and pending takeover are unresolved, not disposable.
 
 ## Control entry points
 

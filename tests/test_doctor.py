@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -34,6 +35,19 @@ def install(home: Path) -> None:
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def load_doctor_module():
+    scripts = str(ROOT / "scripts")
+    sys.path.insert(0, scripts)
+    try:
+        spec = importlib.util.spec_from_file_location("doctor_under_test", DOCTOR)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(scripts)
 
 
 def test_doctor_reports_exact_six_layers_and_unobserved_runtime_is_not_unhealthy(tmp_path: Path):
@@ -74,6 +88,42 @@ def test_doctor_reports_exact_six_layers_and_unobserved_runtime_is_not_unhealthy
     assert state["details"]["state_lock_health"] == "not_present"
     assert state["details"]["schema_health"] == "ok"
     assert state["details"]["unexpected_repository_state"] == []
+
+
+def test_doctor_detects_all_forbidden_repository_local_state_names(tmp_path: Path):
+    module = load_doctor_module()
+    forbidden = [
+        "subagents-dispatch/thread-1/active.json",
+        "team-plan-orphan.json",
+        "nested/ledger-old.json",
+        "nested/receipt-final.md",
+        "recovery-stale.json",
+    ]
+    for relative in forbidden:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    ignored = tmp_path / ".venv" / "receipt-ignored.json"
+    ignored.parent.mkdir()
+    ignored.write_text("{}", encoding="utf-8")
+
+    assert module._unexpected_repository_state(tmp_path) == sorted(forbidden)
+
+
+def test_doctor_cleanup_rejects_explicit_empty_thread_identity(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    result = run_doctor(
+        home,
+        "--cleanup-stale",
+        "--thread-id",
+        "",
+        "--temp-root",
+        str(tmp_path / "temp"),
+        env={"CODEX_THREAD_ID": "environment-thread"},
+    )
+    assert result.returncode != 0
+    assert "valid CODEX_THREAD_ID" in result.stderr
 
 
 def test_doctor_explicit_runtime_evidence_keeps_configured_and_observed_distinct(tmp_path: Path):

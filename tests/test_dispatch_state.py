@@ -65,6 +65,24 @@ def unit(
     }
 
 
+def receipt_event(
+    ref: str,
+    kind: str,
+    unit_id: str,
+    attempt: int,
+    agent_id: str,
+    **evidence,
+) -> dict:
+    return {
+        "ref": ref,
+        "kind": kind,
+        "unit_id": unit_id,
+        "attempt": attempt,
+        "agent_id": agent_id,
+        **evidence,
+    }
+
+
 def test_state_path_is_thread_scoped_and_requires_reliable_identity(tmp_path: Path, monkeypatch):
     module = load_module()
 
@@ -180,15 +198,17 @@ def test_prepare_spawn_is_persisted_before_host_identity_exists(tmp_path: Path):
 
 def test_prepare_spawn_rejects_a_second_active_writer(tmp_path: Path):
     module = load_module()
-    state = capsule(module, "thread-1")
-    state["units"] = [unit(state="RUNNING", agent_id="agent-1")]
+    stale = capsule(module, "thread-1")
+    first = module.prepare_spawn(stale, unit(), temp_root=tmp_path)
+    assert first["units"][0]["unit_id"] == "U1"
 
     with pytest.raises(module.StatePayloadError, match="active writer"):
         module.prepare_spawn(
-            state,
+            stale,
             unit(unit_id="U2", task_id="task-2", native_task_name="sd-u2-a1-execute"),
             temp_root=tmp_path,
         )
+    assert module.load_state("thread-1", temp_root=tmp_path) == first
 
 
 def test_reconcile_unambiguously_binds_spawn_and_host_truth_wins():
@@ -401,9 +421,77 @@ def test_remove_state_rejects_active_or_uncertain_work(tmp_path: Path):
     state["units"] = [unit(state="UNKNOWN", agent_id="agent-1")]
     module.write_state(state, temp_root=tmp_path)
 
-    with pytest.raises(module.StatePayloadError, match="active or uncertain"):
+    with pytest.raises(module.StatePayloadError, match="unresolved"):
         module.remove_state("thread-1", temp_root=tmp_path)
     assert module.load_state("thread-1", temp_root=tmp_path) is not None
+
+
+@pytest.mark.parametrize("unresolved", ["PLANNED", "pending_takeover"])
+def test_cleanup_and_remove_preserve_all_unresolved_work(tmp_path: Path, unresolved: str):
+    module = load_module()
+    state = capsule(module, "thread-1", updated_at="2026-07-01T00:00:00Z")
+    if unresolved == "PLANNED":
+        state["units"] = [unit(state="PLANNED")]
+    else:
+        state["pending_takeover"] = {"unit_id": "U1", "status": "pending"}
+    module.write_state(state, temp_root=tmp_path)
+
+    with pytest.raises(module.StatePayloadError, match="unresolved"):
+        module.remove_state("thread-1", temp_root=tmp_path)
+    report = module.cleanup_stale_states(
+        temp_root=tmp_path,
+        now="2026-08-10T00:00:00Z",
+    )
+    assert report["retained_active"] == ["thread-1"]
+    assert module.load_state("thread-1", temp_root=tmp_path) is not None
+
+
+def test_state_rejects_unknown_recovery_axes_and_explicit_empty_identity(tmp_path: Path):
+    module = load_module()
+    state = capsule(module, "thread-1")
+    state["units"] = [unit(state="RUNNING", agent_id="agent-1")]
+    state["units"][0]["failure_origin"] = "invented"
+    with pytest.raises(module.StatePayloadError, match="failure_origin"):
+        module.write_state(state, temp_root=tmp_path)
+
+    state["units"][0]["failure_origin"] = "none"
+    state["units"][0]["blocker"] = "invented"
+    with pytest.raises(module.StatePayloadError, match="blocker"):
+        module.write_state(state, temp_root=tmp_path)
+
+    with pytest.raises(module.StateIdentityError):
+        module.write_state(capsule(module, "thread-1"), thread_id="", temp_root=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("state_name", "failure_origin", "blocker", "accepted", "message"),
+    [
+        ("FAILED", "none", "none", False, "requires a failure_origin"),
+        ("RUNNING", "timeout", "none", False, "non-failure state"),
+        ("RUNNING", "none", "judgment", False, "blocker belongs only"),
+        ("RUNNING", "none", "none", True, "accepted evidence"),
+        ("PLANNED", "none", "contract", False, "blocker belongs only"),
+    ],
+)
+def test_state_rejects_cross_axis_invalid_recovery_truth(
+    tmp_path: Path,
+    state_name: str,
+    failure_origin: str,
+    blocker: str,
+    accepted: bool,
+    message: str,
+):
+    module = load_module()
+    agent_id = None if state_name == "PLANNED" else "agent-1"
+    state = capsule(module, "thread-1")
+    state["units"] = [unit(state=state_name, agent_id=agent_id)]
+    state["units"][0].update(
+        failure_origin=failure_origin,
+        blocker=blocker,
+        accepted=accepted,
+    )
+    with pytest.raises(module.StatePayloadError, match=message):
+        module.write_state(state, temp_root=tmp_path)
 
 
 def test_stale_cleanup_rechecks_state_before_deleting(tmp_path: Path, monkeypatch):
@@ -436,22 +524,27 @@ def test_stale_cleanup_rechecks_state_before_deleting(tmp_path: Path, monkeypatc
 
 def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     module = load_module()
+    materialized = [
+        {"unit_id": "U1", "attempt": 1, "agent_id": "agent-1"},
+        {"unit_id": "U3", "attempt": 1, "agent_id": "agent-3"},
+        {"unit_id": "U3", "attempt": 2, "agent_id": "agent-4"},
+    ]
     events = [
-        {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
-        {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
-        {"ref": "followup:U1:A1:F1", "kind": "followup", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "execute"},
+        receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
+        receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
+        receipt_event("followup:U1:A1:F1", "followup", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="execute"),
         {"ref": "retry:U2:A2", "kind": "retry"},
-        {"ref": "review-attempt:U3:A1", "kind": "reviewer_attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "review"},
+        receipt_event("review-attempt:U3:A1", "reviewer_attempt", "U3", 1, "agent-3", model_lane="Sol High", model_evidence_source="native", activity="review"),
         {"ref": "review-round:U3:R1", "kind": "review_round", "verdict": "rework_required"},
         {"ref": "rework:U2:R1", "kind": "semantic_rework"},
-        {"ref": "review-attempt:U3:A2", "kind": "reviewer_attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "review"},
+        receipt_event("review-attempt:U3:A2", "reviewer_attempt", "U3", 2, "agent-4", model_lane="Sol High", model_evidence_source="native", activity="review"),
         {"ref": "review-round:U3:R2", "kind": "review_round", "verdict": "passed"},
         {"ref": "recovery:U1:REBIND", "kind": "recovery", "action": "rebind"},
         {"ref": "control:status:1", "kind": "control", "action": "Status"},
         {"ref": "control:status:1", "kind": "control", "action": "Status"},
     ]
 
-    summary = module.account_receipt(events)
+    summary = module.account_receipt(events, materialized_units=materialized)
     assert summary["dispatch"] == [
         {"model_lane": "Luna Max", "activity": "read", "count": 1},
         {"model_lane": "Luna Max", "activity": "execute", "count": 1},
@@ -468,23 +561,29 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     with pytest.raises(module.ReceiptAccountingError, match="conflicting event ref"):
         module.account_receipt(
             [
-                {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
-                {"ref": "attempt:U1:A1", "kind": "attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "decide"},
-            ]
+                receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
+                receipt_event("attempt:U1:A1", "attempt", "U1", 1, "agent-1", model_lane="Sol High", model_evidence_source="native", activity="decide"),
+            ],
+            materialized_units=materialized,
         )
 
 
 def test_receipt_formatter_localizes_public_activity_without_internal_roles():
     module = load_module()
+    materialized = [
+        {"unit_id": f"U{index}", "attempt": 1, "agent_id": f"agent-{index}"}
+        for index in range(1, 6)
+    ]
     summary = module.account_receipt(
         [
-            {"ref": "a1", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "read"},
-            {"ref": "a2", "kind": "attempt", "model_lane": "Terra XHigh", "model_evidence_source": "native", "activity": "investigate"},
-            {"ref": "a3", "kind": "attempt", "model_lane": "Luna Max", "model_evidence_source": "native", "activity": "execute"},
-            {"ref": "a4", "kind": "attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "decide"},
-            {"ref": "a5", "kind": "reviewer_attempt", "model_lane": "Sol High", "model_evidence_source": "native", "activity": "review"},
+            receipt_event("a1", "attempt", "U1", 1, "agent-1", model_lane="Luna Max", model_evidence_source="native", activity="read"),
+            receipt_event("a2", "attempt", "U2", 1, "agent-2", model_lane="Terra XHigh", model_evidence_source="native", activity="investigate"),
+            receipt_event("a3", "attempt", "U3", 1, "agent-3", model_lane="Luna Max", model_evidence_source="native", activity="execute"),
+            receipt_event("a4", "attempt", "U4", 1, "agent-4", model_lane="Sol High", model_evidence_source="native", activity="decide"),
+            receipt_event("a5", "reviewer_attempt", "U5", 1, "agent-5", model_lane="Sol High", model_evidence_source="native", activity="review"),
             {"ref": "r1", "kind": "review_round", "verdict": "passed"},
-        ]
+        ],
+        materialized_units=materialized,
     )
     chinese = module.format_receipt(summary, locale="zh")
     assert "编排: Luna Max 读取 · Terra XHigh 调研 · Luna Max 执行 · Sol High 决策 · Sol High 验收" in chinese
@@ -498,10 +597,15 @@ def test_receipt_formatter_localizes_public_activity_without_internal_roles():
 
 def test_receipt_persists_unique_events_and_requires_observed_model_evidence(tmp_path: Path):
     module = load_module()
-    module.write_state(capsule(module, "thread-1"), temp_root=tmp_path)
+    state = capsule(module, "thread-1")
+    state["units"] = [unit(state="COMPLETED", agent_id="agent-1")]
+    module.write_state(state, temp_root=tmp_path)
     event = {
         "ref": "attempt:U1:A1",
         "kind": "attempt",
+        "unit_id": "U1",
+        "attempt": 1,
+        "agent_id": "agent-1",
         "model_lane": "Luna Max",
         "model_evidence_source": "native",
         "activity": "execute",
@@ -512,16 +616,33 @@ def test_receipt_persists_unique_events_and_requires_observed_model_evidence(tmp
     persisted = module.load_state("thread-1", temp_root=tmp_path)
 
     assert persisted["accounting_refs"] == [event]
-    assert module.account_receipt(persisted["accounting_refs"])["dispatch"] == [
+    assert module.account_receipt(
+        persisted["accounting_refs"], materialized_units=persisted["units"]
+    )["dispatch"] == [
         {"model_lane": "Luna Max", "activity": "execute", "count": 1}
     ]
+    with pytest.raises(module.ReceiptAccountingError, match="materialized child"):
+        module.persist_receipt_events(
+            "thread-1",
+            [
+                {
+                    **event,
+                    "ref": "attempt:U999:A1",
+                    "unit_id": "U999",
+                    "agent_id": "agent-999",
+                }
+            ],
+            temp_root=tmp_path,
+        )
     with pytest.raises(module.ReceiptAccountingError, match="observed model evidence"):
         module.account_receipt(
-            [{"ref": "attempt:U2:A1", "kind": "attempt", "model_lane": "Sol High", "activity": "decide"}]
+            [receipt_event("attempt:U2:A1", "attempt", "U2", 1, "agent-2", model_lane="Sol High", activity="decide")],
+            materialized_units=[{"unit_id": "U2", "attempt": 1, "agent_id": "agent-2"}],
         )
 
     unobserved = module.account_receipt(
-        [{"ref": "attempt:U3:A1", "kind": "attempt", "activity": "read"}]
+        [receipt_event("attempt:U3:A1", "attempt", "U3", 1, "agent-3", activity="read")],
+        materialized_units=[{"unit_id": "U3", "attempt": 1, "agent_id": "agent-3"}],
     )
     assert module.format_receipt(unobserved, locale="en").startswith("Dispatch: Read")
 
