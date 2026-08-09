@@ -20,11 +20,13 @@
 
 > **If you are an AI Agent, jump to [README_AI.md](README_AI.md) and follow the instructions strictly.**
 
-subagents-dispatch is a Codex plugin that hands the right work to a specialist Agent while Main keeps the goal, the permissions, and the final answer. It does not delegate for show. Work Main can finish alone stays in Main.
+subagents-dispatch is a Codex plugin with one job: hand parts of a big task to a few specialist Agents, while Main keeps the goal, watches progress, and takes the results back for acceptance.
+
+Nothing to learn, nothing to configure. Install the plugin, pick it from a menu, say what you want in plain words, and let it work.
 
 ## Quick start
 
-In the Codex App, type `/` to open the Skill menu and choose **Subagents Dispatch**, then enter the task.
+In the Codex App, type `/` to open the Skill menu, choose **Subagents Dispatch**, and enter your task.
 
 For example:
 
@@ -32,7 +34,7 @@ For example:
 Add pagination to /api/users, with tests
 ```
 
-Main decides what is worth splitting. For example, one Reader can inspect the existing API while another Reader inspects the related tests, so those read-only tasks can run in parallel. Once the evidence is clear, one Worker can make the implementation and test changes. Read-only discovery may run concurrently, but the same checkout never has two active writers. Main then checks, integrates, and delivers.
+The plugin decides how to split the work. One Reader can inspect the existing API while another Reader inspects the related tests, so those read-only tasks run in parallel. Once the evidence is clear, one Worker makes the implementation and test changes. Read-only discovery may run concurrently, but the same checkout never has two active writers. Main then checks, integrates, and delivers the final result.
 
 Simple tasks are not force-split to look collaborative. A subagent only starts when it is genuinely faster, safer, or a better fit.
 
@@ -96,6 +98,8 @@ These hold no matter how many responsibilities a task splits into:
 
 ## Roles
 
+Most work stays in Main. These roles only come out when delegation earns its keep.
+
 | Role | What it does |
 |------|-------------|
 | Luna Reader | read code, trace call paths, gather facts |
@@ -104,7 +108,7 @@ These hold no matter how many responsibilities a task splits into:
 | Terra Investigator | broad read-only investigation, evidence synthesis |
 | Sol Advisor | independent technical judgment or final review |
 
-Simple work stays in Main. Delegation happens when parallelism, isolation, or specialist capability justifies the cost. No fixed team size, no fixed pipeline.
+No fixed team size, no fixed pipeline. Delegation happens when parallelism, isolation, or specialist capability justifies the cost.
 
 ## Install
 
@@ -116,6 +120,17 @@ codex plugin add subagents-dispatch@subagents-dispatch
 Start a new Codex session after installing the Plugin. The first task run through **Subagents Dispatch** that actually needs a child automatically prepares subagents-dispatch's five managed Agent profiles without asking you to make a TOML-level setup decision. Codex loads custom-Agent registrations when a task starts, so that first setup task ends by asking you to open one fresh task, choose **Subagents Dispatch** from the `/` menu again, and rerun the original request. It does not first attempt to spawn a role that the current task cannot see. After the profiles were present before task startup, later tasks can delegate normally.
 
 If an existing managed path is conflicting, modified without proven ownership, or unsafe, subagents-dispatch does not overwrite it and stops with **Subagents Doctor** guidance.
+
+## Update
+
+```bash
+codex plugin marketplace upgrade subagents-dispatch
+codex plugin add subagents-dispatch@subagents-dispatch
+```
+
+Or choose **Subagents Doctor** from the `/` menu and ask it to upgrade subagents-dispatch.
+
+Start a new Codex session after updating.
 
 ## Uninstall
 
@@ -141,16 +156,19 @@ rm ~/.codex/agents/subagents-dispatch-advisor.toml
 rm ~/.codex/.subagents-dispatch-agents.json
 ```
 
-## Update
+## FAQ
 
-```bash
-codex plugin marketplace upgrade subagents-dispatch
-codex plugin add subagents-dispatch@subagents-dispatch
-```
+**Do I need to learn anything first?**
+No. Install the plugin, pick **Subagents Dispatch** from the `/` menu, and say what you want in plain words.
 
-Or choose **Subagents Doctor** from the `/` menu and ask it to upgrade subagents-dispatch.
+**Can multiple Agents overwrite each other's changes?**
+Not within one dispatch. The same checkout has at most one active writer at a time, which prevents concurrent writer conflicts. Any code change can still contain bugs, so Main checks and verifies the result before delivery.
 
-Start a new Codex session after updating.
+**Do I have to watch it work?**
+No. When a task spawns Agents, it ends with a one-line receipt that tells you what ran, whether anything retried, and whether a review happened.
+
+**My task is simple. Do I still need it?**
+It will not force-split simple work. What Main can finish alone stays in Main.
 
 ## Repository layout
 
