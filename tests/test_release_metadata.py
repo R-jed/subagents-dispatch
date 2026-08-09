@@ -12,7 +12,6 @@ README_EN = ROOT / "README_EN.md"
 README_AI = ROOT / "README_AI.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 RELEASE_CHECKLIST = ROOT / "docs" / "release-checklist.md"
-
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -27,38 +26,32 @@ def test_public_version_markers_match_plugin_manifest():
     badge = f"version-{version}-green.svg"
     assert badge in README_CN.read_text(encoding="utf-8")
     assert badge in README_EN.read_text(encoding="utf-8")
-    assert re.search(
-        rf"^Current version:\s+{re.escape(version)}$",
-        README_AI.read_text(encoding="utf-8"),
-        flags=re.MULTILINE,
-    )
+    assert re.search(rf"^Current version:\s+{re.escape(version)}$", README_AI.read_text(encoding="utf-8"), flags=re.MULTILINE)
 
 
 def test_latest_changelog_entry_matches_plugin_manifest():
     version = current_version()
     match = re.search(r"^## \[([^\]]+)\]", CHANGELOG.read_text(encoding="utf-8"), flags=re.MULTILINE)
-    assert match, "CHANGELOG.md must contain a version heading"
+    assert match
     assert match.group(1) == version
 
 
 def test_marketplace_plugin_source_is_bound_to_release_tag():
     version = current_version()
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
-    plugins = market.get("plugins")
-    assert isinstance(plugins, list) and len(plugins) == 1
-    source = plugins[0].get("source")
-    assert source == {
-        "source": "url",
-        "url": "https://github.com/R-jed/subagents-dispatch.git",
-        "ref": f"v{version}",
-    }
+    source = market["plugins"][0]["source"]
+    assert source == {"source": "url", "url": "https://github.com/R-jed/subagents-dispatch.git", "ref": f"v{version}"}
 
 
-def test_release_checklist_keeps_static_host_and_distribution_gates_separate():
+def test_release_checklist_keeps_static_host_distribution_and_skill_registry_gates_separate():
     text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
     for marker in [
         "## 2. Repository gates",
         "## 3. Real Codex Host gates",
+        "Plugin and Skill discovery",
+        "Dispatch -> explicit invocation $dispatch",
+        "Doctor   -> explicit invocation $doctor",
+        "Bare `/dispatch` and `/doctor` slash commands are not a Skill-discovery requirement",
         "RESTART_REQUIRED",
         "subagents_dispatch_reader",
         "subagents_dispatch_worker",
