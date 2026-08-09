@@ -1,21 +1,23 @@
 ---
-name: doctor
+name: subagents-doctor
 description: Diagnose subagents-dispatch installation, Codex host and marketplace state, and managed Agent profiles; repair managed profiles or upgrade the Plugin only when the user explicitly asks for mutation.
 ---
 
-# doctor
+# Subagents Doctor
 
-Use this Skill for subagents-dispatch installation, configuration, Marketplace, managed-profile, legacy-migration, repair, and upgrade work. Development routing remains owned by `/dispatch`.
+Use this Skill for subagents-dispatch installation, configuration, Marketplace, managed-profile, legacy-migration, repair, and upgrade work. Development routing remains owned by the Subagents Dispatch Skill.
+
+The stable Skill identity is `subagents-doctor`. Do not infer or hard-code a user-visible Codex App slash-command string from package metadata alone; App rendering and selection are release-gated with direct human UI evidence.
 
 Diagnosis is read-only by default. Do not mutate Plugin, Marketplace, Codex configuration, or Agent profile state unless the user explicitly asks to install, repair, migrate, or upgrade. Never edit Codex config files directly when the supported Codex CLI can perform the operation. Do not use `marketplace remove` as a generic reset.
 
 ## Canonical identities
 
 ```text
-marketplace: subagents-dispatch
-plugin:      subagents-dispatch@subagents-dispatch
-main skill:  /dispatch (internal: /subagents-dispatch:dispatch)
-doctor:      /doctor   (internal: /subagents-dispatch:doctor)
+marketplace:   subagents-dispatch
+plugin:        subagents-dispatch@subagents-dispatch
+main skill:    subagents-dispatch
+Doctor skill:  subagents-doctor
 ```
 
 The managed-profile installer is:
@@ -102,7 +104,7 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Then start a fresh Codex session and run `/doctor` again against the installed package.
+Then start a fresh Codex session and invoke the Subagents Doctor Skill again against the installed package.
 
 ## Upgrade Plugin
 
@@ -113,7 +115,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-After upgrade, start a fresh Codex session and invoke `/doctor` again. The new Doctor should run its own installer checks and legacy diagnostics before repairing profiles. This prevents an older running package from writing newer managed state.
+After upgrade, start a fresh Codex session and invoke the Subagents Doctor Skill again. The new Doctor should run its own installer checks and legacy diagnostics before repairing profiles. This prevents an older running package from writing newer managed state.
 
 ## Report
 
