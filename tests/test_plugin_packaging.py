@@ -24,6 +24,8 @@ USER_COMMAND_DOCTOR = "/doctor"
 
 def test_plugin_manifest_and_marketplace_use_canonical_identity():
     payload = json.loads(PLUGIN.read_text(encoding="utf-8"))
+    version = payload["version"]
+    release_ref = f"v{version}"
     assert payload["name"] == "subagents-dispatch"
     assert payload["skills"] == "./skills/"
     assert payload["repository"] == "https://github.com/R-jed/subagents-dispatch"
@@ -44,7 +46,7 @@ def test_plugin_manifest_and_marketplace_use_canonical_identity():
                 "source": {
                     "source": "url",
                     "url": "https://github.com/R-jed/subagents-dispatch.git",
-                    "ref": "main",
+                    "ref": release_ref,
                 },
                 "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                 "category": "Productivity",

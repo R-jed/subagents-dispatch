@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
+MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 README_CN = ROOT / "README.md"
 README_EN = ROOT / "README_EN.md"
 README_AI = ROOT / "README_AI.md"
@@ -40,7 +41,20 @@ def test_latest_changelog_entry_matches_plugin_manifest():
     assert match.group(1) == version
 
 
-def test_release_checklist_keeps_static_and_host_gates_separate():
+def test_marketplace_plugin_source_is_bound_to_release_tag():
+    version = current_version()
+    market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
+    plugins = market.get("plugins")
+    assert isinstance(plugins, list) and len(plugins) == 1
+    source = plugins[0].get("source")
+    assert source == {
+        "source": "url",
+        "url": "https://github.com/R-jed/subagents-dispatch.git",
+        "ref": f"v{version}",
+    }
+
+
+def test_release_checklist_keeps_static_host_and_distribution_gates_separate():
     text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
     for marker in [
         "## 2. Repository gates",
@@ -49,6 +63,8 @@ def test_release_checklist_keeps_static_and_host_gates_separate():
         "subagents_dispatch_reader",
         "subagents_dispatch_worker",
         "## 4. Hard release blockers",
-        "## 6. Tag and GitHub Release",
+        "## 5. Repository governance before tagging",
+        "## 6. Tag, distribution smoke, and GitHub Release",
+        "Marketplace entry at the tag resolves the Plugin source from the same tag",
     ]:
         assert marker in text
