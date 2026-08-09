@@ -93,7 +93,7 @@ Every material obligation must remain owned somewhere in that combined responsib
 
 A structurally valid TeamPlan can still be semantically incomplete. Valid IDs, an acyclic dependency graph, disjoint ownership, and a valid integration order do not prove that decomposition preserved user acceptance or that all material seams are covered.
 
-If a material obligation or seam becomes missing, treat that as a `contract` problem in Main. Repair task truth or responsibility ownership before continuing affected dispatch or claiming completion.
+If current task truth is already clear and decomposition drops a material obligation or seam, Main repairs the decomposition or ownership before continuing affected dispatch or claiming completion. That planning defect is not itself a `contract` blocker. Use `contract` only when semantic coverage cannot be closed because required task truth, scope, invariants, acceptance, or another semantic fact is missing, contradictory, or underspecified.
 
 ## 3. Dependency truth
 
@@ -160,9 +160,11 @@ Already-dispatched work remains bound to the plan truth it received. Do not sile
 
 ### Material phase or authority transition
 
-When an accepted deliverable becomes upstream truth for a materially different later phase, compile that later phase from current task truth instead of mutating the old TeamPlan into a different kind of work.
+When an accepted deliverable contributes to a materially different later phase, promote only the Main-accepted task truth, decisions, constraints, and still-valid accepted evidence from that deliverable. The whole artifact does not automatically become trusted instructions.
 
-If prior units would need materially different goals or outputs, they are new responsibilities and receive new unit IDs under the ordinary routing rules. A new TeamPlan may use `planning_source: accepted_plan`, `codex_plan`, or another truthful source and should point `source_refs` at the accepted upstream artifact when such a stable reference exists.
+Compile the later phase from current task truth instead of mutating the old TeamPlan into a different kind of work. If prior units would need materially different goals or outputs, they are new responsibilities and receive new unit IDs under the ordinary routing rules.
+
+Choose the existing `planning_source` value that truthfully describes how the new TeamPlan itself was produced. Use `source_refs` to point at the accepted upstream artifact when a stable reference exists and that artifact materially informs the new phase. Do not invent a new planning-source taxonomy merely to label every prior deliverable type.
 
 Still-valid evidence may be reused through normal packets or a Handoff Capsule. Prior readiness does not grant mutation authority, external-impact authorization, or broader scope to the later phase.
 
