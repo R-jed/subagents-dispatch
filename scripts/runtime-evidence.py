@@ -25,11 +25,24 @@ MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS)
-READ_ONLY_SANDBOXES = {"read-only", "read_only", "readonly"}
+MANAGED_SANDBOX_INTENTS = {"read-only", "workspace-write"}
 
 
 def fail(message: str) -> NoReturn:
     raise SystemExit(f"ERROR: {message}")
+
+
+def canonical_sandbox(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower().replace("_", "-").replace(" ", "-")
+    aliases = {
+        "readonly": "read-only",
+        "read-only": "read-only",
+        "workspacewrite": "workspace-write",
+        "workspace-write": "workspace-write",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def load_main_coverage_policy() -> tuple[str, str, tuple[str, ...], tuple[str, ...]]:
@@ -59,7 +72,31 @@ def load_main_coverage_policy() -> tuple[str, str, tuple[str, ...], tuple[str, .
     return model.strip().lower(), effort.strip().lower(), normalized_order, normalized_aliases
 
 
+def load_role_sandbox_policy() -> dict[str, str]:
+    try:
+        roles = load_policy_contract()["roles"]
+    except (RuntimeError, KeyError, TypeError) as exc:
+        fail(f"invalid policy contract for managed role sandbox intents: {exc}")
+    if not isinstance(roles, dict) or not roles:
+        fail("policy roles must be a non-empty object")
+    by_agent_type: dict[str, str] = {}
+    for role_name, route in roles.items():
+        if not isinstance(route, dict):
+            fail(f"policy role {role_name!r} must be an object")
+        agent_type = route.get("agent_type")
+        sandbox = canonical_sandbox(route.get("sandbox_intent"))
+        if not isinstance(agent_type, str) or not agent_type.strip():
+            fail(f"policy role {role_name!r} has invalid agent_type")
+        if sandbox not in MANAGED_SANDBOX_INTENTS:
+            fail(f"policy role {role_name!r} has unsupported sandbox_intent")
+        if agent_type in by_agent_type:
+            fail(f"duplicate managed agent_type in policy: {agent_type}")
+        by_agent_type[agent_type] = sandbox
+    return by_agent_type
+
+
 REFERENCE_MODEL, REFERENCE_EFFORT, EFFORT_ORDER, REFERENCE_MODEL_ALIASES = load_main_coverage_policy()
+ROLE_SANDBOX_INTENTS = load_role_sandbox_policy()
 
 
 def parse_args() -> argparse.Namespace:
@@ -105,7 +142,9 @@ def normalize(value: dict[str, Any] | None) -> dict[str, str | None] | None:
         "runtime_version",
         "record_format_version",
     }
-    return {key: text(value.get(key)) for key in allowed}
+    normalized = {key: text(value.get(key)) for key in allowed}
+    normalized["sandbox_policy_type"] = canonical_sandbox(normalized["sandbox_policy_type"])
+    return normalized
 
 
 def seen(obs: dict[str, str | None] | None, fields: tuple[str, ...]) -> list[str]:
@@ -134,7 +173,11 @@ def grade(native: bool, local: bool, conflict: bool) -> str:
     return "C1_configuration_only"
 
 
-def source_conflicts(native: dict[str, str | None] | None, local: dict[str, str | None] | None, fields: tuple[str, ...]) -> list[str]:
+def source_conflicts(
+    native: dict[str, str | None] | None,
+    local: dict[str, str | None] | None,
+    fields: tuple[str, ...],
+) -> list[str]:
     if native is None or local is None:
         return []
     return [
@@ -305,9 +348,16 @@ def validate_expected(expected: dict[str, Any]) -> None:
     missing = [field for field in CHILD_ROUTE_FIELDS if text(expected.get(field)) is None]
     if missing:
         fail("expected exact route is incomplete; missing: " + ", ".join(missing))
-    for flag in ("runtime_observation_required", "requires_enforced_read_only"):
+    for flag in (
+        "runtime_observation_required",
+        "requires_enforced_read_only",
+        "requires_permission_observation",
+    ):
         if not isinstance(expected.get(flag, False), bool):
             fail(f"expected.{flag} must be boolean when present")
+    agent_role = text(expected.get("agent_role"))
+    if agent_role not in ROLE_SANDBOX_INTENTS:
+        fail("expected.agent_role is not a managed policy role")
 
 
 def compare_expected(
@@ -324,12 +374,66 @@ def compare_expected(
     return violations
 
 
-def route_complete(observation: dict[str, str | None] | None, label: str, violations: list[str]) -> bool:
+def route_complete(
+    observation: dict[str, str | None] | None,
+    label: str,
+    violations: list[str],
+) -> bool:
     if observation is None:
         return False
     return all(observation.get(field) is not None for field in CHILD_ROUTE_FIELDS) and not any(
         f"{label}:{field}_mismatch" in violations for field in CHILD_ROUTE_FIELDS
     )
+
+
+def permission_result(
+    expected: dict[str, Any],
+    native: dict[str, str | None] | None,
+    violations: list[str],
+) -> tuple[dict[str, Any], bool]:
+    agent_role = text(expected.get("agent_role"))
+    assert agent_role is not None
+    requires_read_only = expected.get("requires_enforced_read_only", False)
+    permission_required = bool(
+        expected.get("requires_permission_observation", False) or requires_read_only
+    )
+    expected_sandbox = "read-only" if requires_read_only else ROLE_SANDBOX_INTENTS[agent_role]
+    base = {"expected_sandbox": expected_sandbox}
+
+    if (
+        "source_conflict:sandbox_policy_type" in violations
+        or "source_conflict:permission_profile_type" in violations
+        or "accepted_observed_conflict:sandbox_policy_type" in violations
+        or "accepted_observed_conflict:permission_profile_type" in violations
+    ):
+        return {**base, "status": "conflict", "source": "both"}, permission_required
+
+    native_sandbox = native.get("sandbox_policy_type") if native is not None else None
+    if native_sandbox is None:
+        if permission_required:
+            return {**base, "status": "not_observed", "source": "none"}, permission_required
+        return {**base, "status": "not_required", "source": "none"}, permission_required
+
+    if native_sandbox == expected_sandbox:
+        return {
+            **base,
+            "status": "matched",
+            "source": "native",
+            "observed_sandbox": native_sandbox,
+        }, permission_required
+
+    if expected_sandbox == "read-only":
+        status = "broader_than_required"
+        violations.append("permission:read_only_not_enforced")
+    else:
+        status = "mismatch"
+        violations.append("permission:sandbox_intent_mismatch")
+    return {
+        **base,
+        "status": status,
+        "source": "native",
+        "observed_sandbox": native_sandbox,
+    }, permission_required
 
 
 def child_result(payload: dict[str, Any]) -> dict[str, Any]:
@@ -370,7 +474,11 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         f"{label}:{field}_mismatch" in violations
         for label in ("accepted", "native", "local")
         for field in CHILD_ROUTE_FIELDS
-    ) or any(item == f"accepted_observed_conflict:{field}" for item in violations for field in CHILD_ROUTE_FIELDS)
+    ) or any(
+        item == f"accepted_observed_conflict:{field}"
+        for item in violations
+        for field in CHILD_ROUTE_FIELDS
+    )
     route_status = (
         "conflict"
         if route_conflict
@@ -389,7 +497,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
     wanted_parent = text(expected.get("parent_thread_id"))
-    parent_conflict = "source_conflict:parent_thread_id" in violations or any("parent_thread_id_mismatch" in item for item in violations)
+    parent_conflict = "source_conflict:parent_thread_id" in violations or any(
+        "parent_thread_id_mismatch" in item for item in violations
+    )
     native_parent_observed = bool(native and native.get("parent_thread_id"))
     local_parent_observed = bool(local and local.get("parent_thread_id"))
     if parent_conflict:
@@ -407,20 +517,16 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
             "source": evidence_source(native_parent_observed, local_parent_observed),
         }
 
-    if not expected.get("requires_enforced_read_only", False):
-        permission = {"status": "not_required", "source": "none"}
-    elif "source_conflict:sandbox_policy_type" in violations or "source_conflict:permission_profile_type" in violations:
-        permission = {"status": "conflict", "source": "both"}
-    elif native is None or native.get("sandbox_policy_type") is None:
-        permission = {"status": "not_observed", "source": "none"}
-        violations.append("permission:read_only_native_unobserved")
-    elif str(native["sandbox_policy_type"]).lower() in READ_ONLY_SANDBOXES:
-        permission = {"status": "matched", "source": "native"}
-    else:
-        permission = {"status": "broader_than_required", "source": "native"}
-        violations.append("permission:read_only_not_enforced")
+    permission, permission_required = permission_result(
+        expected,
+        native,
+        violations,
+    )
 
-    identity_conflict = any(item.endswith("thread_id_mismatch") or item.startswith("source_conflict:thread_id") for item in violations)
+    identity_conflict = any(
+        item.endswith("thread_id_mismatch") or item.startswith("source_conflict:thread_id")
+        for item in violations
+    )
     any_source_conflict = any(
         item.startswith("source_conflict:") or item.startswith("accepted_observed_conflict:")
         for item in violations
@@ -428,13 +534,13 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     conflict = (
         route["status"] == "conflict"
         or ancestry["status"] == "conflict"
-        or permission["status"] in {"broader_than_required", "conflict"}
+        or permission["status"] in {"broader_than_required", "mismatch", "conflict"}
         or identity_conflict
         or any_source_conflict
     )
     if conflict:
         status, decision = "mismatch", "quarantine"
-    elif permission["status"] == "not_observed":
+    elif permission_required and permission["status"] == "not_observed":
         status, decision = "not_exposed", "return_to_main_session"
     elif runtime_required and not native_required_complete:
         status, decision = "not_exposed", "return_to_main_session"
@@ -445,7 +551,10 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
 
     source_agreement = None
     if native is not None and local is not None:
-        overlap = any(native.get(field) is not None and local.get(field) is not None for field in OBSERVED_FIELDS)
+        overlap = any(
+            native.get(field) is not None and local.get(field) is not None
+            for field in OBSERVED_FIELDS
+        )
         if overlap:
             source_agreement = not any(item.startswith("source_conflict:") for item in violations)
 
@@ -473,7 +582,7 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         "runtime_reported": native_complete,
         "local_record_observed": local_complete,
         "source_agreement": source_agreement,
-        "permission_match": tri(permission["status"], {"broader_than_required", "conflict"}),
+        "permission_match": tri(permission["status"], {"broader_than_required", "mismatch", "conflict"}),
         "ancestry_match": tri(ancestry["status"], {"conflict"}),
         "violations": sorted(set(violations)),
     }

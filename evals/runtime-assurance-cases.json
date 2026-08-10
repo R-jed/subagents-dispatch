@@ -2,15 +2,160 @@
   "schema_version": "2.0",
   "skill_name": "subagents-dispatch",
   "cases": [
-    {"id": "ordinary-route-observation-unavailable", "input": {"route_assurance": "profile_locked", "runtime_observation_required": false}, "expected": {"decision": "continue_configuration_only", "route_status": "not_observed", "evidence_grade": "C1_configuration_only"}},
-    {"id": "native-runtime-route-complete", "input": {"native_fields": ["agent_role", "model", "effort"]}, "expected": {"decision": "continue", "route_status": "matched", "evidence_grade": "R1_runtime_reported"}},
-    {"id": "native-runtime-route-partial", "input": {"native_fields": ["agent_role", "model"], "runtime_observation_required": true}, "expected": {"decision": "return_to_main_session", "route_status": "partial", "evidence_grade": "C1_configuration_only"}},
-    {"id": "two-partial-sources-do-not-form-r2", "input": {"native_fields": ["agent_role"], "local_fields": ["agent_role"]}, "expected": {"route_status": "partial", "evidence_grade": "C1_configuration_only"}},
-    {"id": "native-local-complete-agreement", "input": {"native_fields": ["agent_role", "model", "effort"], "local_fields": ["agent_role", "model", "effort"]}, "expected": {"route_status": "matched", "evidence_grade": "R2_runtime_reported_and_local_record_agree"}},
-    {"id": "native-local-route-conflict", "input": {"source_conflict": "model"}, "expected": {"decision": "quarantine", "route_status": "conflict", "evidence_grade": "X0_conflicted"}},
-    {"id": "expected-parent-unobserved", "input": {"expected_parent_thread_id": true, "observed_parent_thread_id": false}, "expected": {"ancestry_status": "not_observed"}},
-    {"id": "expected-parent-mismatch", "input": {"expected_parent_thread_id": true, "observed_parent_thread_id": "different"}, "expected": {"decision": "quarantine", "ancestry_status": "conflict"}},
-    {"id": "required-readonly-native-unobserved", "input": {"requires_enforced_read_only": true, "native_sandbox": null, "local_sandbox": "read-only"}, "expected": {"decision": "return_to_main_session", "permission_status": "not_observed"}},
-    {"id": "required-readonly-broadened", "input": {"requires_enforced_read_only": true, "native_sandbox": "workspace-write"}, "expected": {"decision": "quarantine", "permission_status": "broader_than_required"}}
+    {
+      "id": "ordinary-route-observation-unavailable",
+      "input": {
+        "route_assurance": "profile_locked",
+        "runtime_observation_required": false
+      },
+      "expected": {
+        "decision": "continue_configuration_only",
+        "route_status": "not_observed",
+        "evidence_grade": "C1_configuration_only"
+      }
+    },
+    {
+      "id": "native-runtime-route-complete",
+      "input": {
+        "native_fields": [
+          "agent_role",
+          "model",
+          "effort"
+        ]
+      },
+      "expected": {
+        "decision": "continue",
+        "route_status": "matched",
+        "evidence_grade": "R1_runtime_reported"
+      }
+    },
+    {
+      "id": "native-runtime-route-partial",
+      "input": {
+        "native_fields": [
+          "agent_role",
+          "model"
+        ],
+        "runtime_observation_required": true
+      },
+      "expected": {
+        "decision": "return_to_main_session",
+        "route_status": "partial",
+        "evidence_grade": "C1_configuration_only"
+      }
+    },
+    {
+      "id": "two-partial-sources-do-not-form-r2",
+      "input": {
+        "native_fields": [
+          "agent_role"
+        ],
+        "local_fields": [
+          "agent_role"
+        ]
+      },
+      "expected": {
+        "route_status": "partial",
+        "evidence_grade": "C1_configuration_only"
+      }
+    },
+    {
+      "id": "native-local-complete-agreement",
+      "input": {
+        "native_fields": [
+          "agent_role",
+          "model",
+          "effort"
+        ],
+        "local_fields": [
+          "agent_role",
+          "model",
+          "effort"
+        ]
+      },
+      "expected": {
+        "route_status": "matched",
+        "evidence_grade": "R2_runtime_reported_and_local_record_agree"
+      }
+    },
+    {
+      "id": "native-local-route-conflict",
+      "input": {
+        "source_conflict": "model"
+      },
+      "expected": {
+        "decision": "quarantine",
+        "route_status": "conflict",
+        "evidence_grade": "X0_conflicted"
+      }
+    },
+    {
+      "id": "expected-parent-unobserved",
+      "input": {
+        "expected_parent_thread_id": true,
+        "observed_parent_thread_id": false
+      },
+      "expected": {
+        "ancestry_status": "not_observed"
+      }
+    },
+    {
+      "id": "expected-parent-mismatch",
+      "input": {
+        "expected_parent_thread_id": true,
+        "observed_parent_thread_id": "different"
+      },
+      "expected": {
+        "decision": "quarantine",
+        "ancestry_status": "conflict"
+      }
+    },
+    {
+      "id": "required-readonly-native-unobserved",
+      "input": {
+        "requires_enforced_read_only": true,
+        "native_sandbox": null,
+        "local_sandbox": "read-only"
+      },
+      "expected": {
+        "decision": "return_to_main_session",
+        "permission_status": "not_observed"
+      }
+    },
+    {
+      "id": "required-readonly-broadened",
+      "input": {
+        "requires_enforced_read_only": true,
+        "native_sandbox": "workspace-write"
+      },
+      "expected": {
+        "decision": "quarantine",
+        "permission_status": "broader_than_required"
+      }
+    },
+    {
+      "id": "required-workspace-write-native-unobserved",
+      "input": {
+        "agent_role": "subagents_dispatch_worker",
+        "requires_permission_observation": true,
+        "native_sandbox": null
+      },
+      "expected": {
+        "decision": "return_to_main_session",
+        "permission_status": "not_observed"
+      }
+    },
+    {
+      "id": "required-workspace-write-mismatch",
+      "input": {
+        "agent_role": "subagents_dispatch_worker",
+        "requires_permission_observation": true,
+        "native_sandbox": "read-only"
+      },
+      "expected": {
+        "decision": "quarantine",
+        "permission_status": "mismatch"
+      }
+    }
   ]
 }
