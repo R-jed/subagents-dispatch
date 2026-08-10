@@ -98,3 +98,18 @@ def test_ci_and_release_docs_keep_host_app_evidence_pending_and_local_gates_dete
     assert "App labels require direct human observation" in ai_reference
     assert "Host route/control evidence remains pending" in ai_reference
     assert "short-lived feature branch" in ai_reference
+
+
+def test_release_checklist_requires_all_five_live_routes_without_promoting_accepted_to_observed():
+    release = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
+    for agent_type in [
+        "subagents_dispatch_reader",
+        "subagents_dispatch_worker",
+        "subagents_dispatch_solver",
+        "subagents_dispatch_investigator",
+        "subagents_dispatch_advisor",
+    ]:
+        assert agent_type in release
+    assert "accepted exact `agent_type` proves role acceptance only" in release
+    assert "Missing runtime evidence remains `UNKNOWN`" in release
+    assert "observed mismatch is `FAIL`" in release
