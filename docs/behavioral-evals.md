@@ -18,12 +18,14 @@ contracts/team-plan.md
 contracts/recovery.md
 contracts/guardrails.md
 contracts/final-review.md
+contracts/receipt.md
+contracts/state.md
 contracts/policy.json
 ```
 
 Do not make the Skill maintain an ontology merely because an eval field exists.
 
-`evals/interaction-cases.json` is the deterministic policy fixture for Preview, first-use readiness, Status, Steer, Takeover, Execution Receipt, and Handoff Capsule boundaries. `evals/coordination-cases.json` covers structural and semantic coordination invariants. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
+`evals/interaction-cases.json` is the deterministic policy fixture for Preview, first-use readiness, Status, Steer, Takeover, Dispatch Receipt, and Handoff Capsule boundaries. `evals/coordination-cases.json` covers structural and semantic coordination invariants. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
 
 ## Primary product questions
 
@@ -37,7 +39,7 @@ The live suite asks:
 6. For stable semantics and read-only work, does Terra provide useful quality/context depth at lower total cost than a Sol judgment lane, and when does narrow Luna Reader remain sufficient?
 7. Does consequence-driven Final Review catch material issues while avoiding decorative review caused only by process history?
 8. Does explicit user selection of Dispatch plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
-9. Does a one-line factual Execution Receipt improve delegation transparency without cluttering zero-child work or encouraging unsupported model/cost claims?
+9. Does the independent-axis Dispatch Receipt improve orchestration transparency without mixing in Main's task-result summary, and does explicit zero-child Dispatch remain transparent with its minimal Receipt?
 10. Does Preview help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
 11. Do Status, Steer, and Takeover improve user control while preserving `UNKNOWN`, stable responsibility identity, and one-writer safety?
 12. Does a small evidence-bound Handoff Capsule reduce repeated discovery without increasing stale-context or inherited-claim errors?
@@ -129,7 +131,7 @@ Existing `reclassification_events` may remain as a compatibility field for old r
 
 ### Interaction control
 
-When the workload exercises 2.1 controls, additionally record when available:
+When the workload exercises the current interaction controls, additionally record when available:
 
 ```text
 preview_children_spawned
@@ -364,39 +366,40 @@ fresh task still lacks the exact role
 
 Record onboarding interruptions, first-use provisioning prompts, stale-session spawn attempts, whether the user understood the single fresh-task instruction, and whether any unrelated state was modified. The release target is one unavoidable fresh-task handoff caused by Host registration timing, not an additional plugin-generated setup prompt plus a failed spawn.
 
-## Experiment I: Execution Receipt clarity
+## Experiment I: Dispatch Receipt clarity
 
-Compare delegated successful tasks with the one-line 2.1 receipt enabled against the prior completion style without a default receipt.
+Compare delegated tasks with the current independent-axis Receipt against the prior completion style without a default orchestration receipt.
 
-The 2.1 candidate should still focus on:
+The Main response should still focus on the task-facing result, verification, and remaining material risk. The Receipt separately reports only orchestration facts:
 
 ```text
-what changed
-verification
-remaining material risk
+Dispatch / 编排
+Control / 控制       # only when used
+Review / 验收
+Recovery / 恢复     # exceptional only
 ```
 
-Then append one compact factual Dispatch line only when a child was actually spawned.
-
-Measure whether users can correctly answer who did meaningful work, whether recovery/review happened, and whether the receipt adds clutter. Flag any unsupported model/token/cost claim as a hard failure.
+Measure whether users can correctly answer which project lanes performed materialized work, whether explicit controls were used, whether independent review produced a verdict, and whether a real delegated retry occurred. Flag any task-result claim, unsupported observed-model claim, token estimate, or currency-cost estimate inside the Receipt as a hard failure.
 
 Negative controls:
 
 ```text
-zero-child task
-preview-only request
-status-only request
-```
+explicit Dispatch with zero materialized children
+-> minimal zero-child Dispatch + Review receipt
+-> no active state
 
-These should not add a receipt.
+Preview-only request
+-> predictive presentation only
+-> no terminal Dispatch Receipt
+
+Status-only request
+-> status snapshot only
+-> no terminal Dispatch Receipt
+```
 
 ## Experiment J: Preview and live control
 
-Select **Preview** through the Host UI, then enter the task:
-
-```text
-preview <same task used for a later real run>
-```
+Select **Preview** through the Host UI and supply the same substantive task later used for a real Dispatch run. Do not assume or record a literal slash string unless the App directly renders one.
 
 Verify:
 
