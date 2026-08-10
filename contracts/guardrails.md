@@ -88,7 +88,7 @@ Explicit user selection/invocation of the Dispatch Skill authorizes adaptive del
 
 Project policy does not impose an ordinary numeric child ceiling. The main session may use as many simultaneously useful children as the task genuinely supports and the native runtime allows, provided every child has a distinct ready responsibility and the overall orchestration remains within the ordinary compute shape implied by the task.
 
-This freedom is not a target. Zero children is normal. Native capacity is a ceiling, never a reason to fill slots.
+This freedom is not a target. Delegation is optional and value-driven. There is no minimum Subagent count, so zero children is a valid derived outcome when no responsibility gains enough distinct value from delegation. Native capacity is a ceiling, never a reason to fill slots.
 
 Do not spawn a child when:
 
@@ -178,7 +178,7 @@ Before invoking `spawn_agent`, Main must inspect the pending call and verify tha
 
 If the call is malformed, correct it before invoking the Host. Do not intentionally send a known-invalid full-history custom-role combination to discover what the Host will reject.
 
-A Host rejection before it returns any inspectable child identity is a pre-attempt spawn rejection. It does not create an Agent attempt, does not consume the two-attempt recovery budget, and does not increment the execution receipt retry count. If Host evidence is ambiguous about whether a child was created, preserve `UNKNOWN` and do not issue replacement work.
+A Host rejection before it returns any inspectable child identity is a pre-attempt spawn rejection. It does not create an Agent attempt, does not consume the two-attempt recovery budget, and does not increment the Dispatch Receipt retry count. If Host evidence is ambiguous about whether a child was created, preserve `UNKNOWN` and do not issue replacement work.
 
 ## 8. Runtime evidence is on demand
 
@@ -213,7 +213,7 @@ Missing evidence remains missing. Local/configured data cannot be relabeled as n
 
 For routine bounded execution, exact profile configuration plus actual artifact verification can be sufficient when runtime route proof is not itself part of acceptance.
 
-The execution receipt follows the same rule. It may name an observed model only when current runtime evidence actually observed that model.
+A Dispatch Receipt may show the configured project model lane selected for a materialized delegated attempt because that is an orchestration/accounting fact. That lane label is not an observed-runtime claim. Only supported Host evidence may upgrade model, reasoning effort, sandbox, or ancestry to observed runtime truth; Doctor live-route diagnostics keep that evidence separate.
 
 ## 9. Usage and cost truth
 
@@ -254,8 +254,8 @@ A Handoff Capsule is valid only for the artifact/evidence state Main accepted. W
 
 ## 13. User-visible output
 
-Normal completion focuses on what changed, verification, and remaining risk.
+Main's normal completion response owns the task result: what changed, verification, blockers, and remaining risk.
 
-When at least one child was actually spawned, append one compact factual execution receipt under `interaction.md`. Do not emit a receipt for a zero-child task, preview, or status-only request.
+Dispatch Receipt presentation is owned by `receipt.md`. It reports orchestration facts only. Materialized delegated work is summarized with public activities and selected project model lanes; controls, independent review, semantic rework, and runtime retry appear only when they actually occurred. Do not print raw task ledgers, internal role names in normal Chinese presentation, child transcripts, chain-of-thought, hidden reasoning, or guessed token/cost figures.
 
-Keep the default receipt to one line. Mention only inspectable orchestration facts such as roles used, retries, takeover, or Final Review state. Do not print raw task ledgers, child transcripts, chain-of-thought, hidden reasoning, or guessed token/cost figures.
+An explicit Dispatch invocation that materializes no children still emits the minimal two-axis receipt defined by `receipt.md`, while creating no active dispatch state. Preview and Status-only requests do not emit a terminal Dispatch Receipt.
