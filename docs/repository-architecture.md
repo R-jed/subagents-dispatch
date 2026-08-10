@@ -1,6 +1,6 @@
 # Repository Architecture
 
-This document defines the target repository organization for subagents-dispatch. The repository should read like the product architecture: user-facing Skills at the edge, shared orchestration contracts in one obvious place, deterministic helpers in one obvious place, and Codex Native Subagents as the only Agent runtime.
+This document defines the target repository organization for subagents-dispatch. The repository should read like the product architecture: user-facing Skills at the edge, shared orchestration contracts in one obvious place, deterministic helpers in one obvious place, explicit evidence/experiment tooling outside the ordinary runtime path, and Codex Native Subagents as the only Agent runtime.
 
 ## Design principles
 
@@ -10,8 +10,10 @@ This document defines the target repository organization for subagents-dispatch.
 4. One concept has one canonical owner.
 5. Deterministic invariants move into code when code can enforce them more reliably than prose.
 6. Codex Native Subagents remain the runtime. The project does not introduce another scheduler, daemon, event bus, routing proxy, control server, or telemetry collector.
-7. Public docs, AI orientation, runtime contracts, deterministic helpers, tests, and evaluation fixtures stay visibly separate.
-8. A structural move is acceptable when it leaves the final architecture simpler. Do the migration once and update all references rather than preserving awkward paths for compatibility inside an unreleased major version.
+7. Runtime evidence, composability, context/evidence handoff, and experiments are separate planes rather than conditionals scattered through every Skill.
+8. Public docs, AI orientation, runtime contracts, deterministic helpers, tests, and evaluation fixtures stay visibly separate.
+9. Experimental results never mutate runtime policy automatically. Policy changes happen only after accepted evidence.
+10. A structural move is acceptable when it leaves the final architecture simpler. Do the migration once and update all references rather than preserving awkward paths for compatibility inside an unreleased major version.
 
 ## Target tree
 
@@ -35,6 +37,7 @@ subagents-dispatch/
 ├── contracts/
 │   ├── policy.json
 │   ├── routing.md
+│   ├── composition.md
 │   ├── interaction.md
 │   ├── state.md
 │   ├── receipt.md
@@ -42,6 +45,7 @@ subagents-dispatch/
 │   ├── recovery.md
 │   ├── guardrails.md
 │   ├── handoff.md
+│   ├── evidence-artifact.md
 │   └── final-review.md
 ├── docs/
 │   ├── architecture.md
@@ -50,17 +54,25 @@ subagents-dispatch/
 │   ├── openai-references.md
 │   ├── plugin-installation.md
 │   ├── release-checklist.md
-│   └── repository-architecture.md
+│   ├── repository-architecture.md
+│   ├── role-calibration.md
+│   └── runtime-attestation.md
 ├── evals/
+│   ├── behavioral-workloads.json
+│   ├── behavioral-result.schema.json
+│   ├── role-calibration-campaign.schema.json
+│   └── ...
 ├── scripts/
 │   ├── dispatch_state.py
 │   ├── doctor.py
+│   ├── inspect-agent-runtime.py
 │   ├── install-agents.py
 │   ├── legacy_migration.py
 │   ├── policy.py
 │   ├── review-artifact.py
 │   ├── runtime-evidence.py
 │   ├── score-behavioral-evals.py
+│   ├── validate-role-calibration.py
 │   ├── validate_team_ledger.py
 │   └── validate_team_plan.py
 ├── skills/
@@ -92,13 +104,45 @@ Keep `assets/`, legal files, changelog, and development metadata at the root whe
 
 Do not add MCP, hook, server, database, storage, or source-runtime trees merely to resemble another Plugin. Add a top-level component only when subagents-dispatch genuinely owns that capability.
 
+## Four-plane architecture
+
+The A–G hardening work is deliberately collapsed into four planes instead of seven independent feature stacks.
+
+```text
+Runtime Evidence Plane
+-> prove what actually ran
+-> runtime-attestation.md
+-> inspect-agent-runtime.py
+-> runtime-evidence.py
+
+Composition Plane
+-> define how Host capability, current authority, project instructions, external Skills/workflows,
+   hooks, Dispatch guardrails, and role contracts compose
+-> composition.md
+
+Handoff / Claims Plane
+-> keep child-to-Main context compact while preserving complete inspectable provenance by reference
+-> handoff.md
+-> evidence-artifact.md
+-> review-artifact.py for exact Git candidate identity
+
+Experiment Plane
+-> freeze real role-calibration / single-agent-vs-Dispatch experiments before execution
+-> reuse the existing paired behavioral scorer instead of creating a second generic benchmark engine
+-> role-calibration.md
+-> role-calibration-campaign.schema.json
+-> validate-role-calibration.py
+```
+
+The planes meet at explicit boundaries. Runtime Evidence can feed an experiment or release artifact, but ordinary Dispatch does not scan rollouts. Evidence Artifacts may preserve accepted runtime/verification/benchmark provenance, but they do not become active state. Experiments may recommend a role-policy change, but they never rewrite `policy.json` automatically.
+
 ## Why contracts are top-level
 
 The target control surface has six user-facing Skills. Preview, Status, Steer, Takeover, Doctor, and Dispatch all need some subset of the same orchestration semantics. Keeping those semantics under `contracts/` makes their shared ownership explicit.
 
 The `contracts/` directory therefore becomes the single semantic kernel. Skill folders are adapters into it.
 
-This also prevents a future anti-pattern where every Skill copies its own UNKNOWN, retry, writer-safety, lifecycle, or localization rules.
+This also prevents a future anti-pattern where every Skill copies its own UNKNOWN, retry, writer-safety, lifecycle, localization, composition, or evidence-transfer rules.
 
 ## Skill surface
 
@@ -135,9 +179,9 @@ The App-visible namespace and literal slash presentation are Host/UI facts. Repo
 
 `preview`, `status`, `steer`, and `takeover` are thin adapters over `contracts/interaction.md`, `contracts/state.md`, and the other contracts required by the action.
 
-`doctor` is a thin adapter over deterministic diagnostics. It does not implement a second installer, state parser, route matcher, or cleanup engine in Skill prose.
+`doctor` is a thin adapter over deterministic diagnostics. It does not implement a second installer, state parser, route matcher, runtime inspector, or cleanup engine in Skill prose.
 
-`dispatch` understands the task and leads orchestration but no longer owns private copies of shared runtime policy.
+`dispatch` understands the task and leads orchestration but no longer owns private copies of shared runtime policy. It loads `composition.md` when another Skill/workflow, project-instruction boundary, hook, or Host capability affects the current responsibility. It loads `evidence-artifact.md` only when complete accepted provenance should remain outside the inline child/Main context.
 
 ## Contract ownership map
 
@@ -147,6 +191,9 @@ contracts/policy.json
 
 contracts/routing.md
 -> delegation value, role selection, responsibility packets, semantic coverage, phase recompilation, adaptive ready frontier
+
+contracts/composition.md
+-> Host / current authority / project rules / external Skill or workflow / hook / role-contract composition boundaries
 
 contracts/interaction.md
 -> Preview / Status / Steer / Takeover semantics, target resolution, control detours
@@ -169,9 +216,16 @@ contracts/guardrails.md
 contracts/handoff.md
 -> compact Main-accepted evidence transfer
 
+contracts/evidence-artifact.md
+-> optional references-first evidence bundles when complete provenance should remain outside conversational context
+
 contracts/final-review.md
 -> exact-candidate independent review
 ```
+
+`composition.md` does not reimplement Codex project-instruction precedence. It consumes the Host-effective constraint surface. Hooks are optional observer/guard inputs and are not a required runtime path.
+
+`evidence-artifact.md` does not turn the repository or `active.json` into a log store. Ephemeral artifact semantics are separate from coordination state, and artifact creation remains on-demand rather than a background telemetry system.
 
 ## Deterministic helper ownership
 
@@ -188,8 +242,11 @@ scripts/doctor.py
 scripts/install-agents.py
 -> managed Agent profile lifecycle
 
+scripts/inspect-agent-runtime.py
+-> explicit exact-child Codex rollout inspection with allowlisted route/identity/permission output
+
 scripts/runtime-evidence.py
--> requested / accepted / observed runtime-route normalization
+-> configured/requested / accepted / observed runtime-route normalization and source-conflict quarantine
 
 scripts/validate_team_plan.py
 -> TeamPlan structure validation
@@ -199,9 +256,107 @@ scripts/validate_team_ledger.py
 
 scripts/review-artifact.py
 -> exact-candidate Git review binding
+
+scripts/score-behavioral-evals.py
+-> validate and summarize paired live behavioral results; no hidden global quality score
+
+scripts/validate-role-calibration.py
+-> validate and freeze-hash a real role-calibration campaign against the current policy control route
 ```
 
-These helpers enforce deterministic facts from the canonical contracts. They do not own adaptive routing policy and do not become a background orchestration runtime.
+These helpers enforce deterministic facts from the canonical contracts or experimental input definitions. They do not own adaptive routing policy and do not become a background orchestration runtime.
+
+The role-calibration validator intentionally does not run Agents, score outputs, or edit `policy.json`. The existing behavioral scorer is reused for paired measurements where its result schema applies rather than introducing a parallel scoring engine merely because a new experiment is being added.
+
+## Runtime evidence plane
+
+Configured route intent, Host acceptance, and observed runtime facts are distinct.
+
+The runtime evidence plane therefore uses:
+
+```text
+policy.json / managed profile
+-> configured intent
+
+actual spawn request / Host role acceptance
+-> requested / accepted identity
+
+public Host runtime metadata
+-> preferred observed evidence
+
+exact Host-produced child rollout, inspected explicitly when needed
+-> local observed fallback for omitted fields
+```
+
+When public Host metadata and exact rollout expose the same fact, they must agree. Missing evidence stays UNKNOWN. Configuration never fills an Observed field. Exact local rollout evidence is inspectable Host-produced runtime evidence, but it is not cryptographically signed or claimed to be tamper-proof.
+
+Ordinary Dispatch does not run the rollout inspector merely to manufacture certainty. Runtime attestation is explicit and consequence-driven.
+
+## Composition plane
+
+Effective child action is an intersection, not a priority engine owned by this plugin:
+
+```text
+Host capability/policy
+∩ current system/developer/user authority
+∩ applicable project instructions
+∩ accepted upstream Skill/workflow contract
+∩ Dispatch guardrails
+∩ bounded role/responsibility packet
+```
+
+A lower layer may narrow, never widen.
+
+Codex owns AGENTS/project-instruction discovery and precedence. subagents-dispatch does not parse a parallel instruction hierarchy. If a fresh child may not inherit a material project constraint, Main carries only that narrow constraint or source reference in the responsibility packet.
+
+Hooks may improve observation or stop an unsafe action when the Host provides a trusted blocking hook, but the product remains correct without hooks. Hook output does not replace native child identity/state reconciliation or runtime attestation.
+
+## Handoff / claims plane
+
+Fresh child context remains the default. The return packet is intentionally an index rather than an evidence dump.
+
+```text
+child claim + compact refs
+-> Main inspects actual artifact/evidence
+-> Main accepts supported truth
+-> small reusable truth goes into Handoff Capsule
+-> substantial reusable provenance stays in an Evidence Artifact and is referenced from the capsule/review/experiment
+```
+
+A child cannot self-promote a manifest or path into Main-accepted evidence.
+
+Evidence Artifacts prefer stable source/revision/digest refs over copied bytes. Attachments are justified only when required evidence cannot otherwise be re-inspected. Raw transcripts, hidden reasoning, whole repositories, unrelated source, credentials, and unbounded tool output are outside the artifact contract.
+
+There is no universal token target for child returns yet. Context discipline removes duplication/reconstructable data first and lets later real benchmarks establish whether a tighter numeric budget improves quality/resource use.
+
+## Experiment plane
+
+Role calibration and single-agent-versus-Dispatch evaluation share one evidence discipline.
+
+A formal campaign freezes before expensive runs:
+
+```text
+candidate plugin SHA
+Host/runtime target
+role semantic contract
+current route control + challengers
+real repository/base revision
+exact task bytes/hash
+reset procedure
+permissions/tool fingerprints
+project-rule refs
+acceptance oracle
+repeat/ordering policy
+promotion criteria when the campaign can change policy
+```
+
+Role calibration changes model/effort while keeping the responsibility semantics and sandbox/isolation contract fixed. This prevents a route comparison from quietly testing a different authority envelope.
+
+Actual model/effort policy conclusions require runtime-attested included runs. `UNKNOWN` route evidence cannot support a claim that a specific model or effort produced the measured outcome.
+
+Formal policy promotion requires repeated real runs and predeclared criteria. A measured result may recommend a policy update, but a maintainer explicitly accepts the tradeoff before the canonical role/profile files change.
+
+Public README benchmark claims are downstream of accepted experiment evidence. Synthetic/static fixtures protect semantics but are not published as measured product superiority.
 
 ## Hard invariants versus adaptive policy
 
@@ -259,11 +414,13 @@ Future isolated parallel writing is a separate capability and may be considered 
 
 Do not replace semantic writer ownership with a tunable writer count.
 
-## Ephemeral state boundary
+## Ephemeral state and artifact boundary
 
 Cross-turn Status, Steer, Takeover, and Dispatch resume require a small thread-scoped state capsule governed by `contracts/state.md`.
 
 Ordinary state belongs under the operating-system temporary directory. Normal completion removes it. The project does not retain a growing history of TeamPlan JSON files in the repository or Codex home.
+
+Evidence Artifacts, when needed, are a separate on-demand temporary namespace governed by `contracts/evidence-artifact.md`. They are not embedded into `active.json`, and age of an artifact never proves that an unresolved writer stopped.
 
 ## Doctor architecture
 
@@ -286,7 +443,7 @@ Static configuration health remains distinct from runtime observation. A configu
 
 ```text
 README.md / README_EN.md
--> concise product and user workflow
+-> concise product and user workflow; public claims limited to accepted evidence
 
 README_AI.md
 -> orientation index and owner map, not a second runtime policy
@@ -295,10 +452,16 @@ docs/architecture.md
 -> behavioral architecture
 
 docs/repository-architecture.md
--> package / repository organization
+-> package / repository organization and plane ownership
 
 docs/native-subagent-runtime.md
 -> native Host boundary and runtime evidence
+
+docs/runtime-attestation.md
+-> actual child route proof protocol
+
+docs/role-calibration.md
+-> role calibration, real benchmark, policy-promotion, README publication gate
 
 docs/release-checklist.md
 -> release gates and direct human UI/runtime evidence requirements
