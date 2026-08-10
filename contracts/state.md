@@ -37,12 +37,12 @@ locale
 created / updated timestamps
 active TeamPlan revision when one exists
 native unit / task / attempt / child identity bindings
-single-unit responsibility snapshot when no TeamPlan exists
+compact responsibility / authority snapshots needed to identify active units
 control / review / recovery accounting references
 pending takeover or reconciliation metadata when required
 ```
 
-For a single delegated responsibility without TeamPlan, the compact responsibility snapshot may contain only the semantic fields required to identify the work safely, such as unit id, outcome, intent, delegated role, bounded write scope, and acceptance.
+For a single delegated responsibility without TeamPlan, the compact responsibility snapshot may contain only the semantic fields required to identify the work safely, such as unit id, outcome, intent, delegated role, bounded write scope, and acceptance. For a multi-unit orchestration, TeamPlan remains the canonical structural truth; the capsule stores only the revision binding and the compact active-unit index needed for runtime continuity. It does not duplicate the full plan or recovery ledger by default.
 
 Do not persist raw user prompts, child transcripts, private reasoning, source-file contents, web pages, full tool output, credentials, secrets, or a duplicate evidence corpus.
 
@@ -50,7 +50,7 @@ Do not persist raw user prompts, child transcripts, private reasoning, source-fi
 
 TeamPlan and recovery-ledger payloads remain canonical structured coordination representations. When a deterministic validator is required, pass the current payload through stdin where supported. Do not create one JSON file per validation merely because a validator accepts a path.
 
-An active state capsule may embed the current validated TeamPlan and recovery ledger because they are the coordination truth required for cross-turn recovery. Do not create a second persistent requirement ledger around them.
+The active capsule references the current TeamPlan revision when one exists and keeps only bounded runtime bindings/snapshots required for controls. Do not turn active.json into a second TeamPlan history, requirement ledger, recovery database, or evidence store. If an explicit future continuity case genuinely requires additional compact plan state, extend this schema deliberately and keep the 64 KiB bound rather than silently persisting arbitrary plan artifacts.
 
 ## Lifecycle
 
@@ -95,6 +95,8 @@ prepare unit + unique task id + deterministic native task name
 
 Use deterministic non-sensitive native task names derived from orchestration identity, for example `sd-u2-a1-execute`. Do not place user content or repository secrets in native task names.
 
+`prepare_spawn` performs the pre-Host write. When the Host returns an inspectable identity, `bind_spawn_identity` re-reads the authoritative capsule under the same short state-lock discipline, resolves the exact prepared unit/task/attempt/native name, binds the returned child id, and atomically persists `RUNNING`. Callers must not overwrite that transition from a stale pre-Host payload.
+
 If Main is interrupted after native creation but before the returned child identity is persisted, a later Status may reconcile a SPAWN_PENDING record against native Agent listings and rebind only when identity is unambiguous. Ambiguity remains UNKNOWN and never authorizes a replacement Agent.
 
 ## State truth versus Host truth
@@ -123,7 +125,7 @@ notFound     -> UNKNOWN
 
 `SPAWN_PENDING` remains the pre-identity crash-window state owned by the capsule. Do not map a materialized child with an inspectable identity back into that pre-identity state. `notFound` is missing runtime identity evidence, not proof that a previous writer stopped; it therefore cannot release write authority.
 
-Status performs one native observation and reconciliation. A stale capsule value must not override newer explicit Host state.
+Status performs one native observation and one reconciliation. `reconcile_persisted_state` re-reads the current capsule under the state lock, applies that one Host snapshot, and atomically writes back any lifecycle/identity changes. `persisted_status_snapshot` returns the corresponding low-resolution view from the same reconciled state. A stale caller payload must not overwrite newer receipt/control metadata or newer explicit Host state.
 
 When Host and capsule identity evidence conflict, quarantine the affected attempt. Do not retry, replace, transfer writer ownership, or claim successful takeover until the conflict is resolved.
 
@@ -146,6 +148,7 @@ State operations must be deterministic and short-lived:
 
 ```text
 one state lock for mutation/reconciliation critical sections
+re-read authoritative capsule before state-changing merge/bind operations
 write temporary file
 flush as appropriate
 atomic replace
@@ -153,7 +156,7 @@ atomic replace
 
 Receipt events use the same mutation boundary. `accounting_refs` contains unique structured events keyed by a stable `ref`; `persist_receipt_events` re-reads, merges, validates, and atomically replaces the capsule while holding the state lock. Reconciliation or resume may persist the same event again without incrementing visible totals.
 
-`prepare_spawn` re-reads and updates authoritative state under the same lock and rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; planned, active, interrupted, pending-takeover, or unknown work must be settled first.
+`prepare_spawn`, `bind_spawn_identity`, `reconcile_persisted_state`, receipt persistence, stale cleanup, and removal all re-read authoritative state inside their mutation lock before committing the transition they own. `prepare_spawn` rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; planned, active, interrupted, pending-takeover, or unknown work must be settled first.
 
 Reject unsafe symlinked state roots, thread directories, state files, or locks. Use restrictive local file permissions where the platform supports them. POSIX implementations enforce owner-only mode bits for state directories/files/locks. Windows must not treat POSIX-style `st_mode` bits as an ACL proof; it retains the user-scoped OS temporary-directory boundary plus regular-file, path, symlink, size, schema, and locking checks. Validate the thread-id path component before constructing filesystem paths.
 

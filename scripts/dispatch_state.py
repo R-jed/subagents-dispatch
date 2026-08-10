@@ -586,6 +586,56 @@ def prepare_spawn(
         return prepared
 
 
+def bind_spawn_identity(
+    thread_id: str | None,
+    *,
+    unit_id: str,
+    task_id: str,
+    attempt: int,
+    native_task_name: str,
+    agent_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    now: datetime | str | None = None,
+) -> dict[str, Any]:
+    """Atomically bind a materialized native child to its prepared attempt."""
+    identity = resolve_thread_id(thread_id)
+    if not all(_nonempty(value) for value in (unit_id, task_id, native_task_name, agent_id)):
+        raise StatePayloadError("spawn binding requires non-empty unit, task, native name, and agent id")
+    if not isinstance(attempt, int) or isinstance(attempt, bool) or attempt not in {1, 2}:
+        raise StatePayloadError("spawn binding attempt must be 1 or 2")
+    with state_lock(identity, temp_root=temp_root):
+        payload = load_state(identity, temp_root=temp_root, max_bytes=max_bytes)
+        if payload is None:
+            raise StatePayloadError("active dispatch state is unavailable")
+        matches = [
+            record
+            for record in payload["units"]
+            if record["unit_id"] == unit_id
+            and record["task_id"] == task_id
+            and record["attempt"] == attempt
+            and record["native_task_name"] == native_task_name
+        ]
+        if len(matches) != 1:
+            raise StatePayloadError("prepared spawn identity does not resolve exactly")
+        record = matches[0]
+        if record["control_state"] != "SPAWN_PENDING" or record["agent_id"] is not None:
+            raise StatePayloadError("prepared spawn is no longer eligible for identity binding")
+        if any(existing.get("agent_id") == agent_id for existing in payload["units"]):
+            raise StatePayloadError("native agent identity is already bound")
+        record["agent_id"] = agent_id
+        record["control_state"] = "RUNNING"
+        record["failure_origin"] = "none"
+        record["blocker"] = "none"
+        record["quarantine_reason"] = None
+        _touch(payload, now)
+        validate_state_payload(payload, thread_id=identity, max_bytes=max_bytes)
+        encoded = _serialized_payload(payload, max_bytes=max_bytes)
+        _, _, path, _ = _paths(identity, temp_root, create=True)
+        _write_unlocked(path, encoded)
+        return payload
+
+
 def _quarantine(record: dict[str, Any], reason: str) -> None:
     record["control_state"] = "UNKNOWN"
     record["failure_origin"] = "runtime_ambiguous"
@@ -683,6 +733,29 @@ def reconcile_state(
     return state
 
 
+def reconcile_persisted_state(
+    thread_id: str | None,
+    host_observation: Mapping[str, Any],
+    *,
+    temp_root: str | os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    now: datetime | str | None = None,
+) -> dict[str, Any]:
+    """Atomically re-read, reconcile once, and persist current Host truth."""
+    identity = resolve_thread_id(thread_id)
+    with state_lock(identity, temp_root=temp_root):
+        payload = load_state(identity, temp_root=temp_root, max_bytes=max_bytes)
+        if payload is None:
+            raise StatePayloadError("active dispatch state is unavailable")
+        reconciled = reconcile_state(payload, host_observation, now=now)
+        if reconciled != payload:
+            validate_state_payload(reconciled, thread_id=identity, max_bytes=max_bytes)
+            encoded = _serialized_payload(reconciled, max_bytes=max_bytes)
+            _, _, path, _ = _paths(identity, temp_root, create=True)
+            _write_unlocked(path, encoded)
+        return reconciled
+
+
 def _latest_units(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
     order: list[str] = []
@@ -695,13 +768,9 @@ def _latest_units(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [latest[unit_id] for unit_id in order]
 
 
-def status_snapshot(
-    payload: Mapping[str, Any],
-    host_observation: Mapping[str, Any],
-    *,
-    unit_id: str | None = None,
+def _status_view(
+    reconciled: Mapping[str, Any], *, unit_id: str | None = None
 ) -> dict[str, Any]:
-    reconciled = reconcile_state(payload, host_observation)
     records = _latest_units(reconciled)
     if unit_id is not None:
         records = [record for record in records if record["unit_id"] == unit_id]
@@ -718,8 +787,38 @@ def status_snapshot(
             }
             for record in records
         ],
-        "reconciled_state": reconciled,
+        "reconciled_state": copy.deepcopy(dict(reconciled)),
     }
+
+
+def status_snapshot(
+    payload: Mapping[str, Any],
+    host_observation: Mapping[str, Any],
+    *,
+    unit_id: str | None = None,
+) -> dict[str, Any]:
+    reconciled = reconcile_state(payload, host_observation)
+    return _status_view(reconciled, unit_id=unit_id)
+
+
+def persisted_status_snapshot(
+    thread_id: str | None,
+    host_observation: Mapping[str, Any],
+    *,
+    unit_id: str | None = None,
+    temp_root: str | os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    now: datetime | str | None = None,
+) -> dict[str, Any]:
+    """Persist one reconciliation and return the corresponding low-resolution view."""
+    reconciled = reconcile_persisted_state(
+        thread_id,
+        host_observation,
+        temp_root=temp_root,
+        max_bytes=max_bytes,
+        now=now,
+    )
+    return _status_view(reconciled, unit_id=unit_id)
 
 
 def _eligible_for(action: str, record: Mapping[str, Any]) -> bool:
