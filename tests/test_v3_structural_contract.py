@@ -15,6 +15,7 @@ SKILL_IDS = {"dispatch", "preview", "status", "steer", "takeover", "doctor"}
 CONTRACT_FILES = {
     "policy.json",
     "routing.md",
+    "composition.md",
     "interaction.md",
     "state.md",
     "receipt.md",
@@ -22,6 +23,7 @@ CONTRACT_FILES = {
     "recovery.md",
     "guardrails.md",
     "handoff.md",
+    "evidence-artifact.md",
     "final-review.md",
 }
 
