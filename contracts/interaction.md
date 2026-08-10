@@ -1,6 +1,6 @@
 # Interaction Control
 
-This file owns the user-visible control semantics for an active Dispatch workflow. It defines Preview, Status, Steer, Takeover, and a compact execution receipt without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Dispatch workflow. It defines Preview, Status, Steer, Takeover, and the Dispatch Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
 `routing.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
 
@@ -49,23 +49,69 @@ Do not run runtime-evidence diagnostics merely to make the preview look more pre
 
 The `status` control payload is a one-shot state inspection, not a polling loop.
 
-Report the smallest useful view of current delegated responsibilities:
+The normal user-facing view is low-resolution and activity-based. Use the public model-lane/activity vocabulary from `receipt.md`; do not leak internal `Reader`, `Worker`, `Solver`, `Investigator`, or `Advisor` names in normal Chinese Status output.
+
+Group current responsibilities into the smallest useful presentation:
 
 ```text
-unit id
-semantic role
-known lifecycle state
-write ownership, when relevant
-current blocker, when known
+Running / 运行中
+Waiting / 等待
+Needs attention / 需处理
+Completed / 已完成
 ```
 
-Prefer native host state when it is exposed. When host evidence is insufficient, report `UNKNOWN` exactly. Status must not convert `UNKNOWN` to failure, trigger a retry, create replacement work, or mutate artifacts.
+A current TeamPlan dependency may be shown as `waiting for U1` / `等待 U1` only when that dependency is part of current accepted structural truth. If dependency truth is unavailable to the current control turn, omit the dependency explanation rather than reconstructing or guessing it from prose.
 
-Status performs at most one Host observation and one reconciliation pass. It defaults to the low-resolution list above and accepts an optional exact unit-id zoom. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
+Chinese example:
 
-When there is no current delegated responsibility, say so directly. Absence of an active unit is different from an existing unit whose runtime state is `UNKNOWN`.
+```text
+运行中
+U1 · Luna Max 读取
 
-Do not busy-poll the host to manufacture certainty.
+等待
+U2 · Luna Max 执行 · 等待 U1
+
+需处理
+无
+
+已完成
+1 个职责
+```
+
+English example:
+
+```text
+Running
+U1 · Luna Max Read
+
+Waiting
+U2 · Luna Max Execute · waiting for U1
+
+Needs attention
+None
+
+Completed
+1 responsibility
+```
+
+Prefer native Host state when it is exposed. When Host evidence is insufficient, report `UNKNOWN` exactly and place that unit under the attention/uncertain presentation rather than relabeling it as failed. Status must not convert `UNKNOWN` to failure, trigger a retry, create replacement work, or mutate artifacts.
+
+Status performs at most one Host observation and one reconciliation pass. For persisted active state, use the state contract's locked reconciliation path so newer Host truth is written back without overwriting concurrent receipt/control metadata. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
+
+An optional exact unit-id zoom may add only current accepted facts that help control the unit, for example:
+
+```text
+U2
+职责: Luna Max 执行
+状态: 等待
+依赖: U1
+写入范围: src/...
+尝试: 1/2
+```
+
+Use the orchestration locale stored in active state for command-only Status turns. When there is no current delegated responsibility, say so directly. Absence of an active unit is different from an existing unit whose runtime state is `UNKNOWN`.
+
+Do not dump the full active-state JSON by default. Do not busy-poll the Host to manufacture certainty.
 
 ## Steer
 
@@ -103,19 +149,21 @@ Takeover transfers the unresolved responsibility to Main only after the previous
 ```text
 user requests takeover
 -> resolve unit and current attempt
--> ask Codex to stop the running child when needed
--> establish terminal/stopped/closed host state
+-> ask Codex to stop/close the running child when needed
+-> establish from current Host evidence that the previous owner is no longer active
 -> collect and verify any usable returned evidence
 -> close or mark the old attempt no longer active
 -> transfer responsibility to Main
 -> continue inside the original user authority
 ```
 
+For the current native lifecycle, `shutdown` is explicit closed Host evidence; `completed` or `errored` are also non-active execution states when the observed child identity is the expected one. Product state `CLOSED` remains the normalized lifecycle term. A missing or `notFound` observation is uncertainty, not proof of settlement.
+
 For a writing child, Main must not begin mutation until the previous writer is confirmed no longer active. This preserves one-writer safety.
 
-`UNKNOWN` does not authorize forced ownership transfer. If the host cannot establish that the old owner has stopped, keep the same responsibility blocked for conflicting mutation and report the exact uncertainty. Main may continue unrelated safe work, but it must not duplicate the unresolved owned responsibility under a false takeover claim.
+`UNKNOWN` does not authorize forced ownership transfer. If the Host cannot establish that the old owner has stopped, keep the same responsibility blocked for conflicting mutation and report the exact uncertainty. Main may continue unrelated safe work, but it must not duplicate the unresolved owned responsibility under a false takeover claim.
 
-If the current Host cannot stop or otherwise establish a safe terminal state for an active child, report takeover as pending/unavailable rather than fabricating settlement.
+If the current Host cannot stop or otherwise establish a safe non-active state for an active child, report takeover as pending/unavailable rather than fabricating settlement.
 
 If the unit/current attempt cannot be resolved at all, takeover does not proceed. Missing identity and uncertain runtime state are reported separately.
 
@@ -123,7 +171,7 @@ When takeover includes `: <guidance>`, treat that suffix as guidance for Main af
 
 A takeover does not reset the unit's history or erase valid evidence. With TeamPlan, a pure takeover stays in Recovery state: TeamPlan keeps the last valid delegated role and does not create an invalid `role: main`. Revise TeamPlan only when takeover also changes structural truth such as dependency, ownership scope, deliverable, scope, or acceptance.
 
-## Execution Receipt
+## Dispatch Receipt
 
 `receipt.md` is the single source of truth for receipt accounting and presentation. Derive every axis from unique stable event references; repeated Status or reconciliation of the same event is idempotent. Keep materialized passes, focused follow-ups, retries, semantic rework, reviewer attempts, review rounds, and recovery as distinct facts.
 
@@ -139,7 +187,7 @@ The receipt may report only inspectable orchestration facts. Never expose privat
 
 Current Codex App Server can expose thread token-usage updates to clients, but the Skill contract does not assume that those events are available inside this Plugin execution path.
 
-Therefore the built-in receipt does not estimate token counts or currency cost. Exact usage may be displayed only when a supported host surface provides attributable usage for the relevant main/child threads. Missing usage remains unavailable rather than estimated from model names, elapsed time, or output length.
+Therefore the built-in receipt does not estimate token counts or currency cost. Exact usage may be displayed only when a supported Host surface provides attributable usage for the relevant main/child threads. Missing usage remains unavailable rather than estimated from model names, elapsed time, or output length.
 
 ## No second runtime
 
