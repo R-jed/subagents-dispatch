@@ -180,7 +180,7 @@ scripts/policy.py
 -> load and validate the shared machine policy location
 
 scripts/dispatch_state.py
--> safe temporary-state storage, locking, inspection, cleanup primitives only
+-> compact thread-scoped state storage/locking, Host reconciliation, control targeting, cleanup, and idempotent Receipt accounting primitives
 
 scripts/doctor.py
 -> deterministic multi-layer health diagnostics
@@ -201,7 +201,7 @@ scripts/review-artifact.py
 -> exact-candidate Git review binding
 ```
 
-These helpers enforce deterministic facts. They do not become a background orchestration runtime.
+These helpers enforce deterministic facts from the canonical contracts. They do not own adaptive routing policy and do not become a background orchestration runtime.
 
 ## Hard invariants versus adaptive policy
 
@@ -246,24 +246,18 @@ The canonical wording is therefore value-driven delegation with no minimum team 
 
 The current safe behavior remains one active writer for the canonical workspace / mutation domain. Treat this as a semantic coordination mode rather than a tunable numeric capacity.
 
-The machine policy should evolve from a field such as:
-
-```text
-max_active_writers_per_workspace = 1
-```
-
-toward a semantic policy such as:
+The machine policy uses:
 
 ```text
 write_coordination.mode = single_writer
 write_coordination.scope = canonical_workspace
 ```
 
-The v3 target keeps single-writer behavior. It does not enable parallel writers merely because the schema becomes more expressive.
+The v3 target keeps single-writer behavior. It does not enable parallel writers merely because the schema is expressive enough to describe future coordination modes.
 
 Future isolated parallel writing is a separate capability and may be considered only when the product can establish all required boundaries, including independent physical workspace, explicit disjoint write ownership, no unresolved semantic dependency, an integration owner, and deterministic integration verification.
 
-Never change `1` to another writer count as a shortcut.
+Do not replace semantic writer ownership with a tunable writer count.
 
 ## Ephemeral state boundary
 
