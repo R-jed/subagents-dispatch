@@ -286,6 +286,18 @@ def validate_team_ledger_payload(payload: Any) -> dict[str, Any]:
             errors.append(f"{unit_id} attempts must be contiguous from 1")
         if len(ordered) > 2:
             errors.append(f"{unit_id} exceeds the two-Agent-attempt recovery bound")
+
+        if team_plans:
+            prior_revision: int | None = None
+            for item in ordered:
+                revision = item.get("team_plan_revision")
+                if not valid_int(revision, minimum=1) or revision not in units_by_revision:
+                    continue
+                if prior_revision is not None and revision < prior_revision:
+                    errors.append(f"{unit_id} attempt TeamPlan revisions must not move backward")
+                    break
+                prior_revision = revision
+
         if len(ordered) >= 2:
             first = ordered[0]
             if first.get("control_state") == "UNKNOWN":
