@@ -16,24 +16,26 @@ The distinction is deliberate:
 
 The Plugin packages six explicit Skill ids: `dispatch`, `preview`, `status`, `steer`, `takeover`, and `doctor`. Their intended display labels come from each `agents/openai.yaml`; the exact labels rendered by a particular App build are verified directly during release validation rather than inferred from repository metadata.
 
-Normal execution uses the task itself after explicit Skill selection.
+Implicit invocation is disabled. The user chooses when adaptive delegation or dispatch control is worth applying.
 
-Explicit interaction-control payloads are:
+After explicit Skill selection, the conceptual inputs are:
 
 ```text
-preview <task>
-status
-steer <unit_id>: <guidance>
-takeover <unit_id>
+Dispatch: a new task, related continuation, or no new task for resume
+Preview: a task to project without execution
+Status: optional exact unit-id zoom
+Steer: optional exact unit id plus focused guidance
+Takeover: optional exact unit id plus optional guidance for Main after transfer
+Doctor: diagnostic intent plus explicit live/repair/cleanup/migration intent when needed
 ```
 
-Implicit invocation is disabled. The user chooses when adaptive delegation or dispatch control is worth applying.
+These are semantic inputs after selection, not guessed literal App slash strings. The App-visible selection form is a Host/UI fact.
 
 Preview does not touch the native child runtime. Status is a one-shot observation. Steer and Takeover use native child-control capability when the current Host exposes it. The Plugin does not emulate unavailable Host controls with a background controller.
 
 ## Native control boundary
 
-Current Codex Subagents documentation exposes user-facing management of Agent threads, including inspecting Agents and asking Codex to steer, stop, or close child work. subagents-dispatch treats that native surface as the control primitive.
+Current Codex Subagents surfaces expose user-facing management of Agent threads, including inspecting Agents and asking Codex to steer, stop, close, or resume child work when supported by the current build. subagents-dispatch treats that native surface as the control primitive.
 
 The Plugin adds semantic safety around it:
 
@@ -42,13 +44,31 @@ Steer
 -> same responsibility / attempt / role / authority
 
 Takeover
--> request child stop when needed
+-> request child stop/close when needed
 -> prove old owner is no longer active
 -> verify/preserve useful evidence
 -> transfer responsibility to Main
+
+Dispatch resume
+-> resume or observe the same bound attempt
+-> no replacement child merely because Main changed turns
 ```
 
-For a writing child, Main remains read-only until the previous writer is confirmed stopped/terminal/closed. If native state cannot be established, it stays `UNKNOWN`. The Plugin does not claim a successful takeover or start conflicting mutation.
+For a writing child, Main remains read-only until the previous writer is confirmed non-active. If native state cannot be established, it stays `UNKNOWN`. The Plugin does not claim a successful takeover or start conflicting mutation.
+
+The compact product lifecycle normalizes only the native facts needed for orchestration. The current supported child-status surface is handled by `contracts/state.md` as:
+
+```text
+pendingInit  -> RUNNING once an inspectable child identity exists
+running      -> RUNNING
+interrupted  -> INTERRUPTED
+completed    -> COMPLETED
+errored      -> FAILED
+shutdown     -> CLOSED
+notFound     -> UNKNOWN
+```
+
+`SPAWN_PENDING` remains the product's pre-identity crash-window state. `notFound` does not prove that a previous writer shut down safely.
 
 ## First-use readiness
 
@@ -166,7 +186,7 @@ permission_evidence
 Use runtime diagnostics when the claim actually depends on runtime observation, including:
 
 - exact model/role/effort proof;
-- hard host-enforced read-only;
+- hard Host-enforced read-only;
 - main capability dedup;
 - ancestry when depth-one proof matters;
 - independent-review provenance;
@@ -175,13 +195,13 @@ Use runtime diagnostics when the claim actually depends on runtime observation, 
 
 Do not run these checks as routine ceremony for every bounded child. Exact profile configuration plus real artifact verification may be sufficient when runtime route proof is not part of acceptance.
 
-Configured values never become observed values by assumption. Execution Receipts follow this same rule.
+Configured or selected values never become observed values by assumption. An ordinary Dispatch Receipt may display the selected project lane bound to a materialized unit, such as `Luna Max` or `Sol High`; that label reports the orchestration route selected and materialized by the project, not an independent live telemetry measurement. Explicit observed model/reasoning/permission claims remain owned by supported Host evidence normalized through `runtime-evidence.py` and Doctor live-route diagnostics. Contradictory native evidence is a route-integrity failure and must not be hidden by the selected label.
 
 ## Token and usage boundary
 
 Codex App Server can expose thread token-usage update events to clients. That is a Host/client API surface and is not assumed to be available inside this Skill execution path.
 
-Therefore subagents-dispatch 2.1 does not add a private App Server client, hook-based telemetry collector, transcript scraper, or token estimator.
+The current Plugin does not add a private App Server client, hook-based telemetry collector, transcript scraper, or token estimator.
 
 ```text
 attributable exact Host usage available
@@ -233,11 +253,11 @@ structured_live
 
 A wake-up event does not imply deterministic insight into child progress.
 
-The `status` control payload reads the best current evidence once and returns. It does not turn this completion surface into a private poll loop.
+The Status Skill reads the best current evidence once and returns. It does not turn this completion surface into a private poll loop.
 
 ## Capacity
 
-subagents-dispatch has no project-level ordinary numeric child ceiling and no target Agent count.
+subagents-dispatch has no minimum Subagent count, no project-level ordinary numeric child ceiling, and no target Agent count.
 
 The main session chooses the active set from responsibilities that are ready, distinct, non-duplicative, worth delegating, and safe to run now. It may use several child Agents when a task contains several independent valuable lanes. It may use none when delegation adds no value.
 
@@ -269,7 +289,7 @@ When a child writer owns the checkout, Main can continue read-only analysis but 
 
 Takeover follows the same boundary. A stop request is an action request; Main waits for evidence that the old writer is actually no longer active before writing.
 
-Concurrent writers require genuine filesystem isolation such as separate worktrees/workspaces/repositories plus semantic independence or explicit dependency/integration order.
+Concurrent writers require genuine filesystem isolation such as separate worktrees/workspaces/repositories plus semantic independence or explicit dependency/integration order. Current v3 behavior does not enable parallel writers in the canonical workspace.
 
 This session-local rule cannot exclude another Codex session, editor, hook, or external process. Current safety relies on recommended isolation plus drift detection and fail-closed behavior. Cross-session coordination must be validated empirically before a stronger mechanism is claimed.
 
