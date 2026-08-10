@@ -95,7 +95,7 @@ scripts/doctor.py
 -> deterministic installation diagnostics; consumes explicit normalized runtime evidence but never spawns or scans Host runtime automatically
 ```
 
-For install, first-run provisioning, update, or uninstall commands, read `docs/plugin-installation.md`. For architecture, read `docs/repository-architecture.md`. For evaluation boundaries, read `evals/README.md`.
+For install, first-run provisioning, update, or uninstall commands, read `docs/plugin-installation.md`. For architecture, read `docs/repository-architecture.md`. For native runtime boundaries, read `docs/native-subagent-runtime.md`. For the exact child model/effort/sandbox proof protocol, read `docs/runtime-attestation.md`. For evaluation boundaries, read `evals/README.md`.
 
 For release evidence, read `docs/release-checklist.md`: repository gates are deterministic, App labels require direct human observation, and Codex Host route/control evidence remains pending until a real supported Host run proves it. During the single-maintainer phase, implement non-trivial changes on a short-lived feature branch, run full local validation and adversarial review there, repair and revalidate on the same branch, then merge directly to `main` and use the `main` push GitHub Actions run as cross-platform confirmation. A pull request is optional, not a hidden requirement.
 
