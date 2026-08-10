@@ -1,0 +1,410 @@
+# Experiment Protocol
+
+This document owns the evidence process for two different questions:
+
+```text
+role_calibration
+-> for a fixed role contract, which actual model / effort route is the best supported choice?
+
+product_benchmark
+-> on the same real task and controlled environment, does explicit Dispatch improve enough over a single-agent baseline to justify its coordination and compute cost?
+```
+
+They share one Experiment Plane because both need frozen inputs, real repositories, repeat discipline, route evidence, task oracles, exact telemetry, and provenance. They do not share the same independent variable.
+
+`contracts/routing.md` owns role semantics. `contracts/policy.json` owns the currently active five-role routes. `docs/runtime-attestation.md` owns actual child route proof. `contracts/evidence-artifact.md` owns large accepted evidence bundles. `scripts/score-behavioral-evals.py` remains the existing paired behavioral result summarizer where its result schema applies.
+
+Experiments never change runtime policy automatically.
+
+## 1. Current routes are operational defaults, not benchmark claims
+
+The current five-role model/effort settings are working policy:
+
+```text
+Reader        -> current configured route
+Worker        -> current configured route
+Solver        -> current configured route
+Investigator  -> current configured route
+Advisor       -> current configured route
+```
+
+Do not describe a current route as optimal, faster, cheaper, or higher quality merely because it is configured or because another project uses a similar route.
+
+External/community configurations are useful sources of challenger hypotheses. They are not evidence about this plugin's role contracts, workload distribution, Host runtime, or user experience.
+
+## 2. One campaign format, two experiment specs
+
+`evals/experiment-campaign.schema.json` defines common campaign identity plus one typed `experiment` object.
+
+### Role calibration
+
+```json
+{
+  "type": "role_calibration",
+  "policy_promotion": false,
+  "roles": []
+}
+```
+
+A role-calibration workload names exactly one `calibration_role`. The campaign declares the current-policy control route and one or more model/effort challengers for that same role.
+
+### Product benchmark
+
+```json
+{
+  "type": "product_benchmark",
+  "baseline_mode": "single_agent",
+  "candidate_mode": "dispatch"
+}
+```
+
+A product-benchmark workload names a task `benchmark_stratum`, not a role. Dispatch is free to keep the task in Main or materialize whichever roles its normal routing contract selects. Actual role use belongs in run/runtime evidence. The input definition must not pre-script a fake role lane merely to make the benchmark easy to analyze.
+
+This separation prevents route calibration from being confused with orchestration-product evaluation.
+
+## 3. Freeze the exact candidate before running
+
+Every campaign binds `plugin_candidate_sha` to the exact Git `HEAD` validated by `scripts/validate-experiment-campaign.py`.
+
+This is deliberate. The validator also reads the current `contracts/policy.json`; allowing the campaign to name a different plugin commit would let the campaign identity and its control route silently refer to different candidates.
+
+If the plugin candidate changes, freeze a new campaign revision/hash.
+
+## 4. Keep the role contract fixed while calibrating the route
+
+Role calibration changes model/effort for a fixed responsibility contract.
+
+For each calibration workload freeze:
+
+```text
+role semantic contract
+exact responsibility packet shape
+repository and immutable starting revision
+exact task/prompt bytes
+project rules and upstream Skill/workflow inputs
+permissions and tool surface
+verification/oracle
+Main-session route when material
+Host/runtime version
+```
+
+Then compare route candidates for that same responsibility.
+
+The current-policy route is the control. The experiment validator rejects a control that differs from current `policy.json`.
+
+A model/effort challenger must keep the role sandbox intent unchanged. Do not change task decomposition, acceptance, allowed tools, write scope, role decision rights, or isolation contract between route arms. If those change, it is a different experiment.
+
+## 5. Role workload strata
+
+Calibrate against the responsibility the role actually owns.
+
+### Reader
+
+Use narrow read-only evidence tasks such as focused call/path tracing, exact configuration/source discovery, or bounded test/ownership mapping.
+
+Measure evidence correctness, completeness for the bounded question, scope discipline, and avoidable repeated discovery.
+
+### Worker
+
+Use fully specified bounded implementation tasks where consequential behavior and architecture are already settled.
+
+Measure task correctness, scope discipline, verification, correction burden, and resource use.
+
+### Solver
+
+Use writing tasks where material judgment is genuinely coupled to implementation and cannot safely be settled once before the edit.
+
+Measure both deliverable correctness and the quality of decisions made inside the granted decision rights.
+
+### Investigator
+
+Use broad read-heavy technical investigations whose semantic intent is stable and which require more exploration/synthesis than a narrow Reader task.
+
+Include narrow-read and judgment-heavy negative controls in the overall campaign mix so a large-context route is not rewarded simply for being stronger or more verbose.
+
+### Advisor
+
+Use one-shot material decisions and independent reviews. Keep the responsibility read-only.
+
+Measure decision/review quality, material issue detection, false positives, and unnecessary correction/review loops.
+
+## 6. Real workload requirement
+
+Formal experiments use real repositories and real engineering tasks, not synthetic prose-only task shapes.
+
+Each workload binds at minimum:
+
+```text
+repository identity
+immutable base revision
+exact task text and SHA256
+clean reset procedure
+acceptance rubric/oracle
+verification commands/checks
+Main-session route fingerprint
+permission fingerprint
+tool-surface fingerprint
+applicable project-rule refs
+```
+
+Prefer tasks whose outcome can be checked by repository tests, a containerized benchmark harness, exact artifact/diff/schema inspection, or another reproducible oracle.
+
+Synthetic fixtures remain useful for testing the evaluator itself. They are not evidence for public product or route performance claims.
+
+A formal campaign validator rejects obvious placeholder repository identities.
+
+## 7. Runtime Attestation is a hard route-calibration gate
+
+Every included role-calibration run must bind the actual route using `docs/runtime-attestation.md`.
+
+Record separately:
+
+```text
+Configured
+Requested
+Accepted
+Observed
+provenance grade
+```
+
+For a run to support a model/effort conclusion, required model, effort, role identity, ancestry, and permission/sandbox facts must be observed at the evidence level required by the workload.
+
+If the Host cannot prove the route, mark the run `UNKNOWN` for route calibration. Do not copy configured values into Observed and do not use that run to claim that a particular model/effort produced the result.
+
+For product benchmarks, route-attest every materialized Dispatch child so the report can say what actually ran. A single-agent baseline has no project child route to invent.
+
+## 8. Repetition and ordering
+
+Agent runs are stochastic even when repository state and the grader are deterministic.
+
+An `exploratory` campaign may begin with one run per arm to find broken setup or obviously unsuitable route candidates.
+
+A `formal` campaign requires at least three completed repeats per workload arm. Three is a floor for replication discipline, not a claim of statistical sufficiency. If observed variance is large or one run dominates a mean, add repeats rather than hiding instability behind an average.
+
+Interleave or randomize arm order where practical so service state, time, cache warmth, or evaluator drift are not perfectly confounded with one arm. Fixed ordering requires a recorded reason.
+
+Report per-run results and distributions. Summary means must not erase failed, quarantined, or UNKNOWN runs.
+
+## 9. Quality before efficiency
+
+Do not collapse an experiment into one global score.
+
+Evaluate in this order:
+
+```text
+1. hard correctness and safety
+2. task/acceptance quality
+3. correction and rework burden
+4. evidence/context efficiency
+5. latency and exact attributable token use
+```
+
+A faster or lower-token route/product arm does not win if it introduces a material correctness, safety, authority, scope, or acceptance regression.
+
+Useful measures already represented in the live behavioral-eval layer include:
+
+```text
+success
+acceptance_score
+scope_violations
+wrong_edits
+regressions
+material_judgment_violations
+correction_turns
+unjustified_retry_calls
+unjustified_repeated_discovery
+review findings / false positives
+input/output/reasoning tokens when exact
+latency when exact
+```
+
+Missing telemetry remains null/UNKNOWN. Never estimate token counts from response length, infer cost from configured model names, or convert configured routes into observed usage.
+
+## 10. Oracle discipline
+
+Use the strongest task-specific oracle available.
+
+Preferred order:
+
+```text
+repository's deterministic tests or benchmark harness
+exact artifact/diff/schema checks
+predeclared functional rubric with reproducible checks
+blinded independent review for material semantics that cannot be mechanized
+```
+
+Do not use the producing Agent's self-assessment as the grader.
+
+When an LLM judgment is unavoidable, freeze the rubric, keep the grader independent from the producing child, preserve the review artifact, and report judge variance instead of presenting the result as deterministic truth.
+
+## 11. Single-agent versus Dispatch benchmark
+
+This experiment evaluates the orchestration product, not one role route.
+
+For each paired task, freeze the same:
+
+```text
+exact user prompt bytes
+repository/base revision
+starting state
+Main-session route fingerprint
+permissions
+available tools
+project rules
+acceptance oracle
+Host/runtime version
+```
+
+### Baseline arm
+
+Run the task in one ordinary Codex session without invoking subagents-dispatch. The baseline may reason, read, edit, and verify using the same allowed Host surface, but it does not use Dispatch's project child roles or orchestration state.
+
+### Dispatch arm
+
+Start from an independently reset copy of the same repository state and run the same task through the explicit Dispatch Skill.
+
+Dispatch may materialize extra Agents because orchestration is the product under test. Measure the total observable resource use of Main plus project children when the Host exposes attributable telemetry.
+
+### Fairness rules
+
+```text
+no shared dirty worktree between arms
+no carrying discoveries/evidence from the first arm into the second
+same task bytes
+same acceptance oracle
+same external tool and permission envelope
+same Main-session route when it is controllable/observable
+record any unavoidable Host capability difference
+route-attest materialized Dispatch children
+```
+
+Use fresh worktrees, containers, or equivalent isolated resets when caches/state can materially affect the task.
+
+## 12. Product benchmark strata
+
+A real product benchmark needs several task shapes:
+
+```text
+small_bounded
+-> work where a good Dispatch should often choose zero children
+
+bounded_read_write
+-> focused reading plus already-specified implementation
+
+read_heavy_investigation
+-> broad technical investigation/synthesis
+
+judgment_coupled_implementation
+-> consequential choices remain coupled to writing
+
+independent_final_review
+-> consequence-driven candidate review
+
+composite
+-> a real task that legitimately crosses several of the above responsibilities
+```
+
+The `small_bounded` stratum is required in the eventual public campaign mix. A useful dispatcher must be allowed to keep simple work in Main rather than manufacturing Agents to improve an orchestration benchmark.
+
+Report results by task stratum and repository. A global aggregate may be descriptive, but it must not hide where Dispatch helps, does nothing, or hurts.
+
+## 13. Campaign identity and validation
+
+Freeze the complete campaign before expensive execution:
+
+```text
+campaign id
+stage: exploratory | formal
+exact plugin candidate SHA
+Host/runtime target
+one typed experiment spec
+real workload definitions
+repeat/ordering policy
+acceptance/oracle ids
+controlled Main route / permissions / tools / project rules
+predeclared promotion criteria when role policy may change
+```
+
+Run:
+
+```text
+python scripts/validate-experiment-campaign.py <campaign.json>
+```
+
+The validator checks schema and semantic integrity and emits a canonical campaign SHA256. It does not run Agents, score results, or change policy.
+
+If any controlled input changes, issue a new campaign definition/hash rather than editing the definition underneath existing results.
+
+## 14. Evidence Artifact boundary
+
+A formal run may produce evidence larger than the paired result row should carry inline.
+
+Use `contracts/evidence-artifact.md` to bind complete accepted provenance by reference, for example:
+
+```text
+campaign hash
+workload/base identity
+exact route attestation
+verification/oracle output
+candidate diff/artifact identity
+exact token/time telemetry when exposed
+quality/review result
+```
+
+Do not turn result files into transcript archives. Keep large/non-reproducible evidence in an explicit artifact and store only typed refs/digests in the summary when possible.
+
+## 15. Policy promotion gate
+
+Role-calibration results never mutate `contracts/policy.json` automatically.
+
+A route is eligible for promotion only when all of the following are true:
+
+```text
+policy_promotion=true was frozen before results
+campaign stage is formal
+required repeats completed
+actual candidate routes were attested in included runs
+no hard safety/authority/write-isolation invariant regressed
+quality meets predeclared workload-specific acceptance floors/tradeoff rules
+tradeoffs remain visible by role and workload
+resource claims use only exact telemetry
+residual UNKNOWN/failed runs are disclosed
+maintainer explicitly accepts the tradeoff
+```
+
+Non-inferiority margins, quality floors, or latency/token preferences are campaign inputs chosen before results are inspected. Do not invent a favorable threshold afterward.
+
+After acceptance, change canonical role policy and managed profile templates together, run full repository validation, reinstall exact profiles, and repeat the five-role live route gate on the new candidate.
+
+## 16. Final Role Policy
+
+The final five-role policy may legitimately use different model families or reasoning efforts for different responsibilities.
+
+Do not optimize for a visually tidy table. Optimize for the measured role contract:
+
+```text
+Reader        -> best supported narrow-evidence tradeoff
+Worker        -> best supported bounded-execution tradeoff
+Solver        -> best supported judgment-coupled-write tradeoff
+Investigator  -> best supported broad-read investigation tradeoff
+Advisor       -> best supported decision/review tradeoff
+```
+
+If candidates are practically indistinguishable at the evidence level available, prefer a simpler/lower-resource route only when the campaign's predeclared tradeoff policy supports that conclusion. Otherwise keep the current route and record insufficient evidence.
+
+## 17. README publication gate
+
+README reconstruction is downstream of accepted evidence, not part of calibration or benchmark execution.
+
+Public claims may use only:
+
+```text
+implemented deterministic repository capability
+human-observed App behavior for the exact candidate
+actual Host route evidence
+accepted formal benchmark results with Host/repository/task/repeat scope
+```
+
+Do not publish community recommendations, configured routes, synthetic fixtures, exploratory one-offs, missing telemetry estimates, or campaign intentions as measured product superiority.
+
+When real experiments are still pending, describe role purposes and current configuration without claiming the model/effort choice is optimal or that Dispatch is faster/cheaper/better than single-agent work.
