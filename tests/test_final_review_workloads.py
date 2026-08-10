@@ -9,7 +9,7 @@ RESULT_SCHEMA = ROOT / "evals" / "behavioral-result.schema.json"
 
 
 def cases() -> dict[str, dict]:
-    payload = json.loads(WORKLOADS.read_text())
+    payload = json.loads(WORKLOADS.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "4.0"
     return {item["id"]: item for item in payload["workloads"]}
 
@@ -52,7 +52,7 @@ def test_behavioral_suite_covers_verdict_invalidation_lifecycle():
 
 
 def test_behavioral_result_schema_supports_final_review_metrics():
-    schema = json.loads(RESULT_SCHEMA.read_text())
+    schema = json.loads(RESULT_SCHEMA.read_text(encoding="utf-8"))
     jsonschema.Draft202012Validator.check_schema(schema)
     props = schema["properties"]["runs"]["items"]["properties"]
 
