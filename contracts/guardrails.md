@@ -184,36 +184,50 @@ A Host rejection before it returns any inspectable child identity is a pre-attem
 
 Configuration intent and observed runtime fact are different.
 
-When route evidence matters, keep three truth layers separate:
+When route evidence matters, keep four concepts separate even when the output groups configuration and request intent together:
 
 ```text
-requested
--> what the task packet, profile, or routing policy asked for
+configured / requested
+-> what policy, profile, and the pending spawn asked for
 
 accepted
--> what the host or role surface explicitly acknowledged or accepted, when exposed
+-> what the Host or role surface explicitly acknowledged or accepted, when exposed
 
 observed
--> what the runtime actually reported about the running session or child, when exposed
+-> what the running Host actually recorded about the child
 ```
 
-Requested is not accepted. Accepted is not observed. A platform accepting an Agent type, model, effort, or sandbox request does not prove that the runtime actually executed that route. If accepted or observed telemetry is missing, keep that layer `not_reported` or `not_observed` instead of copying values forward from configuration.
+Configured/requested is not accepted. Accepted is not observed. A platform accepting an Agent type, model, effort, or sandbox request does not prove that the runtime actually executed that route. A child describing its own model or reasoning level in prose is not runtime evidence either. If accepted or observed evidence is missing, keep that layer `not_reported` or `not_observed` instead of copying values forward from configuration.
+
+For child live-route attestation, actual Host runtime evidence may come from two sources:
+
+```text
+native
+-> public Host/spawn/details runtime metadata
+
+local
+-> the exact Host-produced Codex child rollout inspected by scripts/inspect-agent-runtime.py
+```
+
+`local` in this protocol does not mean profile TOML, policy JSON, remembered configuration, or hand-written evidence. It is the allowlisted result of inspecting exactly one Codex rollout bound to the exact child identity. Public/native metadata is preferred when exposed. The exact rollout may fill fields the public surface omits. When both actual-runtime sources expose the same field, they must agree; a conflict is quarantined instead of selecting one source.
+
+The inspector is explicit and read-only. It emits only allowlisted route, identity, permission, and runtime-version metadata from `session_meta` and `turn_context`. It does not emit prompts, assistant output, tool payloads, reasoning, source contents, or rollout paths. Ordinary Dispatch does not run it or scan Codex sessions.
 
 Do not run runtime-evidence diagnostics for every ordinary child. Use `../scripts/runtime-evidence.py` only when the claim materially depends on runtime observation, for example:
 
 - main-session Sol capability dedup;
-- hard host-enforced read-only;
+- hard Host-enforced read-only;
 - exact route/model/effort proof requested by acceptance or release validation;
 - ancestry/delegation-depth verification when material;
 - independent-review provenance;
 - a configuration/runtime conflict;
 - explicit diagnostics or release validation.
 
-Missing evidence remains missing. Local/configured data cannot be relabeled as native runtime observation.
+Missing evidence remains missing. Configuration, accepted routing, child prose, and manually copied local data cannot be relabeled as runtime observation. Exact Host-produced rollout evidence is actual runtime observation only when it passes the bundled exact inspector and remains bound to the intended child/parent/role.
 
 For routine bounded execution, exact profile configuration plus actual artifact verification can be sufficient when runtime route proof is not itself part of acceptance.
 
-A Dispatch Receipt may show the configured project model lane selected for a materialized delegated attempt because that is an orchestration/accounting fact. That lane label is not an observed-runtime claim. Only supported Host evidence may upgrade model, reasoning effort, sandbox, or ancestry to observed runtime truth; Doctor live-route diagnostics keep that evidence separate.
+A Dispatch Receipt may show the configured project model lane selected for a materialized delegated attempt because that is an orchestration/accounting fact. That lane label is not an observed-runtime claim. Only actual Host evidence may upgrade model, reasoning effort, sandbox, or ancestry to observed runtime truth; Doctor live-route diagnostics keep that evidence separate.
 
 ## 9. Usage and cost truth
 
@@ -221,13 +235,13 @@ Do not estimate token usage or currency cost from model names, elapsed time, out
 
 If a supported host/client surface provides attributable token usage for the relevant main or child thread, that exact data may be summarized when useful. Otherwise usage remains unavailable.
 
-The Plugin does not add Hooks, background telemetry, transcript scraping, or a private App Server client solely to manufacture a cost dashboard.
+The Plugin does not add Hooks, background telemetry, a persistent transcript collector, or a private App Server client solely to manufacture a cost dashboard. The explicit exact-rollout inspector used for live route attestation reads only allowlisted routing metadata on demand and is not a token-usage collector.
 
 ## 10. Read-only guarantees
 
-A configured read-only profile is intent, not proof of host enforcement.
+A configured read-only profile is intent, not proof of Host enforcement.
 
-When hard read-only isolation is required, demand native evidence or keep the responsibility in the main session/blocked.
+When hard read-only isolation is required, demand actual Host runtime evidence or keep the responsibility in the main session/blocked. That evidence may be public Host metadata, an exact inspected Codex rollout, or both, but configured/accepted values and child self-report are insufficient.
 
 When hard isolation is not required, behavioral read-only may be accepted only if mutation is forbidden, relevant state is captured before and after execution, no mutation is observed, and broader effective permission remains recorded as residual risk.
 
@@ -257,5 +271,3 @@ A Handoff Capsule is valid only for the artifact/evidence state Main accepted. W
 Main's normal completion response owns the task result: what changed, verification, blockers, and remaining risk.
 
 Dispatch Receipt presentation is owned by `receipt.md`. It reports orchestration facts only. Materialized delegated work is summarized with public activities and selected project model lanes; controls, independent review, semantic rework, and runtime retry appear only when they actually occurred. Do not print raw task ledgers, internal role names in normal Chinese presentation, child transcripts, chain-of-thought, hidden reasoning, or guessed token/cost figures.
-
-An explicit Dispatch invocation that materializes no children still emits the minimal two-axis receipt defined by `receipt.md`, while creating no active dispatch state. Preview and Status-only requests do not emit a terminal Dispatch Receipt.
