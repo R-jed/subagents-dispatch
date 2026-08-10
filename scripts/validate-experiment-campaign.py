@@ -90,7 +90,15 @@ def expected_control(policy: dict[str, Any], role: str) -> tuple[str, str, str]:
 
 
 def unresolved(value: Any) -> bool:
-    return isinstance(value, str) and value.strip().lower() in PLACEHOLDERS
+    if not isinstance(value, str):
+        return False
+    normalized = value.strip().lower()
+    return not normalized or normalized in PLACEHOLDERS
+
+
+def require_frozen_text(value: Any, label: str) -> None:
+    if unresolved(value):
+        fail(f"{label} must be a concrete non-placeholder value")
 
 
 def validate_common_workloads(campaign: dict[str, Any]) -> None:
@@ -98,14 +106,33 @@ def validate_common_workloads(campaign: dict[str, Any]) -> None:
     formal = campaign["stage"] == "formal"
     for workload in campaign["workloads"]:
         workload_id = workload["id"]
+        require_frozen_text(workload_id, "workload id")
         if workload_id in seen:
             fail(f"campaign duplicates workload id {workload_id!r}")
         seen.add(workload_id)
+
+        require_frozen_text(workload["repository_url"], f"workload {workload_id!r} repository_url")
+        source_task_ref = workload.get("source_task_ref")
+        if source_task_ref is not None:
+            require_frozen_text(source_task_ref, f"workload {workload_id!r} source_task_ref")
+        if not workload["task_text"].strip():
+            fail(f"workload {workload_id!r} task_text must contain non-whitespace task bytes")
 
         expected_hash = task_sha256(workload["task_text"])
         if workload["task_sha256"] != expected_hash:
             fail(
                 f"workload {workload_id!r} task_sha256 does not match exact UTF-8 task_text"
+            )
+
+        for index, step in enumerate(workload["reset_procedure"]):
+            require_frozen_text(step, f"workload {workload_id!r} reset_procedure[{index}]")
+
+        acceptance = workload["acceptance"]
+        require_frozen_text(acceptance["rubric_id"], f"workload {workload_id!r} acceptance.rubric_id")
+        for index, check in enumerate(acceptance["verification"]):
+            require_frozen_text(
+                check,
+                f"workload {workload_id!r} acceptance.verification[{index}]",
             )
 
         controls = workload["controls"]
@@ -119,6 +146,8 @@ def validate_common_workloads(campaign: dict[str, Any]) -> None:
                     f"workload {workload_id!r} uses unresolved {field}; "
                     "freeze actual controlled inputs before running the campaign"
                 )
+        for index, ref in enumerate(controls["project_rule_refs"]):
+            require_frozen_text(ref, f"workload {workload_id!r} project_rule_refs[{index}]")
 
         if formal:
             repository_url = workload["repository_url"].strip().lower()
@@ -134,6 +163,11 @@ def validate_role_calibration(
 ) -> list[str]:
     if experiment["policy_promotion"] and campaign["stage"] != "formal":
         fail("policy promotion requires a formal campaign")
+    if experiment["policy_promotion"]:
+        require_frozen_text(
+            experiment.get("promotion_criteria_ref"),
+            "promotion_criteria_ref",
+        )
 
     role_specs: dict[str, dict[str, Any]] = {}
     for spec in experiment["roles"]:
@@ -141,8 +175,11 @@ def validate_role_calibration(
         if role in role_specs:
             fail(f"campaign duplicates role {role!r}")
         role_specs[role] = spec
+        require_frozen_text(spec["contract_ref"], f"role {role!r} contract_ref")
 
         control = spec["control"]
+        require_frozen_text(control["id"], f"role {role!r} control id")
+        require_frozen_text(control["model"], f"role {role!r} control model")
         if route_tuple(control) != expected_control(policy, role):
             fail(
                 f"role {role!r} control must exactly match the current policy route; "
@@ -153,6 +190,8 @@ def validate_role_calibration(
         route_shapes = {route_tuple(control)}
         for challenger in spec["challengers"]:
             challenger_id = challenger["id"]
+            require_frozen_text(challenger_id, f"role {role!r} challenger id")
+            require_frozen_text(challenger["model"], f"role {role!r} challenger {challenger_id!r} model")
             if challenger_id in route_ids:
                 fail(f"role {role!r} duplicates route id {challenger_id!r}")
             route_ids.add(challenger_id)
@@ -183,13 +222,12 @@ def validate_role_calibration(
             )
         workloads_by_role[role] += 1
 
-    if experiment["policy_promotion"]:
-        missing = [role for role, count in workloads_by_role.items() if count == 0]
-        if missing:
-            fail(
-                "policy-promotion campaign has no real workload for roles: "
-                + ", ".join(sorted(missing))
-            )
+    missing = [role for role, count in workloads_by_role.items() if count == 0]
+    if missing:
+        fail(
+            "role-calibration campaign has no workload for roles: "
+            + ", ".join(sorted(missing))
+        )
 
     return list(role_specs)
 
@@ -206,6 +244,10 @@ def validate_product_benchmark(campaign: dict[str, Any]) -> list[str]:
 
 
 def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list[str]:
+    require_frozen_text(campaign["campaign_id"], "campaign_id")
+    require_frozen_text(campaign["host_target"]["version"], "host_target.version")
+    require_frozen_text(campaign["host_target"]["platform"], "host_target.platform")
+
     if campaign["plugin_candidate_sha"] != current_head():
         fail(
             "plugin_candidate_sha must equal the exact current Git HEAD so the campaign control "
@@ -214,7 +256,7 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
 
     if campaign["repeat_policy"]["ordering"] == "fixed_with_reason":
         reason = campaign["repeat_policy"].get("fixed_order_reason")
-        if not isinstance(reason, str) or not reason.strip():
+        if not isinstance(reason, str) or unresolved(reason):
             fail("fixed_with_reason ordering requires a concrete fixed_order_reason")
 
     validate_common_workloads(campaign)
