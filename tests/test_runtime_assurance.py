@@ -28,8 +28,8 @@ def run_runtime_evidence(payload: dict) -> dict:
 
 def test_runtime_assurance_uses_one_optional_normalized_verifier():
     assert RUNTIME_VERIFIER.is_file()
-    guardrails = GUARDRAILS.read_text().lower()
-    runtime = RUNTIME_DOC.read_text().lower()
+    guardrails = GUARDRAILS.read_text(encoding="utf-8").lower()
+    runtime = RUNTIME_DOC.read_text(encoding="utf-8").lower()
     assert "runtime-evidence.py" in guardrails
     assert "runtime-evidence.py" in runtime
     assert "diagnostic" in runtime
@@ -38,22 +38,23 @@ def test_runtime_assurance_uses_one_optional_normalized_verifier():
 
 
 def test_project_does_not_scrape_runtime_internals_for_proof():
-    runtime = RUNTIME_DOC.read_text().lower()
-    assert "configured values never become observed values by assumption" in runtime
+    runtime = RUNTIME_DOC.read_text(encoding="utf-8").lower()
+    assert "profile matching proves configuration intent only" in runtime
+    assert "never become observed values by assumption" in runtime
     for forbidden in ["--sessions-dir", "rollout-2026-", "sessions root"]:
         assert forbidden not in runtime
 
 
 def test_missing_native_permission_evidence_remains_fail_closed():
-    guardrails = GUARDRAILS.read_text()
+    guardrails = GUARDRAILS.read_text(encoding="utf-8")
     assert "When hard read-only isolation is required, demand native evidence" in guardrails
     assert "keep the responsibility in the main session/blocked" in guardrails
     assert "configured read-only profile is intent, not proof" in guardrails
 
 
 def test_runtime_evidence_keeps_route_ancestry_and_permission_typed():
-    runtime = RUNTIME_DOC.read_text()
-    verifier = RUNTIME_VERIFIER.read_text()
+    runtime = RUNTIME_DOC.read_text(encoding="utf-8")
+    verifier = RUNTIME_VERIFIER.read_text(encoding="utf-8")
     for field in ["route_evidence", "ancestry_evidence", "permission_evidence"]:
         assert field in runtime
         assert field in verifier
@@ -110,7 +111,7 @@ def test_runtime_observation_required_needs_native_identity_and_ancestry():
 
 
 def test_runtime_assurance_fixture_uses_current_return_target():
-    payload = json.loads(RUNTIME_CASES.read_text())
+    payload = json.loads(RUNTIME_CASES.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "2.0"
     decisions = {
         case["expected"].get("decision")
