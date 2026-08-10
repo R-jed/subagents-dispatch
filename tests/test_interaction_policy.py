@@ -225,7 +225,8 @@ def test_handoff_capsule_contains_only_main_accepted_truth_and_cannot_grant_auth
 def test_takeover_and_capsules_fit_existing_teamplan_contract():
     text = TEAM_PLAN.read_text(encoding="utf-8")
     assert "TeamPlan does not define a `main` role" in text
-    assert "A pure Main takeover also does not invent `role: main` or require a revision" in (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    assert "TeamPlan does not rewrite the unit to an invalid `role: main`" in text
+    assert "a pure `main_takeover`, or an implementation detail does not require a revision by itself" in text
     assert "A taken-over unit becomes dependency-satisfied only after Main completes and accepts" in text
     assert "A Handoff Capsule may carry already-accepted evidence" in text
     assert "python scripts/validate_team_plan.py" in text
