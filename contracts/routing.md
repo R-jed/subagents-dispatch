@@ -70,7 +70,7 @@ A structurally valid TeamPlan, dependency DAG, or integration order does not by 
 
 ## 2. First question: does delegation help?
 
-Zero children is normal.
+Delegation is optional and value-driven. Keep a responsibility in the main session when delegation does not add enough distinct value to justify coordination cost. There is no minimum Subagent count, so zero children is a valid derived outcome rather than a routing target or special numeric rule.
 
 Keep work in the main session when a child would mostly duplicate context, add handoff overhead, or provide no useful isolation, parallelism, capability uplift, read-heavy investigation, or independent judgment.
 
