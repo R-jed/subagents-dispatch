@@ -11,16 +11,20 @@ Load the canonical contracts required by the task:
 
 - `../../contracts/policy.json`: hard machine-readable invariants and five route definitions
 - `../../contracts/routing.md`: delegation value, role selection, responsibility compilation, and adaptive ready work
+- `../../contracts/composition.md`: Host/project-rule/external-Skill/hook/role-contract composition when those surfaces participate
 - `../../contracts/guardrails.md`: authority, trust, mutation boundaries, and writer coordination
 - `../../contracts/state.md`: ephemeral root-thread continuity and Host reconciliation
 - `../../contracts/team-plan.md`: multi-responsibility identity, dependencies, ownership, and revisions
 - `../../contracts/recovery.md`: attempt lifecycle, bounded recovery, `UNKNOWN`, and `INTERRUPTED`
 - `../../contracts/handoff.md`: compact Main-accepted evidence transfer
+- `../../contracts/evidence-artifact.md`: references-first evidence bundle only when inline evidence would be materially duplicated or oversized
 - `../../contracts/final-review.md`: consequence-driven exact-candidate review
 - `../../contracts/receipt.md`: terminal orchestration accounting and presentation
 
 Delegate only when a distinct responsibility adds enough value to justify coordination cost. There is no child minimum or ordinary project-level child maximum; native Host capacity is only a ceiling. Keep delegation depth at one.
 
-Main retains the user's goal, authorization, team composition, integration, acceptance, and final response. Before conflicting writes, preserve semantic `single_writer` coordination for the canonical workspace. Treat configured, accepted, and observed route facts as different evidence levels.
+Main retains the user's goal, authorization, team composition, integration, acceptance, and final response. Before conflicting writes, preserve semantic `single_writer` coordination for the canonical workspace. Treat configured, accepted, and observed route facts as different evidence levels. Preserve an accepted upstream workflow or external Skill's domain semantics and apply Dispatch only as an orchestration layer; role contracts may narrow authority but never widen it.
+
+Keep child returns compact. Prefer inspectable refs over copied logs/source, and materialize an Evidence Artifact only when complete accepted provenance should stay out of conversational context. A child result or child-created artifact-shaped claim is not accepted task truth until Main verifies it.
 
 When the orchestration reaches a stable return boundary, produce the Dispatch Receipt defined by `../../contracts/receipt.md`. Do not invent App slash syntax or Host facts.
