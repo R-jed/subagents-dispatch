@@ -110,13 +110,21 @@ R1_runtime_reported
 -> public Host runtime metadata provides the required runtime evidence
 
 R2_runtime_reported_and_local_record_agree
--> public Host and exact rollout sources jointly support the route without conflict
+-> public Host and exact rollout sources jointly support the route without conflict; every overlapping field agrees
 
 X0_conflicted
 -> runtime/configuration/source evidence conflicts; quarantine
 ```
 
 The grade is provenance, not a claim that local rollout evidence is configuration. `L1` is actual runtime evidence from the Host-produced record. Public Host metadata remains preferred because it avoids local rollout inspection when the Host already exposes the fact directly.
+
+### Assurance limitation
+
+An exact Codex rollout is Host-produced and bound by this protocol to the exact child identity, parent identity, managed role, and internally consistent turn metadata. It is still a local file and is not cryptographically signed by the Host. A user or process with sufficient local write access could alter that file after generation.
+
+Therefore `L1_local_record_observed` means inspectable Host-produced local runtime evidence. It is not tamper-proof remote attestation or cryptographic proof of model execution. `R2_runtime_reported_and_local_record_agree` adds cross-source consistency when public Host metadata and the exact local record are both available; it also is not a cryptographic attestation claim. Prefer public Host runtime metadata whenever the Host exposes the required facts, and treat any disagreement between public and local runtime evidence as `FAIL`.
+
+Do not describe any evidence grade as proving model weights, server-side model identity beyond the Host's own reported/recorded identity, or an independently signed execution receipt.
 
 ## Missing evidence and failure semantics
 
