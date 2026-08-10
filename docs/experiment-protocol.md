@@ -46,7 +46,7 @@ External/community configurations are useful sources of challenger hypotheses. T
 }
 ```
 
-A role-calibration workload names exactly one `calibration_role`. The campaign declares the current-policy control route and one or more model/effort challengers for that same role.
+A role-calibration workload names exactly one `calibration_role`. The campaign declares the current-policy control route and one or more model/effort challengers for that same role. Every role declared in `experiment.roles` must be backed by at least one workload in the same frozen campaign; unused route arms are invalid campaign input.
 
 ### Product benchmark
 
@@ -336,6 +336,8 @@ acceptance/oracle ids
 controlled Main route / permissions / tools / project rules
 predeclared promotion criteria when role policy may change
 ```
+
+Required campaign identity, Host target, route/ref, oracle, reset, and control-fingerprint text must be concrete. Whitespace-only strings and obvious placeholders such as `TBD`, `TODO`, `unknown`, or `placeholder` are not frozen experiment input.
 
 Run from the exact plugin candidate checkout:
 
