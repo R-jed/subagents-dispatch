@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist for a formal subagents-dispatch release candidate. Static repository checks, raw Host evidence, and direct human App UI observations are separate evidence classes; none may silently substitute for another.
+Use this checklist for a formal subagents-dispatch release candidate. Static repository checks, raw Host evidence, exact Host-produced rollout evidence, and direct human App UI observations are separate evidence classes; none may silently substitute for another.
 
 ## 1. Candidate identity
 
@@ -27,7 +27,13 @@ Use the strongest evidence source available for each gate.
 Repository/API/CI evidence
 -> version, SHA, tree contents, branch/ruleset state, CI, tag peel, Release state
 
-Raw Host/rollout evidence
+Public Host runtime evidence
+-> spawn/details metadata the Host actually reports for the exact child
+
+Exact Host-produced rollout evidence
+-> allowlisted child route/identity/permission metadata from scripts/inspect-agent-runtime.py
+
+Raw Host lifecycle evidence
 -> spawn_agent arguments, child identity, lifecycle events, retry accounting, implicit activation
 
 Direct human Codex App observation
@@ -35,8 +41,10 @@ Direct human Codex App observation
    duplicate/conflicting entries, post-selection presentation, and which Plugin/Skill is actually selected
 
 Model self-report
--> explanatory only; it cannot by itself close a Host/UI gate about the model's own registration or selection
+-> explanatory only; it cannot close a Host/UI or runtime-route gate about the model's own registration, selection, model, or reasoning effort
 ```
+
+For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the `local` runtime-evidence source. Configured profile values, accepted role values, manually copied JSON, and child prose cannot be substituted for Observed fields. Public and exact-rollout evidence must agree wherever both expose the same field.
 
 The following App facts require direct human observation and cannot be delegated entirely to the Codex instance under test:
 
@@ -165,9 +173,19 @@ subagents_dispatch_investigator
 subagents_dispatch_advisor
 ```
 
-Use one bounded smoke child per role with `fork_turns = none`, no broader authority than the route check requires, and settle every child before returning. For each role, record configured route intent separately from Host-accepted identity and observed runtime evidence for model, reasoning effort, permission/sandbox, ancestry, and child identity when the supported Host exposes those facts.
+Use one bounded smoke child per role with `fork_turns = none`, no broader authority than the route check requires, and settle every child before returning. For each role, record configured route intent separately from Host-accepted identity and observed runtime evidence for model, reasoning effort, permission/sandbox, ancestry, and child identity.
 
-An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. Missing runtime evidence remains `UNKNOWN`; an observed mismatch is `FAIL`. Never copy configured values into observed columns.
+Follow `docs/runtime-attestation.md` for every smoke child. Inspect public Host/spawn/details metadata first. If it omits a required field and the exact local Codex rollout exists, run:
+
+```text
+python scripts/inspect-agent-runtime.py <child-thread-id> \
+  --expected-parent-thread-id <root-thread-id> \
+  --expected-agent-role <exact-agent-type>
+```
+
+Put public Host runtime fields in `native`, put only the inspector's allowlisted object in `local`, set `runtime_observation_required=true` and `requires_permission_observation=true`, and normalize through `scripts/runtime-evidence.py`. Record the source for every Observed field as `native`, `local`, or `both`.
+
+An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence remains `UNKNOWN`; an observed mismatch or source conflict is `FAIL`. Never copy configured values, accepted values, or child self-report into observed columns.
 
 For each new project child, inspect the first actual `spawn_agent` call and confirm:
 
