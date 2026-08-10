@@ -19,7 +19,20 @@ CANONICAL_BLOCKERS = {"contract", "judgment", "investigation", "stalled"}
 RUNTIME_OWNERS = {
     "policy.json",
     "routing.md",
+    "composition.md",
     "interaction.md",
+    "state.md",
+    "receipt.md",
+    "team-plan.md",
+    "recovery.md",
+    "guardrails.md",
+    "handoff.md",
+    "evidence-artifact.md",
+    "final-review.md",
+}
+DISPATCH_DIRECT_OWNERS = {
+    "policy.json",
+    "routing.md",
     "state.md",
     "receipt.md",
     "team-plan.md",
@@ -95,8 +108,19 @@ def test_agent_profiles_do_not_invent_semantic_blockers():
 def test_runtime_policy_has_focused_owners():
     assert {path.name for path in CONTRACTS.iterdir() if path.is_file()} == RUNTIME_OWNERS
     skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-    for name in RUNTIME_OWNERS - {"interaction.md"}:
+    for name in DISPATCH_DIRECT_OWNERS:
         assert f"../../contracts/{name}" in skill
+
+
+def test_composition_and_evidence_artifact_are_progressive_disclosure_owners():
+    composition = (CONTRACTS / "composition.md").read_text(encoding="utf-8")
+    evidence = (CONTRACTS / "evidence-artifact.md").read_text(encoding="utf-8")
+    assert "constraint intersection" in composition
+    assert "Hooks are optional" in composition
+    assert "does not emulate a missing Host feature" in composition
+    assert "Use references before copies" in evidence
+    assert "Main owns artifact acceptance and sealing" in evidence
+    assert "Evidence artifacts are separate from `active.json`" in evidence
 
 
 def test_team_plan_and_recovery_do_not_define_fixed_fanout_policy():
