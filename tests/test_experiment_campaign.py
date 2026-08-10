@@ -35,7 +35,12 @@ def route(role: str, *, route_id: str, challenger: bool = False) -> dict:
     }
 
 
-def workload(*, formal: bool, calibration_role: str | None = None, benchmark_stratum: str | None = None) -> dict:
+def workload(
+    *,
+    formal: bool,
+    calibration_role: str | None = None,
+    benchmark_stratum: str | None = None,
+) -> dict:
     task = "Trace one exact call path in the frozen repository and verify the expected defining symbols."
     payload = {
         "id": "real-repo-fixture",
@@ -213,6 +218,14 @@ def test_unresolved_control_fingerprints_cannot_be_frozen(tmp_path: Path):
     assert "unresolved tool_surface_fingerprint" in result.stderr
 
 
+def test_whitespace_control_fingerprints_cannot_be_frozen(tmp_path: Path):
+    payload = role_campaign()
+    payload["workloads"][0]["controls"]["permissions_fingerprint"] = "   "
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "unresolved permissions_fingerprint" in result.stderr
+
+
 def test_campaign_candidate_must_equal_current_head(tmp_path: Path):
     payload = role_campaign()
     payload["plugin_candidate_sha"] = "0" * 40
@@ -257,3 +270,34 @@ def test_formal_campaign_rejects_placeholder_repository(tmp_path: Path):
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
     assert "must bind a real repository" in result.stderr
+
+
+def test_campaign_rejects_placeholder_host_target(tmp_path: Path):
+    payload = product_campaign()
+    payload["host_target"]["version"] = "TBD"
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "host_target.version must be a concrete non-placeholder value" in result.stderr
+
+
+def test_campaign_rejects_blank_oracle_identity(tmp_path: Path):
+    payload = product_campaign()
+    payload["workloads"][0]["acceptance"]["rubric_id"] = " "
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "acceptance.rubric_id must be a concrete non-placeholder value" in result.stderr
+
+
+def test_role_calibration_rejects_declared_role_without_workload(tmp_path: Path):
+    payload = role_campaign()
+    payload["experiment"]["roles"].append(
+        {
+            "role": "worker",
+            "contract_ref": "contracts/routing.md#bounded-execution",
+            "control": route("worker", route_id="current-worker"),
+            "challengers": [route("worker", route_id="candidate-worker", challenger=True)],
+        }
+    )
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "role-calibration campaign has no workload for roles: worker" in result.stderr
