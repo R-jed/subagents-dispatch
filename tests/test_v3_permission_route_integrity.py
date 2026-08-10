@@ -171,3 +171,56 @@ def test_runtime_assurance_cases_cover_workspace_write_permission_fail_closed():
         "required-workspace-write-native-unobserved",
         "required-workspace-write-mismatch",
     } <= ids
+
+
+def test_permission_only_conflict_does_not_relabel_route_truth_layers():
+    route = next(
+        item
+        for item in managed_routes()
+        if item["agent_type"] == "subagents_dispatch_worker"
+    )
+    accepted = native_for(route, sandbox="read-only")
+    native = native_for(route)
+
+    data = run_runtime_evidence(
+        {
+            "subject": "child",
+            "expected": expected_for(route),
+            "accepted": accepted,
+            "native": native,
+        }
+    )
+
+    assert data["route_evidence"]["status"] == "matched"
+    assert data["truth_layers"]["accepted"]["status"] == "matched"
+    assert data["truth_layers"]["observed"]["status"] == "matched"
+    assert data["permission_evidence"]["status"] == "conflict"
+    assert data["status"] == "mismatch"
+    assert data["decision"] == "quarantine"
+
+
+def test_accepted_permission_mismatch_fails_closed_without_native_permission():
+    route = next(
+        item
+        for item in managed_routes()
+        if item["agent_type"] == "subagents_dispatch_worker"
+    )
+    accepted = native_for(route, sandbox="read-only")
+    native = native_for(route)
+    del native["sandbox_policy_type"]
+
+    data = run_runtime_evidence(
+        {
+            "subject": "child",
+            "expected": expected_for(route),
+            "accepted": accepted,
+            "native": native,
+        }
+    )
+
+    assert data["route_evidence"]["status"] == "matched"
+    assert data["permission_evidence"]["status"] == "mismatch"
+    assert data["permission_evidence"]["source"] == "accepted"
+    assert data["status"] == "mismatch"
+    assert data["decision"] == "quarantine"
+    assert "accepted:sandbox_policy_type_mismatch" in data["violations"]

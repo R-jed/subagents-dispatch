@@ -240,8 +240,12 @@ def accepted_layer(
     violations: list[str],
 ) -> dict[str, Any]:
     conflict = any(
-        item.startswith("accepted:") or item.startswith("accepted_observed_conflict:")
+        item in {
+            f"accepted:{field}_mismatch",
+            f"accepted_observed_conflict:{field}",
+        }
         for item in violations
+        for field in fields
     )
     return reported_layer(
         accepted,
@@ -257,9 +261,11 @@ def observed_layer(
     violations: list[str],
 ) -> dict[str, Any]:
     conflict = any(
-        item.startswith("native:")
-        or item.startswith("accepted_observed_conflict:")
-        or item == f"source_conflict:{field}"
+        item in {
+            f"native:{field}_mismatch",
+            f"accepted_observed_conflict:{field}",
+            f"source_conflict:{field}",
+        }
         for item in violations
         for field in fields
     )
@@ -388,7 +394,9 @@ def route_complete(
 
 def permission_result(
     expected: dict[str, Any],
+    accepted: dict[str, str | None] | None,
     native: dict[str, str | None] | None,
+    local: dict[str, str | None] | None,
     violations: list[str],
 ) -> tuple[dict[str, Any], bool]:
     agent_role = text(expected.get("agent_role"))
@@ -400,6 +408,19 @@ def permission_result(
     expected_sandbox = "read-only" if requires_read_only else ROLE_SANDBOX_INTENTS[agent_role]
     base = {"expected_sandbox": expected_sandbox}
 
+    mismatch_sources: list[tuple[str, str]] = []
+    for label, observation in (
+        ("accepted", accepted),
+        ("native", native),
+        ("local", local),
+    ):
+        observed_sandbox = (
+            observation.get("sandbox_policy_type") if observation is not None else None
+        )
+        if observed_sandbox is not None and observed_sandbox != expected_sandbox:
+            violations.append(f"{label}:sandbox_policy_type_mismatch")
+            mismatch_sources.append((label, observed_sandbox))
+
     if (
         "source_conflict:sandbox_policy_type" in violations
         or "source_conflict:permission_profile_type" in violations
@@ -408,29 +429,33 @@ def permission_result(
     ):
         return {**base, "status": "conflict", "source": "both"}, permission_required
 
+    if mismatch_sources:
+        source, observed_sandbox = next(
+            (item for item in mismatch_sources if item[0] == "native"),
+            mismatch_sources[0],
+        )
+        if expected_sandbox == "read-only":
+            status = "broader_than_required"
+            violations.append("permission:read_only_not_enforced")
+        else:
+            status = "mismatch"
+            violations.append("permission:sandbox_intent_mismatch")
+        return {
+            **base,
+            "status": status,
+            "source": source,
+            "observed_sandbox": observed_sandbox,
+        }, permission_required
+
     native_sandbox = native.get("sandbox_policy_type") if native is not None else None
     if native_sandbox is None:
         if permission_required:
             return {**base, "status": "not_observed", "source": "none"}, permission_required
         return {**base, "status": "not_required", "source": "none"}, permission_required
 
-    if native_sandbox == expected_sandbox:
-        return {
-            **base,
-            "status": "matched",
-            "source": "native",
-            "observed_sandbox": native_sandbox,
-        }, permission_required
-
-    if expected_sandbox == "read-only":
-        status = "broader_than_required"
-        violations.append("permission:read_only_not_enforced")
-    else:
-        status = "mismatch"
-        violations.append("permission:sandbox_intent_mismatch")
     return {
         **base,
-        "status": status,
+        "status": "matched",
         "source": "native",
         "observed_sandbox": native_sandbox,
     }, permission_required
@@ -519,7 +544,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
 
     permission, permission_required = permission_result(
         expected,
+        accepted,
         native,
+        local,
         violations,
     )
 
