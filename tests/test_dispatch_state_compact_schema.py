@@ -67,6 +67,11 @@ def test_compact_snapshot_accepts_only_existing_router_and_authority_shape():
         ("controls", [{"action": "Status"}], "must remain empty"),
         ("pending_takeover", {"unit_id": "U9", "status": "pending"}, "existing unit"),
         ("pending_takeover", {"unit_id": "U1", "status": "done"}, "status=pending"),
+        (
+            "pending_takeover",
+            {"unit_id": "U1", "status": "pending", "note": "free-form"},
+            "exactly unit_id and status",
+        ),
     ],
 )
 def test_top_level_compact_metadata_rejects_unowned_or_malformed_state(field, value, message):
@@ -112,6 +117,11 @@ def test_receipt_summary_has_no_unreachable_generic_recovery_channel():
     module = load_module()
     summary = module.account_receipt([])
     assert "recoveries" not in summary
-    forged = {**summary, "zero_child": False, "dispatch": [{"model_lane": None, "activity": "read", "count": 1}], "recoveries": 3}
+    forged = {
+        **summary,
+        "zero_child": False,
+        "dispatch": [{"model_lane": None, "activity": "read", "count": 1}],
+        "recoveries": 3,
+    }
     rendered = module.format_receipt(forged, locale="en")
     assert "recovery×" not in rendered
