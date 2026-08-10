@@ -8,7 +8,7 @@ The product goal is simple: delegate only when doing so improves the task, use L
 
 Do not build a model ladder, fixed team size, or Agent pipeline before understanding the task.
 
-`team-plan.md` owns multi-responsibility dependency and integration truth. `recovery.md` owns native attempt lifecycle and bounded recovery. `handoff.md` owns compact accepted-evidence transfer between responsibilities. This file owns delegation value, role selection, responsibility semantics, semantic coverage closure, phase-transition recompilation, and the Main-level ready frontier.
+`team-plan.md` owns multi-responsibility dependency and integration truth. `recovery.md` owns native attempt lifecycle and bounded recovery. `handoff.md` owns compact accepted-evidence transfer between responsibilities. `evidence-artifact.md` owns optional references-first evidence bundles when complete provenance should remain outside conversational context. `composition.md` owns Host/project-rule/external-Skill/hook/role-contract composition boundaries. This file owns delegation value, role selection, responsibility semantics, semantic coverage closure, phase-transition recompilation, and the Main-level ready frontier.
 
 ## 1. Minimal task state
 
@@ -49,6 +49,8 @@ subagents-dispatch may assign owners, choose specialist roles, decide useful con
 Do not skip an upstream gate, reorder an upstream dependency, widen the required output, or redefine domain semantics merely because a different decomposition would be easier to delegate. If the upstream contract is incomplete or contradictory, classify the blocker as `contract` and return the missing truth to Main instead of inventing a replacement workflow.
 
 When the upstream workflow already maintains a useful plan or ledger, reuse it as the coordination source of truth. Do not create a second persistent state source just for subagents-dispatch.
+
+When Host capabilities, project instructions, external Skills/workflows, hooks, and role contracts participate together, apply `composition.md`. Dispatch adds orchestration around accepted domain truth; it does not create a second Host/project-rule precedence engine or let a lower layer widen higher-layer authority.
 
 ## 1B. Preserve semantic coverage through decomposition
 
@@ -191,6 +193,8 @@ Use `declared-output-only` when a responsibility may create or update a named re
 
 A Handoff Capsule is optional. Use it only when Main has already accepted evidence that would otherwise require meaningful repeated discovery. The capsule does not grant authority or transmit raw child reasoning. Its exact semantics live in `handoff.md`.
 
+When complete accepted provenance is materially larger than the downstream responsibility needs inline, keep that provenance in an Evidence Artifact and place only the accepted facts plus artifact/source refs in the Handoff Capsule. A child does not create accepted artifact truth for its peers; Main owns verification and sealing under `evidence-artifact.md`.
+
 `INTEGRATION AFTER` is optional. It expresses integration order, not permission to execute through an unresolved semantic dependency.
 
 If a responsibility cannot make safe progress until another work item establishes missing task truth, interface semantics, or required evidence, keep it off the ready frontier instead of using `INTEGRATION AFTER` as a shortcut.
@@ -207,7 +211,7 @@ Children do not widen scope, permission, mutation authority, user intent, extern
 
 ## 6. Return packet
 
-Keep child output compact:
+Keep child output compact. It is an index and status report, not a transcript or evidence dump:
 
 ```text
 status: complete | blocked
@@ -215,14 +219,17 @@ summary
 files_changed, if any
 verification
 new_evidence
+evidence_artifact_ref, if Main actually materialized and accepted one
 remaining_problem
 blocker: none | contract | judgment | investigation | stalled
 material_decisions, if any
 ```
 
+`files_changed` carries paths/refs rather than copied file contents. `verification` carries the exact check plus concise outcome; material non-reproducible output belongs in an Evidence Artifact attachment when needed. `new_evidence` carries concise facts/refs, not raw logs.
+
 A child report is a claim. Main verifies actual artifact state and relevant checks before acceptance.
 
-Only after that verification may Main promote supported facts/evidence into a Handoff Capsule for another responsibility. A child does not author settled inherited truth for its peers.
+Only after that verification may Main promote supported facts/evidence into a Handoff Capsule or Evidence Artifact for another responsibility. A child does not author settled inherited truth for its peers, and a child-created path or manifest-shaped object is not an accepted `evidence_artifact_ref` by itself.
 
 ## 7. Blocked work means reroute, not escalation
 
