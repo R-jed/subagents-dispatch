@@ -299,6 +299,44 @@ def test_role_can_change_across_plan_revision_without_resetting_unit_identity():
     assert validate(payload)["ledger_valid"] is True
 
 
+def test_retry_cannot_move_backward_to_superseded_plan_revision():
+    first_plan = plan()
+    second_plan = plan()
+    second_plan["revision"] = 2
+    second_plan["supersedes_revision"] = 1
+    second_plan["revision_reason"] = "judgment blocker changed assigned role"
+    second_plan["units"][1]["role"] = "solver"
+
+    payload = {
+        "schema_version": "1.0",
+        "team_plans": [first_plan, second_plan],
+        "active_team_plan_revision": 2,
+        "attempts": [
+            attempt(
+                unit_id="U2",
+                revision=2,
+                agent_type="subagents_dispatch_solver",
+                state="FAILED",
+                adopted=False,
+                failure_origin="quality_failure",
+                task_blocker="stalled",
+            ),
+            attempt(
+                unit_id="U2",
+                revision=1,
+                task_id="task-2",
+                attempt_no=2,
+                agent_type="subagents_dispatch_worker",
+                agent_id="agent-2",
+                state="RUNNING",
+                adopted=False,
+            ),
+        ],
+    }
+    errors = validate(payload)["errors"]
+    assert any("TeamPlan revisions must not move backward" in error for error in errors)
+
+
 def test_same_unit_id_cannot_hide_a_changed_responsibility_across_revisions():
     first_plan = plan()
     second_plan = plan()
