@@ -95,15 +95,18 @@ FAILURE_ORIGINS = {
 }
 TASK_BLOCKERS = {"none", "contract", "judgment", "investigation", "stalled"}
 HOST_STATE_MAP = {
-    "pending": "SPAWN_PENDING",
+    # Current Codex Native Subagents CollabAgentStatus values. Once a child
+    # identity is inspectable, pendingInit is already materialized work, so
+    # the compact state model treats it as active RUNNING rather than the
+    # pre-identity SPAWN_PENDING crash-window marker.
+    "pendingInit": "RUNNING",
     "running": "RUNNING",
     "interrupted": "INTERRUPTED",
     "completed": "COMPLETED",
-    "failed": "FAILED",
     "errored": "FAILED",
-    "stopped": "CLOSED",
-    "closed": "CLOSED",
+    "shutdown": "CLOSED",
 }
+HOST_UNCERTAIN_STATES = {"notFound"}
 
 
 class StateError(RuntimeError):
@@ -193,7 +196,8 @@ def _ensure_private_directory(path: Path, label: str) -> None:
         pass
     if not path.is_dir():
         raise StatePathError(f"{label} must be a directory")
-    os.chmod(path, 0o700)
+    if os.name != "nt":
+        os.chmod(path, 0o700)
 
 
 def _paths(
@@ -426,7 +430,7 @@ def state_lock(
         raise StateLockError(f"cannot open state lock: {exc}") from exc
     locked = False
     try:
-        if hasattr(os, "fchmod"):
+        if os.name != "nt" and hasattr(os, "fchmod"):
             os.fchmod(descriptor, 0o600)
         if not stat.S_ISREG(os.fstat(descriptor).st_mode):
             raise StateLockError("state lock must be a regular file")
@@ -468,15 +472,15 @@ def _write_unlocked(path: Path, encoded: bytes) -> None:
     descriptor, temporary_name = tempfile.mkstemp(prefix=".active.", suffix=".tmp", dir=path.parent)
     temporary = Path(temporary_name)
     try:
-        if hasattr(os, "fchmod"):
+        if os.name != "nt" and hasattr(os, "fchmod"):
             os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "wb", closefd=True) as stream:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
-        os.chmod(path, 0o600)
         if os.name != "nt":
+            os.chmod(path, 0o600)
             directory_fd = os.open(path.parent, os.O_RDONLY)
             try:
                 os.fsync(directory_fd)
@@ -514,8 +518,15 @@ def load_state(
     if not path.exists():
         return None
     mode = path.lstat().st_mode
-    if not stat.S_ISREG(mode) or mode & 0o077:
-        raise StateCorruptError("state file must be a private regular file")
+    if not stat.S_ISREG(mode):
+        raise StateCorruptError("state file must be a regular file")
+    # Windows st_mode permission bits do not represent the file ACL. Enforce
+    # 0600 semantics only where POSIX mode bits are authoritative; Windows
+    # still gets regular-file, path, symlink, size, schema, and user-temp
+    # boundary checks, while its user profile temp directory supplies the ACL
+    # boundary.
+    if os.name != "nt" and mode & 0o077:
+        raise StateCorruptError("state file must be private")
     try:
         raw = path.read_bytes()
     except OSError as exc:
@@ -642,13 +653,21 @@ def reconcile_state(
         else:
             agent_id = child.get("agent_id")
             host_state = child.get("state")
-            if not _nonempty(agent_id) or host_state not in HOST_STATE_MAP:
+            if not _nonempty(agent_id):
+                _quarantine(record, "invalid_native_observation")
+                changed = changed or record != before
+                continue
+            if host_state in HOST_UNCERTAIN_STATES:
+                # notFound is absence of current Host identity evidence, not
+                # proof that a previously active writer shut down safely.
+                _quarantine(record, "native_identity_not_found")
+                changed = changed or record != before
+                continue
+            if host_state not in HOST_STATE_MAP:
                 _quarantine(record, "invalid_native_observation")
                 changed = changed or record != before
                 continue
             mapped = HOST_STATE_MAP[host_state]
-            if mapped == "SPAWN_PENDING":
-                mapped = "RUNNING"
             record["agent_id"] = agent_id
             record["control_state"] = mapped
             record["quarantine_reason"] = None
@@ -1026,15 +1045,41 @@ def account_receipt(
                     f"duplicate materialized {kind} for event {event['ref']}"
                 )
             seen.add(identity_key)
-            model_lane = event.get("model_lane")
+            materialized_record = materialized_records.get(identity_key)
+            selected_lane = (
+                materialized_record.get("model_lane")
+                if isinstance(materialized_record, Mapping)
+                else None
+            )
+            event_lane = event.get("model_lane")
+            evidence_source = event.get("model_evidence_source")
             activity = event.get("activity")
             if activity not in PUBLIC_ACTIVITIES:
                 raise ReceiptAccountingError(f"materialized event {event['ref']} lacks public activity")
-            if model_lane is not None:
-                if not _nonempty(model_lane) or event.get("model_evidence_source") not in {"native", "both"}:
+            if selected_lane is not None:
+                if not _nonempty(selected_lane):
                     raise ReceiptAccountingError(
-                        f"materialized event {event['ref']} lacks observed model evidence"
+                        f"materialized event {event['ref']} has invalid selected model lane"
                     )
+                if event_lane is not None and event_lane != selected_lane:
+                    raise ReceiptAccountingError(
+                        f"materialized event {event['ref']} conflicts with selected model lane"
+                    )
+                if evidence_source not in {None, "configured", "native", "both"}:
+                    raise ReceiptAccountingError(
+                        f"materialized event {event['ref']} has invalid model evidence source"
+                    )
+                model_lane = selected_lane
+            else:
+                model_lane = event_lane
+                if model_lane is not None:
+                    if (
+                        not _nonempty(model_lane)
+                        or evidence_source not in {"configured", "native", "both"}
+                    ):
+                        raise ReceiptAccountingError(
+                            f"materialized event {event['ref']} lacks observed model evidence"
+                        )
             key = (model_lane, activity)
             aggregate = dispatch_by_key.get(key)
             if aggregate is None:
@@ -1046,7 +1091,6 @@ def account_receipt(
                 focused_followups += 1
             if kind == "reviewer_attempt":
                 artifact_id = event.get("review_artifact_id")
-                materialized_record = materialized_records.get(identity_key)
                 if (
                     activity != "review"
                     or materialized_record is None

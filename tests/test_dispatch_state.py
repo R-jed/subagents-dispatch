@@ -107,9 +107,10 @@ def test_atomic_state_write_is_compact_private_and_bounded(tmp_path: Path):
     path = module.write_state(state, temp_root=tmp_path)
     assert path == module.state_path("thread-1", temp_root=tmp_path)
     assert module.load_state("thread-1", temp_root=tmp_path) == state
-    assert path.stat().st_mode & 0o777 == 0o600
-    assert path.parent.stat().st_mode & 0o777 == 0o700
-    assert path.parent.parent.stat().st_mode & 0o777 == 0o700
+    if os.name != "nt":
+        assert path.stat().st_mode & 0o777 == 0o600
+        assert path.parent.stat().st_mode & 0o777 == 0o700
+        assert path.parent.parent.stat().st_mode & 0o777 == 0o700
     assert not list(path.parent.glob(".active.*.tmp"))
 
     too_large = capsule(module, "thread-1")
@@ -122,7 +123,8 @@ def test_state_lock_is_exclusive_and_private(tmp_path: Path):
     module = load_module()
     with module.state_lock("thread-1", temp_root=tmp_path):
         lock_path = tmp_path / "subagents-dispatch" / "thread-1" / "active.lock"
-        assert lock_path.stat().st_mode & 0o777 == 0o600
+        if os.name != "nt":
+            assert lock_path.stat().st_mode & 0o777 == 0o600
         with pytest.raises(module.StateLockError, match="locked"):
             with module.state_lock("thread-1", temp_root=tmp_path, blocking=False):
                 pass
