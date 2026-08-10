@@ -115,6 +115,33 @@ def test_staged_mutation_is_bound_without_requiring_commit(tmp_path: Path):
     assert after != before
 
 
+@pytest.mark.parametrize(
+    ("flag", "expected_message"),
+    [
+        ("--assume-unchanged", "uses assume-unchanged"),
+        ("--skip-worktree", "uses skip-worktree"),
+    ],
+)
+def test_hidden_index_flags_cannot_mask_tracked_mutation(
+    tmp_path: Path,
+    flag: str,
+    expected_message: str,
+):
+    repo = init_repo(tmp_path)
+    clean = artifact_id(repo)
+
+    git(repo, "update-index", flag, "app.py")
+    (repo / "app.py").write_text("VALUE = 'hidden'\n", encoding="utf-8")
+
+    hidden = artifact(repo)
+    assert hidden.returncode != 0
+    assert expected_message in hidden.stderr
+
+    verified = artifact(repo, "--verify", clean)
+    assert verified.returncode != 0
+    assert expected_message in verified.stderr
+
+
 def test_untracked_deliverable_is_bound_and_content_changes_invalidate(tmp_path: Path):
     repo = init_repo(tmp_path)
     clean = artifact_id(repo)
@@ -212,6 +239,27 @@ def test_clean_submodule_is_bindable_but_dirty_or_mismatched_checkout_fails_clos
     mismatched = artifact(repo)
     assert mismatched.returncode != 0
     assert "submodule checkout does not match the indexed gitlink" in mismatched.stderr
+
+
+@pytest.mark.parametrize(
+    ("flag", "expected_message"),
+    [
+        ("--assume-unchanged", "uses assume-unchanged"),
+        ("--skip-worktree", "uses skip-worktree"),
+    ],
+)
+def test_submodule_hidden_index_flags_fail_closed(
+    tmp_path: Path,
+    flag: str,
+    expected_message: str,
+):
+    repo, submodule = init_repo_with_submodule(tmp_path)
+    git(submodule, "update-index", flag, "dep.txt")
+    (submodule / "dep.txt").write_text("VALUE = 'hidden'\n", encoding="utf-8")
+
+    hidden = artifact(repo)
+    assert hidden.returncode != 0
+    assert expected_message in hidden.stderr
 
 
 def test_unborn_repository_is_supported(tmp_path: Path):
