@@ -37,17 +37,20 @@ def followup_event():
     }
 
 
+def verification_gap_event(ref: str = "verification-gap:pagination-test"):
+    return {
+        "ref": ref,
+        "kind": "verification_gap",
+        "verification_artifact_id": "sha256:" + "a" * 64,
+        "oracle_ref": "pytest:tests/test_api.py::test_pagination",
+    }
+
+
 def test_main_verification_gap_can_bind_real_semantic_rework_without_review_round():
     module = load_module()
-    artifact_id = "sha256:" + "a" * 64
     events = [
         followup_event(),
-        {
-            "ref": "verification-gap:pagination-test",
-            "kind": "verification_gap",
-            "verification_artifact_id": artifact_id,
-            "oracle_ref": "pytest:tests/test_api.py::test_pagination",
-        },
+        verification_gap_event(),
         {
             "ref": "rework:U1:verification-1",
             "kind": "semantic_rework",
@@ -63,6 +66,28 @@ def test_main_verification_gap_can_bind_real_semantic_rework_without_review_roun
     assert summary["review"] == {"rounds": 0, "reworks": 1, "verdict": None}
     assert "验收: 未触发独立复核 · 返工1次" in module.format_receipt(summary, locale="zh")
     assert "Review: independent review not triggered · rework×1" in module.format_receipt(summary, locale="en")
+
+
+def test_repeated_verification_gap_observation_is_idempotent():
+    module = load_module()
+    gap = verification_gap_event()
+    events = [
+        followup_event(),
+        gap,
+        gap,
+        {
+            "ref": "rework:U1:verification-1",
+            "kind": "semantic_rework",
+            "unit_id": "U1",
+            "attempt": 1,
+            "agent_id": "agent-1",
+            "verification_gap_ref": gap["ref"],
+        },
+    ]
+
+    summary = module.account_receipt(events, materialized_units=[materialized_worker()])
+    assert summary["semantic_reworks"] == 1
+    assert summary["review"]["reworks"] == 1
 
 
 def test_verification_gap_requires_exact_artifact_and_oracle():
