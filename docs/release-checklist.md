@@ -155,12 +155,19 @@ no unrelated Codex state is modified
 
 Open one fresh Codex task/session and rerun the same request through Dispatch. Confirm the exact required custom Agent role is available before spawning.
 
-At minimum, prove real Host spawn for:
+For the v3 formal Host route gate, prove controlled real Host spawn for all five exact project roles:
 
 ```text
 subagents_dispatch_reader
 subagents_dispatch_worker
+subagents_dispatch_solver
+subagents_dispatch_investigator
+subagents_dispatch_advisor
 ```
+
+Use one bounded smoke child per role with `fork_turns = none`, no broader authority than the route check requires, and settle every child before returning. For each role, record configured route intent separately from Host-accepted identity and observed runtime evidence for model, reasoning effort, permission/sandbox, ancestry, and child identity when the supported Host exposes those facts.
+
+An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. Missing runtime evidence remains `UNKNOWN`; an observed mismatch is `FAIL`. Never copy configured values into observed columns.
 
 For each new project child, inspect the first actual `spawn_agent` call and confirm:
 
@@ -209,7 +216,7 @@ Codex App `/` menu does not expose all six namespaced Plugin Skills
 the App-visible entries are ambiguous with generic/unrelated skills
 an App entry selects the wrong Plugin/Skill
 fresh task cannot resolve the exact required custom Agent role
-Luna Reader or Worker cannot be spawned on the supported Host
+any of the five configured project roles cannot be spawned as its exact `agent_type` on the supported Host
 first-use stale task attempts a child spawn after provisioning
 normal project-child spawn uses fork_turns other than none or omits fork_turns
 pre-child spawn rejection is counted as an Agent retry or receipt retry
