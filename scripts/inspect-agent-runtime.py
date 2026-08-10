@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Extract allowlisted routing metadata from one exact Codex rollout.
+
+This helper is for explicit runtime attestation only. It never scans transcript content
+for task facts and never emits prompts, assistant output, tool payloads, reasoning, or
+source contents. The returned object is suitable for the `local` observation layer of
+`scripts/runtime-evidence.py`.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import sys
+from typing import Any, NoReturn
+from uuid import UUID
+
+
+TARGET_LINE = re.compile(r'"type"\s*:\s*"(?:session_meta|turn_context)"')
+
+
+def fail(message: str) -> NoReturn:
+    raise SystemExit(f"ERROR: {message}")
+
+
+def canonical_uuid(value: str, label: str) -> str:
+    raw = value.strip()
+    try:
+        parsed = UUID(raw)
+    except (ValueError, AttributeError) as exc:
+        fail(f"{label} must be a canonical UUID: {exc}")
+    canonical = str(parsed)
+    if raw != canonical:
+        fail(f"{label} must use canonical lowercase UUID form")
+    return canonical
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Extract allowlisted routing metadata from one exact Codex child rollout."
+    )
+    parser.add_argument("thread_id", help="Exact Codex child thread/session UUID.")
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument(
+        "--sessions-dir",
+        type=Path,
+        help="Explicit Codex sessions directory. Overrides CODEX_HOME discovery.",
+    )
+    source.add_argument(
+        "--codex-home",
+        type=Path,
+        help="Codex home containing sessions/ (default: $CODEX_HOME or ~/.codex).",
+    )
+    parser.add_argument(
+        "--expected-parent-thread-id",
+        help="Optional exact parent/root thread UUID to bind the observation.",
+    )
+    parser.add_argument(
+        "--expected-agent-role",
+        help="Optional exact managed agent_type to bind the observation.",
+    )
+    return parser.parse_args()
+
+
+def resolve_sessions_dir(args: argparse.Namespace) -> Path:
+    if args.sessions_dir is not None:
+        root = args.sessions_dir.expanduser()
+    else:
+        codex_home = args.codex_home
+        if codex_home is None:
+            codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+        root = codex_home.expanduser() / "sessions"
+    if not root.is_absolute():
+        fail("sessions directory must be absolute")
+    if root.is_symlink():
+        fail("refusing symlinked sessions directory")
+    try:
+        resolved = root.resolve(strict=True)
+    except OSError as exc:
+        fail(f"sessions directory is unavailable: {exc}")
+    if not resolved.is_dir():
+        fail("sessions path is not a directory")
+    return resolved
+
+
+def find_exact_rollout(sessions_dir: Path, thread_id: str) -> Path:
+    suffix = f"-{thread_id}.jsonl"
+    matches: list[Path] = []
+    for current, dirnames, filenames in os.walk(sessions_dir, followlinks=False):
+        current_path = Path(current)
+        dirnames[:] = [
+            name for name in dirnames if not (current_path / name).is_symlink()
+        ]
+        for name in filenames:
+            if not name.startswith("rollout-") or not name.endswith(suffix):
+                continue
+            candidate = current_path / name
+            if candidate.is_symlink():
+                fail("refusing symlinked rollout file")
+            try:
+                resolved = candidate.resolve(strict=True)
+            except OSError as exc:
+                fail(f"matched rollout is unavailable: {exc}")
+            try:
+                resolved.relative_to(sessions_dir)
+            except ValueError:
+                fail("matched rollout escapes the sessions directory")
+            if not resolved.is_file():
+                fail("matched rollout is not a regular file")
+            matches.append(resolved)
+    if not matches:
+        fail("no rollout filename matched the requested thread id")
+    if len(matches) != 1:
+        fail("multiple rollout filenames matched the requested thread id")
+    return matches[0]
+
+
+def payload_object(record: dict[str, Any], line_number: int) -> dict[str, Any]:
+    payload = record.get("payload")
+    if not isinstance(payload, dict):
+        fail(f"target rollout record at line {line_number} has no object payload")
+    return payload
+
+
+def optional_text(value: Any) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def nested_type(value: Any) -> str | None:
+    if isinstance(value, dict):
+        return optional_text(value.get("type"))
+    if isinstance(value, str):
+        return optional_text(value)
+    return None
+
+
+def stable_field(values: list[str | None], label: str) -> str | None:
+    non_null = [value for value in values if value is not None]
+    if len(set(non_null)) > 1:
+        fail(f"conflicting {label} values across turn_context records")
+    if not values or len(non_null) != len(values):
+        return None
+    return non_null[0] if non_null else None
+
+
+def inspect_rollout(
+    path: Path,
+    *,
+    thread_id: str,
+    expected_parent_thread_id: str | None,
+    expected_agent_role: str | None,
+) -> dict[str, str | None]:
+    session_meta: list[dict[str, Any]] = []
+    turn_contexts: list[dict[str, Any]] = []
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if not TARGET_LINE.search(line):
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    fail(f"invalid target rollout JSON at line {line_number}: {exc}")
+                if not isinstance(record, dict):
+                    fail(f"target rollout record at line {line_number} is not an object")
+                record_type = record.get("type")
+                if record_type == "session_meta":
+                    session_meta.append(payload_object(record, line_number))
+                elif record_type == "turn_context":
+                    turn_contexts.append(payload_object(record, line_number))
+    except (OSError, UnicodeError) as exc:
+        fail(f"could not read matched rollout: {exc}")
+
+    if len(session_meta) != 1:
+        fail("rollout must contain exactly one session_meta record")
+    if not turn_contexts:
+        fail("rollout contains no turn_context records")
+
+    session = session_meta[0]
+    observed_thread = optional_text(session.get("id"))
+    if observed_thread is None:
+        fail("session_meta does not expose thread id")
+    try:
+        observed_thread = canonical_uuid(observed_thread, "session_meta.id")
+    except SystemExit:
+        raise
+    if observed_thread != thread_id:
+        fail("session_meta does not identify the requested thread")
+
+    session_id = optional_text(session.get("session_id"))
+    if session_id is not None:
+        session_id = canonical_uuid(session_id, "session_meta.session_id")
+        if session_id != thread_id:
+            fail("session_meta session_id conflicts with requested thread")
+
+    parent = optional_text(session.get("parent_thread_id"))
+    if parent is not None:
+        parent = canonical_uuid(parent, "session_meta.parent_thread_id")
+    if expected_parent_thread_id is not None and parent != expected_parent_thread_id:
+        fail("session_meta parent_thread_id does not match the expected parent")
+
+    agent_role = optional_text(session.get("agent_role"))
+    if expected_agent_role is not None and agent_role != expected_agent_role:
+        fail("session_meta agent_role does not match the expected managed role")
+
+    models = [optional_text(item.get("model")) for item in turn_contexts]
+    efforts = [optional_text(item.get("effort")) for item in turn_contexts]
+    sandboxes = [nested_type(item.get("sandbox_policy")) for item in turn_contexts]
+    permission_profiles = [nested_type(item.get("permission_profile")) for item in turn_contexts]
+
+    result: dict[str, str | None] = {
+        "thread_id": thread_id,
+        "parent_thread_id": parent,
+        "agent_role": agent_role,
+        "model": stable_field(models, "model"),
+        "effort": stable_field(efforts, "effort"),
+        "sandbox_policy_type": stable_field(sandboxes, "sandbox policy"),
+        "permission_profile_type": stable_field(
+            permission_profiles, "permission profile"
+        ),
+        "runtime_version": optional_text(session.get("cli_version")),
+    }
+    return result
+
+
+def main() -> None:
+    args = parse_args()
+    thread_id = canonical_uuid(args.thread_id, "thread_id")
+    expected_parent = (
+        canonical_uuid(args.expected_parent_thread_id, "expected parent thread id")
+        if args.expected_parent_thread_id
+        else None
+    )
+    expected_role = optional_text(args.expected_agent_role)
+    if args.expected_agent_role is not None and expected_role is None:
+        fail("expected agent role must be a non-empty string")
+
+    sessions_dir = resolve_sessions_dir(args)
+    rollout = find_exact_rollout(sessions_dir, thread_id)
+    result = inspect_rollout(
+        rollout,
+        thread_id=thread_id,
+        expected_parent_thread_id=expected_parent,
+        expected_agent_role=expected_role,
+    )
+    json.dump(result, sys.stdout, sort_keys=True, separators=(",", ":"))
+    sys.stdout.write("\n")
+
+
+if __name__ == "__main__":
+    main()
