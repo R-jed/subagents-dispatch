@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-08-08
+Last updated: 2026-08-11
 
 subagents-dispatch is a local Codex plugin built around Skills. It also ships local helper scripts and managed custom-Agent templates used by those Skills. The project does not operate a developer-controlled server, analytics service, account system, advertising system, or telemetry endpoint.
 
@@ -28,6 +28,14 @@ The capsule is scoped to one root thread and is private to the local user. It st
 
 Normal terminal completion removes the thread capsule. A capsule older than seven days is considered stale. Doctor reports stale, corrupt, ambiguous, or unresolved-writer state without deleting it; an explicit cleanup action may remove only state proven safe to discard, while unresolved active writers are retained.
 
+## Local runtime attestation
+
+Normal Dispatch, Preview, Status, Steer, Takeover, and static Doctor operation do not inspect Codex session rollouts. When the user explicitly requests live route verification, Doctor may use the bundled runtime inspector if the Host's public metadata does not expose all required route facts.
+
+That helper searches the local Codex sessions directory for the one rollout whose filename matches the exact requested child thread UUID. It reads that rollout locally and parses only `session_meta` and `turn_context` records needed to establish child identity, ancestry, model, reasoning effort, sandbox/permission metadata, and runtime version. It does not scan transcript records for task facts and does not emit prompts, assistant output, tool payloads, reasoning, source contents, or the rollout path.
+
+The inspector returns only the allowlisted routing/identity metadata to the local Doctor/runtime-evidence workflow. It does not upload the rollout, extracted metadata, or session content to the project maintainer, and subagents-dispatch does not retain a separate rollout copy or transcript archive.
+
 ## Recipients
 
 The project maintainer does not receive user data through the plugin. Data may be processed by OpenAI Codex or user-enabled tools only as part of the capabilities the user chooses to run and according to those services' own settings and policies.
@@ -36,9 +44,11 @@ The project maintainer does not receive user data through the plugin. Data may b
 
 The project retains no user data collected through the plugin. Managed local configuration remains on the user's device until it is updated or removed by the user or by an authorized plugin lifecycle action. Temporary dispatch state is removed on normal terminal completion; stale terminal state is eligible for explicit cleanup after seven days, while unresolved writer state is preserved for review.
 
+The explicit runtime-attestation helper does not create or retain a project-owned copy of a Codex rollout. Any source rollout remains part of the user's local Codex session data and follows the retention behavior of Codex itself.
+
 ## User controls
 
-Users can disable or uninstall subagents-dispatch and remove the plugin's managed local configuration. Repair, migration, upgrade, broader configuration changes, and resolution of conflicting or unowned state remain explicit user-controlled actions. Because the project does not operate a user account or remote data store, there is no project-held personal data account to delete.
+Users can disable or uninstall subagents-dispatch and remove the plugin's managed local configuration. Repair, migration, upgrade, broader configuration changes, and resolution of conflicting or unowned state remain explicit user-controlled actions. Live route verification is also explicit; ordinary plugin use does not require local rollout inspection. Because the project does not operate a user account or remote data store, there is no project-held personal data account to delete.
 
 ## Security and privacy reports
 
