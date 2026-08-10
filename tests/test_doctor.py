@@ -73,14 +73,17 @@ def test_doctor_reports_exact_six_layers_and_unobserved_runtime_is_not_unhealthy
     assert "Layer: Runtime route evidence: UNKNOWN" in output
     assert "not run" in output
 
+    temp_root = tmp_path / "temp"
+    temp_root.mkdir()
     json_result = run_doctor(
         home,
         "--check",
         "--json",
         "--temp-root",
-        str(tmp_path / "temp"),
+        str(temp_root),
         env={"CODEX_THREAD_ID": "doctor-test"},
     )
+    assert json_result.returncode == 0, json_result.stdout + json_result.stderr
     report = json.loads(json_result.stdout)
     profiles = next(layer for layer in report["layers"] if layer["name"] == "Managed Agent profiles")
     state = next(layer for layer in report["layers"] if layer["name"] == "Dispatch state")
@@ -209,12 +212,13 @@ def test_doctor_without_thread_id_does_not_create_dispatch_state(tmp_path: Path)
     home = tmp_path / "codex-home"
     install(home)
     temp_root = tmp_path / "temp"
+    temp_root.mkdir()
     result = run_doctor(home, "--check", "--temp-root", str(temp_root), env={"CODEX_THREAD_ID": ""})
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Layer: Dispatch state: UNKNOWN" in result.stdout
     assert "CODEX_THREAD_ID" in result.stdout
-    assert not temp_root.exists()
+    assert not (temp_root / "subagents-dispatch").exists()
 
 
 def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: Path):
