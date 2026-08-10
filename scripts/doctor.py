@@ -449,7 +449,7 @@ def _runtime_status(result: dict[str, Any]) -> tuple[str, str]:
         return "FAIL", "runtime route evidence conflicts with the requested or accepted route"
     route = result.get("route_evidence", {})
     source = route.get("source") if isinstance(route, dict) else None
-    if status in {"observed", "matched"} and source in {"native", "both"}:
+    if status in {"observed", "matched"} and source in {"native", "local", "both"}:
         return "OK", "observed runtime route evidence is consistent"
     if status in {"observed", "matched", "partial", "not_exposed", "not_observed"}:
         return "UNKNOWN", "configured/requested values are not observed runtime proof; observed runtime route was not reported"
