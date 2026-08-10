@@ -129,7 +129,8 @@ Use distinct stable refs for distinct accounting facts:
 materialized attempt    -> Dispatch pass
 focused follow-up       -> Dispatch pass + focused-follow-up fact
 replacement retry       -> Recovery retry; its new attempt ref reports the pass
-semantic rework         -> Review rework only when a correction pass actually begins
+verification gap        -> Main acceptance evidence; no Dispatch pass or Review round by itself
+semantic rework         -> Review-axis rework only when a correction pass actually begins from one bound gap
 reviewer attempt        -> Dispatch pass, even if no verdict is produced
 review round            -> Review round only after an actual verdict
 explicit control        -> Control use
@@ -159,7 +160,7 @@ A control action does not create a delegated work pass by itself.
 
 ## Review axis
 
-The Review axis reports the independent Final Review loop only. It does not claim that the overall user task is complete.
+The Review axis reports the quality loop: independent Final Review rounds plus evidence-bound semantic rework. A rework count does not imply that independent Final Review ran, and this axis does not claim that the overall user task is complete.
 
 A review round exists only when a materialized fresh independent Advisor produces an actual verdict against the exact candidate. Both the reviewer-attempt and round events bind the same reviewer `unit_id`, `attempt`, `agent_id`, and candidate `review_artifact_id`; one reviewer attempt and one artifact identity can each contribute at most one round.
 
@@ -187,6 +188,13 @@ Review: 2 rounds · rework×1 · passed
 
 A reviewer attempt that crashes before producing a verdict contributes to Dispatch as a materialized Agent pass but does not increment the Review round count.
 
+When Main deterministic verification finds the gap and no independent Final Review ran, keep that distinction visible:
+
+```text
+验收: 未触发独立复核 · 返工1次
+Review: independent review not triggered · rework×1
+```
+
 ## Rework versus retry
 
 Rework and retry are different axes.
@@ -199,7 +207,11 @@ a candidate or complete delegated result exists
 -> a correction pass actually begins
 ```
 
-The rework event binds that materialized focused follow-up and the `review_artifact_id` of the review round that reported the concrete gap. An unbound claim is not a rework.
+A review-driven rework binds that materialized focused follow-up and the `review_artifact_id` of the review round that reported the concrete gap.
+
+A Main-verification-driven rework first records a typed `verification_gap` event with a stable ref, the exact candidate `verification_artifact_id` (`sha256:<64 hex>`), and a non-empty deterministic `oracle_ref` identifying the acceptance check that exposed the gap. The `semantic_rework` event then binds the same materialized focused follow-up to that `verification_gap_ref`. Raw test output is not persisted in the receipt event.
+
+A semantic rework must bind exactly one gap source: independent Review or Main verification. A caller-supplied rework count, free-form `rebind` label, or correction with no evidence-bound gap is not a rework.
 
 Runtime failure, timeout, tool failure, or a replacement Agent attempt is not rework.
 

@@ -1021,6 +1021,7 @@ RECEIPT_EVENT_KINDS = {
     "attempt",
     "followup",
     "retry",
+    "verification_gap",
     "semantic_rework",
     "reviewer_attempt",
     "review_round",
@@ -1120,6 +1121,14 @@ def account_receipt(
         for event in unique
         if event["kind"] == "review_round"
         and event.get("verdict") in {"rework_required", "redesign_required"}
+    }
+    verification_gaps = {
+        event.get("ref"): {
+            "verification_artifact_id": event.get("verification_artifact_id"),
+            "oracle_ref": event.get("oracle_ref"),
+        }
+        for event in unique
+        if event["kind"] == "verification_gap"
     }
     attempt_keys: set[tuple[str, int, str]] = set()
     followup_keys: set[tuple[str, int, str]] = set()
@@ -1232,12 +1241,32 @@ def account_receipt(
                 raise ReceiptAccountingError(f"duplicate retry for event {event['ref']}")
             retry_keys.add(retry_key)
             retries += 1
+        elif kind == "verification_gap":
+            artifact_id = event.get("verification_artifact_id")
+            oracle_ref = event.get("oracle_ref")
+            if (
+                not isinstance(artifact_id, str)
+                or REVIEW_ARTIFACT_PATTERN.fullmatch(artifact_id) is None
+                or not _nonempty(oracle_ref)
+            ):
+                raise ReceiptAccountingError(
+                    f"verification gap {event['ref']} requires an exact candidate artifact and oracle_ref"
+                )
         elif kind == "semantic_rework":
             correction_key = (event.get("unit_id"), event.get("attempt"), event.get("agent_id"))
-            artifact_id = event.get("review_artifact_id")
-            if correction_key not in followup_event_keys or artifact_id not in gap_review_artifacts:
+            review_artifact_id = event.get("review_artifact_id")
+            verification_gap_ref = event.get("verification_gap_ref")
+            review_bound = (
+                isinstance(review_artifact_id, str)
+                and review_artifact_id in gap_review_artifacts
+            )
+            verification_bound = (
+                isinstance(verification_gap_ref, str)
+                and verification_gap_ref in verification_gaps
+            )
+            if correction_key not in followup_event_keys or review_bound == verification_bound:
                 raise ReceiptAccountingError(
-                    f"rework event {event['ref']} requires a materialized correction and bound review gap"
+                    f"rework event {event['ref']} requires a materialized correction and exactly one bound review or verification gap"
                 )
             if correction_key in rework_keys:
                 raise ReceiptAccountingError(f"duplicate rework for event {event['ref']}")
@@ -1377,7 +1406,14 @@ def format_receipt(summary: Mapping[str, Any], *, locale: str) -> str:
     review = summary["review"]
     rounds = review["rounds"]
     if rounds == 0:
-        lines.append("验收: 未触发" if locale == "zh" else "Review: not triggered")
+        if review["reworks"]:
+            lines.append(
+                f"验收: 未触发独立复核 · 返工{review['reworks']}次"
+                if locale == "zh"
+                else f"Review: independent review not triggered · rework×{review['reworks']}"
+            )
+        else:
+            lines.append("验收: 未触发" if locale == "zh" else "Review: not triggered")
     elif locale == "zh":
         parts = [f"{rounds}轮"]
         if review["reworks"]:
