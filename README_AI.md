@@ -85,12 +85,15 @@ scripts/runtime-evidence.py
 scripts/review-artifact.py
 -> exact-candidate Git review binding
 
+scripts/dispatch_state.py
+-> compact thread-scoped state, reconciliation, control targeting, and receipt accounting primitives
+
 scripts/doctor.py
 -> deterministic installation diagnostics
 ```
 
 For install, first-run provisioning, update, or uninstall commands, read `docs/plugin-installation.md`. For architecture, read `docs/repository-architecture.md`. For evaluation boundaries, read `evals/README.md`.
 
-For release evidence, read `docs/release-checklist.md`: repository gates are deterministic, App labels require direct human observation, and Codex Host route/control evidence remains pending until a real supported Host run. During the single-maintainer phase, validated changes may update `main` directly; a pull request is optional, not a hidden requirement.
+For release evidence, read `docs/release-checklist.md`: repository gates are deterministic, App labels require direct human observation, and Codex Host route/control evidence remains pending until a real supported Host run proves it. During the single-maintainer phase, implement non-trivial changes on a short-lived feature branch, run full local validation and adversarial review there, repair and revalidate on the same branch, then merge directly to `main` and use the `main` push GitHub Actions run as cross-platform confirmation. A pull request is optional, not a hidden requirement.
 
-Do not upgrade configured route intent into observed runtime truth. Do not claim benchmark gains, public availability, token/cost attribution, or App UI behavior without current evidence.
+Do not upgrade configured or selected route intent into observed runtime truth. An ordinary Dispatch Receipt may show the selected project lane for materialized work; explicit live-route proof still requires supported Host evidence. Do not claim benchmark gains, public availability, token/cost attribution, or App UI behavior without current evidence.

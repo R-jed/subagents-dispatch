@@ -84,6 +84,17 @@ def test_ci_and_release_docs_keep_host_app_evidence_pending_and_local_gates_dete
     assert "OPENAI_CODEX_PLUGIN_VALIDATOR_REF" in workflow
     for phrase in ["python -m ruff check", "python -m pytest -q", "install-agents.py --codex-home", "doctor.py --codex-home"]:
         assert phrase in workflow or phrase in release
-    assert "directly on `main`" in release
-    assert "App labels require direct human observation" in (ROOT / "README_AI.md").read_text(encoding="utf-8")
-    assert "Host route/control evidence remains pending" in (ROOT / "README_AI.md").read_text(encoding="utf-8")
+    for phrase in [
+        "short-lived feature branch",
+        "adversarial/deep review",
+        "direct merge to main",
+        "GitHub Actions cross-platform confirmation",
+        "A pull request is optional",
+        "all six Plugin Skills",
+    ]:
+        assert phrase in release
+    assert "A green branch run does not replace the pull-request merge-result run" not in release
+    ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
+    assert "App labels require direct human observation" in ai_reference
+    assert "Host route/control evidence remains pending" in ai_reference
+    assert "short-lived feature branch" in ai_reference

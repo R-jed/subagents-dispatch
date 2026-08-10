@@ -41,8 +41,8 @@ Model self-report
 The following App facts require direct human observation and cannot be delegated entirely to the Codex instance under test:
 
 ```text
-the two Plugin Skills are visible in the App `/` menu
-their exact user-visible names contain a product-specific prefix and are distinguishable from generic skills
+all six Plugin Skills are visible in the App `/` menu
+their exact user-visible names are namespaced and distinguishable from generic skills
 a generic conflicting entry such as an unrelated `doctor` is not mistaken for this Plugin's Doctor
 selecting each entry binds to the expected subagents-dispatch Plugin Skill
 the post-selection UI form is recorded, including whether the App shows a Skill chip, namespace, literal slash text, or another form
@@ -75,9 +75,20 @@ Doctor --check
 idempotent reinstall
 ```
 
-A green branch run does not replace the pull-request merge-result run. A green pull-request run does not replace the final `main` push run for the merged candidate.
+For the current single-maintainer phase, use this integration workflow:
 
-This project is maintained by one maintainer. A short-lived branch and pull request are optional; a validated change may be updated directly on `main` when repository governance permits it. In either path, run the same local gates before updating `main`.
+```text
+short-lived feature branch
+-> local full validation
+-> adversarial/deep review
+-> repair on the same branch
+-> local full revalidation
+-> direct merge to main
+-> push main
+-> GitHub Actions cross-platform confirmation
+```
+
+A pull request is optional. Do not invent a required PR merge-result gate when repository governance does not require one. Feature-branch CI is useful cross-platform evidence for the branch candidate; after direct integration, the final `main` push run confirms the merged candidate. GitHub Actions remains enabled even when it is not a pre-merge branch-protection requirement.
 
 Deterministic local gate:
 
@@ -91,9 +102,10 @@ python scripts/install-agents.py --codex-home "$tmp_home"
 python scripts/install-agents.py --codex-home "$tmp_home" --check
 python scripts/doctor.py --codex-home "$tmp_home" --check
 python scripts/install-agents.py --codex-home "$tmp_home"
+python scripts/install-agents.py --codex-home "$tmp_home" --check
 ```
 
-The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; run that exact pinned validator in the Ubuntu validation environment. Do not report App or Host smoke as passed until direct App observation and raw Host evidence are recorded.
+The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; run that exact pinned validator in the supported validation environment. Do not report App or Host smoke as passed until direct App observation and raw Host evidence are recorded.
 
 ## 3. Real Codex Host gates
 
@@ -160,7 +172,7 @@ fork_turns = none
 0 omitted-fork_turns project-child spawn calls
 ```
 
-A Host/tool rejection before any child identity is returned is a pre-attempt spawn rejection. It must not consume the two-attempt Agent recovery budget and must not increment the execution receipt retry count. If a corrected first valid child then succeeds, the receipt still reports `no retry` / `未重试` unless a materialized Agent attempt was actually retried.
+A Host/tool rejection before any child identity is returned is a pre-attempt spawn rejection. It must not consume the two-attempt Agent recovery budget and must not increment the Dispatch Receipt retry count. If a corrected first valid child then succeeds, the exceptional Recovery line remains absent because no materialized Agent attempt was retried.
 
 If configured/requested model information is available but observed runtime model identity is not, record the observation as unavailable rather than inferring it from TOML.
 
@@ -172,11 +184,11 @@ Run two genuinely independent read-only responsibilities. Confirm unit identity 
 
 Invoke Status through the human-verified App entry while a child is active. Confirm it is a one-shot observation and preserves `UNKNOWN` when the Host cannot establish state.
 
-Use the `steer <unit_id>: <guidance>` control payload and confirm steering keeps the same responsibility, attempt, role, and authority. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
+Use the Steer Skill with an exact unit id and guidance, then confirm steering keeps the same responsibility, attempt, role, authority, and native child. If the Host lacks live steering, report the limitation instead of simulating a replacement or retry.
 
 ### Takeover and writer safety
 
-While a writing child is active, invoke the `takeover <unit_id>` control payload. Main must remain read-only until Host evidence establishes that the old writer is stopped, terminal, or closed. `UNKNOWN` does not authorize a conflicting write.
+While a writing child is active, invoke the Takeover Skill for the exact unit. Main must remain read-only until Host evidence establishes that the old writer is stopped, terminal, or closed. `UNKNOWN` and `INTERRUPTED` do not authorize a conflicting write.
 
 ### Doctor safety
 
@@ -193,7 +205,7 @@ Run the documented uninstall flow and confirm unrelated Agent profiles and Codex
 Do not release if any of these are observed on the supported Host candidate:
 
 ```text
-Codex App `/` menu does not expose both prefixed Plugin Skills
+Codex App `/` menu does not expose all six namespaced Plugin Skills
 the App-visible entries are ambiguous with generic/unrelated skills
 an App entry selects the wrong Plugin/Skill
 fresh task cannot resolve the exact required custom Agent role
@@ -211,32 +223,25 @@ Keep Codex Host limitations separate from project defects in the validation repo
 
 ## 5. Repository governance before tagging
 
-Before the formal tag, verify repository settings outside the codebase:
+Before a formal tag, inspect current repository administration state directly rather than assuming policy from documentation. At minimum verify that unsafe history rewriting is prevented for `main` and record any active deletion protection, pull-request requirement, or required status checks exactly as they are configured at that time.
 
-```text
-main requires pull requests
-canonical policy-tests is a required check
-required branch is up to date before merge
-force pushes to main are disabled
-```
-
-These settings are repository administration state and cannot be proven by the project test suite alone.
+For the current single-maintainer workflow, PR and pre-merge status-check requirements are optional. Code must not silently change repository protection settings.
 
 ## 6. Tag, distribution smoke, and GitHub Release
 
 Only after the exact merged candidate passes repository, Host, human App UI, governance, and immutable Marketplace-source gates:
 
 1. confirm `main` still points to the validated candidate SHA;
-2. create the immutable semantic-version tag, for example `v2.1.2`, on that exact SHA;
+2. create the immutable semantic-version tag on that exact SHA;
 3. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
 4. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
 5. fully restart the Codex App when required for registry refresh;
-6. human-check the `/` menu again and confirm the same two prefixed Skill entries are present and select the expected tagged Plugin payload, recording the post-selection presentation rather than assuming a slash string;
+6. human-check the `/` menu again and confirm the same six namespaced Skill entries are present and select the expected tagged Plugin payload, recording the post-selection presentation rather than assuming a slash string;
 7. use raw Host/rollout evidence for any behavior gate that cannot be established from UI alone;
 8. only after that distribution smoke passes, create the GitHub Release from the tag using the matching Changelog entry;
 9. do not move or recreate the release tag if `main` advances later.
 
-The post-tag distribution smoke is intentionally narrow. It verifies immutable packaging/identity plus the human-visible App Skill entry and does not repeat the full Host behavior suite already completed on the exact candidate.
+The post-tag distribution smoke is intentionally narrow. It verifies immutable packaging/identity plus the human-visible App Skill entries and does not repeat the full Host behavior suite already completed on the exact candidate.
 
 ## 7. Public Plugin submission
 
