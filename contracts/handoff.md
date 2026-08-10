@@ -33,6 +33,7 @@ SOURCE UNITS
 ARTIFACT REFS
 ACCEPTED FACTS
 ACCEPTED EVIDENCE
+EVIDENCE ARTIFACT REF, when useful
 INTERFACES / INVARIANTS
 DO NOT REDO
 OPEN QUESTIONS
@@ -59,6 +60,16 @@ A child assertion is not an accepted fact merely because the child reported it c
 
 The evidence that supports the accepted facts, including relevant artifact state, test/build output, or other reproducible checks. Keep enough provenance that the next responsibility can distinguish established truth from an assumption.
 
+Keep this field compact. When the full accepted evidence would materially enlarge the capsule, use the Evidence Artifact owner in `evidence-artifact.md` and carry only the narrow facts plus `EVIDENCE ARTIFACT REF` here.
+
+### EVIDENCE ARTIFACT REF
+
+An optional reference to a Main-accepted Evidence Artifact. It is used when downstream work, independent review, runtime attestation, or evaluation may need the complete evidence provenance but should not receive that body inline.
+
+The ref does not make every artifact entry relevant to the next child. The downstream responsibility inspects only the referenced evidence needed for its own acceptance.
+
+Do not paste the Evidence Artifact body into the capsule.
+
 ### INTERFACES / INVARIANTS
 
 Stable boundaries the downstream responsibility must preserve.
@@ -77,7 +88,7 @@ Unresolved facts or decisions. These remain explicitly unresolved and must not b
 
 ### STALE IF
 
-Conditions that invalidate or weaken the capsule, such as mutation of named source files, a changed API/schema, a new commit, a failed verification, or a superseding TeamPlan revision.
+Conditions that invalidate or weaken the capsule, such as mutation of named source files, a changed API/schema, a new commit, a failed verification, a stale Evidence Artifact dependency, or a superseding TeamPlan revision.
 
 ## Main is the acceptance boundary
 
@@ -87,7 +98,8 @@ The safe flow is:
 child returns claim/evidence
 -> Main inspects actual artifact/evidence
 -> Main accepts supported facts
--> Main builds or updates the capsule
+-> Main builds or updates an Evidence Artifact when the full provenance should stay out of context
+-> Main builds or updates the compact capsule
 -> downstream responsibility receives the capsule
 ```
 
@@ -123,6 +135,8 @@ Before reusing evidence after relevant mutation, Main checks whether any `STALE 
 
 If downstream work mutates an artifact that supported the capsule, facts depending on the old artifact state lose their accepted status until reverified.
 
+An Evidence Artifact remains historical evidence for the exact subject it binds. If a referenced file, candidate, Host route, verification environment, or other declared dependency changes, the affected capsule fact is stale even if the artifact file itself still exists.
+
 ## Authority boundary
 
 A capsule cannot grant:
@@ -140,6 +154,8 @@ later-phase authorization
 
 Those remain owned by the normal responsibility packet, TeamPlan when active, Guardrails, and Main.
 
+An Evidence Artifact ref also cannot grant any of those capabilities.
+
 ## Compactness
 
 Prefer the smallest capsule that prevents meaningful duplicated discovery. Do not impose a fixed token target until behavioral evaluation establishes one.
@@ -153,10 +169,12 @@ Avoid:
 - generic project summaries;
 - speculative design narratives.
 
-If the capsule grows large enough to resemble a second context history, discard it and send a smaller evidence packet instead.
+If the capsule grows large enough to resemble a second context history, move complete inspectable provenance to an Evidence Artifact and send only the accepted facts/refs needed by the next responsibility.
 
 ## Relationship to return packets
 
 The normal child return packet remains authoritative for what that child claims and produced. A Handoff Capsule is created only from the subset that Main accepts and expects another responsibility to reuse.
+
+The child return may include an `evidence_artifact_ref` only when Main actually materialized/accepted that artifact. A child-created path or manifest-shaped claim is not automatically accepted evidence.
 
 This distinction prevents unverified Agent claims from becoming inherited task truth.
