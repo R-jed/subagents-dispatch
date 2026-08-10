@@ -35,3 +35,19 @@ def test_durable_docs_do_not_reintroduce_pre_root_move_plugin_paths():
         if stale in path.read_text(encoding="utf-8")
     ]
     assert offenders == [], f"root Plugin docs contain stale nested-plugin paths: {offenders}"
+
+
+def test_privacy_policy_discloses_explicit_local_rollout_attestation_boundary():
+    text = (ROOT / "PRIVACY.md").read_text(encoding="utf-8")
+    for phrase in [
+        "## Local runtime attestation",
+        "explicitly requests live route verification",
+        "exact requested child thread UUID",
+        "session_meta",
+        "turn_context",
+        "does not scan transcript records for task facts",
+        "does not emit prompts, assistant output, tool payloads, reasoning, source contents, or the rollout path",
+        "does not upload the rollout, extracted metadata, or session content to the project maintainer",
+        "ordinary plugin use does not require local rollout inspection",
+    ]:
+        assert phrase in text
