@@ -69,6 +69,12 @@ def legacy_manifest_status(path: Path) -> tuple[str, LegacyManifest | None]:
         for key, value in hashes.items()
     ):
         return "invalid", None
+    if set(hashes) - set(LEGACY_PROFILE_FILES):
+        # Automatic cleanup understands only the fixed legacy profile set. An
+        # unknown ownership entry may describe a managed file this generation
+        # cannot safely snapshot/remove/restore, so preserve the manifest and
+        # require explicit review instead of discarding ownership evidence.
+        return "invalid", None
     return "valid", LegacyManifest(1, LEGACY_MANAGED_BY, dict(hashes))
 
 
