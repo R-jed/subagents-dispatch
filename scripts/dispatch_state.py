@@ -721,10 +721,16 @@ def reconcile_state(
             record["agent_id"] = agent_id
             record["control_state"] = mapped
             record["quarantine_reason"] = None
-            record["failure_origin"] = (
-                child.get("failure_origin", "tool_failure") if mapped == "FAILED" else "none"
-            )
-            if mapped != "FAILED":
+            if mapped == "FAILED":
+                failure_origin = child.get("failure_origin", "tool_failure")
+                record["failure_origin"] = (
+                    failure_origin
+                    if failure_origin in FAILURE_ORIGINS - {"none", "runtime_ambiguous"}
+                    else "tool_failure"
+                )
+                record["blocker"] = "none"
+            else:
+                record["failure_origin"] = "none"
                 record["blocker"] = "none"
             changed = changed or record != before
     if changed:
@@ -914,8 +920,11 @@ def remove_state(
     temp_root: str | os.PathLike[str] | None = None,
 ) -> bool:
     identity = resolve_thread_id(thread_id)
+    _, _, existing_path, _ = _paths(identity, temp_root, create=False)
+    if not existing_path.exists():
+        return False
     with state_lock(identity, temp_root=temp_root):
-        _, _, path, _ = _paths(identity, temp_root, create=True)
+        _, _, path, _ = _paths(identity, temp_root, create=False)
         if not path.exists():
             return False
         payload = load_state(identity, temp_root=temp_root)
