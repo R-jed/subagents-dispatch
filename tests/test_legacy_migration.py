@@ -188,6 +188,30 @@ def test_unowned_legacy_profile_is_preserved_with_manifest_evidence(tmp_path: Pa
     assert "current_with_preserved_legacy" in doctor.stdout
 
 
+def test_unknown_legacy_manifest_profile_blocks_migration_and_preserves_evidence(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    create_legacy_installation(home)
+    unknown_name = "codex-delegate-specialist.toml"
+    unknown_path = home / "agents" / unknown_name
+    unknown_bytes = b'name = "codex_delegate_specialist"\nmodel = "legacy"\n'
+    unknown_path.write_bytes(unknown_bytes)
+    manifest_path = home / LEGACY_MANIFEST
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["profile_hashes"][unknown_name] = sha(unknown_bytes)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    before = state(home)
+
+    result = run_installer(home, "--migrate-legacy")
+
+    assert result.returncode != 0
+    assert "ownership metadata is missing, invalid, or unsafe" in (result.stdout + result.stderr)
+    assert state(home) == before
+    doctor = run_doctor(home, "--legacy")
+    assert doctor.returncode == 0
+    assert "legacy_ownership_unknown" in doctor.stdout
+    assert "Automatic migration is blocked" in doctor.stdout
+
+
 def test_preserved_legacy_reserved_role_collision_fails_before_cleanup(tmp_path: Path):
     home = tmp_path / "codex-home"
     create_legacy_installation(home)
