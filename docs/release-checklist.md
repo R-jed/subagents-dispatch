@@ -33,15 +33,16 @@ Public Host runtime evidence
 Exact Host-produced rollout evidence
 -> allowlisted child route/identity/permission metadata from scripts/inspect-agent-runtime.py
 
-Raw Host lifecycle evidence
--> spawn_agent arguments, child identity, lifecycle events, retry accounting, implicit activation
+Raw Host/rollout evidence
+-> public runtime metadata, exact inspected rollout metadata, spawn_agent arguments, child identity,
+   lifecycle events, retry accounting, and implicit activation as applicable to the gate
 
 Direct human Codex App observation
 -> what appears in the `/` Skill menu, exact rendered entry names, visible namespace/prefix,
    duplicate/conflicting entries, post-selection presentation, and which Plugin/Skill is actually selected
 
 Model self-report
--> explanatory only; it cannot close a Host/UI or runtime-route gate about the model's own registration, selection, model, or reasoning effort
+-> explanatory only; it cannot by itself close a Host/UI gate or a runtime-route gate about the model's own registration, selection, model, or reasoning effort
 ```
 
 For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the `local` runtime-evidence source. Configured profile values, accepted role values, manually copied JSON, and child prose cannot be substituted for Observed fields. Public and exact-rollout evidence must agree wherever both expose the same field.
@@ -185,7 +186,7 @@ python scripts/inspect-agent-runtime.py <child-thread-id> \
 
 Put public Host runtime fields in `native`, put only the inspector's allowlisted object in `local`, set `runtime_observation_required=true` and `requires_permission_observation=true`, and normalize through `scripts/runtime-evidence.py`. Record the source for every Observed field as `native`, `local`, or `both`.
 
-An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence remains `UNKNOWN`; an observed mismatch or source conflict is `FAIL`. Never copy configured values, accepted values, or child self-report into observed columns.
+An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence remains `UNKNOWN`; an observed mismatch is `FAIL`; a public/local runtime source conflict is also `FAIL`. Never copy configured values, accepted values, or child self-report into observed columns.
 
 For each new project child, inspect the first actual `spawn_agent` call and confirm:
 
