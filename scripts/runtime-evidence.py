@@ -7,7 +7,9 @@ when the observed main route meets the policy reference. Child evidence verifies
 route, ancestry, and permission claims only when those facts are material.
 
 Route truth is kept in three layers when the host exposes them: requested, accepted,
-and observed. Platform acceptance never counts as observed runtime proof.
+and observed. Platform acceptance never counts as observed runtime proof. For child
+attestation, observed runtime truth may come from public native metadata, an exact
+Host-produced local rollout record, or both; those sources must agree where they overlap.
 """
 
 from __future__ import annotations
@@ -277,6 +279,84 @@ def observed_layer(
     )
 
 
+def runtime_observed_layer(
+    native: dict[str, str | None] | None,
+    local: dict[str, str | None] | None,
+    fields: tuple[str, ...],
+    violations: list[str],
+) -> dict[str, Any]:
+    conflict_fields = {
+        field
+        for field in fields
+        if any(
+            item in {
+                f"native:{field}_mismatch",
+                f"local:{field}_mismatch",
+                f"accepted_observed_conflict:{field}",
+                f"source_conflict:{field}",
+            }
+            for item in violations
+        )
+    }
+    values: dict[str, str] = {}
+    sources: dict[str, str] = {}
+    for field in fields:
+        if field in conflict_fields:
+            continue
+        native_value = native.get(field) if native is not None else None
+        local_value = local.get(field) if local is not None else None
+        if native_value is not None:
+            values[field] = native_value
+            sources[field] = "both" if local_value is not None else "native"
+        elif local_value is not None:
+            values[field] = local_value
+            sources[field] = "local"
+
+    if conflict_fields:
+        status = "conflict"
+    elif not values:
+        status = "not_observed"
+    elif all(field in values for field in fields):
+        status = "matched"
+    else:
+        status = "partial"
+    result: dict[str, Any] = {
+        "status": status,
+        "fields": values,
+        "source_by_field": sources,
+    }
+    if conflict_fields:
+        result["conflict_fields"] = sorted(conflict_fields)
+    return result
+
+
+def runtime_fields_complete(
+    native: dict[str, str | None] | None,
+    local: dict[str, str | None] | None,
+    fields: tuple[str, ...],
+    violations: list[str],
+) -> bool:
+    for field in fields:
+        if any(
+            item in {
+                f"native:{field}_mismatch",
+                f"local:{field}_mismatch",
+                f"accepted_observed_conflict:{field}",
+                f"source_conflict:{field}",
+            }
+            for item in violations
+        ):
+            return False
+        if not (
+            native is not None
+            and native.get(field) is not None
+            or local is not None
+            and local.get(field) is not None
+        ):
+            return False
+    return True
+
+
 def model_matches(model: str) -> bool:
     normalized = model.lower()
     if normalized in REFERENCE_MODEL_ALIASES:
@@ -448,16 +528,18 @@ def permission_result(
         }, permission_required
 
     native_sandbox = native.get("sandbox_policy_type") if native is not None else None
-    if native_sandbox is None:
+    local_sandbox = local.get("sandbox_policy_type") if local is not None else None
+    if native_sandbox is None and local_sandbox is None:
         if permission_required:
             return {**base, "status": "not_observed", "source": "none"}, permission_required
         return {**base, "status": "not_required", "source": "none"}, permission_required
 
+    observed_sandbox = native_sandbox if native_sandbox is not None else local_sandbox
     return {
         **base,
         "status": "matched",
-        "source": "native",
-        "observed_sandbox": native_sandbox,
+        "source": evidence_source(native_sandbox is not None, local_sandbox is not None),
+        "observed_sandbox": observed_sandbox,
     }, permission_required
 
 
@@ -479,20 +561,28 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         violations.extend(compare_expected(expected, local, "local"))
     violations.extend(source_conflicts(native, local, OBSERVED_FIELDS))
     violations.extend(layer_conflicts(accepted, native, OBSERVED_FIELDS))
+    violations.extend(layer_conflicts(accepted, local, OBSERVED_FIELDS))
 
     native_complete = route_complete(native, "native", violations)
     local_complete = route_complete(local, "local", violations)
     runtime_required = expected.get("runtime_observation_required", False)
-    required_native_fields = CHILD_ROUTE_FIELDS + tuple(
+    required_runtime_fields = CHILD_ROUTE_FIELDS + tuple(
         field for field in IDENTITY_FIELDS if text(expected.get(field)) is not None
     )
-    native_required_complete = native is not None and all(
-        native.get(field) is not None for field in required_native_fields
-    ) and not any(
-        f"native:{field}_mismatch" in violations for field in required_native_fields
+    runtime_required_complete = runtime_fields_complete(
+        native,
+        local,
+        required_runtime_fields,
+        violations,
     )
 
     native_fields, local_fields = seen(native, CHILD_ROUTE_FIELDS), seen(local, CHILD_ROUTE_FIELDS)
+    route_complete_observed = runtime_fields_complete(
+        native,
+        local,
+        CHILD_ROUTE_FIELDS,
+        violations,
+    )
     route_conflict = any(
         item == f"source_conflict:{field}" for item in violations for field in CHILD_ROUTE_FIELDS
     ) or any(
@@ -508,14 +598,14 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         "conflict"
         if route_conflict
         else "matched"
-        if native_complete or local_complete
+        if route_complete_observed
         else "partial"
         if native_fields or local_fields
         else "not_observed"
     )
     route = {
         "status": route_status,
-        "source": evidence_source(native_complete, local_complete),
+        "source": evidence_source(bool(native_fields), bool(local_fields)),
         "observed_fields": sorted(set(native_fields + local_fields)),
         "native_observed_fields": native_fields,
         "local_observed_fields": local_fields,
@@ -569,9 +659,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         status, decision = "mismatch", "quarantine"
     elif permission_required and permission["status"] == "not_observed":
         status, decision = "not_exposed", "return_to_main_session"
-    elif runtime_required and not native_required_complete:
+    elif runtime_required and not runtime_required_complete:
         status, decision = "not_exposed", "return_to_main_session"
-    elif not native_complete and not local_complete:
+    elif not route_complete_observed:
         status, decision = "not_exposed", "continue_configuration_only"
     else:
         status, decision = "matched", "continue"
@@ -585,6 +675,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         if overlap:
             source_agreement = not any(item.startswith("source_conflict:") for item in violations)
 
+    native_attested = route_complete_observed and bool(native_fields)
+    local_attested = route_complete_observed and bool(local_fields)
+
     def tri(value: str, failed: set[str]) -> bool | None:
         if value == "matched":
             return True
@@ -596,11 +689,16 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         "subject": "child",
         "status": status,
         "decision": decision,
-        "evidence_grade": grade(native_complete, local_complete, conflict),
+        "evidence_grade": grade(native_attested, local_attested, conflict),
         "truth_layers": {
             "requested": requested_layer(expected, CHILD_ROUTE_FIELDS),
             "accepted": accepted_layer(accepted, CHILD_ROUTE_FIELDS, violations),
-            "observed": observed_layer(native, CHILD_ROUTE_FIELDS, violations),
+            "observed": runtime_observed_layer(
+                native,
+                local,
+                CHILD_ROUTE_FIELDS,
+                violations,
+            ),
         },
         "route_evidence": route,
         "ancestry_evidence": ancestry,
@@ -608,6 +706,7 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         "configuration_match": tri(route["status"], {"conflict"}),
         "runtime_reported": native_complete,
         "local_record_observed": local_complete,
+        "runtime_observation_complete": runtime_required_complete,
         "source_agreement": source_agreement,
         "permission_match": tri(permission["status"], {"broader_than_required", "mismatch", "conflict"}),
         "ancestry_match": tri(ancestry["status"], {"conflict"}),
