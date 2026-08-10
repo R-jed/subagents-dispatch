@@ -9,7 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 GUARDRAILS = PLUGIN / "contracts" / "guardrails.md"
 RUNTIME_DOC = ROOT / "docs" / "native-subagent-runtime.md"
+ATTESTATION_DOC = ROOT / "docs" / "runtime-attestation.md"
 RUNTIME_VERIFIER = PLUGIN / "scripts" / "runtime-evidence.py"
+RUNTIME_INSPECTOR = PLUGIN / "scripts" / "inspect-agent-runtime.py"
 RUNTIME_CASES = ROOT / "evals" / "runtime-assurance-cases.json"
 
 
@@ -26,29 +28,62 @@ def run_runtime_evidence(payload: dict) -> dict:
     return json.loads(result.stdout)
 
 
-def test_runtime_assurance_uses_one_optional_normalized_verifier():
+def test_runtime_assurance_uses_explicit_inspector_and_normalized_verifier():
     assert RUNTIME_VERIFIER.is_file()
+    assert RUNTIME_INSPECTOR.is_file()
+    assert ATTESTATION_DOC.is_file()
     guardrails = GUARDRAILS.read_text(encoding="utf-8").lower()
     runtime = RUNTIME_DOC.read_text(encoding="utf-8").lower()
+    attestation = ATTESTATION_DOC.read_text(encoding="utf-8").lower()
     assert "runtime-evidence.py" in guardrails
     assert "runtime-evidence.py" in runtime
+    assert "inspect-agent-runtime.py" in guardrails
+    assert "inspect-agent-runtime.py" in attestation
     assert "diagnostic" in runtime
     assert "do not run these checks as routine ceremony" in runtime
     assert "runtime evidence is on demand" in guardrails
+    assert "ordinary dispatch does not run" in attestation
 
 
-def test_project_does_not_scrape_runtime_internals_for_proof():
-    runtime = RUNTIME_DOC.read_text(encoding="utf-8").lower()
-    assert "profile matching proves configuration intent only" in runtime
-    assert "never become observed values by assumption" in runtime
-    for forbidden in ["--sessions-dir", "rollout-2026-", "sessions root"]:
-        assert forbidden not in runtime
+def test_exact_runtime_inspector_is_allowlisted_and_not_a_transcript_collector():
+    source = RUNTIME_INSPECTOR.read_text(encoding="utf-8")
+    attestation = ATTESTATION_DOC.read_text(encoding="utf-8")
+    for field in [
+        "thread_id",
+        "parent_thread_id",
+        "agent_role",
+        "model",
+        "effort",
+        "sandbox_policy_type",
+        "permission_profile_type",
+        "runtime_version",
+    ]:
+        assert field in source
+        assert field in attestation
+    assert 'record_type == "session_meta"' in source
+    assert 'record_type == "turn_context"' in source
+    assert 'record_type == "event_msg"' not in source
+    assert 'record_type == "response_item"' not in source
+    assert "The inspector does not emit prompts" in attestation
+    assert "assistant messages" in attestation
+    assert "hidden reasoning" in attestation
+    assert "tool payloads" in attestation
 
 
-def test_missing_native_permission_evidence_remains_fail_closed():
+def test_runtime_configuration_cannot_impersonate_host_observation():
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
-    assert "When hard read-only isolation is required, demand native evidence" in guardrails
-    assert "keep the responsibility in the main session/blocked" in guardrails
+    attestation = ATTESTATION_DOC.read_text(encoding="utf-8")
+    assert "Configured/requested is not accepted. Accepted is not observed." in guardrails
+    assert "A child describing its own model or reasoning level in prose is not runtime evidence" in guardrails
+    assert "Configured is not Observed" in attestation
+    assert "A child's prose claim" in attestation
+    assert "manually copied local data cannot be relabeled as runtime observation" in guardrails
+
+
+def test_hard_read_only_requires_actual_host_runtime_evidence():
+    guardrails = GUARDRAILS.read_text(encoding="utf-8")
+    assert "When hard read-only isolation is required, demand actual Host runtime evidence" in guardrails
+    assert "configured/accepted values and child self-report are insufficient" in guardrails
     assert "configured read-only profile is intent, not proof" in guardrails
 
 
