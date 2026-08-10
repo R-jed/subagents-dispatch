@@ -56,7 +56,7 @@ python ../../scripts/inspect-agent-runtime.py <child-thread-id> \
   --expected-agent-role <exact-agent-type>
 ```
 
-The inspector is read-only and explicit. It selects exactly one rollout for the exact child id, reads only `session_meta` and `turn_context` routing metadata, rejects ambiguous identity or cross-turn route drift, and emits only an allowlisted routing object. It never emits prompts, assistant output, tool payloads, reasoning, source contents, or the rollout path. Do not hand-copy profile values, child prose, or guessed values into its output.
+The inspector is read-only and explicit. It streams exactly one rollout selected by the exact child id, parses only `session_meta` and `turn_context` records for routing metadata, rejects ambiguous identity or cross-turn route drift, and emits only an allowlisted routing object. It never emits prompts, assistant output, tool payloads, reasoning, source contents, or the rollout path. Do not hand-copy profile values, child prose, or guessed values into its output.
 
 Build the expected route from `contracts/policy.json`, set `runtime_observation_required=true` and `requires_permission_observation=true`, place public Host runtime metadata in `native`, and place only the exact inspector output in `local`. Then normalize the combined record through `scripts/runtime-evidence.py`. The normalizer derives expected `sandbox_intent` from the exact managed `agent_role`; never copy the configured sandbox value into an observed source.
 
