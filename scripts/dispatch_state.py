@@ -72,6 +72,13 @@ UNIT_FIELDS = {
     "blocker",
     "quarantine_reason",
 }
+RESPONSIBILITY_FIELDS = {"outcome", "intent", "acceptance"}
+RESPONSIBILITY_REQUIRED_FIELDS = {"outcome", "acceptance"}
+AUTHORITY_FIELDS = {"write_scope", "mutation_authority", "decision_rights"}
+AUTHORITY_REQUIRED_FIELDS = {"write_scope"}
+RESPONSIBILITY_INTENTS = {"inspect", "implement", "verify", "review"}
+MUTATION_AUTHORITIES = {"none", "declared-output-only", "bounded-source-write"}
+PENDING_TAKEOVER_FIELDS = {"unit_id", "status"}
 CONTROL_STATES = {
     "PLANNED",
     "SPAWN_PENDING",
@@ -299,6 +306,7 @@ def validate_state_payload(
     if not isinstance(payload.get("controls"), list):
         raise StatePayloadError("controls must be an array")
     _validate_units(payload["units"])
+    _validate_compact_top_level(payload)
     try:
         unique_accounting = _unique_receipt_events(payload["accounting_refs"])
         account_receipt(unique_accounting, materialized_units=payload["units"])
@@ -327,6 +335,76 @@ def _reject_forbidden_persisted_fields(value: Any) -> None:
 
 def _nonempty(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+def _validate_string_list(value: Any, *, label: str) -> None:
+    if not isinstance(value, list) or not all(_nonempty(item) for item in value):
+        raise StatePayloadError(f"{label} must be an array of non-empty strings")
+
+
+def _validate_compact_responsibility(value: Any, *, prefix: str) -> None:
+    if not isinstance(value, dict):
+        raise StatePayloadError(f"{prefix} responsibility must be an object")
+    extra = set(value) - RESPONSIBILITY_FIELDS
+    missing = RESPONSIBILITY_REQUIRED_FIELDS - set(value)
+    if extra:
+        raise StatePayloadError(
+            f"{prefix} responsibility has unsupported fields: {', '.join(sorted(extra))}"
+        )
+    if missing:
+        raise StatePayloadError(
+            f"{prefix} responsibility is missing fields: {', '.join(sorted(missing))}"
+        )
+    if not _nonempty(value.get("outcome")) or not _nonempty(value.get("acceptance")):
+        raise StatePayloadError(f"{prefix} responsibility requires outcome and acceptance")
+    intent = value.get("intent")
+    if intent is not None and intent not in RESPONSIBILITY_INTENTS:
+        raise StatePayloadError(f"{prefix} responsibility has invalid intent")
+
+
+def _validate_compact_authority(value: Any, *, prefix: str) -> None:
+    if not isinstance(value, dict):
+        raise StatePayloadError(f"{prefix} authority must be an object")
+    extra = set(value) - AUTHORITY_FIELDS
+    missing = AUTHORITY_REQUIRED_FIELDS - set(value)
+    if extra:
+        raise StatePayloadError(
+            f"{prefix} authority has unsupported fields: {', '.join(sorted(extra))}"
+        )
+    if missing:
+        raise StatePayloadError(
+            f"{prefix} authority is missing fields: {', '.join(sorted(missing))}"
+        )
+    _validate_string_list(value.get("write_scope"), label=f"{prefix} authority.write_scope")
+    mutation_authority = value.get("mutation_authority")
+    if mutation_authority is not None and mutation_authority not in MUTATION_AUTHORITIES:
+        raise StatePayloadError(f"{prefix} authority has invalid mutation_authority")
+    if "decision_rights" in value:
+        _validate_string_list(
+            value.get("decision_rights"), label=f"{prefix} authority.decision_rights"
+        )
+
+
+def _validate_compact_top_level(payload: Mapping[str, Any]) -> None:
+    revision = payload.get("team_plan_revision")
+    if revision is not None and (
+        not isinstance(revision, int) or isinstance(revision, bool) or revision < 1
+    ):
+        raise StatePayloadError("team_plan_revision must be null or a positive integer")
+    if payload.get("controls") != []:
+        raise StatePayloadError(
+            "controls is reserved and must remain empty; control accounting belongs in accounting_refs"
+        )
+    pending = payload.get("pending_takeover")
+    if pending is None:
+        return
+    if not isinstance(pending, dict) or set(pending) != PENDING_TAKEOVER_FIELDS:
+        raise StatePayloadError("pending_takeover must contain exactly unit_id and status")
+    if not _nonempty(pending.get("unit_id")) or pending.get("status") != "pending":
+        raise StatePayloadError("pending_takeover requires a unit_id and status=pending")
+    unit_ids = {record.get("unit_id") for record in payload.get("units", [])}
+    if pending["unit_id"] not in unit_ids:
+        raise StatePayloadError("pending_takeover must reference an existing unit")
 
 
 def _validate_units(units: list[Any]) -> None:
@@ -369,8 +447,8 @@ def _validate_units(units: list[Any]) -> None:
             raise StatePayloadError(f"{prefix} must not bind agent_id before RUNNING")
         if state in {"RUNNING", "INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"} and agent_id is None:
             raise StatePayloadError(f"{prefix} requires agent_id in {state}")
-        if not isinstance(record["responsibility"], dict) or not isinstance(record["authority"], dict):
-            raise StatePayloadError(f"{prefix} requires compact responsibility and authority objects")
+        _validate_compact_responsibility(record["responsibility"], prefix=prefix)
+        _validate_compact_authority(record["authority"], prefix=prefix)
         for field in ("writer", "adopted", "accepted"):
             if not isinstance(record[field], bool):
                 raise StatePayloadError(f"{prefix} {field} must be boolean")
@@ -1086,7 +1164,6 @@ def account_receipt(
     reviewer_attempts = 0
     review_rounds = 0
     review_verdict: str | None = None
-    recoveries = 0
 
     materialized_keys = (
         _materialized_unit_keys(materialized_units) if materialized_units is not None else None
@@ -1316,7 +1393,6 @@ def account_receipt(
             "reworks": semantic_reworks,
             "verdict": review_verdict,
         },
-        "recoveries": recoveries,
         "zero_child": not dispatch,
     }
 
@@ -1427,17 +1503,11 @@ def format_receipt(summary: Mapping[str, Any], *, locale: str) -> str:
         parts.append(VERDICT_LABELS[locale][review["verdict"]])
         lines.append("Review: " + " · ".join(parts))
 
-    recovery_parts = []
     if summary.get("retries"):
-        recovery_parts.append(
-            f"重试{summary['retries']}次" if locale == "zh" else f"retry×{summary['retries']}"
-        )
-    if summary.get("recoveries"):
-        recovery_parts.append(
-            f"恢复{summary['recoveries']}次"
+        retry_text = (
+            f"重试{summary['retries']}次"
             if locale == "zh"
-            else f"recovery×{summary['recoveries']}"
+            else f"retry×{summary['retries']}"
         )
-    if recovery_parts:
-        lines.append(("恢复: " if locale == "zh" else "Recovery: ") + " · ".join(recovery_parts))
+        lines.append(("恢复: " if locale == "zh" else "Recovery: ") + retry_text)
     return "\n".join(lines)

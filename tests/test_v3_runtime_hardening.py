@@ -98,7 +98,9 @@ def test_spawn_binding_reloads_canonical_state_and_preserves_concurrent_metadata
 
     concurrent = module.load_state("thread-1", temp_root=tmp_path)
     assert concurrent is not None
-    concurrent["controls"] = [{"ref": "concurrent-metadata"}]
+    concurrent["accounting_refs"] = [
+        {"ref": "control:status:concurrent", "kind": "control", "action": "Status"}
+    ]
     module.write_state(concurrent, temp_root=tmp_path)
 
     bound = module.bind_spawn_identity(
@@ -114,7 +116,9 @@ def test_spawn_binding_reloads_canonical_state_and_preserves_concurrent_metadata
     record = bound["units"][0]
     assert record["control_state"] == "RUNNING"
     assert record["agent_id"] == "agent-1"
-    assert bound["controls"] == [{"ref": "concurrent-metadata"}]
+    assert bound["accounting_refs"] == [
+        {"ref": "control:status:concurrent", "kind": "control", "action": "Status"}
+    ]
     assert module.load_state("thread-1", temp_root=tmp_path) == bound
     assert prepared["units"][0]["agent_id"] is None
 
@@ -145,7 +149,9 @@ def test_persisted_reconciliation_updates_same_capsule_without_losing_metadata(t
     )
     current = module.load_state("thread-1", temp_root=tmp_path)
     assert current is not None
-    current["controls"] = [{"ref": "status-metadata"}]
+    current["accounting_refs"] = [
+        {"ref": "control:status:metadata", "kind": "control", "action": "Status"}
+    ]
     module.write_state(current, temp_root=tmp_path)
 
     snapshot = module.persisted_status_snapshot(
@@ -158,7 +164,9 @@ def test_persisted_reconciliation_updates_same_capsule_without_losing_metadata(t
     persisted = module.load_state("thread-1", temp_root=tmp_path)
     assert persisted is not None
     assert persisted["units"][0]["control_state"] == "COMPLETED"
-    assert persisted["controls"] == [{"ref": "status-metadata"}]
+    assert persisted["accounting_refs"] == [
+        {"ref": "control:status:metadata", "kind": "control", "action": "Status"}
+    ]
     assert snapshot["reconciled_state"] == persisted
 
 

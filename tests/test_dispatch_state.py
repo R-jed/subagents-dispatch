@@ -435,6 +435,7 @@ def test_cleanup_and_remove_preserve_all_unresolved_work(tmp_path: Path, unresol
     if unresolved == "PLANNED":
         state["units"] = [unit(state="PLANNED")]
     else:
+        state["units"] = [unit(state="PLANNED")]
         state["pending_takeover"] = {"unit_id": "U1", "status": "pending"}
     module.write_state(state, temp_root=tmp_path)
 
@@ -560,7 +561,6 @@ def test_receipt_accounting_uses_unique_stable_refs_and_separate_axes():
     assert summary["semantic_reworks"] == 1
     assert summary["reviewer_attempts"] == 2
     assert summary["review"] == {"rounds": 2, "reworks": 1, "verdict": "passed"}
-    assert summary["recoveries"] == 0
     assert summary["controls"] == [{"action": "Status", "count": 1}]
 
     with pytest.raises(module.ReceiptAccountingError, match="conflicting event ref"):

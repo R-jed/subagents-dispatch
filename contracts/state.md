@@ -42,9 +42,27 @@ control / review / recovery accounting references
 pending takeover or reconciliation metadata when required
 ```
 
-For a single delegated responsibility without TeamPlan, the compact responsibility snapshot may contain only the semantic fields required to identify the work safely, such as unit id, outcome, intent, delegated role, bounded write scope, and acceptance. For a multi-unit orchestration, TeamPlan remains the canonical structural truth; the capsule stores only the revision binding and the compact active-unit index needed for runtime continuity. It does not duplicate the full plan or recovery ledger by default.
+For a single delegated responsibility without TeamPlan, the compact responsibility snapshot is deliberately closed rather than free-form:
 
-Do not persist raw user prompts, child transcripts, private reasoning, source-file contents, web pages, full tool output, credentials, secrets, or a duplicate evidence corpus.
+```text
+responsibility
+-> outcome        required non-empty text
+-> acceptance     required non-empty text
+-> intent          optional: inspect | implement | verify | review
+
+authority
+-> write_scope         required array of non-empty path/scope strings
+-> mutation_authority  optional: none | declared-output-only | bounded-source-write
+-> decision_rights     optional array of non-empty bounded-right strings
+```
+
+These values reuse the existing Router and Guardrails vocabulary; they do not create a second task taxonomy. Unit identity, delegated role, model lane, lifecycle, and attempt identity remain separate typed fields in the capsule.
+
+For a multi-unit orchestration, TeamPlan remains the canonical structural truth; `team_plan_revision` is either null or a positive integer binding the compact active-unit index to the accepted plan revision. The capsule does not duplicate the full plan or recovery ledger by default.
+
+`controls` is a reserved compatibility field and must remain an empty array. Status/Steer/Takeover accounting has one canonical owner in typed `accounting_refs`; do not create a second control ledger. `pending_takeover`, when present, is exactly `{unit_id, status}` with `status: pending` and must reference an existing unit.
+
+Do not persist raw user prompts, child transcripts, private reasoning, source-file contents, web pages, full tool output, credentials, secrets, or a duplicate evidence corpus. The closed compact field schema and the existing 64 KiB capsule bound are both safety boundaries; callers still must not disguise prohibited content inside an allowed semantic field.
 
 ## TeamPlan and ledger validation
 
