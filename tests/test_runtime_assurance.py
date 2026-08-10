@@ -80,6 +80,14 @@ def test_runtime_configuration_cannot_impersonate_host_observation():
     assert "manually copied local data cannot be relabeled as runtime observation" in guardrails
 
 
+def test_local_rollout_attestation_is_not_overclaimed_as_cryptographic_proof():
+    attestation = ATTESTATION_DOC.read_text(encoding="utf-8")
+    assert "not cryptographically signed by the Host" in attestation
+    assert "not tamper-proof remote attestation or cryptographic proof" in attestation
+    assert "Prefer public Host runtime metadata" in attestation
+    assert "not a cryptographic attestation claim" in attestation
+
+
 def test_hard_read_only_requires_actual_host_runtime_evidence():
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
     assert "When hard read-only isolation is required, demand actual Host runtime evidence" in guardrails
