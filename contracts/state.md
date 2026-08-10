@@ -106,8 +106,22 @@ capsule
 -> responsibility, dependency, ownership, attempt identity, accounting
 
 native Host
--> whether the concrete child is pending, running, interrupted, completed, errored, stopped, or otherwise observable now
+-> current native child status and identity evidence
 ```
+
+For the currently supported Codex native child-status surface, normalize only the observable lifecycle facts needed by this contract:
+
+```text
+pendingInit  -> RUNNING once an inspectable child identity exists
+running      -> RUNNING
+interrupted  -> INTERRUPTED
+completed    -> COMPLETED
+errored      -> FAILED
+shutdown     -> CLOSED
+notFound     -> UNKNOWN
+```
+
+`SPAWN_PENDING` remains the pre-identity crash-window state owned by the capsule. Do not map a materialized child with an inspectable identity back into that pre-identity state. `notFound` is missing runtime identity evidence, not proof that a previous writer stopped; it therefore cannot release write authority.
 
 Status performs one native observation and reconciliation. A stale capsule value must not override newer explicit Host state.
 
@@ -141,7 +155,7 @@ Receipt events use the same mutation boundary. `accounting_refs` contains unique
 
 `prepare_spawn` re-reads and updates authoritative state under the same lock and rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; planned, active, interrupted, pending-takeover, or unknown work must be settled first.
 
-Reject unsafe symlinked state roots, thread directories, state files, or locks. Use restrictive local file permissions where the platform supports them. Validate the thread-id path component before constructing filesystem paths.
+Reject unsafe symlinked state roots, thread directories, state files, or locks. Use restrictive local file permissions where the platform supports them. POSIX implementations enforce owner-only mode bits for state directories/files/locks. Windows must not treat POSIX-style `st_mode` bits as an ACL proof; it retains the user-scoped OS temporary-directory boundary plus regular-file, path, symlink, size, schema, and locking checks. Validate the thread-id path component before constructing filesystem paths.
 
 The lock coordinates state-file updates only. It is not a scheduler lock and must not be held while waiting for long-running child execution.
 

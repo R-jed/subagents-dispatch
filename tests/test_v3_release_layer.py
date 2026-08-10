@@ -32,6 +32,28 @@ def test_chinese_public_examples_use_receipt_activity_vocabulary():
         assert word in text
 
 
+def test_public_receipt_examples_use_independent_axes_without_task_completion_state():
+    chinese = (ROOT / "README.md").read_text(encoding="utf-8")
+    english = (ROOT / "README_EN.md").read_text(encoding="utf-8")
+
+    assert "编排: Luna Max 读取 · Luna Max 执行 · Sol High 验收" in chinese
+    assert "验收: 1轮 · 通过" in chinese
+    for obsolete in [
+        "Dispatch: Luna Max 读取 → Luna Max 执行 · 完成 · 未重试 · 无需最终复核",
+        "· 完成 · 未重试",
+        "无需最终复核",
+    ]:
+        assert obsolete not in chinese
+
+    assert "Dispatch: Luna Max Read · Luna Max Execute · Sol High Review" in english
+    assert "Review: 1 round · passed" in english
+    for obsolete in [
+        "Dispatch: Luna Max Read → Luna Max Execute · complete · no retry · not required",
+        "· complete · no retry",
+    ]:
+        assert obsolete not in english
+
+
 def test_work_section_63_adversarial_cases_are_registered_once():
     payload = json.loads((ROOT / "evals" / "interaction-cases.json").read_text(encoding="utf-8"))
     ids = [case["id"] for case in payload["cases"]]

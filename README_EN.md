@@ -52,13 +52,14 @@ Stop a responsibility and take it over yourself:
 Choose Takeover, then enter: U2
 ```
 
-## Compact execution receipt
+## Dispatch receipt
 
 ```text
-Dispatch: Luna Max Read → Luna Max Execute · complete · no retry · not required
+Dispatch: Luna Max Read · Luna Max Execute · Sol High Review
+Review: 1 round · passed
 ```
 
-Facts only. No hidden reasoning, and it does not estimate token usage or currency cost.
+The receipt describes Subagent orchestration and independent review only; Main still explains the task result. `Luna Max` and `Sol High` identify the project model lanes selected and actually materialized for the work. They do not claim that every ordinary dispatch independently re-observed the Host model or reasoning effort. Use Doctor live-route checks when runtime route proof is required.
 
 ## Handoff Capsule
 
@@ -74,7 +75,7 @@ Each subagent starts with fresh context. Nothing passed on, and the next subagen
 - **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main or an Execute activity. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
 - **One delegation layer** — subagents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
 - **UNKNOWN means do not guess** — when state cannot be established, there is no replacement subagent, retry, or semantic reroute
-- **Receipts report facts** — does not estimate token usage or currency cost from model names, elapsed time, or output length
+- **Receipts report facts** — they do not estimate token usage or currency cost from model names, elapsed time, or output length
 
 ## Roles
 

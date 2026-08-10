@@ -62,7 +62,9 @@ Canonical control entry names remain `Status`, `Steer`, and `Takeover` so the re
 
 ## Dispatch axis
 
-The Dispatch axis reports materialized delegated work passes in first-materialization order. It includes a model lane only when current native runtime evidence observed that model; otherwise it reports the public activity without a model name.
+The Dispatch axis reports materialized delegated work passes in first-materialization order. When the materialized unit is bound to a selected project model lane, the receipt may show that lane. `Luna Max`, `Sol High`, or `Terra XHigh` in an ordinary receipt means the project selected and materialized that configured policy lane; it does not claim that live Host telemetry independently re-observed the model or reasoning effort during that run.
+
+Configured/selected route truth and observed runtime truth remain separate. If native evidence is available and contradicts the selected lane, fail closed and surface the route mismatch rather than relabeling the receipt. Doctor live-route diagnostics own explicit observed model/reasoning verification. If no selected lane is safely bound, report the public activity without a model name.
 
 Chinese example:
 
@@ -117,9 +119,9 @@ review:U3:A1
 
 The active root-thread capsule stores the structured event bound to each reference. Every materialized attempt, follow-up, or reviewer-attempt event carries its exact `unit_id`, integer `attempt`, and non-empty `agent_id`; that identity must match a materialized unit in the same capsule. One child attempt contributes at most one attempt or reviewer-attempt pass, and at most one bounded focused follow-up pass, even if a caller supplies different refs for the same identity. `persist_receipt_events` checks these bindings while holding the state lock, then merges and writes the events. Identical references are idempotent, while fabricated identities, duplicate identity bindings, or conflicting reuse of one reference fail closed. Visible totals are always derived from the persisted unique events.
 
-A materialized event may include `model_lane` only with `model_evidence_source: native` or `both`. Requested, configured, accepted, or local-only route values must not appear as observed model facts in a receipt.
+The materialized unit owns its selected `model_lane`. An accounting event cannot relabel that unit to another lane. `model_evidence_source`, when present, distinguishes `configured`, `native`, or `both`; it never upgrades configured route intent into observed runtime truth. Contradictory native evidence is a route-integrity problem, not a presentation override.
 
-Aggregation is derived from unique materialized references plus their role/activity binding. Seeing the same Host event again after resume must not increment the visible count twice.
+Aggregation is derived from unique materialized references plus their activity and bound lane. Seeing the same Host event again after resume must not increment the visible count twice.
 
 Use distinct stable refs for distinct accounting facts:
 
