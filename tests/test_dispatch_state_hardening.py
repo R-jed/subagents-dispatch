@@ -35,26 +35,48 @@ def unit(module, *, state="UNKNOWN", blocker="investigation"):
     }
 
 
-def test_reconcile_real_failure_clears_quarantine_blocker_and_normalizes_origin(tmp_path: Path):
-    module = load_module()
-    state = module.new_state(thread_id="thread-1", locale="zh")
-    state["units"] = [unit(module)]
-    observation = {
+def errored_observation(*, failure_origin: str):
+    return {
         "complete": True,
         "children": [
             {
                 "native_task_name": "sd-u1-a1-execute",
                 "agent_id": "agent-1",
                 "state": "errored",
-                "failure_origin": "runtime_ambiguous",
+                "failure_origin": failure_origin,
             }
         ],
     }
 
-    reconciled = module.reconcile_state(state, observation)
+
+def test_reconcile_real_failure_clears_quarantine_blocker_and_normalizes_origin(tmp_path: Path):
+    module = load_module()
+    state = module.new_state(thread_id="thread-1", locale="zh")
+    state["units"] = [unit(module)]
+
+    reconciled = module.reconcile_state(
+        state,
+        errored_observation(failure_origin="runtime_ambiguous"),
+    )
     record = reconciled["units"][0]
     assert record["control_state"] == "FAILED"
     assert record["failure_origin"] == "tool_failure"
+    assert record["blocker"] == "none"
+    assert record["quarantine_reason"] is None
+
+
+def test_reconcile_real_failure_preserves_supported_failure_origin():
+    module = load_module()
+    state = module.new_state(thread_id="thread-1", locale="en")
+    state["units"] = [unit(module)]
+
+    reconciled = module.reconcile_state(
+        state,
+        errored_observation(failure_origin="timeout"),
+    )
+    record = reconciled["units"][0]
+    assert record["control_state"] == "FAILED"
+    assert record["failure_origin"] == "timeout"
     assert record["blocker"] == "none"
     assert record["quarantine_reason"] is None
 
