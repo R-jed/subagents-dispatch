@@ -68,7 +68,7 @@ def test_runtime_evidence_keeps_route_ancestry_and_permission_typed():
         assert grade in verifier
 
 
-def test_runtime_observation_required_needs_native_identity_and_ancestry():
+def test_runtime_observation_required_accepts_exact_local_identity_and_ancestry():
     expected = {
         "agent_role": "subagents_dispatch_reader",
         "model": "gpt-5.6-luna",
@@ -85,7 +85,7 @@ def test_runtime_observation_required_needs_native_identity_and_ancestry():
     }
     local = {**route, "thread_id": "child-1", "parent_thread_id": "main-1"}
 
-    local_identity_only = run_runtime_evidence(
+    local_identity_fallback = run_runtime_evidence(
         {
             "subject": "child",
             "expected": expected,
@@ -93,9 +93,13 @@ def test_runtime_observation_required_needs_native_identity_and_ancestry():
             "local": local,
         }
     )
-    assert local_identity_only["status"] == "not_exposed"
-    assert local_identity_only["decision"] == "return_to_main_session"
-    assert local_identity_only["ancestry_evidence"] == {"status": "matched", "source": "local"}
+    assert local_identity_fallback["status"] == "matched"
+    assert local_identity_fallback["decision"] == "continue"
+    assert local_identity_fallback["runtime_observation_complete"] is True
+    assert local_identity_fallback["ancestry_evidence"] == {
+        "status": "matched",
+        "source": "local",
+    }
 
     native_identity = run_runtime_evidence(
         {
