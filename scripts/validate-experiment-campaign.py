@@ -115,8 +115,7 @@ def validate_common_workloads(campaign: dict[str, Any]) -> None:
         source_task_ref = workload.get("source_task_ref")
         if source_task_ref is not None:
             require_frozen_text(source_task_ref, f"workload {workload_id!r} source_task_ref")
-        if not workload["task_text"].strip():
-            fail(f"workload {workload_id!r} task_text must contain non-whitespace task bytes")
+        require_frozen_text(workload["task_text"], f"workload {workload_id!r} task_text")
 
         expected_hash = task_sha256(workload["task_text"])
         if workload["task_sha256"] != expected_hash:
@@ -163,11 +162,9 @@ def validate_role_calibration(
 ) -> list[str]:
     if experiment["policy_promotion"] and campaign["stage"] != "formal":
         fail("policy promotion requires a formal campaign")
-    if experiment["policy_promotion"]:
-        require_frozen_text(
-            experiment.get("promotion_criteria_ref"),
-            "promotion_criteria_ref",
-        )
+    promotion_ref = experiment.get("promotion_criteria_ref")
+    if promotion_ref is not None:
+        require_frozen_text(promotion_ref, "promotion_criteria_ref")
 
     role_specs: dict[str, dict[str, Any]] = {}
     for spec in experiment["roles"]:
@@ -254,10 +251,11 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
             "policy and tested plugin candidate cannot drift apart"
         )
 
-    if campaign["repeat_policy"]["ordering"] == "fixed_with_reason":
-        reason = campaign["repeat_policy"].get("fixed_order_reason")
-        if not isinstance(reason, str) or unresolved(reason):
-            fail("fixed_with_reason ordering requires a concrete fixed_order_reason")
+    fixed_reason = campaign["repeat_policy"].get("fixed_order_reason")
+    if fixed_reason is not None:
+        require_frozen_text(fixed_reason, "fixed_order_reason")
+    if campaign["repeat_policy"]["ordering"] == "fixed_with_reason" and fixed_reason is None:
+        fail("fixed_with_reason ordering requires a concrete fixed_order_reason")
 
     validate_common_workloads(campaign)
     experiment = campaign["experiment"]
