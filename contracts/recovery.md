@@ -221,7 +221,7 @@ TeamPlan's `role` vocabulary contains delegated Subagent roles only. `main_takeo
 
 A takeover alone does not require a TeamPlan revision when goal, output, dependencies, ownership scope, deliverable, scope, and acceptance remain unchanged. Create a new TeamPlan revision only if takeover also changes one of those structural facts. A materially redefined goal/output is a new responsibility and requires a new `unit_id`.
 
-Already-dispatched work remains bound to the revision it received. If a structural revision affects active work, pause new dispatch until affected attempts are safely settled or invalidated.
+Already-dispatched work remains bound to the revision it received. Across Agent attempts for the same stable `unit_id`, `team_plan_revision` may stay the same or move forward; a replacement attempt must never bind to a revision older than an earlier attempt. If a structural revision affects active work, pause new dispatch until affected attempts are safely settled or invalidated.
 
 ## Adoption and close
 
@@ -239,7 +239,7 @@ When machine-checkable recovery state is genuinely useful, validate the current 
 python scripts/validate_team_ledger.py -
 ```
 
-The validator checks exact record shape, policy-owned delegated role bindings, TeamPlan revision binding, stable unit goal/output identity, unique task and Agent identity, attempt sequence, the two-attempt bound, follow-up bound, UNKNOWN replacement suppression, and lifecycle/adoption consistency.
+The validator checks exact record shape, policy-owned delegated role bindings, TeamPlan revision binding and per-unit forward-only revision order, stable unit goal/output identity, unique task and Agent identity, attempt sequence, the two-attempt bound, follow-up bound, UNKNOWN replacement suppression, and lifecycle/adoption consistency.
 
 For ordinary runtime recovery and cross-turn controls, thread-local continuity belongs to the bounded ephemeral capsule in `state.md`. Do not create repository-local, `.codex/`, or `CODEX_HOME` TeamLedger history merely because the validator accepts serialized input.
 
