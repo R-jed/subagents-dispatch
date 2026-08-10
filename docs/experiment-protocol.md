@@ -12,7 +12,7 @@ product_benchmark
 
 They share one Experiment Plane because both need frozen inputs, real repositories, repeat discipline, route evidence, task oracles, exact telemetry, and provenance. They do not share the same independent variable.
 
-`contracts/routing.md` owns role semantics. `contracts/policy.json` owns the currently active five-role routes. `docs/runtime-attestation.md` owns actual child route proof. `contracts/evidence-artifact.md` owns large accepted evidence bundles. `scripts/score-behavioral-evals.py` remains the existing paired behavioral result summarizer where its result schema applies.
+`contracts/routing.md` owns role semantics. `contracts/policy.json` owns the currently active five-role routes. `docs/runtime-attestation.md` owns actual child route proof. `contracts/evidence-artifact.md` owns large accepted evidence bundles. `scripts/score-behavioral-evals.py` remains the existing paired behavioral regression summarizer where its fixed workload/result schema applies.
 
 Experiments never change runtime policy automatically.
 
@@ -68,7 +68,9 @@ Every campaign binds `plugin_candidate_sha` to the exact Git `HEAD` validated by
 
 This is deliberate. The validator also reads the current `contracts/policy.json`; allowing the campaign to name a different plugin commit would let the campaign identity and its control route silently refer to different candidates.
 
-If the plugin candidate changes, freeze a new campaign revision/hash.
+A formal campaign definition is evaluator-owned input. Keep it outside the candidate commit it identifies, for example in an evaluator workspace or another explicit experiment artifact location. Do not commit a campaign containing `plugin_candidate_sha=<current candidate>` into that same candidate and then pretend the old SHA still identifies the changed tree. Committing the campaign changes `HEAD` and therefore creates a self-reference error. If the plugin candidate changes, freeze a new campaign revision/hash.
+
+The campaign hash identifies the frozen experiment definition. It is separate from the plugin candidate SHA and from any later run artifact identity.
 
 ## 4. Keep the role contract fixed while calibrating the route
 
@@ -93,6 +95,8 @@ Then compare route candidates for that same responsibility.
 The current-policy route is the control. The experiment validator rejects a control that differs from current `policy.json`.
 
 A model/effort challenger must keep the role sandbox intent unchanged. Do not change task decomposition, acceptance, allowed tools, write scope, role decision rights, or isolation contract between route arms. If those change, it is a different experiment.
+
+A challenger being syntactically valid in the campaign does not prove the current Host can run it. Host availability and actual runtime route are execution evidence. Unsupported, rejected, or unobservable candidate routes stay failed/UNKNOWN; never silently substitute another model or effort.
 
 ## 5. Role workload strata
 
@@ -153,6 +157,8 @@ Synthetic fixtures remain useful for testing the evaluator itself. They are not 
 
 A formal campaign validator rejects obvious placeholder repository identities.
 
+`main_session_route_fingerprint` is a controlled-input identity. It records which Main route/configuration selection the paired experiment intends to hold fixed. It is not Observed runtime evidence by itself. If a result or README claim says which Main model/effort actually ran, that claim needs Host evidence at the proof level the Host exposes; do not promote the fingerprint or config into runtime truth.
+
 ## 7. Runtime Attestation is a hard route-calibration gate
 
 Every included role-calibration run must bind the actual route using `docs/runtime-attestation.md`.
@@ -171,7 +177,7 @@ For a run to support a model/effort conclusion, required model, effort, role ide
 
 If the Host cannot prove the route, mark the run `UNKNOWN` for route calibration. Do not copy configured values into Observed and do not use that run to claim that a particular model/effort produced the result.
 
-For product benchmarks, route-attest every materialized Dispatch child so the report can say what actually ran. A single-agent baseline has no project child route to invent.
+For product benchmarks, route-attest every materialized Dispatch child so the report can say what actually ran. A single-agent baseline has no project child route to invent. A Dispatch run that correctly chooses zero project children also has no child route to invent; record zero materialized children rather than fabricating an attestation row.
 
 ## 8. Repetition and ordering
 
@@ -180,6 +186,10 @@ Agent runs are stochastic even when repository state and the grader are determin
 An `exploratory` campaign may begin with one run per arm to find broken setup or obviously unsuitable route candidates.
 
 A `formal` campaign requires at least three completed repeats per workload arm. Three is a floor for replication discipline, not a claim of statistical sufficiency. If observed variance is large or one run dominates a mean, add repeats rather than hiding instability behind an average.
+
+For formal `role_calibration`, the minimum is three **valid route-attested completed runs** per workload arm. A run whose required route evidence is `UNKNOWN`, conflicted, quarantined, or failed does not count toward that minimum merely because the child returned a task result. Preserve the run in the evidence record, disclose it, and execute another repeat if the campaign still intends to reach the required valid count. If the Host cannot produce enough valid runs, the route comparison remains insufficient evidence.
+
+For `product_benchmark`, failed/UNKNOWN runs remain part of the reported distribution and must not be erased to improve an aggregate. If a missing route observation limits what can be claimed about the actual child model/effort, narrow the claim accordingly rather than deleting the run.
 
 Interleave or randomize arm order where practical so service state, time, cache warmth, or evaluator drift are not perfectly confounded with one arm. Fixed ordering requires a recorded reason.
 
@@ -201,7 +211,7 @@ Evaluate in this order:
 
 A faster or lower-token route/product arm does not win if it introduces a material correctness, safety, authority, scope, or acceptance regression.
 
-Useful measures already represented in the live behavioral-eval layer include:
+Useful measure vocabulary already represented in the live behavioral-eval layer includes:
 
 ```text
 success
@@ -217,6 +227,8 @@ review findings / false positives
 input/output/reasoning tokens when exact
 latency when exact
 ```
+
+Reuse this vocabulary where it fits. Do not create a second semantically equivalent metric namespace just because formal campaigns have a different input format.
 
 Missing telemetry remains null/UNKNOWN. Never estimate token counts from response length, infer cost from configured model names, or convert configured routes into observed usage.
 
@@ -325,21 +337,34 @@ controlled Main route / permissions / tools / project rules
 predeclared promotion criteria when role policy may change
 ```
 
-Run:
+Run from the exact plugin candidate checkout:
 
 ```text
 python scripts/validate-experiment-campaign.py <campaign.json>
 ```
 
-The validator checks schema and semantic integrity and emits a canonical campaign SHA256. It does not run Agents, score results, or change policy.
+The campaign file may live outside that checkout. The validator checks schema and semantic integrity against the exact current candidate and emits a canonical campaign SHA256. It does not run Agents, score results, or change policy.
 
 If any controlled input changes, issue a new campaign definition/hash rather than editing the definition underneath existing results.
 
-## 14. Evidence Artifact boundary
+## 14. Run evidence and result-layer boundary
 
-A formal run may produce evidence larger than the paired result row should carry inline.
+Keep three evidence levels separate:
 
-Use `contracts/evidence-artifact.md` to bind complete accepted provenance by reference, for example:
+```text
+frozen campaign definition
+-> what was intended and controlled
+
+per-run evidence artifact(s)
+-> what actually ran and what the oracle/Host observed
+
+accepted aggregate/report
+-> descriptive comparison over the accepted run set, with exclusions and UNKNOWN states visible
+```
+
+This mirrors mature software-agent evaluation harnesses that keep reproducible task/run identity, per-instance logs/reports, and final evaluation output separate. subagents-dispatch deliberately does not copy full agent trajectories into its evidence model because raw transcript/thought/action histories conflict with the project's narrower context/privacy boundary.
+
+Use `contracts/evidence-artifact.md` to bind complete accepted per-run provenance by reference, for example:
 
 ```text
 campaign hash
@@ -351,7 +376,11 @@ exact token/time telemetry when exposed
 quality/review result
 ```
 
-Do not turn result files into transcript archives. Keep large/non-reproducible evidence in an explicit artifact and store only typed refs/digests in the summary when possible.
+Do not turn result files into transcript archives. Keep large/non-reproducible evidence in an explicit artifact and store only typed refs/digests in the accepted summary when possible.
+
+The existing `behavioral-result.schema.json` and `score-behavioral-evals.py` remain the fixed behavioral-regression evaluator. They bind the historical workload registry and mode vocabulary used by those regression studies. Do not force a formal real-repository campaign through legacy names such as `external_baseline` or `adaptive_routing_v4` merely to reuse the scorer.
+
+Do not create a second generic scoring engine either. Formal campaign aggregation should first consume real run evidence and reuse the established metric semantics. If repeated real campaigns demonstrate that a shared deterministic aggregation layer is useful, extract that common layer from the existing scorer at that time instead of maintaining two competing implementations.
 
 ## 15. Policy promotion gate
 
@@ -362,13 +391,13 @@ A route is eligible for promotion only when all of the following are true:
 ```text
 policy_promotion=true was frozen before results
 campaign stage is formal
-required repeats completed
+required valid route-attested repeats completed
 actual candidate routes were attested in included runs
 no hard safety/authority/write-isolation invariant regressed
 quality meets predeclared workload-specific acceptance floors/tradeoff rules
 tradeoffs remain visible by role and workload
 resource claims use only exact telemetry
-residual UNKNOWN/failed runs are disclosed
+residual UNKNOWN/failed/quarantined runs are disclosed
 maintainer explicitly accepts the tradeoff
 ```
 
@@ -405,6 +434,8 @@ actual Host route evidence
 accepted formal benchmark results with Host/repository/task/repeat scope
 ```
 
-Do not publish community recommendations, configured routes, synthetic fixtures, exploratory one-offs, missing telemetry estimates, or campaign intentions as measured product superiority.
+Do not publish community recommendations, configured routes, synthetic fixtures, exploratory one-offs, missing telemetry estimates, campaign intentions, or excluded/UNKNOWN route runs as measured product superiority.
+
+A benchmark statement must carry enough scope to interpret it: exact product/candidate generation, Host/runtime version, repositories/task strata, repeat counts, acceptance/oracle, and the relevant distribution/tradeoff rather than a decontextualized headline number.
 
 When real experiments are still pending, describe role purposes and current configuration without claiming the model/effort choice is optimal or that Dispatch is faster/cheaper/better than single-agent work.
