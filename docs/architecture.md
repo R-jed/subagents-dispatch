@@ -1,394 +1,344 @@
 # Architecture
 
-subagents-dispatch is a leadership and coordination policy over Codex Native Subagents. It does not implement a second Agent runtime, background scheduler, daemon, routing proxy, provider layer, persistent DAG service, telemetry collector, or transcript store.
+subagents-dispatch is a leadership and coordination policy over Codex Native Subagents. Codex remains the only Agent runtime. The project does not add a daemon, scheduler, event bus, routing proxy, persistent DAG service, telemetry collector, transcript store, or task database.
 
-The user-facing Main session is the technical lead. It owns user intent, authorization, team composition, semantic decisions, integration, acceptance, interaction control, and the final response.
+The user-facing Main session is the technical lead. Main owns user intent, authorization, team composition, semantic decisions, integration, acceptance, interaction control, and the final task-facing response.
 
-The architecture aims for the smallest useful delegation graph: simple work stays simple; coordination becomes machine-checkable only when the task actually needs it. Version 2.1 adds a thin user control surface and an evidence-bound handoff mechanism around the existing orchestration kernel.
+The design rule is simple: keep orchestration as small as the task allows. Delegation is optional and value-driven; deterministic code enforces facts that should not depend on model interpretation; shared semantic policy lives in one root `contracts/` kernel.
 
-## Canonical policy owners
-
-Runtime policy is deliberately split by responsibility:
+## Canonical owners
 
 ```text
 skills/*/SKILL.md
--> six thin explicit entry points into the shared contracts
-
-contracts/interaction.md
--> Preview, Status, Steer, Takeover, Execution Receipt, usage/cost evidence boundary
-
-contracts/routing.md
--> delegation value, capability selection, responsibility packets, semantic coverage closure, phase-transition recompilation, adaptive scheduling
-
-contracts/handoff.md
--> compact Main-accepted evidence transfer between responsibilities
-
-contracts/team-plan.md
--> multi-responsibility identity, dependency DAG, delegated role assignment, ownership scope, revisions, integration order
-
-contracts/recovery.md
--> attempt identity, UNKNOWN, failure classification, bounded recovery, Main takeover semantics
-
-contracts/guardrails.md
--> authority, mutation permissions, writer safety, consent, trust, first-use provisioning, runtime evidence
-
-contracts/final-review.md
--> consequence-driven exact-candidate independent assurance for Git and non-Git deliverables
+-> six thin explicit entry points
 
 contracts/policy.json
--> stable machine constants and native optimized role/model routes
+-> hard machine-readable invariants and five configured Agent routes
+
+contracts/routing.md
+-> delegation value, role selection, responsibility packets, semantic coverage, phase recompilation, ready frontier
+
+contracts/interaction.md
+-> Preview, Status, Steer, Takeover, target resolution, public control UX
+
+contracts/state.md
+-> thread-scoped ephemeral continuity, native lifecycle reconciliation, state safety
+
+contracts/receipt.md
+-> Dispatch Receipt accounting and Chinese/English presentation
+
+contracts/team-plan.md
+-> multi-responsibility identity, dependency DAG, ownership structure, integration order
+
+contracts/recovery.md
+-> attempt identity, INTERRUPTED/UNKNOWN, bounded retry/follow-up, Main takeover
+
+contracts/guardrails.md
+-> user authority, trust, mutation permission, writer coordination, consent
+
+contracts/handoff.md
+-> compact Main-accepted evidence transfer
+
+contracts/final-review.md
+-> consequence-driven exact-candidate independent review
 ```
 
-README files explain the product; they are not runtime policy owners. `evals/` measures and regression-tests behavior; it is not a routing source.
+README files explain the product. `README_AI.md` is an owner map, not a second policy manual. `evals/` and `tests/` verify the contracts; they are not routing sources.
 
-## Control flow
+## Six explicit Skills
 
-Normal task execution is:
-
-```text
-understand outcome + acceptance + material obligations
--> preserve upstream workflow truth when another Skill/plan already owns it
--> decompose only when useful and preserve semantic coverage
--> decide whether delegation adds value
--> choose the capability actually needed
--> ensure required native role readiness
-   -> exact role available: continue
-   -> cleanly missing managed profiles: auto provision + --check -> RESTART_REQUIRED -> stop before spawn
-   -> exact profiles present but role unavailable: RESTART_REQUIRED -> stop before spawn
-   -> unsafe/conflicting/unowned state: USER_ACTION_REQUIRED
--> keep zero/one delegated responsibility on the lightweight path
--> use TeamPlan only when multi-responsibility coordination needs it
--> verify every material obligation and cross-responsibility seam still has an owner
--> run the smallest useful ready set
--> verify child claims against actual artifacts/evidence
--> promote only accepted reusable facts into a Handoff Capsule when worthwhile
--> classify unresolved blockers
--> recover within the bounded attempt contract
--> integrate accepted outputs
--> verify semantic coverage against the combined candidate
--> if task phase/authority changes materially, promote only accepted task truth/evidence and recompile responsibilities
--> run independent Final Review only when the candidate requires it
--> deliver or report the exact blocker
--> append one compact factual execution receipt when a child was actually spawned
-```
-
-`RESTART_REQUIRED` is a pre-dispatch readiness outcome. It is not part of the Agent attempt lifecycle because no child exists yet. Codex currently loads custom-Agent role declarations into the task/session configuration at startup; subagents-dispatch therefore does not attempt a known-stale spawn after first-use provisioning.
-
-There is no fixed Luna → Terra → Sol path and no fixed Agent count.
-
-## Interaction control surface
-
-Interaction controls use the explicit `preview`, `status`, `steer`, and `takeover` Skills. Ordinary task routing starts through `dispatch`, while `doctor` owns diagnostics. Exact App presentation remains a Host/UI fact and is not derived by this architecture document.
-
-Control payloads are:
+The Plugin exposes exactly these user-facing Skill ids:
 
 ```text
-preview <task>
+dispatch
+preview
 status
-steer <unit_id>: <guidance>
-takeover <unit_id>
-takeover <unit_id>: <guidance>
+steer
+takeover
+doctor
 ```
 
-These are orchestration controls over Codex Native Subagents, not a second command runtime.
+All six disable implicit invocation. Their intended App labels are Dispatch, Preview, Status, Steer, Takeover, and Doctor under the Subagents Dispatch Plugin namespace.
 
-### Preview
+The repository does not invent literal slash-command strings. The exact labels and post-selection presentation are Codex App/UI facts and are release-gated by direct observation.
 
-Preview is a strictly non-executing projection of likely responsibilities and dependencies.
+Conceptual inputs after the user explicitly selects a Skill are:
 
 ```text
-child spawn        no
-Agent provisioning no
-source mutation    no
-external action    no
-persistent TeamPlan creation no
+Dispatch: new task, related continuation, or no new task for resume
+Preview: task to project without execution
+Status: optional exact unit-id zoom
+Steer: optional exact unit id plus focused guidance
+Takeover: optional exact unit id plus optional guidance for Main after transfer
+Doctor: diagnostic intent plus explicit live/repair/cleanup/migration intent when needed
 ```
 
-Main may perform bounded read-only inspection when needed to make the preview useful. The result is provisional because later evidence can change real routing.
-
-Preview still preserves material obligations already visible in current task truth. A visible cross-responsibility seam may remain Main-owned in the preview; this does not create a requirement ledger, persistent plan, or decorative child.
-
-### Status
-
-Status is one-shot state inspection. It reports only the state that current task/native evidence supports. Missing runtime state stays `UNKNOWN`. Status does not poll in the background, retry work, reassign ownership, or mutate artifacts.
-
-When no current dispatch state exists, Status reports no active delegated responsibilities. It does not reconstruct old tasks or search unrelated sessions to invent current state.
-
-### Steer
-
-Steering gives focused guidance to one current attempt while preserving responsibility identity, role, ownership, authority, and acceptance. A requested change that materially alters those facts returns to Main for normal reroute, TeamPlan revision, takeover, or authorization handling.
-
-If the current Host cannot steer the active child, subagents-dispatch reports that limitation rather than simulating steering with a retry or replacement Agent.
-
-### Takeover
-
-Takeover is the user-visible form of `main_takeover`. The user may request it before automatic recovery is exhausted.
-
-A responsibility transfers to Main only after the previous child owner is established as no longer active. For writing work this is a hard one-writer boundary: Main remains read-only until the previous writer is confirmed stopped/terminal/closed. `UNKNOWN` never authorizes a conflicting ownership transfer.
-
-Takeover is represented as Recovery state rather than a new TeamPlan role. TeamPlan's `role` field remains limited to delegated Subagent roles. A pure takeover keeps the unit's last valid delegated role and stable structural plan truth; Main continues the responsibility after delegated execution ends. TeamPlan is revised only when takeover also changes structural facts such as dependency, ownership scope, deliverable, scope, or acceptance.
-
-## Execution Receipt
-
-When real delegation occurred, the terminal response adds one compact factual receipt whether the work completed successfully or ended blocked/partial, for example:
+## End-to-end control flow
 
 ```text
-Dispatch: Reader → Worker · complete · no retry · not required
-Dispatch: Worker · blocked · no retry · not reached · takeover pending on UNKNOWN writer
+understand current task truth + acceptance
+-> preserve upstream workflow ownership
+-> identify material obligations and semantic seams
+-> decide whether delegation adds distinct value
+-> keep work in Main when it does not
+-> choose the smallest useful ready responsibilities
+-> ensure exact native Agent role readiness before a spawn
+-> create compact thread state before the first real child spawn
+-> materialize children only for ready, non-duplicative responsibilities
+-> reconcile current Host truth at control boundaries
+-> verify child claims against actual artifacts/evidence
+-> integrate accepted outputs in dependency-respecting order
+-> close semantic coverage against the combined candidate
+-> recompile responsibilities when phase/authority changes materially
+-> run independent Final Review only when consequences require it
+-> return Main's task-facing result or exact blocker
+-> append the applicable Dispatch Receipt axes
+-> remove active state at the normal terminal boundary
 ```
 
-A receipt may summarize semantic roles, retry/recovery/takeover facts, blocker state, and Final Review state. It does not expose private chain-of-thought or raw child transcripts.
+There is no fixed Luna → Terra → Sol pipeline and no fixed Agent count.
 
-Configured/requested model identity is not reported as observed runtime identity. Token and currency cost are not estimated. Exact model or usage information may appear only when a supported host surface supplies attributable evidence.
+## Delegation and role selection
 
-Zero-child tasks, Preview, Status-only requests, and `RESTART_REQUIRED` first-use setup do not add a receipt because no child was spawned.
+Delegation is optional and value-driven. There is no minimum Subagent count, so zero children is a valid derived result when coordination would add no distinct value. There is no ordinary project-level instance ceiling either; native Host capacity is a ceiling, not a target.
 
-## Handoff Capsule
+Main grows the ready frontier only when another responsibility is useful, ready, non-duplicative, semantically safe, and worth its handoff/integration cost.
 
-A Handoff Capsule reduces repeated discovery between responsibilities while keeping fresh child contexts.
+Configured routes are owned by `contracts/policy.json`:
 
-```text
-child claim/evidence
--> Main verifies actual artifact/evidence
--> Main accepts supported facts
--> optional compact Handoff Capsule
--> downstream responsibility receives accepted evidence + normal bounded packet
-```
-
-Semantic fields are:
-
-```text
-SOURCE UNITS
-ARTIFACT REFS
-ACCEPTED FACTS
-ACCEPTED EVIDENCE
-INTERFACES / INVARIANTS
-DO NOT REDO
-OPEN QUESTIONS
-STALE IF
-```
-
-A capsule cannot grant ownership, mutation authority, permission, broader scope, external impact, role escalation, acceptance changes, or later-phase authorization. Raw child reasoning is excluded. Relevant artifact drift invalidates affected capsule facts until narrow re-verification.
-
-New children still use fresh context (`fork_turns: none`). The mechanism transmits distilled accepted task truth rather than conversation history.
-
-A material phase transition may reuse still-valid capsule evidence in newly compiled responsibilities. The capsule is not an execution manifest and does not preserve an obsolete responsibility identity across a changed goal/output.
-
-## Roles
-
-`contracts/policy.json` remains the machine source of truth for the current native optimized role identity, model, effort, and sandbox intent.
-
-| Role | Agent type | Route | Responsibility |
+| Role | Agent type | Configured lane | Sandbox intent |
 | --- | --- | --- | --- |
-| Reader | `subagents_dispatch_reader` | GPT-5.6 Luna `max` | bounded read-only factual evidence |
-| Worker | `subagents_dispatch_worker` | GPT-5.6 Luna `max` | clear bounded implementation after material behavior is decided |
-| Solver | `subagents_dispatch_solver` | GPT-5.6 Sol `high` | implementation with material judgment coupled to the write |
-| Investigator | `subagents_dispatch_investigator` | GPT-5.6 Terra `xhigh` | broader read-only technical investigation after semantics are stable |
-| Advisor | `subagents_dispatch_advisor` | GPT-5.6 Sol `high` | material read-only judgment or fresh independent final review |
+| Reader | `subagents_dispatch_reader` | Luna Max | read-only |
+| Worker | `subagents_dispatch_worker` | Luna Max | workspace-write |
+| Solver | `subagents_dispatch_solver` | Sol High | workspace-write |
+| Investigator | `subagents_dispatch_investigator` | Terra XHigh | read-only |
+| Advisor | `subagents_dispatch_advisor` | Sol High | read-only |
 
-Role identity is distinct from authority. A stronger model does not gain wider user permission.
+Reader handles narrow inspectable evidence. Worker implements behavior that is already materially decided. Solver owns judgment-coupled implementation. Investigator performs broader read-heavy technical investigation after semantics stabilize. Advisor owns one material read-only judgment or fresh independent Final Review.
 
-## Delegation and adaptive fan-out
+A stronger model never widens user authority.
 
-Main delegates only when a distinct unresolved responsibility benefits from parallelism, isolation, capability, or independent judgment enough to justify handoff and integration cost.
+## Lightweight responsibility state and TeamPlan
 
-Native Codex capacity is an upper bound, never a target. Zero children is normal. Several independent read-only responsibilities may run concurrently when useful.
+One delegated responsibility can stay on the lightweight path with a stable `unit_id`, one concrete `task_id` per Agent attempt, and a compact responsibility/authority packet.
 
-Task size, file count, spare capacity, or one failed attempt does not select a role by itself.
+Compile TeamPlan when two or more delegated responsibilities are concurrently unresolved or when delegated outputs need non-trivial machine-checkable dependency/integration order.
 
-When another active Skill or accepted plan already owns goal, decomposition, stage order, dependencies, outputs, acceptance, or quality gates, subagents-dispatch preserves that workflow and coordinates around it. It does not create a competing planner.
+TeamPlan owns structural truth. It does not choose models or team size. A valid DAG also does not prove semantic completeness; Main separately ensures every current material obligation and material cross-unit seam remains owned and verified.
 
-## Semantic coverage and phase transitions
+When an accepted artifact becomes input to a materially different phase, intent, or authority envelope, Main promotes only accepted task truth and still-valid evidence, then recompiles responsibilities. Earlier readiness does not grant later write or external-action authority.
 
-Main derives material obligations from current task truth. The set is task-specific: an obligation is material when dropping it would materially change the requested outcome or acceptance. The runtime does not maintain a fixed domain taxonomy of requirements.
+## Ephemeral active state
 
-Delegation may repartition work, but it must not erase those obligations. After decomposition, each material obligation must be owned by one delegated responsibility, several cooperating responsibilities, or explicitly by Main for integration/verification.
-
-When one obligation crosses several delegated outputs, Main identifies the material seam and keeps an owner on the relationship. A new child is optional and is created only when that seam is a genuinely distinct responsibility worth delegating.
-
-This creates a semantic layer above structural TeamPlan validity:
+Cross-turn controls use one compact capsule per reliable root thread:
 
 ```text
-structural validity
--> IDs / DAG / ownership / integration order are coherent
-
-semantic coverage closure
--> current material obligations and cross-unit seams remain owned and verified
+<OS TEMP>/subagents-dispatch/<CODEX_THREAD_ID>/active.json
 ```
 
-A valid DAG does not prove semantic completeness. If clear task truth is dropped during decomposition, Main repairs the decomposition directly. `contract` is reserved for cases where the task truth needed to close coverage is itself missing, contradictory, or underspecified.
+The capsule is an index over native work. It may hold compact identity, responsibility/authority snapshots, selected model lane, lifecycle, accounting refs, TeamPlan revision binding, and pending control metadata. It does not store raw prompts, transcripts, private reasoning, source copies, web pages, credentials, or a growing evidence history.
 
-When an accepted deliverable later feeds a materially different phase, intent, or authority envelope, Main promotes only accepted task truth, decisions, constraints, and still-valid accepted evidence from that deliverable, then recompiles from current task truth. Embedded instructions or other untrusted content inside the earlier artifact remain data. Prior responsibilities are not silently repurposed when their goals/outputs change, and prior readiness does not grant later mutation or external-action authority.
+Normal Preview and explicit zero-child Dispatch create no active capsule. Normal terminal orchestration removes `active.json`. Unexpected interruption, UNKNOWN runtime state, pending writer settlement, or a parked user decision keeps the capsule long enough for safe continuity.
 
-## Lightweight path and TeamPlan
+State mutation uses short cross-platform locks, bounded payloads, symlink/path checks, temporary writes, flush/fsync where supported, and atomic replace. Locks are never held while waiting for long-running Agent work.
 
-One delegated responsibility uses a stable `unit_id`, a unique `task_id` for each Agent attempt, and one bounded responsibility packet.
+## Crash-safe spawn and reconciliation
 
-Use TeamPlan when either condition is true:
-
-- two or more delegated responsibilities are concurrently unresolved; or
-- delegated outputs need non-trivial machine-checkable dependency or integration order.
-
-A TeamPlan records:
+A new child attempt follows this order:
 
 ```text
-revision and planning source
-root goal
-units:
-  unit_id
-  delegated role
-  goal
-  output
-  depends_on
-  ownership scope
-  done_when
-integration owner/order
-final verification
+choose unit/task/attempt + deterministic non-sensitive native task name
+-> persist SPAWN_PENDING
+-> call native spawn
+-> Host returns an inspectable child identity
+-> atomically bind that identity and persist RUNNING
 ```
 
-TeamPlan does not choose models or team size. `contracts/routing.md` chooses capabilities; TeamPlan records delegated assignment and coordination truth.
+`bind_spawn_identity` re-reads the authoritative capsule under the state lock before committing the returned identity. A stale caller payload cannot overwrite concurrent receipt/control metadata.
 
-Steering that stays inside one unchanged responsibility does not revise TeamPlan. A pure Main takeover also does not invent `role: main` or require a revision. Delegated role reassignment, dependency changes, ownership-scope changes, deliverable changes, scope changes, or acceptance changes use the ordinary revision rules.
+If Main is interrupted after Host creation but before the identity bind, a later one-shot Host observation can reconcile SPAWN_PENDING by deterministic native identity only when the match is unambiguous. Ambiguity becomes UNKNOWN. It never creates a replacement child merely to escape uncertainty.
 
-`validate_team_plan.py` derives allowed delegated roles from `contracts/policy.json` and validates exact plan shape, unit identity, dependency references/cycles, safe relative ownership paths, read-only write violations, same-ready-layer write overlap, revision shape, and integration order. It intentionally remains structural and does not infer natural-language requirements or prove semantic coverage.
+For ordinary control reconciliation, `reconcile_persisted_state` re-reads the current capsule under the lock, applies one supplied Host snapshot, and atomically persists any lifecycle/identity change.
 
-A structurally ready downstream unit can still be semantically unready. For example, a reviewer that consumes an integrated deliverable waits until Main has actually materialized and verified that deliverable, even when all predecessor units are accepted.
+## Native lifecycle
 
-## Mutation authority and writer safety
-
-Filesystem capability and authorization are separate.
-
-Child mutation authority is one of:
-
-```text
-none
-declared-output-only
-bounded-source-write
-```
-
-One canonical physical checkout has at most one active writing actor inside the current orchestration:
-
-```text
-Main while mutating
-Luna Worker
-Sol Solver
-```
-
-Concurrent writers require genuine filesystem isolation and semantic independence. Different files are insufficient proof: shared APIs, schemas, migrations, lockfiles, generated artifacts, persistent state, or external systems can still couple the work.
-
-Takeover does not weaken this rule. Main cannot write while the previous writer remains active or `UNKNOWN`.
-
-An earlier planning, analysis, audit, review, or verification phase can identify future writable work without authorizing it. Material authority changes are reassessed at the phase boundary.
-
-Main is always the final integration owner.
-
-## Recovery
-
-Each concrete Agent attempt has a unique `task_id`; retries keep the stable `unit_id`.
-
-The native state vocabulary is:
+The product lifecycle is:
 
 ```text
 PLANNED
 SPAWN_PENDING
 RUNNING
+INTERRUPTED
 COMPLETED
 FAILED
 UNKNOWN
 CLOSED
 ```
 
-`UNKNOWN` means host evidence cannot establish current execution state. It is not failure. While UNKNOWN remains unresolved, subagents-dispatch does not create replacement work or conflicting ownership.
+`INTERRUPTED` is non-final and distinct from FAILED/UNKNOWN/CLOSED. Resuming the same child preserves unit, task, attempt, Agent identity, role, responsibility, and authority and does not count as retry, rework, follow-up, or a new work pass.
 
-For confirmed failed work, recovery keeps two independent facts:
+`UNKNOWN` means current Host evidence cannot establish safe runtime truth. While unresolved it cannot authorize replacement work, semantic reroute, ownership transfer, or conflicting mutation.
+
+For the currently supported native child-state surface, the state contract normalizes `pendingInit`, `running`, `interrupted`, `completed`, `errored`, `shutdown`, and `notFound` without creating a second Host lifecycle. `notFound` remains uncertainty and cannot release a writer.
+
+`CLOSED` means native execution ownership ended. `adopted=true` is separate and requires completed evidence that Main actually accepted. A safely stopped/taken-over child may therefore be CLOSED with `adopted=false`.
+
+## Interaction controls
+
+### Preview
+
+Preview performs no child spawn, source mutation, persistent active-state creation, Agent provisioning solely for preview, or external action. It may use bounded read-only inspection and preserves already-visible material obligations/seams. Its output is explicitly predictive.
+
+### Status
+
+Status performs one native observation plus one reconciliation and returns a low-resolution public activity view. It does not busy-poll, spawn, steer, resume, take over, or mutate task truth/artifacts.
+
+Normal Status uses the public model-lane/activity vocabulary from `contracts/receipt.md`. A TeamPlan dependency is shown only when current accepted structural truth supports it. Command-only Status inherits the orchestration locale from active state. `UNKNOWN` stays explicit.
+
+### Steer
+
+Steer targets exactly one currently eligible RUNNING unit. With no explicit unit id it auto-resolves only when exactly one legal target exists; multiple candidates require user choice.
+
+Guidance preserves the same unit, task, attempt, child, role, responsibility, authority, and ownership. A material responsibility/authority change returns to Main routing rather than being disguised as steering. INTERRUPTED is not silently resumed by Steer.
+
+### Takeover
+
+Takeover uses the same exact-target rules. Main may request native stop/close, but a writing responsibility transfers only after current Host evidence proves the previous writer is no longer active.
+
+RUNNING, INTERRUPTED, or UNKNOWN writer state does not release conflicting write authority. Missing/notFound Host evidence is uncertainty, not settlement.
+
+## Writer coordination
+
+`contracts/policy.json` defines semantic writer coordination:
 
 ```text
-execution origin
--> runtime_unavailable | permission_failure | tool_failure | timeout | quality_failure | ...
-
-semantic blocker
--> contract | judgment | investigation | stalled | none
+mode: single_writer
+scope: canonical_workspace
 ```
 
-One unchanged unit gets at most two Agent attempts and one focused follow-up on an existing attempt. Failure never implies a Luna → Terra → Sol ladder.
+One canonical mutation domain has one active writer inside the orchestration. That writer can be Main, Worker, or Solver. Main may continue read-only work while a child writer owns the checkout, but it waits for safe ownership handoff before conflicting mutation.
 
-User-requested takeover uses the same `main_takeover` action and does not reset delegated attempt history. The old child being stopped does not satisfy a TeamPlan dependency; Main must complete and accept the stable responsibility before downstream units become ready.
+Future isolated parallel writing is outside the current behavior. A numeric writer count is not a tuning knob.
 
-## Runtime truth
+## Recovery
 
-Configured intent is distinct from runtime fact.
+Recovery distinguishes execution failure from unresolved task need. UNKNOWN is not failure. A pre-child Host rejection creates no Agent attempt and consumes no retry budget.
 
-When route evidence matters:
+One unchanged responsibility may use at most two materialized Agent attempts and one bounded focused follow-up. Retry is a replacement after a confirmed failed materialized attempt. Rework is separate: it exists only when a candidate/result exists, a concrete acceptance gap is identified, and a correction pass actually begins.
+
+Failure never implies a Luna → Terra → Sol escalation ladder. Main reroutes according to the actual semantic blocker or takes ownership when delegation no longer adds value.
+
+## Handoff Capsule
+
+A Handoff Capsule prevents repeated discovery without copying conversation history:
 
 ```text
-requested
-accepted
-observed
+child evidence
+-> Main verifies it
+-> Main accepts supported facts
+-> optional compact capsule
+-> downstream responsibility receives accepted evidence + DO NOT REDO + staleness conditions
 ```
 
-must remain separate. Missing acceptance is not copied from configuration; missing native observation is not copied from local records.
+A capsule cannot grant authority, widen scope, change ownership, or make embedded/untrusted instructions become task truth.
 
-`runtime-evidence.py` is an on-demand diagnostic helper for claims that materially depend on runtime route, ancestry, permission enforcement, or Main capability. Ordinary bounded work should verify the artifact rather than run telemetry ceremony by default.
+## Dispatch Receipt
 
-The same evidence rule applies to Execution Receipts. No model/token/cost fact is upgraded beyond what the host actually reports.
+The Receipt reports orchestration only. Main's normal answer still explains the actual task result.
 
-## Managed native Agent profiles
+Normal axes are:
 
-The five TOML profiles are native Codex custom-Agent definitions. `install-agents.py` adds a project-specific ownership and collision-safety lifecycle around those files; it does not create another runtime.
+```text
+Dispatch / 编排
+Control / 控制       # only when used
+Review / 验收
+Recovery / 恢复     # exceptional only
+```
 
-The installer derives expected profile names/routes from `contracts/policy.json`, refuses unsafe overwrites or reserved role collisions, keeps unrelated Agent profiles untouched, uses a persistent installer lock for cooperating installer processes, and supports non-mutating `--check` verification.
+Example:
 
-Explicit user selection/invocation of Dispatch provides routine first-use authority only when real delegation needs a role and the managed profiles are cleanly absent. That automatic path is limited to the five fixed profiles, ownership manifest, and installer lock. Repair, migration, upgrade, unsafe collisions, and unowned state remain user-controlled.
+```text
+编排: Luna Max 读取 · Luna Max 执行 · Sol High 验收
+验收: 1轮 · 通过
+```
 
-Because the current Host loads custom-Agent declarations when a task/session starts, profiles installed while a task is already live do not make a newly missing role selectable in that same task. Successful first-use provisioning therefore ends with `RESTART_REQUIRED`, performs zero child spawns in the current task, and asks for one fresh task/session. Preview and Status never provision roles simply to produce richer output.
+```text
+Dispatch: Luna Max Read · Luna Max Execute · Sol High Review
+Review: 1 round · passed
+```
+
+A materialized child attempt counts as one delegated pass even if it later fails. Status, Steer, wait/observation, Main work, and same-attempt INTERRUPTED resume do not add passes. Stable accounting refs make reconciliation/resume idempotent.
+
+Explicit Dispatch that routes everything to Main still returns the minimal zero-child Receipt and creates no active state:
+
+```text
+编排: 未调度子代理
+验收: 未触发
+```
+
+A displayed `Luna Max`, `Sol High`, or `Terra XHigh` normally identifies the selected project lane bound to materialized work. It does not claim that ordinary Dispatch re-ran live model/reasoning telemetry. Contradictory native evidence is a route-integrity failure, not a presentation override.
+
+## Runtime evidence and Doctor
+
+Configured, accepted, and observed route facts are different evidence levels. `scripts/runtime-evidence.py` normalizes route, ancestry, and permission evidence only when the claim actually requires runtime proof.
+
+Ordinary bounded Dispatch remains lightweight. Missing telemetry may remain missing.
+
+Doctor has exactly six diagnostic layers:
+
+```text
+Plugin
+Skills
+Managed Agent profiles
+Dispatch state
+Codex Host
+Runtime route evidence
+```
+
+Static Doctor is read-only and never spawns native Agents. Missing Host/live-route evidence is `UNKNOWN`, not a fabricated PASS and not automatically an unhealthy installation.
+
+Live five-role route integrity is an explicit Doctor Skill workflow. It creates controlled children only on explicit request, keeps configured values separate from observed values, and reports UNKNOWN when the supported Host surface does not expose model/reasoning/permission evidence strongly enough.
 
 ## Final Review
 
-Final Review happens only after ordinary acceptance reaches a candidate that may need independent second judgment.
+Final Review runs only after Candidate Ready when the consequence-driven trigger contract requires independent second judgment.
 
-Candidate Ready requires the requested deliverable itself to be complete enough for acceptance, semantic coverage closure to be satisfied, material seams to be verified, and relevant deterministic/reproducible verification to be complete.
+Candidate Ready means the requested deliverable is complete enough for acceptance, actual artifact/diff/state has been inspected as applicable, semantic coverage and material seams are closed, deterministic/reproducible checks are complete, and residual risks are known.
 
-Trigger classes are machine-owned by `contracts/policy.json` and are consequence-driven: public contract, persistent state, security/authorization boundary, data integrity, concurrency semantics, migration, verification gap, or explicit user request.
+Git-backed deliverables bind the exact candidate with `review-artifact.py`. Non-Git deliverables bind exact serialized candidate bytes with deterministic SHA-256. A fresh independent Advisor reviews that exact identity. Any post-review mutation invalidates the verdict and requires revalidation/re-review when the gate is still required.
 
-Process history such as TeamPlan use, recovery, Terra/Solver use, file count, or diff size is not a trigger by itself.
-
-When required:
+## Deterministic helpers
 
 ```text
-bind exact candidate
--> Git-backed deliverable: review-artifact.py
--> non-Git deliverable: exact serialized candidate + deterministic SHA-256 identity
--> fresh subagents_dispatch_advisor
--> ship | fix-first | rethink | INSUFFICIENT_EVIDENCE
+scripts/policy.py
+-> load canonical machine policy
+
+scripts/dispatch_state.py
+-> compact state/lock, spawn binding, Host reconciliation, target resolution, cleanup, Receipt accounting/formatting
+
+scripts/doctor.py
+-> deterministic six-layer diagnostics
+
+scripts/install-agents.py
+-> managed custom-Agent profile lifecycle
+
+scripts/runtime-evidence.py
+-> requested/accepted/observed route normalization
+
+scripts/validate_team_plan.py
+-> TeamPlan structural validation
+
+scripts/validate_team_ledger.py
+-> delegated lifecycle/recovery ledger validation
+
+scripts/review-artifact.py
+-> exact Git candidate binding
 ```
 
-Any deliverable mutation invalidates the prior verdict. Capsule evidence used for review must also still match the current artifact state. If the candidate cannot be represented and rebound reliably, review remains unresolved.
-
-## Deterministic helper boundary
-
-The Plugin contains a small set of deterministic helpers:
-
-```text
-install-agents.py
--> managed native Agent profile lifecycle
-
-validate_team_plan.py
--> multi-responsibility coordination validation
-
-validate_team_ledger.py
--> recovery-state validation
-
-runtime-evidence.py
--> optional runtime evidence normalization
-
-review-artifact.py
--> deterministic Git-backed candidate identity for Final Review
-```
-
-Preview, Status, Steer, Takeover, Receipt, and Handoff Capsule are Skill-level orchestration contracts. Semantic coverage closure and phase-transition recompilation are Main-level routing semantics. They do not require another executable controller, planner, persistent ledger, or requirement-specific validator.
+These helpers enforce deterministic facts. They do not become a second scheduler or policy database.
 
 ## Evaluation boundary
 
-Static routing, coordination, interaction, runtime, and recovery fixtures catch policy regressions. Behavioral workloads are measurement scaffolding for real Codex runs.
+Static routing, coordination, interaction, runtime, and recovery fixtures catch contract regressions. Behavioral workloads are measurement scaffolding for real Codex runs.
 
-No model-quality, cost, latency, token-saving, or benchmark superiority claim is valid without current measured evidence on named workloads and runtime versions.
+No model-quality, cost, latency, token-saving, or benchmark-superiority claim is valid without current measured evidence on named workloads and runtime versions.
