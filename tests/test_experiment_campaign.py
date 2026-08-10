@@ -210,6 +210,15 @@ def test_task_hash_binds_exact_task_bytes(tmp_path: Path):
     assert "task_sha256 does not match exact UTF-8 task_text" in result.stderr
 
 
+def test_placeholder_task_text_cannot_be_frozen_even_with_matching_hash(tmp_path: Path):
+    payload = role_campaign()
+    payload["workloads"][0]["task_text"] = "TBD"
+    payload["workloads"][0]["task_sha256"] = task_hash("TBD")
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "task_text must be a concrete non-placeholder value" in result.stderr
+
+
 def test_unresolved_control_fingerprints_cannot_be_frozen(tmp_path: Path):
     payload = role_campaign()
     payload["workloads"][0]["controls"]["tool_surface_fingerprint"] = "TBD"
@@ -286,6 +295,22 @@ def test_campaign_rejects_blank_oracle_identity(tmp_path: Path):
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
     assert "acceptance.rubric_id must be a concrete non-placeholder value" in result.stderr
+
+
+def test_optional_fixed_order_reason_cannot_carry_placeholder_garbage(tmp_path: Path):
+    payload = product_campaign()
+    payload["repeat_policy"]["fixed_order_reason"] = "TODO"
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "fixed_order_reason must be a concrete non-placeholder value" in result.stderr
+
+
+def test_optional_promotion_ref_cannot_carry_placeholder_garbage(tmp_path: Path):
+    payload = role_campaign()
+    payload["experiment"]["promotion_criteria_ref"] = "placeholder"
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "promotion_criteria_ref must be a concrete non-placeholder value" in result.stderr
 
 
 def test_role_calibration_rejects_declared_role_without_workload(tmp_path: Path):
