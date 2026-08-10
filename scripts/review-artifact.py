@@ -6,6 +6,10 @@ working-tree diff against HEAD. Before the first commit, it binds a canonical sn
 of every index-tracked path at its current working-tree content. In both cases it also
 binds every non-ignored untracked file.
 
+Git index visibility flags such as assume-unchanged and skip-worktree can suppress real
+tracked working-tree changes from normal Git diff output. This helper therefore fails
+closed when either flag is present instead of issuing an incomplete review identity.
+
 Initialized Git submodules must be clean and checked out at the exact gitlink recorded
 in the superproject index. Dirty or mismatched submodules cannot be represented exactly
 by the superproject diff, so this helper fails closed instead of issuing an ambiguous
@@ -157,6 +161,28 @@ def digest_worktree_path(root: Path, raw_path: bytes, *, allow_missing: bool) ->
     }
 
 
+def ensure_index_visibility(root: Path) -> None:
+    """Reject index flags that can hide tracked worktree bytes from Git diff."""
+    raw = git(root, "ls-files", "-v", "-z")
+    for record in raw.split(b"\0"):
+        if not record:
+            continue
+        if len(record) < 3 or record[1:2] != b" ":
+            fail("could not parse Git index visibility state")
+        tag, raw_path = record[:1], record[2:]
+        relative = os.fsdecode(raw_path)
+        if tag == b"S":
+            fail(
+                "tracked path uses skip-worktree; exact review binding is unavailable: "
+                f"{relative!r}"
+            )
+        if tag.islower():
+            fail(
+                "tracked path uses assume-unchanged; exact review binding is unavailable: "
+                f"{relative!r}"
+            )
+
+
 def indexed_submodules(root: Path) -> list[tuple[bytes, str]]:
     raw = git(root, "ls-files", "--stage", "-z")
     result: list[tuple[bytes, str]] = []
@@ -246,6 +272,8 @@ def ensure_bindable_submodules(root: Path) -> None:
                 )
             continue
 
+        ensure_index_visibility(path)
+
         try:
             current_head = git(path, "rev-parse", "--verify", "HEAD").decode(
                 "ascii", errors="strict"
@@ -313,6 +341,7 @@ def untracked_paths(root: Path) -> list[bytes]:
 
 
 def build_receipt_once(root: Path) -> dict:
+    ensure_index_visibility(root)
     ensure_bindable_submodules(root)
     head = head_identity(root)
     diff_sha = tracked_diff_digest(root, head)
