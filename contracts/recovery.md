@@ -233,12 +233,14 @@ Stopped or superseded work may still contain useful evidence. Main verifies that
 
 ## Ledger validation
 
-When machine-checkable recovery state is genuinely useful, validate it with:
+When machine-checkable recovery state is genuinely useful, validate the current logical ledger without creating another persistent state source:
 
 ```bash
-python scripts/validate_team_ledger.py /path/to/ledger.json
+python scripts/validate_team_ledger.py -
 ```
 
 The validator checks exact record shape, policy-owned delegated role bindings, TeamPlan revision binding, stable unit goal/output identity, unique task and Agent identity, attempt sequence, the two-attempt bound, follow-up bound, UNKNOWN replacement suppression, and lifecycle/adoption consistency.
 
-Do not create a persistent ledger for ordinary short work merely because a validator exists. Keep state in context unless cross-session recovery, multiple long-lived worktrees, strict audit, or another real need justifies durable state. Reuse an upstream state source when one already owns the task.
+For ordinary runtime recovery and cross-turn controls, thread-local continuity belongs to the bounded ephemeral capsule in `state.md`. Do not create repository-local, `.codex/`, or `CODEX_HOME` TeamLedger history merely because the validator accepts serialized input.
+
+A retained ledger file is an explicit export/eval/audit artifact only when the user or the verification workflow actually requires one. Keep that artifact outside ordinary runtime state, bind its purpose and lifetime explicitly, and never treat it as a second live scheduler or coordination database. When an upstream workflow already owns durable coordination truth, reuse that source instead of creating a competing ledger.
