@@ -4,7 +4,7 @@
 
 <h1 align="center">subagents-dispatch</h1>
 
-<p align="center"><em>One command. Parallel agents. Controlled results.</em></p>
+<p align="center"><em>Let Codex delegate when delegation adds value, while Main keeps control.</em></p>
 
 <p align="center">
   <a href="README.md">中文</a> · <a href="docs/plugin-installation.md">Install</a> · <a href="docs/architecture.md">Architecture</a>
@@ -20,7 +20,32 @@
 
 > **If you are an AI Agent, jump to [README_AI.md](README_AI.md) and follow the instructions strictly.**
 
-Hand the parts of a big task to a few subagents. Discovery runs in parallel, writing never fights, and Main takes the results back for acceptance.
+subagents-dispatch is a Codex-native Subagent orchestration plugin. Main keeps ownership of the user goal, scope, permissions, integration, and final acceptance. The plugin delegates only bounded responsibilities that are worth isolating in one layer of specialist Subagents.
+
+Small tasks can stay entirely in Main. Larger tasks can parallelize independent reading, isolate evidence-heavy investigation, route material judgment to the right capability lane, and still keep one writer in the canonical workspace.
+
+## What changes
+
+In one long session, reading, investigation, implementation, judgment, and review can all accumulate in the same context.
+
+subagents-dispatch separates those responsibilities:
+
+```text
+user goal
+  ↓
+Main
+  ├─ decides whether delegation is worth it
+  ├─ compiles responsibility / authority / acceptance
+  ├─ verifies and accepts Subagent evidence
+  └─ owns the final result
+       │
+       ├─ independent reads can run in parallel
+       ├─ writing remains single-writer
+       ├─ stronger judgment lanes are used only when the responsibility needs them
+       └─ independent review is triggered when consequences justify it
+```
+
+There is no target number of Subagents. A valid Dispatch may create several children, one child, or zero children.
 
 ## Quick start
 
@@ -28,66 +53,139 @@ Hand the parts of a big task to a few subagents. Discovery runs in parallel, wri
 Choose Dispatch, then enter: Add pagination to /api/users, with tests
 ```
 
-One sentence, and the plugin decides how to split it. One Read activity checks the existing API, another checks the tests; those run in parallel. Once the evidence is clear, an Execute activity writes the code. Simple tasks are not force-split.
+Main first decides whether any responsibility deserves its own context. Existing API behavior and test structure may be read independently, then a bounded writer can implement once semantics are clear. If the task is small, Main can simply do it instead of manufacturing a multi-Agent workflow.
 
-## How to use
+## You stay in control
 
-Want to see the plan before anything starts:
+All six Skills are explicit entry points. Installing the plugin does not make it take over unrelated tasks.
+
+| Skill | Purpose |
+|---|---|
+| **Dispatch** | start or resume value-driven orchestration |
+| **Preview** | predict likely orchestration without spawning or writing state |
+| **Status** | take one observation of the current orchestration |
+| **Steer** | add guidance to the same responsibility, attempt, and native child |
+| **Takeover** | return responsibility to Main only after the old writer is proven settled |
+| **Doctor** | inspect Plugin, Skills, Agent profiles, dispatch state, and runtime-route evidence |
+
+`Status` is not a background poller. `Steer` does not silently replace a child. `Takeover` does not let Main start a conflicting write while the previous writer is still `UNKNOWN` or `INTERRUPTED`.
+
+## Five roles
+
+Role semantics and runtime policy are separate. A role says what responsibility is allowed to do; the configured model/effort says which current lane is assigned to it.
+
+| Internal role | Current model / effort | Public activity | Responsibility |
+|---|---|---|---|
+| Reader | Luna Max | Read | narrow code reading, call tracing, inspectable fact collection |
+| Worker | Luna Max | Execute | bounded implementation and tests after behavior is already decided |
+| Investigator | Terra XHigh | Investigate | broad read-only investigation and cross-file evidence synthesis |
+| Solver | Sol High | Execute | implementation where material technical judgment cannot be separated from the edit |
+| Advisor | Sol High | Decide / Review | read-only material judgment or independent Final Review |
+
+These routes are current policy. They are not a claim that this is already proven to be the universally optimal model/effort mix. Formal route calibration belongs to real experiments under the [Experiment Protocol](docs/experiment-protocol.md).
+
+## Proving which model actually ran
+
+A profile saying `Luna Max` proves configuration intent. A Host accepting an `agent_type` proves role acceptance. Neither alone proves the actual runtime model or reasoning effort.
+
+When strict proof is required, Doctor's live-route workflow keeps the layers separate:
+
 ```text
-Choose Preview, then enter: Add pagination to /api/users, with tests
+Configured
+→ Requested
+→ Accepted
+→ Observed
 ```
 
-Check how far a running task has come:
+Observed fields come only from actual Host runtime evidence. When public Host metadata omits a required field, the exact child's local Codex rollout can be inspected through a read-only allowlist path for model, reasoning effort, sandbox / permission, and parent / child identity. Configured values and model self-report never fill an Observed field.
+
+See [Runtime Attestation](docs/runtime-attestation.md).
+
+## Fresh child context without throwing away accepted evidence
+
+New project children use fresh context by default. Main sends only the objective, scope, constraints, acceptance conditions, and accepted evidence that the current responsibility actually needs.
+
+If a later responsibility would otherwise repeat expensive discovery, Main can build a small Handoff Capsule:
+
 ```text
-Choose Status
+ACCEPTED FACTS
+ACCEPTED EVIDENCE
+ARTIFACT REFS
+DO NOT REDO
+OPEN QUESTIONS
+STALE IF
 ```
 
-Add a requirement to a running subagent:
-```text
-Choose Steer, then enter: U2: check existing pagination middleware first
-```
+Only facts Main has checked and accepted can cross that boundary. Full logs, complete transcripts, private reasoning, and large source copies are not pushed into the next child just to avoid a read. When complete provenance matters, a references-first Evidence Artifact can hold it while the Handoff carries only the relevant refs.
 
-Stop a responsibility and take it over yourself:
-```text
-Choose Takeover, then enter: U2
-```
-
-## Dispatch receipt
+## Receipts report orchestration facts
 
 ```text
 Dispatch: Luna Max Read · Luna Max Execute · Sol High Review
+Control: Status×1
 Review: 1 round · passed
 ```
 
-The receipt describes Subagent orchestration and independent review only; Main still explains the task result. `Luna Max` and `Sol High` identify the project model lanes selected and actually materialized for the work. They do not claim that every ordinary dispatch independently re-observed the Host model or reasoning effort. Use Doctor live-route checks when runtime route proof is required.
+The Receipt describes Subagent dispatch, control, and independent review. It does not replace Main's final task summary, and it does not infer tokens, cost, or observed runtime identity from model names, elapsed time, or output length.
 
-## Handoff Capsule
+## Works with project rules, Skills, and hooks
 
-Each subagent starts with fresh context. Nothing passed on, and the next subagent re-checks what the last one established. A Handoff Capsule is a small bridge: Main packs verified facts and hands them to the next responsibility.
+subagents-dispatch does not build another AGENTS precedence system and does not copy an external Skill body into every child.
 
-- **Pass verified facts**. Only facts Main has checked and accepted can enter the capsule
-- **Mark `DO NOT REDO`**
-- **Main is the acceptance boundary**. A subagent claim does not become task truth by itself
-- **Carry `STALE IF` conditions**. Source changes can invalidate accepted evidence
+Composition uses constraint intersection:
 
-## Subagent rules
+```text
+Host capability and policy
+∩ current user / system / developer authority
+∩ Host-effective project rules
+∩ accepted upstream Skill / workflow constraints
+∩ subagents-dispatch guardrails
+∩ the current responsibility packet
+```
 
-- **One writer** — within one subagents-dispatch orchestration, the same Git checkout has at most one active writer. The writer can be Main or an Execute activity. Main stays read-only until the previous writer is confirmed stopped or terminal. Other Codex sessions, editors, hooks, and external processes are outside this guarantee
-- **One delegation layer** — subagents cannot create further Subagents. Main keeps ownership of the user goal, permissions, team composition, and final response
-- **UNKNOWN means do not guess** — when state cannot be established, there is no replacement subagent, retry, or semantic reroute
-- **Receipts report facts** — they do not estimate token usage or currency cost from model names, elapsed time, or output length
+A lower layer can narrow authority but cannot widen a higher layer. An external Skill may define how domain work should be done, but it cannot turn a read-only responsibility into a writer or expand the user's authorized scope. Hooks may observe or block actions, but they do not become a second scheduler, persistent state store, or authority system.
 
-## Roles
+See the [Composition Contract](contracts/composition.md).
 
-| Model lane | Public activity | What it does |
-|------|-------------|--------------|
-| Luna Max | Read | read code, trace call paths, gather facts |
-| Luna Max | Execute | implementation and tests when the behavior is already decided |
-| Sol High | Execute | implementation that needs judgment calls along the way |
-| Terra XHigh | Investigate | broad read-only investigation, evidence synthesis |
-| Sol High | Decide / Review | independent technical judgment or final review |
+## Safety boundaries
 
-Most work stays in Main.
+- **Single writer**: one active writer per orchestration in the canonical workspace. Main cannot start a conflicting write until the Host proves the previous writer is stopped or terminal
+- **One delegation layer**: Main owns project-level delegation; project children do not create more project children
+- **`UNKNOWN` stays unknown**: uncertainty does not authorize replacement, hidden retry, or semantic reroute
+- **Bounded recovery**: one responsibility has at most two materialized Agent attempts; same-child resume is not a retry
+- **Main keeps final authority**: child output, hooks, external Skills, and configured routes are evidence or constraints, not task acceptance by themselves
+- **Ordinary Dispatch does not scan Codex rollouts**: local rollout inspection exists only for explicit runtime attestation
+
+## Performance data: no headline before the evidence
+
+One goal of this project is to test whether responsibility isolation and routing can reduce repeated discovery, lower Main-context pressure, and shorten completion time when real parallelism exists. Those are empirical questions.
+
+The repository now includes a formal experiment protocol and campaign validator for controlled comparisons such as:
+
+```text
+same real repository / exact base revision / exact task
+single-agent Codex
+vs
+explicit Dispatch
+```
+
+The experiment model keeps correctness, safety, rework, wall-clock time, Main/child tokens, aggregate tokens, context pressure, and Host route evidence separate. Small tasks are required in the campaign mix because a good dispatcher must be allowed to choose `0 child`.
+
+**Until repeated real-task evidence exists, this README does not claim that subagents-dispatch is proven faster, uses fewer total tokens, or that the current five model/effort routes are optimal.**
+
+See the [Experiment Protocol](docs/experiment-protocol.md) and [Evaluations](evals/README.md). When results are ready, public numbers should remain traceable to the campaign, Host, repository, task, repeats, and oracle that produced them.
+
+## When Dispatch should probably stay out of the way
+
+Main is usually the better place for:
+
+- small local tasks whose relevant context is already present
+- strongly serial work where every step depends on the previous one
+- work whose authorization boundary is still unclear
+- tasks that depend on a Host control capability that is still `UNKNOWN`
+- decomposition whose only purpose is to make the run look “multi-Agent”
+
+Use Preview when you want to inspect likely orchestration without executing it.
 
 ## Install
 
@@ -96,7 +194,9 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-When delegation is first needed, choose Dispatch. The plugin safely creates the five subagent profiles, then asks you to start a new session and choose Dispatch again.
+When delegation is first genuinely needed, choose Dispatch. The plugin manages only its own five Agent profiles. If they must be provisioned, the current task returns `RESTART_REQUIRED`; start a fresh Codex task/session and choose Dispatch again.
+
+See [Installation](docs/plugin-installation.md) for the full lifecycle and safety rules.
 
 ## Update
 
@@ -105,7 +205,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Or choose **Doctor** and ask it to upgrade.
+You can also choose **Doctor** to inspect the installation and managed-profile state.
 
 ## Uninstall
 
@@ -114,7 +214,7 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-If you ran subagent tasks, also delete these files:
+If managed profiles were provisioned, remove the six plugin-owned managed files as well:
 
 ```bash
 rm ~/.codex/agents/subagents-dispatch-reader.toml
@@ -125,25 +225,33 @@ rm ~/.codex/agents/subagents-dispatch-advisor.toml
 rm ~/.codex/.subagents-dispatch-agents.json
 ```
 
+Follow [Installation](docs/plugin-installation.md) for the complete uninstall flow. Do not delete Agent configuration that has not been proven to belong to this plugin.
+
+## Privacy
+
+Ordinary orchestration stores one compact root-thread-scoped coordination capsule in the operating system's temporary directory and removes normal terminal state. It is not a store for raw prompts, full transcripts, private reasoning, credentials, or full source files.
+
+The local-rollout boundary used only during explicit Runtime Attestation is documented in [PRIVACY.md](PRIVACY.md).
+
 ## Repository layout
 
 ```text
 .
 ├── .agents/plugins/                  # Codex Marketplace registration
-├── .codex-plugin/                    # plugin manifest
-├── agent-profiles/                   # five Agent profiles
-├── contracts/                        # shared orchestration contracts and role policy
-├── scripts/                          # installer, validators, runtime evidence tools
+├── .codex-plugin/                    # Plugin manifest
+├── agent-profiles/                   # five managed Agent profiles
+├── contracts/                        # orchestration, state, evidence, and safety contracts
+├── scripts/                          # installer, validators, state, and runtime-evidence tools
 ├── skills/
 │   ├── dispatch/                     # start or resume orchestration
 │   ├── preview/                      # predict without execution
-│   ├── status/                       # one-shot status
+│   ├── status/                       # one-shot status observation
 │   ├── steer/                        # guide an existing delegation
-│   ├── takeover/                     # safely return work to Main
+│   ├── takeover/                     # safely return responsibility to Main
 │   └── doctor/                       # installation and runtime diagnostics
-├── docs/                             # architecture and runtime boundary docs
-├── evals/                            # static and behavioral evaluation data
-└── tests/                            # regression tests
+├── docs/                             # architecture, Host, experiment, and release docs
+├── evals/                            # static, behavioral, and experiment schemas
+└── tests/                            # regression and adversarial tests
 ```
 
 ## Documentation
@@ -151,6 +259,9 @@ rm ~/.codex/.subagents-dispatch-agents.json
 - [Installation](docs/plugin-installation.md)
 - [Architecture](docs/architecture.md)
 - [Codex Native Subagent runtime boundaries](docs/native-subagent-runtime.md)
+- [Runtime Attestation](docs/runtime-attestation.md)
+- [Experiment Protocol](docs/experiment-protocol.md)
+- [Composition Contract](contracts/composition.md)
 - [Behavioral evals](docs/behavioral-evals.md)
 - [OpenAI references](docs/openai-references.md)
 - [AI Agent project reference](README_AI.md)
