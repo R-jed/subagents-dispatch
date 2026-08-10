@@ -23,6 +23,7 @@ jobs:
       - name: Apply and validate compact-state patch
         run: |
           python scripts/_apply_compact_state_schema.py
+          python scripts/_adjust_compact_state_tests.py
           python -m py_compile scripts/dispatch_state.py
           python -m pip install -r requirements-dev.txt
           python -m pytest -q
@@ -32,7 +33,7 @@ jobs:
         run: |
           git config user.name "R-jed"
           git config user.email "142428709+R-jed@users.noreply.github.com"
-          git rm scripts/_apply_compact_state_schema.py .github/workflows/apply-v3-compact-state-schema.yml
-          git add scripts/dispatch_state.py contracts/state.md tests/test_dispatch_state.py tests/test_dispatch_state_compact_schema.py
+          git rm scripts/_apply_compact_state_schema.py scripts/_adjust_compact_state_tests.py .github/workflows/apply-v3-compact-state-schema.yml
+          git add scripts/dispatch_state.py contracts/state.md tests/test_dispatch_state.py tests/test_dispatch_state_compact_schema.py tests/test_doctor.py tests/test_v3_runtime_hardening.py
           git commit -m "fix: close ephemeral state schema and receipt recovery channel"
           git push origin HEAD:enhance/v3-control-surface-architecture
