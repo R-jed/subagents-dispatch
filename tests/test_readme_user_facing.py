@@ -48,8 +48,34 @@ def test_public_readmes_link_deeper_docs():
             "docs/plugin-installation.md",
             "docs/architecture.md",
             "docs/native-subagent-runtime.md",
+            "docs/runtime-attestation.md",
+            "docs/experiment-protocol.md",
+            "contracts/composition.md",
         ]:
             assert link in text
+
+
+def test_public_readmes_explain_v3_control_and_evidence_without_unmeasured_performance_claims():
+    for text in [ZH, EN]:
+        for phrase in [
+            "Configured",
+            "Requested",
+            "Accepted",
+            "Observed",
+            "0 child",
+            "Status",
+            "Steer",
+            "Takeover",
+            "Runtime Attestation",
+            "Experiment Protocol",
+            "Composition Contract",
+        ]:
+            assert phrase in text
+
+    assert "本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token" in ZH
+    assert "this README does not claim that subagents-dispatch is proven faster" in EN
+    assert "当前五个 model / effort 是最优配置" in ZH
+    assert "the current five model/effort routes are optimal" in EN
 
 
 def test_public_readme_visual_surface_uses_canonical_plugin_assets():
