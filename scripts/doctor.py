@@ -24,6 +24,8 @@ from dispatch_state import (  # type: ignore[import-not-found]
     StateCorruptError,
     StateIdentityError,
     StatePathError,
+    _reject_symlink,
+    _temporary_root,
     cleanup_stale_states,
     is_stale,
     load_state,
@@ -242,26 +244,25 @@ def _latest_units(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _state_entries(temp_root: Path) -> tuple[Path | None, list[Path], str | None]:
-    candidate = temp_root.expanduser()
-    if not candidate.is_absolute():
-        return None, [], "temporary root must be absolute"
-    if candidate.is_symlink():
-        return None, [], "temporary root is a symlink"
+    """List state entries after dispatch_state validates the canonical temp boundary."""
     try:
-        root_base = candidate.resolve()
-    except (OSError, RuntimeError) as exc:
-        return None, [], f"temporary root unavailable: {exc}"
-    system_temp = Path(tempfile.gettempdir()).resolve()
-    if root_base != system_temp and system_temp not in root_base.parents:
-        return None, [], "temporary root must remain inside the OS temporary directory"
+        root_base = _temporary_root(temp_root)
+    except StatePathError as exc:
+        return None, [], str(exc)
     root = root_base / STATE_DIRECTORY
-    if root.is_symlink():
-        return root, [], "dispatch state root is a symlink"
+    try:
+        _reject_symlink(root, "dispatch state root")
+    except StatePathError as exc:
+        return root, [], str(exc)
     if not root.exists():
         return root, [], None
     if not root.is_dir():
         return root, [], "dispatch state root is not a directory"
-    return root, sorted(root.iterdir(), key=lambda item: item.name), None
+    try:
+        entries = sorted(root.iterdir(), key=lambda item: item.name)
+    except OSError as exc:
+        return root, [], f"dispatch state root is unreadable: {exc}"
+    return root, entries, None
 
 
 def _unexpected_repository_state(root: Path = ROOT) -> list[str]:
