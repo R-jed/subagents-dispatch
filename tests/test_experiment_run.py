@@ -45,7 +45,7 @@ def canonical_hash(payload: dict) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def task_hash(text: str) -> str:
+def text_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -66,7 +66,7 @@ def workload(*, role: str | None = None, stratum: str | None = "small_bounded") 
         "base_revision": "a" * 40,
         "source_task_ref": "fixture:W1",
         "task_text": task,
-        "task_sha256": task_hash(task),
+        "task_sha256": text_hash(task),
         "reset_procedure": ["git reset --hard BASE", "git clean -fdx"],
         "acceptance": {
             "rubric_id": "rubric-W1-v1",
@@ -76,7 +76,10 @@ def workload(*, role: str | None = None, stratum: str | None = "small_bounded") 
         "controls": controls(),
     }
     if role is not None:
+        packet = "OBJECTIVE\nChange one bounded behavior.\nVERIFICATION\npytest focused-test"
         payload["calibration_role"] = role
+        payload["responsibility_packet_sha256"] = text_hash(packet)
+        payload["responsibility_packet_ref"] = "fixture:calibration-packet-v1"
     if stratum is not None:
         payload["benchmark_stratum"] = stratum
     return payload
@@ -142,6 +145,63 @@ def calibration_campaign() -> dict:
     }
 
 
+def scalar_input(value: str | None, *, verdict: str = "verified", ref: str | None = "evidence:scalar") -> dict:
+    return {"observed_value": value, "verdict": verdict, "evidence_ref": ref}
+
+
+def scalar_control(value: str | None, *, verdict: str = "verified", ref: str | None = "evidence:control") -> dict:
+    return {"observed_fingerprint": value, "verdict": verdict, "evidence_ref": ref}
+
+
+def input_evidence(campaign: dict) -> dict:
+    item = campaign["workloads"][0]
+    calibration = campaign["experiment"]["type"] == "role_calibration"
+    packet = (
+        scalar_input(
+            item["responsibility_packet_sha256"],
+            ref="artifact:responsibility-packet",
+        )
+        if calibration
+        else scalar_input(None, verdict="not_applicable", ref=None)
+    )
+    return {
+        "host": {
+            "observed": campaign["host_target"],
+            "verdict": "verified",
+            "evidence_ref": "host:version-platform",
+        },
+        "repository": {
+            "observed": {
+                "repository_url": item["repository_url"],
+                "base_revision": item["base_revision"],
+            },
+            "verdict": "verified",
+            "evidence_ref": "git:remote-and-head",
+        },
+        "task_sha256": scalar_input(item["task_sha256"], ref="rollout:user-task-sha256"),
+        "responsibility_packet_sha256": packet,
+        "controls": {
+            "main_session_route": scalar_control(
+                item["controls"]["main_session_route_fingerprint"],
+                ref="host:main-route",
+            ),
+            "permissions": scalar_control(
+                item["controls"]["permissions_fingerprint"],
+                ref="host:permissions",
+            ),
+            "tool_surface": scalar_control(
+                item["controls"]["tool_surface_fingerprint"],
+                ref="host:tool-surface",
+            ),
+            "project_rules": {
+                "observed_refs": item["controls"]["project_rule_refs"],
+                "verdict": "verified",
+                "evidence_ref": "workspace:project-rules",
+            },
+        },
+    }
+
+
 def metric(status: str = "unavailable", value: int | None = None, source: str | None = None) -> dict:
     return {"status": status, "value": value, "source_ref": source}
 
@@ -176,9 +236,9 @@ def base_run(campaign: dict, *, mode: str = "single_agent") -> dict:
         "workload_id": "W1",
         "repeat_index": 1,
         "arm": {"kind": "product_benchmark", "mode": mode},
-        "host_target": campaign["host_target"],
         "root_thread_id": "root-thread-1",
-        "observed_controls": controls(),
+        "input_assurance": "verified",
+        "input_evidence": input_evidence(campaign),
         "execution": {
             "status": "completed",
             "acceptance_status": "passed",
@@ -229,6 +289,7 @@ def test_product_single_agent_run_binds_exact_campaign_without_child_routes(tmp_
     campaign = product_campaign()
     result = validate(tmp_path, campaign, base_run(campaign))
     assert result["run_valid"] is True
+    assert result["input_assurance"] == "verified"
     assert result["materialized_children"] == 0
     assert result["route_assurance"] == "not_applicable"
 
@@ -252,10 +313,9 @@ def test_zero_child_dispatch_is_valid_and_keeps_route_assurance_not_applicable(t
     assert result["materialized_children"] == 0
 
 
-def test_formal_failed_run_is_valid_evidence_instead_of_being_dropped(tmp_path: Path):
+def test_formal_failed_run_is_preserved_as_valid_evidence(tmp_path: Path):
     campaign = product_campaign(stage="formal")
     run = base_run(campaign)
-    run["stage"] = "formal"
     run["execution"].update(
         status="failed",
         acceptance_status="unknown",
@@ -266,19 +326,74 @@ def test_formal_failed_run_is_valid_evidence_instead_of_being_dropped(tmp_path: 
     result = validate(tmp_path, campaign, run)
     assert result["run_valid"] is True
     assert result["execution_status"] == "failed"
-    assert result["acceptance_status"] == "unknown"
 
 
-def test_run_rejects_campaign_hash_or_control_drift(tmp_path: Path):
+def test_run_rejects_wrong_campaign_hash(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign)
     run["campaign_sha256"] = "f" * 64
     with pytest.raises(SystemExit, match="campaign_sha256"):
         validate(tmp_path, campaign, run)
 
+
+def test_frozen_inputs_cannot_be_copied_into_observed_without_evidence_refs(tmp_path: Path):
+    campaign = product_campaign()
     run = base_run(campaign)
-    run["observed_controls"]["tool_surface_fingerprint"] = "tools:drifted"
-    with pytest.raises(SystemExit, match="observed_controls"):
+    run["input_evidence"]["controls"]["tool_surface"]["evidence_ref"] = None
+    with pytest.raises(SystemExit, match="tool_surface.evidence_ref"):
+        validate(tmp_path, campaign, run)
+
+    run = base_run(campaign)
+    run["input_evidence"]["host"]["evidence_ref"] = None
+    with pytest.raises(SystemExit, match="input_evidence.host.evidence_ref"):
+        validate(tmp_path, campaign, run)
+
+
+def test_unknown_input_evidence_is_preserved_and_derives_unknown_assurance(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    item = run["input_evidence"]["controls"]["main_session_route"]
+    item.update(observed_fingerprint=None, verdict="unknown", evidence_ref="host:route-unavailable")
+    run["input_assurance"] = "unknown"
+    result = validate(tmp_path, campaign, run)
+    assert result["run_valid"] is True
+    assert result["input_assurance"] == "unknown"
+
+
+def test_observed_input_drift_must_be_recorded_as_failed_not_hidden(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    item = run["input_evidence"]["controls"]["tool_surface"]
+    item["observed_fingerprint"] = "tools:drifted"
+    with pytest.raises(SystemExit, match="requires verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+    item["verdict"] = "failed"
+    run["input_assurance"] = "failed"
+    result = validate(tmp_path, campaign, run)
+    assert result["run_valid"] is True
+    assert result["input_assurance"] == "failed"
+
+
+def test_host_repository_and_task_evidence_bind_actual_inputs(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    run["input_evidence"]["repository"]["observed"]["base_revision"] = "b" * 40
+    with pytest.raises(SystemExit, match="repository.*verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+    run = base_run(campaign)
+    run["input_evidence"]["task_sha256"]["observed_value"] = "0" * 64
+    with pytest.raises(SystemExit, match="task_sha256.*verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+
+def test_product_benchmark_packet_evidence_is_explicitly_not_applicable(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    packet = run["input_evidence"]["responsibility_packet_sha256"]
+    packet.update(observed_value="c" * 64, verdict="verified", evidence_ref="fake:packet")
+    with pytest.raises(SystemExit, match="must be not_applicable"):
         validate(tmp_path, campaign, run)
 
 
@@ -338,44 +453,60 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
         validate(tmp_path, campaign, run)
 
 
-def test_role_calibration_run_binds_exact_declared_challenger(tmp_path: Path):
-    campaign = calibration_campaign()
+def calibration_run(campaign: dict) -> dict:
     challenger = campaign["experiment"]["roles"][0]["challengers"][0]
     policy = json.loads(POLICY.read_text(encoding="utf-8"))["roles"]["reader"]
-    run = {
-        **base_run(product_campaign()),
-        "run_id": "run-reader-challenger-1",
-        "campaign_id": campaign["campaign_id"],
-        "campaign_sha256": canonical_hash(campaign),
-        "plugin_candidate_sha": campaign["plugin_candidate_sha"],
-        "stage": campaign["stage"],
-        "experiment_type": "role_calibration",
-        "arm": {"kind": "role_calibration", "role": "reader", "route_id": challenger["id"]},
-        "host_target": campaign["host_target"],
-        "route_assurance": "verified",
-        "metrics": metrics(children=True),
-    }
-    route = {
-        "child_thread_id": "child-reader-1",
-        "parent_thread_id": "root-thread-1",
-        "agent_type": policy["agent_type"],
-        "role": "reader",
-        "observed": {
-            "model": challenger["model"],
-            "effort": challenger["effort"],
-            "sandbox_intent": challenger["sandbox_intent"],
-        },
-        "verdict": "verified",
-        "evidence_source": "both",
-        "evidence_ref": "runtime:reader-challenger",
-    }
-    run["child_routes"] = [route]
+    run = base_run(campaign)
+    run.update(
+        run_id="run-reader-challenger-1",
+        experiment_type="role_calibration",
+        arm={"kind": "role_calibration", "role": "reader", "route_id": challenger["id"]},
+        route_assurance="verified",
+        metrics=metrics(children=True),
+    )
+    run["child_routes"] = [
+        {
+            "child_thread_id": "child-reader-1",
+            "parent_thread_id": "root-thread-1",
+            "agent_type": policy["agent_type"],
+            "role": "reader",
+            "observed": {
+                "model": challenger["model"],
+                "effort": challenger["effort"],
+                "sandbox_intent": challenger["sandbox_intent"],
+            },
+            "verdict": "verified",
+            "evidence_source": "both",
+            "evidence_ref": "runtime:reader-challenger",
+        }
+    ]
+    return run
+
+
+def test_role_calibration_run_binds_packet_and_declared_challenger(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
     result = validate(tmp_path, campaign, run)
     assert result["run_valid"] is True
+    assert result["input_assurance"] == "verified"
 
     run["arm"]["route_id"] = "undeclared-route"
     with pytest.raises(SystemExit, match="not a declared route"):
         validate(tmp_path, campaign, run)
+
+
+def test_calibration_packet_drift_cannot_be_attributed_to_model_effort(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    run["input_evidence"]["responsibility_packet_sha256"]["observed_value"] = "d" * 64
+    with pytest.raises(SystemExit, match="responsibility_packet_sha256.*verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+    run["input_evidence"]["responsibility_packet_sha256"]["verdict"] = "failed"
+    run["input_assurance"] = "failed"
+    result = validate(tmp_path, campaign, run)
+    assert result["run_valid"] is True
+    assert result["input_assurance"] == "failed"
 
 
 def test_measurements_require_provenance_and_reported_token_totals_must_reconcile(tmp_path: Path):
