@@ -217,6 +217,10 @@ def validate_role_calibration(
                 f"workload {workload_id!r} targets calibration role {role!r}, "
                 "which is not declared in experiment.roles"
             )
+        require_frozen_text(
+            workload["responsibility_packet_ref"],
+            f"workload {workload_id!r} responsibility_packet_ref",
+        )
         workloads_by_role[role] += 1
 
     missing = [role for role, count in workloads_by_role.items() if count == 0]
@@ -236,6 +240,11 @@ def validate_product_benchmark(campaign: dict[str, Any]) -> list[str]:
             fail(
                 f"product-benchmark workload {workload_id!r} must not predeclare a calibration role; "
                 "actual Dispatch role use is result/runtime evidence"
+            )
+        if "responsibility_packet_sha256" in workload or "responsibility_packet_ref" in workload:
+            fail(
+                f"product-benchmark workload {workload_id!r} must not freeze a delegated responsibility packet; "
+                "Dispatch decomposition is part of the product behavior under test"
             )
     return []
 
