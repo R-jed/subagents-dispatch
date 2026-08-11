@@ -97,6 +97,9 @@ scripts/review-artifact.py
 scripts/validate-experiment-campaign.py
 -> validate/freeze either a role-calibration or single-agent-versus-Dispatch campaign against the exact current candidate
 
+scripts/validate-experiment-run.py
+-> validate one actual run against its frozen campaign, including input attestation, route evidence, oracle/result refs, and exact measurement provenance; never scores, aggregates, or mutates policy
+
 scripts/score-behavioral-evals.py
 -> validate and summarize paired behavioral result records without inventing a global quality score
 
@@ -107,7 +110,7 @@ scripts/doctor.py
 -> deterministic installation diagnostics; consumes explicit normalized runtime evidence but never spawns or scans Host runtime automatically
 ```
 
-For install, first-run provisioning, update, or uninstall commands, read `docs/plugin-installation.md`. For architecture, read `docs/repository-architecture.md`. For native runtime boundaries, read `docs/native-subagent-runtime.md`. For the exact child model/effort/sandbox proof protocol, read `docs/runtime-attestation.md`. For role calibration, single-agent-versus-Dispatch benchmarking, policy promotion, and README claim publication rules, read `docs/experiment-protocol.md`. For broader evaluation boundaries, read `evals/README.md`.
+For install, first-run provisioning, update, or uninstall commands, read `docs/plugin-installation.md`. For architecture, read `docs/repository-architecture.md`. For native runtime boundaries, read `docs/native-subagent-runtime.md`. For the exact child model/effort/sandbox proof protocol, read `docs/runtime-attestation.md`. For role calibration, single-agent-versus-Dispatch benchmarking, policy promotion, and README claim publication rules, read `docs/experiment-protocol.md`. For broader evaluation boundaries and the campaign/run implementation, read `evals/README.md`.
 
 For release evidence, read `docs/release-checklist.md`: repository gates are deterministic, App labels require direct human observation, and Codex Host route/control evidence remains pending until a real supported Host run proves it. During the single-maintainer phase, implement non-trivial changes on a short-lived feature branch, run full local validation and adversarial review there, repair and revalidate on the same branch, then merge directly to `main` and use the `main` push GitHub Actions run as cross-platform confirmation. A pull request is optional, not a hidden requirement.
 
@@ -115,6 +118,6 @@ Runtime truth is layered. `contracts/policy.json` and managed profile TOMLs esta
 
 Composition is also layered. Host/current user authority and applicable project instructions constrain the work; an accepted external Skill or workflow may own domain planning and acceptance; subagents-dispatch adds orchestration only; the child role/responsibility packet narrows the result further. Hooks are optional observations/guards and are not a required control plane.
 
-Experiments are typed. Role calibration keeps the responsibility/isolation contract fixed and changes model/effort. Product benchmark keeps the real task/environment fixed and compares ordinary `single_agent` with explicit `dispatch`; it does not pre-script which project roles Dispatch must use. Formal experiment claims require repeated real runs and exact evidence. Policy never changes automatically from benchmark output.
+Experiments are typed. Role calibration keeps the responsibility/isolation contract fixed and changes model/effort. Its campaign freezes an evaluator-owned responsibility packet identity so a packet change cannot be misattributed to model/effort. Product benchmark keeps the real task/environment fixed and compares ordinary `single_agent` with explicit `dispatch`; it does not pre-script which project roles Dispatch must use. Campaign fields define expected/frozen inputs. Per-run input evidence must independently attest the Host, repository/base, task, applicable calibration packet, and controlled environment; copying campaign values is not observation. Formal experiment claims require repeated real runs and exact evidence. Policy never changes automatically from benchmark output.
 
 An ordinary Dispatch Receipt may show the selected project lane for materialized work; explicit live-route proof still requires actual Host evidence. Ordinary Dispatch does not scan Codex session rollouts. Current role model/effort settings are operational policy, not benchmark-proven optimality claims. Do not claim benchmark gains, public availability, token/cost attribution, or App UI behavior without current accepted evidence.
