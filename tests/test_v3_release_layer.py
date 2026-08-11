@@ -111,5 +111,5 @@ def test_release_checklist_requires_all_five_live_routes_without_promoting_accep
     ]:
         assert agent_type in release
     assert "accepted exact `agent_type` proves role acceptance only" in release
-    assert "Missing runtime evidence remains `UNKNOWN`" in release
+    assert "Missing runtime evidence or unbound permission-source provenance remains `UNKNOWN`" in release
     assert "observed mismatch is `FAIL`" in release
