@@ -72,15 +72,15 @@ Main 会先判断有没有值得独立处理的职责。例如现有接口和测
 
 ## 五个角色
 
-角色描述的是职责边界；模型配置是当前运行策略。两者分开管理。
+角色描述的是职责边界；模型配置是当前运行策略。中文用户界面只展示活动类型，不暴露内部角色名。
 
-| 内部角色 | 当前模型 / 思考强度 | 对外活动 | 负责什么 |
-|---|---|---|---|
-| Reader | Luna Max | 读取 | 窄范围读代码、追调用链、收集可核对事实 |
-| Worker | Luna Max | 执行 | 做法已经决定后的边界明确实现和测试 |
-| Investigator | Terra XHigh | 调研 | 大范围只读调查、跨文件证据整理和综合 |
-| Solver | Sol High | 执行 | 实现过程中存在不可分离的实质技术判断 |
-| Advisor | Sol High | 决策 / 验收 | 只读技术决策或独立 Final Review |
+| 当前模型 / 思考强度 | 对外活动 | 负责什么 |
+|---|---|---|
+| Luna Max | 读取 | 窄范围读代码、追调用链、收集可核对事实 |
+| Luna Max | 执行 | 做法已经决定后的边界明确实现和测试 |
+| Terra XHigh | 调研 | 大范围只读调查、跨文件证据整理和综合 |
+| Sol High | 执行 | 实现过程中存在不可分离的实质技术判断 |
+| Sol High | 决策 / 验收 | 只读技术决策或独立 Final Review |
 
 这些配置是当前 policy，不代表我们已经证明它们是所有任务上的“最优组合”。模型和 reasoning effort 的正式校准由真实实验数据决定，见 [Experiment Protocol](docs/experiment-protocol.md)。
 
@@ -229,7 +229,7 @@ rm ~/.codex/.subagents-dispatch-agents.json
 
 ## 隐私
 
-普通运行只保存一个 root-thread scoped 的紧凑临时 coordination capsule，位于操作系统临时目录；正常终态会清理。它不用于保存 raw prompt、完整 transcript、私有 reasoning、credentials 或整份源码。
+只有需要跨 turn 协调时，普通编排才会在操作系统临时目录维护一个 root-thread scoped 的紧凑 coordination capsule；Preview 和零子代理 Dispatch 不需要创建它，正常终态会清理。它不用于保存 raw prompt、完整 transcript、私有 reasoning、credentials 或整份源码。
 
 显式 Runtime Attestation 对本地 rollout 的访问边界见 [PRIVACY.md](PRIVACY.md)。
 
