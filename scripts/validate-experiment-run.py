@@ -167,6 +167,169 @@ def validate_execution(run: dict[str, Any]) -> None:
         require_text(failure_ref, "execution.failure_ref")
 
 
+def validate_attested_scalar(
+    evidence: dict[str, Any],
+    *,
+    expected: str | None,
+    label: str,
+    applicable: bool = True,
+) -> str:
+    observed = evidence["observed_value"]
+    verdict = evidence["verdict"]
+    evidence_ref = evidence["evidence_ref"]
+
+    if not applicable:
+        if verdict != "not_applicable" or observed is not None or evidence_ref is not None:
+            fail(f"{label} must be not_applicable with null observed_value/evidence_ref")
+        return "not_applicable"
+
+    if verdict == "not_applicable":
+        fail(f"{label} is applicable and cannot be marked not_applicable")
+    if observed is None:
+        if verdict != "unknown":
+            fail(f"{label} without an observed value must have verdict=unknown")
+        if evidence_ref is not None:
+            require_text(evidence_ref, f"{label}.evidence_ref")
+        return "unknown"
+
+    require_text(observed, f"{label}.observed_value")
+    require_text(evidence_ref, f"{label}.evidence_ref")
+    expected_verdict = "verified" if observed == expected else "failed"
+    if verdict != expected_verdict:
+        fail(
+            f"{label} observed value requires verdict={expected_verdict}; "
+            f"expected {expected!r}, observed {observed!r}"
+        )
+    return expected_verdict
+
+
+def validate_attested_object(
+    evidence: dict[str, Any],
+    *,
+    expected: dict[str, Any],
+    label: str,
+) -> str:
+    observed = evidence["observed"]
+    verdict = evidence["verdict"]
+    evidence_ref = evidence["evidence_ref"]
+    if observed is None:
+        if verdict != "unknown":
+            fail(f"{label} without an observed object must have verdict=unknown")
+        if evidence_ref is not None:
+            require_text(evidence_ref, f"{label}.evidence_ref")
+        return "unknown"
+
+    require_text(evidence_ref, f"{label}.evidence_ref")
+    expected_verdict = "verified" if observed == expected else "failed"
+    if verdict != expected_verdict:
+        fail(
+            f"{label} observed object requires verdict={expected_verdict}; "
+            "frozen and observed inputs differ"
+        )
+    return expected_verdict
+
+
+def validate_control_evidence(evidence: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    verdicts: list[str] = []
+    scalar_fields = {
+        "main_session_route": "main_session_route_fingerprint",
+        "permissions": "permissions_fingerprint",
+        "tool_surface": "tool_surface_fingerprint",
+    }
+    for evidence_name, expected_name in scalar_fields.items():
+        item = evidence[evidence_name]
+        observed = item["observed_fingerprint"]
+        verdict = item["verdict"]
+        evidence_ref = item["evidence_ref"]
+        label = f"input_evidence.controls.{evidence_name}"
+        if observed is None:
+            if verdict != "unknown":
+                fail(f"{label} without an observed fingerprint must have verdict=unknown")
+            if evidence_ref is not None:
+                require_text(evidence_ref, f"{label}.evidence_ref")
+            verdicts.append("unknown")
+            continue
+        require_text(observed, f"{label}.observed_fingerprint")
+        require_text(evidence_ref, f"{label}.evidence_ref")
+        expected_verdict = "verified" if observed == expected[expected_name] else "failed"
+        if verdict != expected_verdict:
+            fail(f"{label} observed fingerprint requires verdict={expected_verdict}")
+        verdicts.append(expected_verdict)
+
+    rules = evidence["project_rules"]
+    observed_refs = rules["observed_refs"]
+    rules_verdict = rules["verdict"]
+    rules_ref = rules["evidence_ref"]
+    label = "input_evidence.controls.project_rules"
+    if observed_refs is None:
+        if rules_verdict != "unknown":
+            fail(f"{label} without observed refs must have verdict=unknown")
+        if rules_ref is not None:
+            require_text(rules_ref, f"{label}.evidence_ref")
+        verdicts.append("unknown")
+    else:
+        for index, ref in enumerate(observed_refs):
+            require_text(ref, f"{label}.observed_refs[{index}]")
+        require_text(rules_ref, f"{label}.evidence_ref")
+        expected_verdict = (
+            "verified" if sorted(observed_refs) == sorted(expected["project_rule_refs"]) else "failed"
+        )
+        if rules_verdict != expected_verdict:
+            fail(f"{label} observed refs require verdict={expected_verdict}")
+        verdicts.append(expected_verdict)
+    return verdicts
+
+
+def derive_assurance(verdicts: list[str]) -> str:
+    applicable = [verdict for verdict in verdicts if verdict != "not_applicable"]
+    if "failed" in applicable:
+        return "failed"
+    if "unknown" in applicable:
+        return "unknown"
+    return "verified"
+
+
+def validate_input_evidence(
+    run: dict[str, Any], campaign: dict[str, Any], workload: dict[str, Any]
+) -> None:
+    evidence = run["input_evidence"]
+    verdicts = [
+        validate_attested_object(
+            evidence["host"],
+            expected=campaign["host_target"],
+            label="input_evidence.host",
+        ),
+        validate_attested_object(
+            evidence["repository"],
+            expected={
+                "repository_url": workload["repository_url"],
+                "base_revision": workload["base_revision"],
+            },
+            label="input_evidence.repository",
+        ),
+        validate_attested_scalar(
+            evidence["task_sha256"],
+            expected=workload["task_sha256"],
+            label="input_evidence.task_sha256",
+        ),
+    ]
+
+    calibration = campaign["experiment"]["type"] == "role_calibration"
+    verdicts.append(
+        validate_attested_scalar(
+            evidence["responsibility_packet_sha256"],
+            expected=workload.get("responsibility_packet_sha256"),
+            label="input_evidence.responsibility_packet_sha256",
+            applicable=calibration,
+        )
+    )
+    verdicts.extend(validate_control_evidence(evidence["controls"], workload["controls"]))
+
+    expected_assurance = derive_assurance(verdicts)
+    if run["input_assurance"] != expected_assurance:
+        fail(f"input_assurance must be {expected_assurance!r} for the recorded input evidence")
+
+
 def expected_policy_route(policy: dict[str, Any], role: str) -> dict[str, Any]:
     try:
         spec = policy["roles"][role]
@@ -337,14 +500,10 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
     for field in ("run_id", "workload_id", "root_thread_id", "evidence_artifact_ref"):
         require_text(run[field], field)
 
-    if run["host_target"] != campaign["host_target"]:
-        fail("run host_target must exactly match the frozen campaign host_target")
-
     workload = workload_by_id(campaign, run["workload_id"])
-    if run["observed_controls"] != workload["controls"]:
-        fail("run observed_controls must exactly match the workload's frozen controls")
-
+    validate_input_evidence(run, campaign, workload)
     validate_execution(run)
+
     policy = load_policy_contract()
     if campaign["experiment"]["type"] == "product_benchmark":
         validate_product_arm(run, campaign, policy)
@@ -367,6 +526,7 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
         "experiment_type": run["experiment_type"],
         "workload_id": run["workload_id"],
         "repeat_index": run["repeat_index"],
+        "input_assurance": run["input_assurance"],
         "route_assurance": run["route_assurance"],
         "execution_status": run["execution"]["status"],
         "acceptance_status": run["execution"]["acceptance_status"],
@@ -388,6 +548,7 @@ def main() -> None:
     print(f"Experiment: {summary['experiment_type']}")
     print(f"Workload: {summary['workload_id']}")
     print(f"Repeat: {summary['repeat_index']}")
+    print(f"Input assurance: {summary['input_assurance']}")
     print(f"Route assurance: {summary['route_assurance']}")
     print(f"Execution: {summary['execution_status']}")
     print(f"Acceptance: {summary['acceptance_status']}")
