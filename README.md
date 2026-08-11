@@ -214,18 +214,7 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-如果已经创建过 managed profiles，再删除插件自有的六个 managed 文件：
-
-```bash
-rm ~/.codex/agents/subagents-dispatch-reader.toml
-rm ~/.codex/agents/subagents-dispatch-worker.toml
-rm ~/.codex/agents/subagents-dispatch-solver.toml
-rm ~/.codex/agents/subagents-dispatch-investigator.toml
-rm ~/.codex/agents/subagents-dispatch-advisor.toml
-rm ~/.codex/.subagents-dispatch-agents.json
-```
-
-完整卸载流程见 [安装说明](docs/plugin-installation.md)，不要删除未证明属于本插件的 Agent 配置。
+如果已经创建过 managed Agent profiles，请按 [安装说明](docs/plugin-installation.md) 中带 ownership 检查的清理流程处理。不要删除无法证明属于本插件的 Agent 配置。
 
 ## 隐私
 
