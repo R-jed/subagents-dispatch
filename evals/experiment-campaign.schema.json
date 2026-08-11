@@ -100,7 +100,7 @@
             "items": {
               "allOf": [
                 {"$ref": "#/$defs/workload"},
-                {"required": ["calibration_role"]}
+                {"required": ["calibration_role", "responsibility_packet_sha256", "responsibility_packet_ref"]}
               ]
             }
           }
@@ -213,6 +213,8 @@
         "calibration_role": {
           "enum": ["reader", "worker", "solver", "investigator", "advisor"]
         },
+        "responsibility_packet_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "responsibility_packet_ref": {"type": "string", "minLength": 1},
         "benchmark_stratum": {
           "enum": [
             "small_bounded",
