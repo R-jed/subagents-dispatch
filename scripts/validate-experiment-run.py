@@ -108,9 +108,7 @@ def workload_by_id(campaign: dict[str, Any], workload_id: str) -> dict[str, Any]
     return matches[0]
 
 
-def calibration_route(
-    campaign: dict[str, Any], role: str, route_id: str
-) -> dict[str, Any]:
+def calibration_route(campaign: dict[str, Any], role: str, route_id: str) -> dict[str, Any]:
     specs = [item for item in campaign["experiment"]["roles"] if item["role"] == role]
     if len(specs) != 1:
         fail(f"calibration role {role!r} does not resolve exactly once in experiment.roles")
@@ -142,6 +140,8 @@ def validate_execution(run: dict[str, Any]) -> None:
 
     if execution["acceptance_status"] in {"passed", "failed"} and not execution["oracle_refs"]:
         fail("passed/failed acceptance requires at least one concrete oracle_ref")
+    if execution["status"] != "completed" and execution["acceptance_status"] == "passed":
+        fail("non-completed execution cannot claim acceptance_status=passed")
 
     score = execution["quality_score"]
     score_ref = execution["quality_score_ref"]
@@ -168,11 +168,7 @@ def validate_execution(run: dict[str, Any]) -> None:
 
 
 def validate_attested_scalar(
-    evidence: dict[str, Any],
-    *,
-    expected: str | None,
-    label: str,
-    applicable: bool = True,
+    evidence: dict[str, Any], *, expected: str | None, label: str, applicable: bool = True
 ) -> str:
     observed = evidence["observed_value"]
     verdict = evidence["verdict"]
@@ -204,10 +200,7 @@ def validate_attested_scalar(
 
 
 def validate_attested_object(
-    evidence: dict[str, Any],
-    *,
-    expected: dict[str, Any],
-    label: str,
+    evidence: dict[str, Any], *, expected: dict[str, Any], label: str
 ) -> str:
     observed = evidence["observed"]
     verdict = evidence["verdict"]
@@ -289,15 +282,11 @@ def derive_assurance(verdicts: list[str]) -> str:
     return "verified"
 
 
-def validate_input_evidence(
-    run: dict[str, Any], campaign: dict[str, Any], workload: dict[str, Any]
-) -> None:
+def validate_input_evidence(run: dict[str, Any], campaign: dict[str, Any], workload: dict[str, Any]) -> None:
     evidence = run["input_evidence"]
     verdicts = [
         validate_attested_object(
-            evidence["host"],
-            expected=campaign["host_target"],
-            label="input_evidence.host",
+            evidence["host"], expected=campaign["host_target"], label="input_evidence.host"
         ),
         validate_attested_object(
             evidence["repository"],
@@ -344,10 +333,7 @@ def expected_policy_route(policy: dict[str, Any], role: str) -> dict[str, Any]:
 
 
 def validate_child_route(
-    route: dict[str, Any],
-    *,
-    root_thread_id: str,
-    expected: dict[str, Any],
+    route: dict[str, Any], *, root_thread_id: str, expected: dict[str, Any]
 ) -> None:
     for field in ("child_thread_id", "parent_thread_id", "agent_type"):
         require_text(route[field], f"child route {field}")
@@ -374,13 +360,13 @@ def validate_child_route(
 
     source = route["evidence_source"]
     evidence_ref = route["evidence_ref"]
-    if route["verdict"] in {"verified", "failed"}:
-        if source == "none":
-            fail(f"{route['verdict']} child route requires actual runtime evidence")
-        require_text(evidence_ref, "child route evidence_ref")
-    elif source == "none":
+    if source == "none":
+        if any(observed[field] is not None for field in ("model", "effort", "sandbox_intent")):
+            fail("child route with evidence_source=none must keep all observed route fields null")
+        if route["verdict"] != "unknown":
+            fail("child route with evidence_source=none must have verdict=unknown")
         if evidence_ref is not None:
-            fail("unknown child route with evidence_source=none must keep evidence_ref null")
+            fail("child route with evidence_source=none must keep evidence_ref null")
     else:
         require_text(evidence_ref, "child route evidence_ref")
 
@@ -392,8 +378,44 @@ def validate_child_route(
             fail("verified child route cannot contain observed route mismatches")
 
 
-def derived_route_assurance(routes: list[dict[str, Any]]) -> str:
-    if not routes:
+def validate_child_materialization(run: dict[str, Any], campaign: dict[str, Any]) -> int | None:
+    evidence = run["child_materialization"]
+    status = evidence["status"]
+    count = evidence["count"]
+    source_ref = evidence["source_ref"]
+
+    if status == "unavailable":
+        if count is not None:
+            fail("unavailable child materialization must keep count null")
+        if source_ref is not None:
+            require_text(source_ref, "child_materialization.source_ref")
+        if campaign["experiment"]["type"] == "role_calibration":
+            fail("role_calibration requires an observed materialized child count")
+        return None
+
+    if count is None:
+        fail("observed child materialization requires an exact count")
+    require_text(source_ref, "child_materialization.source_ref")
+    if count != len(run["child_routes"]):
+        fail("observed child materialization count must equal the number of child_routes")
+
+    if campaign["experiment"]["type"] == "role_calibration" and count != 1:
+        fail("role_calibration requires exactly one materialized project child")
+
+    if campaign["experiment"]["type"] == "product_benchmark":
+        arm = run["arm"]
+        if arm["kind"] != "product_benchmark":
+            fail("product_benchmark campaign requires a product_benchmark run arm")
+        if arm["mode"] == "single_agent" and count != 0:
+            fail("single_agent benchmark arm requires observed project child count = 0")
+
+    return count
+
+
+def derived_route_assurance(routes: list[dict[str, Any]], materialized_count: int | None) -> str:
+    if materialized_count is None:
+        return "unknown"
+    if materialized_count == 0:
         return "not_applicable"
     verdicts = {route["verdict"] for route in routes}
     if "failed" in verdicts:
@@ -403,9 +425,7 @@ def derived_route_assurance(routes: list[dict[str, Any]]) -> str:
     return "verified"
 
 
-def validate_product_arm(
-    run: dict[str, Any], campaign: dict[str, Any], policy: dict[str, Any]
-) -> None:
+def validate_product_arm(run: dict[str, Any], campaign: dict[str, Any], policy: dict[str, Any]) -> None:
     arm = run["arm"]
     if arm["kind"] != "product_benchmark":
         fail("product_benchmark campaign requires a product_benchmark run arm")
@@ -457,7 +477,7 @@ def validate_calibration_arm(
     validate_child_route(route, root_thread_id=run["root_thread_id"], expected=expected)
 
 
-def validate_metrics(run: dict[str, Any]) -> None:
+def validate_metrics(run: dict[str, Any], materialized_count: int | None) -> None:
     metrics = run["metrics"]
     for name, measurement in metrics.items():
         validate_measurement(measurement, f"metrics.{name}")
@@ -465,21 +485,22 @@ def validate_metrics(run: dict[str, Any]) -> None:
     main = metrics["main_total_tokens"]
     child = metrics["child_total_tokens"]
     aggregate = metrics["aggregate_total_tokens"]
-    has_children = bool(run["child_routes"])
 
-    if not has_children and child["status"] != "not_applicable":
-        fail("run without materialized children must mark child_total_tokens not_applicable")
-    if has_children and child["status"] == "not_applicable":
-        fail("run with materialized children cannot mark child_total_tokens not_applicable")
+    if materialized_count == 0 and child["status"] != "not_applicable":
+        fail("run with observed zero project children must mark child_total_tokens not_applicable")
+    if materialized_count is not None and materialized_count > 0 and child["status"] == "not_applicable":
+        fail("run with materialized project children cannot mark child_total_tokens not_applicable")
+    if materialized_count is None and child["status"] == "not_applicable":
+        fail("run with unavailable child materialization cannot mark child_total_tokens not_applicable")
 
     if main["status"] == "observed" and child["status"] == "observed":
         if aggregate["status"] != "observed":
             fail("observed main and child token totals require an observed aggregate_total_tokens")
         if aggregate["value"] != main["value"] + child["value"]:
             fail("aggregate_total_tokens must equal observed main_total_tokens + child_total_tokens")
-    elif not has_children and main["status"] == "observed":
+    elif materialized_count == 0 and main["status"] == "observed":
         if aggregate["status"] != "observed" or aggregate["value"] != main["value"]:
-            fail("run without children must keep observed aggregate_total_tokens equal to main_total_tokens")
+            fail("run with observed zero project children must keep aggregate_total_tokens equal to main_total_tokens")
 
 
 def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
@@ -503,6 +524,7 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
     workload = workload_by_id(campaign, run["workload_id"])
     validate_input_evidence(run, campaign, workload)
     validate_execution(run)
+    materialized_count = validate_child_materialization(run, campaign)
 
     policy = load_policy_contract()
     if campaign["experiment"]["type"] == "product_benchmark":
@@ -510,13 +532,13 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
     else:
         validate_calibration_arm(run, campaign, workload, policy)
 
-    expected_assurance = derived_route_assurance(run["child_routes"])
+    expected_assurance = derived_route_assurance(run["child_routes"], materialized_count)
     if run["route_assurance"] != expected_assurance:
         fail(
-            f"route_assurance must be {expected_assurance!r} for the recorded child route verdicts"
+            f"route_assurance must be {expected_assurance!r} for the recorded child materialization and route verdicts"
         )
 
-    validate_metrics(run)
+    validate_metrics(run, materialized_count)
     return {
         "run_valid": True,
         "run_id": run["run_id"],
@@ -527,10 +549,10 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
         "workload_id": run["workload_id"],
         "repeat_index": run["repeat_index"],
         "input_assurance": run["input_assurance"],
+        "materialized_children": materialized_count,
         "route_assurance": run["route_assurance"],
         "execution_status": run["execution"]["status"],
         "acceptance_status": run["execution"]["acceptance_status"],
-        "materialized_children": len(run["child_routes"]),
     }
 
 
@@ -549,10 +571,11 @@ def main() -> None:
     print(f"Workload: {summary['workload_id']}")
     print(f"Repeat: {summary['repeat_index']}")
     print(f"Input assurance: {summary['input_assurance']}")
+    materialized = summary["materialized_children"]
+    print(f"Materialized children: {materialized if materialized is not None else 'UNKNOWN'}")
     print(f"Route assurance: {summary['route_assurance']}")
     print(f"Execution: {summary['execution_status']}")
     print(f"Acceptance: {summary['acceptance_status']}")
-    print(f"Materialized children: {summary['materialized_children']}")
     print(f"SHA256: {summary['run_sha256']}")
 
 
