@@ -61,7 +61,7 @@ def require_text(value: Any, label: str) -> None:
         fail(f"{label} must be a concrete non-placeholder string")
 
 
-def canonical_sha256(payload: dict[str, Any]) -> str:
+def canonical_sha256(payload: Any) -> str:
     encoded = json.dumps(
         payload,
         sort_keys=True,
@@ -282,9 +282,25 @@ def derive_assurance(verdicts: list[str]) -> str:
     return "verified"
 
 
+def expected_plugin_state(run: dict[str, Any], campaign: dict[str, Any]) -> str:
+    experiment = campaign["experiment"]
+    if experiment["type"] == "product_benchmark":
+        arm = run["arm"]
+        if arm["kind"] != "product_benchmark":
+            fail("product_benchmark campaign requires a product_benchmark run arm")
+        if arm["mode"] == "single_agent":
+            return "absent"
+    return campaign["plugin_candidate_sha"]
+
+
 def validate_input_evidence(run: dict[str, Any], campaign: dict[str, Any], workload: dict[str, Any]) -> None:
     evidence = run["input_evidence"]
     verdicts = [
+        validate_attested_scalar(
+            evidence["plugin_candidate"],
+            expected=expected_plugin_state(run, campaign),
+            label="input_evidence.plugin_candidate",
+        ),
         validate_attested_object(
             evidence["host"], expected=campaign["host_target"], label="input_evidence.host"
         ),
@@ -300,6 +316,16 @@ def validate_input_evidence(run: dict[str, Any], campaign: dict[str, Any], workl
             evidence["task_sha256"],
             expected=workload["task_sha256"],
             label="input_evidence.task_sha256",
+        ),
+        validate_attested_scalar(
+            evidence["reset_procedure_sha256"],
+            expected=canonical_sha256(workload["reset_procedure"]),
+            label="input_evidence.reset_procedure_sha256",
+        ),
+        validate_attested_scalar(
+            evidence["acceptance_sha256"],
+            expected=canonical_sha256(workload["acceptance"]),
+            label="input_evidence.acceptance_sha256",
         ),
     ]
 
