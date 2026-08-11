@@ -2,12 +2,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC = ROOT / "docs" / "experiment-protocol.md"
+EVALS = ROOT / "evals" / "README.md"
 
 
-def test_experiment_plane_has_one_current_campaign_surface():
+def test_experiment_plane_has_one_campaign_and_one_per_run_evidence_surface():
     assert (ROOT / "evals" / "experiment-campaign.schema.json").is_file()
     assert (ROOT / "scripts" / "validate-experiment-campaign.py").is_file()
     assert (ROOT / "tests" / "test_experiment_campaign.py").is_file()
+
+    assert (ROOT / "evals" / "experiment-run.schema.json").is_file()
+    assert (ROOT / "scripts" / "validate-experiment-run.py").is_file()
+    assert (ROOT / "tests" / "test_experiment_run.py").is_file()
 
     assert not (ROOT / "docs" / "role-calibration.md").exists()
     assert not (ROOT / "evals" / "role-calibration-campaign.schema.json").exists()
@@ -27,6 +32,19 @@ def test_control_fingerprint_is_not_runtime_observation():
     assert "`main_session_route_fingerprint` is a controlled-input identity" in text
     assert "It is not Observed runtime evidence by itself" in text
     assert "do not promote the fingerprint or config into runtime truth" in text
+
+
+def test_per_run_input_evidence_cannot_promote_frozen_campaign_values_to_observed_truth():
+    text = EVALS.read_text(encoding="utf-8")
+    for phrase in [
+        "campaign expected input",
+        "run observed input + evidence ref",
+        "copying those values from the campaign",
+        "input_assurance",
+        "responsibility_packet_sha256",
+        "does not run Codex, rank routes, aggregate results, or change policy",
+    ]:
+        assert phrase in text
 
 
 def test_unknown_route_runs_do_not_count_as_valid_calibration_repeats():
