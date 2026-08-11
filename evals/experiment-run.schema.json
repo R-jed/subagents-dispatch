@@ -173,11 +173,23 @@
     },
     "input_evidence": {
       "type": "object",
-      "required": ["host", "repository", "task_sha256", "responsibility_packet_sha256", "controls"],
+      "required": [
+        "plugin_candidate",
+        "host",
+        "repository",
+        "task_sha256",
+        "reset_procedure_sha256",
+        "acceptance_sha256",
+        "responsibility_packet_sha256",
+        "controls"
+      ],
       "properties": {
+        "plugin_candidate": {"$ref": "#/$defs/scalar_input_evidence"},
         "host": {"$ref": "#/$defs/host_input_evidence"},
         "repository": {"$ref": "#/$defs/repository_input_evidence"},
         "task_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
+        "reset_procedure_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
+        "acceptance_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
         "responsibility_packet_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
         "controls": {"$ref": "#/$defs/control_evidence"}
       },
