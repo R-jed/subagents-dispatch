@@ -19,6 +19,7 @@ def write_rollout(
     sessions: Path,
     *,
     thread_id: str = THREAD,
+    session_id: str | None = None,
     parent_thread_id: str | None = PARENT,
     agent_role: str | None = ROLE,
     turns: list[dict] | None = None,
@@ -32,7 +33,7 @@ def write_rollout(
         "timestamp": "2026-08-10T23:55:00Z",
         "type": "session_meta",
         "payload": {
-            "session_id": thread_id,
+            "session_id": thread_id if session_id is None else session_id,
             "id": thread_id,
             "parent_thread_id": parent_thread_id,
             "agent_role": agent_role,
@@ -129,6 +130,31 @@ def test_exact_rollout_returns_only_allowlisted_runtime_metadata(tmp_path: Path)
     assert "developer_instructions" not in serialized
     assert "/private/project" not in serialized
     assert "rollout-" not in serialized
+
+
+def test_distinct_live_session_id_does_not_change_child_binding(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    session_id = "22222222-2222-7222-8222-222222222222"
+    write_rollout(sessions, session_id=session_id)
+
+    result = run_inspector(
+        sessions,
+        "--expected-parent-thread-id",
+        PARENT,
+        "--expected-agent-role",
+        ROLE,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["thread_id"] == THREAD
+    assert payload["parent_thread_id"] == PARENT
+    assert payload["agent_role"] == ROLE
+    assert payload["model"] == "gpt-5.6-luna"
+    assert payload["effort"] == "max"
+    assert payload["sandbox_policy_type"] == "workspace-write"
+    assert payload["permission_profile_type"] == "default"
+    assert "session_id" not in payload
 
 
 def test_missing_exact_rollout_is_rejected(tmp_path: Path):

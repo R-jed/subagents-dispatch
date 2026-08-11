@@ -192,9 +192,7 @@ def inspect_rollout(
 
     session_id = optional_text(session.get("session_id"))
     if session_id is not None:
-        session_id = canonical_uuid(session_id, "session_meta.session_id")
-        if session_id != thread_id:
-            fail("session_meta session_id conflicts with requested thread")
+        canonical_uuid(session_id, "session_meta.session_id")
 
     parent = optional_text(session.get("parent_thread_id"))
     if parent is not None:

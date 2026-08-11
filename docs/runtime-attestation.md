@@ -57,6 +57,8 @@ By default the inspector resolves the Codex sessions directory from `$CODEX_HOME
 The inspector:
 
 - requires a canonical lowercase child UUID;
+- uses `session_meta.id` as the concrete rollout/thread identity for exact child binding; `session_meta.session_id`, when present, may be a distinct canonical UUID for a broader live session and is not used as child identity;
+- establishes ancestry from `parent_thread_id`; `session_id` is not copied into Observed route facts;
 - selects exactly one `rollout-...-<child-id>.jsonl` file;
 - rejects no match, duplicate exact matches, symlinked matched files, identity mismatch, and unexpected path escape;
 - requires exactly one `session_meta` record and at least one `turn_context` record;
