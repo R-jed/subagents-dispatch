@@ -57,8 +57,8 @@ def unresolved(value: Any) -> bool:
 
 
 def require_text(value: Any, label: str) -> None:
-    if unresolved(value):
-        fail(f"{label} must be a concrete non-placeholder value")
+    if not isinstance(value, str) or unresolved(value):
+        fail(f"{label} must be a concrete non-placeholder string")
 
 
 def canonical_sha256(payload: dict[str, Any]) -> str:
