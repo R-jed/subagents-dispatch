@@ -1,71 +1,22 @@
 # subagents-dispatch: AI Agent Reference
 
-This file is an index to canonical project owners, not a second copy of runtime policy.
+This file is the compact machine-oriented map for agents working in this repository. User-facing explanation belongs in `README.md` and `README.zh-CN.md`; canonical behavior belongs in `contracts/` and each explicit Skill.
 
-## Project identity
+## Product boundary
 
-```text
-Product name:        subagents-dispatch
-Repository:          R-jed/subagents-dispatch
-Repo marketplace id: subagents-dispatch
-Plugin id:           subagents-dispatch
-Plugin directory:    .
-Current version:     2.1.2
-Distribution:        Codex Plugin
-License:             MIT
-```
+subagents-dispatch is a thin orchestration control surface on top of Codex native subagent primitives. It does not own or replace the Host scheduler, lifecycle runtime, transport, sandbox, session store, or UI.
 
-The Plugin exposes six explicit Skills:
+The project deliberately does **not** add an MCP server, daemon, background event bus, persistent orchestration database, telemetry collector, or second scheduler.
 
-| Skill id | Intended display label | Canonical responsibility |
-| --- | --- | --- |
-| `dispatch` | Dispatch | start or resume orchestration |
-| `preview` | Preview | predict likely orchestration without execution |
-| `status` | Status | observe and reconcile current orchestration once |
-| `steer` | Steer | guide one unchanged delegated attempt |
-| `takeover` | Takeover | safely return delegated work to Main |
-| `doctor` | Doctor | diagnose installation and runtime health |
-
-Do not invent a Codex App slash-command string from repository identifiers. Exact App labels and presentation are Host/UI facts requiring direct observation.
-
-## Canonical owners
+## Public Skills
 
 ```text
-contracts/policy.json
--> machine-readable hard invariants and five configured Agent routes
-
-contracts/routing.md
--> delegation value, role selection, responsibility compilation, semantic coverage, adaptive ready work
-
-contracts/composition.md
--> Host / project rules / external Skill / hook / role-contract composition boundaries
-
-contracts/interaction.md
--> Preview, Status, Steer, Takeover, target resolution, control detours
-
-contracts/state.md
--> root-thread ephemeral orchestration continuity and Host reconciliation
-
-contracts/receipt.md
--> orchestration accounting and Chinese/English presentation
-
-contracts/team-plan.md
--> multi-responsibility identity, dependencies, ownership, revisions
-
-contracts/recovery.md
--> delegated attempt lifecycle, retries, UNKNOWN, INTERRUPTED, Main takeover
-
-contracts/guardrails.md
--> authority, trust, mutation permissions, writer coordination, consent, runtime-evidence boundaries
-
-contracts/handoff.md
--> compact Main-accepted evidence transfer
-
-contracts/evidence-artifact.md
--> optional references-first evidence bundles that keep conversational handoff compact
-
-contracts/final-review.md
--> consequence-driven exact-candidate independent review
+skills/dispatch
+skills/preview
+skills/status
+skills/steer
+skills/takeover
+skills/doctor
 ```
 
 Each `skills/<id>/SKILL.md` is a thin explicit entry adapter. Each `skills/<id>/agents/openai.yaml` owns its App metadata. `policy.allow_implicit_invocation` is false for all six.
@@ -98,7 +49,7 @@ scripts/validate-experiment-campaign.py
 -> validate/freeze either a role-calibration or single-agent-versus-Dispatch campaign against the exact current candidate
 
 scripts/validate-experiment-run.py
--> validate one actual run against its frozen campaign, including input attestation, complete materialized-child evidence, route evidence, oracle/result refs, and exact measurement provenance; never scores, aggregates, or mutates policy
+-> validate one actual run against its frozen campaign, including plugin/input attestation, complete materialized-child evidence, route evidence, oracle/result refs, and exact measurement provenance; never scores, aggregates, or mutates policy
 
 scripts/score-behavioral-evals.py
 -> validate and summarize paired behavioral result records without inventing a global quality score
@@ -118,6 +69,6 @@ Runtime truth is layered. `contracts/policy.json` and managed profile TOMLs esta
 
 Composition is also layered. Host/current user authority and applicable project instructions constrain the work; an accepted external Skill or workflow may own domain planning and acceptance; subagents-dispatch adds orchestration only; the child role/responsibility packet narrows the result further. Hooks are optional observations/guards and are not a required control plane.
 
-Experiments are typed. Role calibration keeps the responsibility/isolation contract fixed and changes model/effort. Its campaign freezes an evaluator-owned responsibility packet identity so a packet change cannot be misattributed to model/effort. Product benchmark keeps the real task/environment fixed and compares ordinary `single_agent` with explicit `dispatch`; it does not pre-script which project roles Dispatch must use. Campaign fields define expected/frozen inputs. Per-run input evidence must independently attest the Host, repository/base, task, applicable calibration packet, and controlled environment; copying campaign values is not observation. Per-run materialization evidence independently records the complete project-child count, so an empty route list cannot by itself be relabeled as a zero-child Dispatch. Every observed materialized child must have one route row; unavailable child-set evidence keeps route assurance `UNKNOWN`. Formal experiment claims require repeated real runs and exact evidence. Policy never changes automatically from benchmark output.
+Experiments are typed. Role calibration keeps the responsibility/isolation contract fixed and changes model/effort. Its campaign freezes an evaluator-owned responsibility packet identity so a packet change cannot be misattributed to model/effort. Product benchmark keeps the real task/environment fixed and compares ordinary `single_agent` with explicit `dispatch`; it does not pre-script which project roles Dispatch must use. Campaign fields define expected/frozen inputs. Per-run input evidence must independently attest actual plugin state, Host, repository/base, task, reset procedure, acceptance contract, applicable calibration packet, and controlled environment; copying campaign values is not observation. For product benchmarks, `single_agent` must prove the plugin is absent while `dispatch` must prove the exact campaign candidate SHA is active. Per-run materialization evidence independently records the complete project-child count, so an empty route list cannot by itself be relabeled as a zero-child Dispatch. Every observed materialized child must have one route row; unavailable child-set evidence keeps route assurance `UNKNOWN`. Formal experiment claims require repeated real runs and exact evidence. Policy never changes automatically from benchmark output.
 
 An ordinary Dispatch Receipt may show the selected project lane for materialized work; explicit live-route proof still requires actual Host evidence. Ordinary Dispatch does not scan Codex session rollouts. Current role model/effort settings are operational policy, not benchmark-proven optimality claims. Do not claim benchmark gains, public availability, token/cost attribution, or App UI behavior without current accepted evidence.
