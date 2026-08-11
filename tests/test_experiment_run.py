@@ -40,7 +40,7 @@ def head_sha() -> str:
     return result.stdout.strip()
 
 
-def canonical_hash(payload: dict) -> str:
+def canonical_hash(payload: object) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     return hashlib.sha256(raw).hexdigest()
 
@@ -153,15 +153,21 @@ def scalar_control(value: str | None, *, verdict: str = "verified", ref: str | N
     return {"observed_fingerprint": value, "verdict": verdict, "evidence_ref": ref}
 
 
-def input_evidence(campaign: dict) -> dict:
+def input_evidence(campaign: dict, *, mode: str = "single_agent") -> dict:
     item = campaign["workloads"][0]
     calibration = campaign["experiment"]["type"] == "role_calibration"
+    plugin_state = (
+        "absent"
+        if campaign["experiment"]["type"] == "product_benchmark" and mode == "single_agent"
+        else campaign["plugin_candidate_sha"]
+    )
     packet = (
         scalar_input(item["responsibility_packet_sha256"], ref="artifact:responsibility-packet")
         if calibration
         else scalar_input(None, verdict="not_applicable", ref=None)
     )
     return {
+        "plugin_candidate": scalar_input(plugin_state, ref="plugin:observed-state"),
         "host": {
             "observed": campaign["host_target"],
             "verdict": "verified",
@@ -176,6 +182,12 @@ def input_evidence(campaign: dict) -> dict:
             "evidence_ref": "git:remote-and-head",
         },
         "task_sha256": scalar_input(item["task_sha256"], ref="rollout:user-task-sha256"),
+        "reset_procedure_sha256": scalar_input(
+            canonical_hash(item["reset_procedure"]), ref="workspace:reset-procedure"
+        ),
+        "acceptance_sha256": scalar_input(
+            canonical_hash(item["acceptance"]), ref="oracle:acceptance-contract"
+        ),
         "responsibility_packet_sha256": packet,
         "controls": {
             "main_session_route": scalar_control(
@@ -240,7 +252,7 @@ def base_run(campaign: dict, *, mode: str = "single_agent") -> dict:
         "arm": {"kind": "product_benchmark", "mode": mode},
         "root_thread_id": "root-thread-1",
         "input_assurance": "verified",
-        "input_evidence": input_evidence(campaign),
+        "input_evidence": input_evidence(campaign, mode=mode),
         "child_materialization": materialization(0),
         "execution": {
             "status": "completed",
@@ -400,6 +412,45 @@ def test_frozen_inputs_cannot_be_copied_into_observed_without_evidence_refs(tmp_
     run = base_run(campaign)
     run["input_evidence"]["host"]["evidence_ref"] = None
     with pytest.raises(SystemExit, match="input_evidence.host.evidence_ref"):
+        validate(tmp_path, campaign, run)
+
+
+def test_single_agent_baseline_must_attest_plugin_absence(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    plugin = run["input_evidence"]["plugin_candidate"]
+    plugin["observed_value"] = campaign["plugin_candidate_sha"]
+    with pytest.raises(SystemExit, match="plugin_candidate.*verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+    plugin["verdict"] = "failed"
+    run["input_assurance"] = "failed"
+    result = validate(tmp_path, campaign, run)
+    assert result["run_valid"] is True
+    assert result["input_assurance"] == "failed"
+
+
+def test_dispatch_must_attest_exact_plugin_candidate(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    plugin = run["input_evidence"]["plugin_candidate"]
+    plugin["observed_value"] = "absent"
+    with pytest.raises(SystemExit, match="plugin_candidate.*verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+
+def test_reset_and_acceptance_inputs_are_attested_not_assumed(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    reset = run["input_evidence"]["reset_procedure_sha256"]
+    reset["observed_value"] = "0" * 64
+    with pytest.raises(SystemExit, match="reset_procedure_sha256.*verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+    run = base_run(campaign)
+    acceptance = run["input_evidence"]["acceptance_sha256"]
+    acceptance["observed_value"] = "f" * 64
+    with pytest.raises(SystemExit, match="acceptance_sha256.*verdict=failed"):
         validate(tmp_path, campaign, run)
 
 
