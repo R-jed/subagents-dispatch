@@ -13,10 +13,9 @@
     "workload_id",
     "repeat_index",
     "arm",
-    "host_target",
     "root_thread_id",
-    "control_assurance",
-    "control_evidence",
+    "input_assurance",
+    "input_evidence",
     "execution",
     "route_assurance",
     "child_routes",
@@ -39,10 +38,9 @@
         {"$ref": "#/$defs/calibration_arm"}
       ]
     },
-    "host_target": {"$ref": "#/$defs/host_target"},
     "root_thread_id": {"type": "string", "minLength": 1},
-    "control_assurance": {"enum": ["verified", "unknown", "failed"]},
-    "control_evidence": {"$ref": "#/$defs/control_evidence"},
+    "input_assurance": {"enum": ["verified", "unknown", "failed"]},
+    "input_evidence": {"$ref": "#/$defs/input_evidence"},
     "execution": {"$ref": "#/$defs/execution"},
     "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "child_routes": {
@@ -72,13 +70,62 @@
       },
       "additionalProperties": false
     },
-    "host_target": {
+    "scalar_input_evidence": {
+      "type": "object",
+      "required": ["observed_value", "verdict", "evidence_ref"],
+      "properties": {
+        "observed_value": {"type": ["string", "null"]},
+        "verdict": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "host_observation": {
       "type": "object",
       "required": ["product", "version", "platform"],
       "properties": {
-        "product": {"const": "Codex"},
+        "product": {"type": "string", "minLength": 1},
         "version": {"type": "string", "minLength": 1},
         "platform": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "host_input_evidence": {
+      "type": "object",
+      "required": ["observed", "verdict", "evidence_ref"],
+      "properties": {
+        "observed": {
+          "oneOf": [
+            {"$ref": "#/$defs/host_observation"},
+            {"type": "null"}
+          ]
+        },
+        "verdict": {"enum": ["verified", "unknown", "failed"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "repository_observation": {
+      "type": "object",
+      "required": ["repository_url", "base_revision"],
+      "properties": {
+        "repository_url": {"type": "string", "minLength": 1},
+        "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      },
+      "additionalProperties": false
+    },
+    "repository_input_evidence": {
+      "type": "object",
+      "required": ["observed", "verdict", "evidence_ref"],
+      "properties": {
+        "observed": {
+          "oneOf": [
+            {"$ref": "#/$defs/repository_observation"},
+            {"type": "null"}
+          ]
+        },
+        "verdict": {"enum": ["verified", "unknown", "failed"]},
+        "evidence_ref": {"type": ["string", "null"]}
       },
       "additionalProperties": false
     },
@@ -119,6 +166,18 @@
         "permissions": {"$ref": "#/$defs/scalar_control_evidence"},
         "tool_surface": {"$ref": "#/$defs/scalar_control_evidence"},
         "project_rules": {"$ref": "#/$defs/rules_control_evidence"}
+      },
+      "additionalProperties": false
+    },
+    "input_evidence": {
+      "type": "object",
+      "required": ["host", "repository", "task_sha256", "responsibility_packet_sha256", "controls"],
+      "properties": {
+        "host": {"$ref": "#/$defs/host_input_evidence"},
+        "repository": {"$ref": "#/$defs/repository_input_evidence"},
+        "task_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
+        "responsibility_packet_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
+        "controls": {"$ref": "#/$defs/control_evidence"}
       },
       "additionalProperties": false
     },
