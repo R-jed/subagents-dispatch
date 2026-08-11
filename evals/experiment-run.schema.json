@@ -16,7 +16,6 @@
     "root_thread_id",
     "input_assurance",
     "input_evidence",
-    "materialization_assurance",
     "child_materialization",
     "execution",
     "route_assurance",
@@ -43,7 +42,6 @@
     "root_thread_id": {"type": "string", "minLength": 1},
     "input_assurance": {"enum": ["verified", "unknown", "failed"]},
     "input_evidence": {"$ref": "#/$defs/input_evidence"},
-    "materialization_assurance": {"enum": ["verified", "unknown", "failed"]},
     "child_materialization": {"$ref": "#/$defs/child_materialization"},
     "execution": {"$ref": "#/$defs/execution"},
     "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
@@ -187,11 +185,11 @@
     },
     "child_materialization": {
       "type": "object",
-      "required": ["observed_count", "verdict", "evidence_ref"],
+      "required": ["status", "count", "source_ref"],
       "properties": {
-        "observed_count": {"type": ["integer", "null"], "minimum": 0},
-        "verdict": {"enum": ["verified", "unknown", "failed"]},
-        "evidence_ref": {"type": ["string", "null"]}
+        "status": {"enum": ["observed", "unavailable"]},
+        "count": {"type": ["integer", "null"], "minimum": 0},
+        "source_ref": {"type": ["string", "null"]}
       },
       "additionalProperties": false
     },
