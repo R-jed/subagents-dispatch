@@ -67,7 +67,10 @@ def workload(
         },
     }
     if calibration_role is not None:
+        packet = "OBJECTIVE\nTrace the exact bounded call path.\nRETURN\nEvidence refs only."
         payload["calibration_role"] = calibration_role
+        payload["responsibility_packet_sha256"] = task_hash(packet)
+        payload["responsibility_packet_ref"] = "fixture:responsibility-packet-v1"
     if benchmark_stratum is not None:
         payload["benchmark_stratum"] = benchmark_stratum
     return payload
@@ -271,6 +274,29 @@ def test_role_calibration_rejects_product_benchmark_stratum(tmp_path: Path):
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
     assert "must not carry a product benchmark_stratum" in result.stderr
+
+
+def test_role_calibration_requires_frozen_responsibility_packet_identity(tmp_path: Path):
+    payload = role_campaign()
+    del payload["workloads"][0]["responsibility_packet_sha256"]
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "responsibility_packet_sha256" in result.stderr
+
+    payload = role_campaign()
+    payload["workloads"][0]["responsibility_packet_ref"] = "TBD"
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "responsibility_packet_ref must be a concrete non-placeholder value" in result.stderr
+
+
+def test_product_benchmark_rejects_frozen_delegated_responsibility_packet(tmp_path: Path):
+    payload = product_campaign()
+    payload["workloads"][0]["responsibility_packet_sha256"] = "c" * 64
+    payload["workloads"][0]["responsibility_packet_ref"] = "fixture:packet"
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "must not freeze a delegated responsibility packet" in result.stderr
 
 
 def test_formal_campaign_rejects_placeholder_repository(tmp_path: Path):
