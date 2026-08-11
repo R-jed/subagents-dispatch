@@ -157,10 +157,7 @@ def input_evidence(campaign: dict) -> dict:
     item = campaign["workloads"][0]
     calibration = campaign["experiment"]["type"] == "role_calibration"
     packet = (
-        scalar_input(
-            item["responsibility_packet_sha256"],
-            ref="artifact:responsibility-packet",
-        )
+        scalar_input(item["responsibility_packet_sha256"], ref="artifact:responsibility-packet")
         if calibration
         else scalar_input(None, verdict="not_applicable", ref=None)
     )
@@ -182,16 +179,13 @@ def input_evidence(campaign: dict) -> dict:
         "responsibility_packet_sha256": packet,
         "controls": {
             "main_session_route": scalar_control(
-                item["controls"]["main_session_route_fingerprint"],
-                ref="host:main-route",
+                item["controls"]["main_session_route_fingerprint"], ref="host:main-route"
             ),
             "permissions": scalar_control(
-                item["controls"]["permissions_fingerprint"],
-                ref="host:permissions",
+                item["controls"]["permissions_fingerprint"], ref="host:permissions"
             ),
             "tool_surface": scalar_control(
-                item["controls"]["tool_surface_fingerprint"],
-                ref="host:tool-surface",
+                item["controls"]["tool_surface_fingerprint"], ref="host:tool-surface"
             ),
             "project_rules": {
                 "observed_refs": item["controls"]["project_rule_refs"],
@@ -199,6 +193,14 @@ def input_evidence(campaign: dict) -> dict:
                 "evidence_ref": "workspace:project-rules",
             },
         },
+    }
+
+
+def materialization(count: int | None, *, source: str | None = "host:child-set") -> dict:
+    return {
+        "status": "observed" if count is not None else "unavailable",
+        "count": count,
+        "source_ref": source if count is not None else source,
     }
 
 
@@ -239,6 +241,7 @@ def base_run(campaign: dict, *, mode: str = "single_agent") -> dict:
         "root_thread_id": "root-thread-1",
         "input_assurance": "verified",
         "input_evidence": input_evidence(campaign),
+        "child_materialization": materialization(0),
         "execution": {
             "status": "completed",
             "acceptance_status": "passed",
@@ -285,6 +288,13 @@ def validate(tmp_path: Path, campaign: dict, run: dict) -> dict:
     return VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
 
 
+def add_one_child(run: dict, route: dict | None = None) -> None:
+    run["child_routes"] = [route or child_route()]
+    run["child_materialization"] = materialization(1)
+    run["route_assurance"] = run["child_routes"][0]["verdict"]
+    run["metrics"] = metrics(children=True)
+
+
 def test_product_single_agent_run_binds_exact_campaign_without_child_routes(tmp_path: Path):
     campaign = product_campaign()
     result = validate(tmp_path, campaign, base_run(campaign))
@@ -297,20 +307,54 @@ def test_product_single_agent_run_binds_exact_campaign_without_child_routes(tmp_
 def test_product_dispatch_run_accepts_verified_policy_route(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
-    run["child_routes"] = [child_route()]
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
+    add_one_child(run)
     result = validate(tmp_path, campaign, run)
     assert result["materialized_children"] == 1
     assert result["route_assurance"] == "verified"
 
 
-def test_zero_child_dispatch_is_valid_and_keeps_route_assurance_not_applicable(tmp_path: Path):
+def test_zero_child_dispatch_requires_observed_zero_materialization(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
     result = validate(tmp_path, campaign, run)
     assert result["run_valid"] is True
     assert result["materialized_children"] == 0
+
+    run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
+    run["route_assurance"] = "unknown"
+    run["metrics"]["child_total_tokens"] = metric("unavailable")
+    run["metrics"]["aggregate_total_tokens"] = metric("unavailable")
+    result = validate(tmp_path, campaign, run)
+    assert result["run_valid"] is True
+    assert result["materialized_children"] is None
+    assert result["route_assurance"] == "unknown"
+
+
+def test_materialized_child_count_cannot_omit_or_invent_route_rows(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    run["child_materialization"] = materialization(1)
+    run["route_assurance"] = "unknown"
+    run["metrics"]["child_total_tokens"] = metric("unavailable")
+    run["metrics"]["aggregate_total_tokens"] = metric("unavailable")
+    with pytest.raises(SystemExit, match="count must equal the number of child_routes"):
+        validate(tmp_path, campaign, run)
+
+    run = base_run(campaign, mode="dispatch")
+    run["child_routes"] = [child_route()]
+    with pytest.raises(SystemExit, match="count must equal the number of child_routes"):
+        validate(tmp_path, campaign, run)
+
+
+def test_single_agent_requires_observed_zero_project_children(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign)
+    run["child_materialization"] = materialization(1)
+    run["child_routes"] = [child_route()]
+    run["route_assurance"] = "verified"
+    run["metrics"] = metrics(children=True)
+    with pytest.raises(SystemExit, match="single_agent benchmark arm requires observed project child count = 0"):
+        validate(tmp_path, campaign, run)
 
 
 def test_formal_failed_run_is_preserved_as_valid_evidence(tmp_path: Path):
@@ -326,6 +370,16 @@ def test_formal_failed_run_is_preserved_as_valid_evidence(tmp_path: Path):
     result = validate(tmp_path, campaign, run)
     assert result["run_valid"] is True
     assert result["execution_status"] == "failed"
+
+
+def test_non_completed_execution_cannot_claim_passed_acceptance(tmp_path: Path):
+    campaign = product_campaign()
+    for status in ["failed", "interrupted", "unknown"]:
+        run = base_run(campaign)
+        run["execution"]["status"] = status
+        run["execution"]["failure_ref"] = "run:not-complete" if status != "unknown" else None
+        with pytest.raises(SystemExit, match="non-completed execution"):
+            validate(tmp_path, campaign, run)
 
 
 def test_run_rejects_wrong_campaign_hash(tmp_path: Path):
@@ -397,25 +451,22 @@ def test_product_benchmark_packet_evidence_is_explicitly_not_applicable(tmp_path
         validate(tmp_path, campaign, run)
 
 
-def test_single_agent_cannot_smuggle_project_child_route_evidence(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    run["child_routes"] = [child_route()]
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
-    with pytest.raises(SystemExit, match="single_agent"):
-        validate(tmp_path, campaign, run)
-
-
 def test_configured_or_self_reported_route_source_cannot_be_observed_evidence(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
     route = child_route()
     route["evidence_source"] = "configured"
-    run["child_routes"] = [route]
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
+    add_one_child(run, route)
     with pytest.raises(SystemExit, match="schema validation"):
+        validate(tmp_path, campaign, run)
+
+
+def test_evidence_source_none_cannot_carry_observed_route_values(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    route = child_route(verdict="unknown")
+    add_one_child(run, route)
+    with pytest.raises(SystemExit, match="evidence_source=none must keep all observed route fields null"):
         validate(tmp_path, campaign, run)
 
 
@@ -424,9 +475,7 @@ def test_observed_route_mismatch_cannot_be_marked_verified(tmp_path: Path):
     run = base_run(campaign, mode="dispatch")
     route = child_route()
     route["observed"]["model"] = "gpt-5.6-sol"
-    run["child_routes"] = [route]
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
+    add_one_child(run, route)
     with pytest.raises(SystemExit, match="mismatch requires verdict=failed"):
         validate(tmp_path, campaign, run)
 
@@ -438,6 +487,7 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
     second = child_route(role="reader")
     second["child_thread_id"] = first["child_thread_id"]
     run["child_routes"] = [first, second]
+    run["child_materialization"] = materialization(2)
     run["route_assurance"] = "verified"
     run["metrics"] = metrics(children=True)
     with pytest.raises(SystemExit, match="duplicates child_thread_id"):
@@ -446,9 +496,8 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
     run = base_run(campaign, mode="dispatch")
     unknown = child_route(verdict="unknown")
     unknown["observed"] = {"model": None, "effort": None, "sandbox_intent": None}
-    run["child_routes"] = [unknown]
+    add_one_child(run, unknown)
     run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
     with pytest.raises(SystemExit, match="route_assurance must be 'unknown'"):
         validate(tmp_path, campaign, run)
 
@@ -462,6 +511,7 @@ def calibration_run(campaign: dict) -> dict:
         experiment_type="role_calibration",
         arm={"kind": "role_calibration", "role": "reader", "route_id": challenger["id"]},
         route_assurance="verified",
+        child_materialization=materialization(1),
         metrics=metrics(children=True),
     )
     run["child_routes"] = [
@@ -489,9 +539,18 @@ def test_role_calibration_run_binds_packet_and_declared_challenger(tmp_path: Pat
     result = validate(tmp_path, campaign, run)
     assert result["run_valid"] is True
     assert result["input_assurance"] == "verified"
+    assert result["materialized_children"] == 1
 
     run["arm"]["route_id"] = "undeclared-route"
     with pytest.raises(SystemExit, match="not a declared route"):
+        validate(tmp_path, campaign, run)
+
+
+def test_role_calibration_requires_observed_exactly_one_child(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
+    with pytest.raises(SystemExit, match="requires an observed materialized child count"):
         validate(tmp_path, campaign, run)
 
 
@@ -517,11 +576,18 @@ def test_measurements_require_provenance_and_reported_token_totals_must_reconcil
         validate(tmp_path, campaign, run)
 
     run = base_run(campaign, mode="dispatch")
-    run["child_routes"] = [child_route()]
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
+    add_one_child(run)
     run["metrics"]["aggregate_total_tokens"]["value"] = 999
     with pytest.raises(SystemExit, match="aggregate_total_tokens"):
+        validate(tmp_path, campaign, run)
+
+
+def test_unavailable_materialization_cannot_mark_child_tokens_not_applicable(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
+    run["route_assurance"] = "unknown"
+    with pytest.raises(SystemExit, match="unavailable child materialization"):
         validate(tmp_path, campaign, run)
 
 
