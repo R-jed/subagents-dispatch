@@ -214,22 +214,11 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-If managed profiles were provisioned, remove the six plugin-owned managed files as well:
-
-```bash
-rm ~/.codex/agents/subagents-dispatch-reader.toml
-rm ~/.codex/agents/subagents-dispatch-worker.toml
-rm ~/.codex/agents/subagents-dispatch-solver.toml
-rm ~/.codex/agents/subagents-dispatch-investigator.toml
-rm ~/.codex/agents/subagents-dispatch-advisor.toml
-rm ~/.codex/.subagents-dispatch-agents.json
-```
-
-Follow [Installation](docs/plugin-installation.md) for the complete uninstall flow. Do not delete Agent configuration that has not been proven to belong to this plugin.
+If managed Agent profiles were provisioned, follow the ownership-aware cleanup steps in [Installation](docs/plugin-installation.md). Do not remove Agent configuration unless it has been proven to belong to this plugin.
 
 ## Privacy
 
-Ordinary orchestration stores one compact root-thread-scoped coordination capsule in the operating system's temporary directory and removes normal terminal state. It is not a store for raw prompts, full transcripts, private reasoning, credentials, or full source files.
+Ordinary orchestration keeps one compact root-thread-scoped coordination capsule in the operating system's temporary directory only when cross-turn coordination state is needed. Preview and zero-child Dispatch do not create it, and normal terminal state is removed. The capsule is not a store for raw prompts, full transcripts, private reasoning, credentials, or full source files.
 
 The local-rollout boundary used only during explicit Runtime Attestation is documented in [PRIVACY.md](PRIVACY.md).
 
