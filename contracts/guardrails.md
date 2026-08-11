@@ -211,6 +211,8 @@ local
 
 `local` in this protocol does not mean profile TOML, policy JSON, remembered configuration, or hand-written evidence. It is the allowlisted result of inspecting exactly one Codex rollout bound to the exact child identity. Public/native metadata is preferred when exposed. The exact rollout may fill fields the public surface omits. When both actual-runtime sources expose the same field, they must agree; a conflict is quarantined instead of selecting one source.
 
+The effective permission source is a separate evidence object. It must be bound to a concrete source identity and provenance before it can close a formal permission gate. For `parent_turn`, the source id must equal the exact expected parent/root thread id. For `selected_environment`, use a concrete Host-observed environment identity. Record the source permission evidence reference and separate source-selection evidence showing why that source won the ordered Host precedence in `policy.json`. If source identity or source-selection provenance is unavailable, keep permission integrity `UNKNOWN` rather than comparing the child with an unbound hand-written source object.
+
 The inspector is explicit and read-only. It emits only allowlisted route, identity, permission, and runtime-version metadata from `session_meta` and `turn_context`. It does not emit prompts, assistant output, tool payloads, reasoning, source contents, or rollout paths. Ordinary Dispatch does not run it or scan Codex sessions.
 
 Do not run runtime-evidence diagnostics for every ordinary child. Use `../scripts/runtime-evidence.py` only when the claim materially depends on runtime observation, for example:
@@ -241,7 +243,7 @@ The Plugin does not add Hooks, background telemetry, a persistent transcript col
 
 A configured read-only profile is intent, not proof of Host enforcement.
 
-When hard read-only isolation is required, demand actual Host runtime evidence or keep the responsibility in the main session/blocked. That evidence may be public Host metadata, an exact inspected Codex rollout, or both, but configured/accepted values and child self-report are insufficient.
+When hard read-only isolation is required, execution may proceed in a child only when actual Host runtime evidence proves an enforced read-only boundary. Keeping the responsibility in Main is valid only when Main itself is proven Host-enforced read-only for that responsibility; otherwise the responsibility remains blocked. Configured or accepted values and child self-report are insufficient for either path.
 
 When hard isolation is not required, expected Host-inherited permission is not itself a warning. Behavioral read-only still forbids mutation. Broader Host capability never grants semantic write ownership, weakens `single_writer`, settles `UNKNOWN`/`INTERRUPTED`, or lets Main bypass Takeover ownership settlement before conflicting writes.
 

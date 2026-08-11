@@ -90,8 +90,11 @@ def test_local_rollout_attestation_is_not_overclaimed_as_cryptographic_proof():
 
 def test_hard_read_only_requires_actual_host_runtime_evidence():
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
-    assert "When hard read-only isolation is required, demand actual Host runtime evidence" in guardrails
-    assert "configured/accepted values and child self-report are insufficient" in guardrails
+    assert "When hard read-only isolation is required" in guardrails
+    assert "actual Host runtime evidence proves an enforced read-only boundary" in guardrails
+    assert "Main itself is proven Host-enforced read-only" in guardrails
+    assert "otherwise the responsibility remains blocked" in guardrails
+    assert "Configured or accepted values and child self-report are insufficient" in guardrails
     assert "configured read-only profile is intent, not proof" in guardrails
 
 

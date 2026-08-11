@@ -148,6 +148,34 @@
       }
     },
     {
+      "id": "required-inherited-permission-source-unbound",
+      "input": {
+        "requires_permission_observation": true,
+        "child_sandbox": "danger-full-access",
+        "child_permission_profile": "disabled",
+        "source_kind": "parent_turn",
+        "source_permission_present": true,
+        "source_identity_present": true,
+        "source_provenance_present": false
+      },
+      "expected": {
+        "decision": "return_to_main_session",
+        "permission_status": "not_observed"
+      }
+    },
+    {
+      "id": "required-inherited-permission-source-identity-mismatch",
+      "input": {
+        "requires_permission_observation": true,
+        "source_kind": "parent_turn",
+        "source_id_matches_expected_parent": false
+      },
+      "expected": {
+        "decision": "quarantine",
+        "permission_status": "mismatch"
+      }
+    },
+    {
       "id": "required-inherited-permission-mismatch",
       "input": {
         "requires_permission_observation": true,

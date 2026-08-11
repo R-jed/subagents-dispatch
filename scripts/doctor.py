@@ -165,12 +165,12 @@ def diagnose_skills() -> dict[str, Any]:
             missing.append(skill_id)
             continue
         try:
-            text = skill_file.read_text(encoding="utf-8")
+            text_value = skill_file.read_text(encoding="utf-8")
             ui = metadata.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             invalid.append(skill_id)
             continue
-        if f"name: {skill_id}\n" not in text or "allow_implicit_invocation: false" not in ui:
+        if f"name: {skill_id}\n" not in text_value or "allow_implicit_invocation: false" not in ui:
             invalid.append(skill_id)
     if missing or invalid:
         return _layer(
@@ -456,6 +456,22 @@ def _runtime_status(result: dict[str, Any]) -> tuple[str, str]:
     return "UNKNOWN", "observed runtime route was not reported"
 
 
+def _formal_live_route_input_issue(payload: dict[str, Any]) -> str | None:
+    if payload.get("subject") != "child":
+        return "formal --live-route evidence must explicitly declare subject=child"
+    expected = payload.get("expected")
+    if not isinstance(expected, dict):
+        return "formal --live-route evidence requires an expected child route"
+    for field in ("thread_id", "parent_thread_id"):
+        value = expected.get(field)
+        if not isinstance(value, str) or not value.strip():
+            return f"formal --live-route evidence requires expected.{field}"
+    for flag in ("runtime_observation_required", "requires_permission_observation"):
+        if expected.get(flag) is not True:
+            return f"formal --live-route evidence requires expected.{flag}=true"
+    return None
+
+
 def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> dict[str, Any]:
     if evidence_path is None:
         return _layer(
@@ -464,6 +480,25 @@ def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> dict[str, 
             "not run; pass --runtime-evidence with explicit evidence (or --live-route to record the limitation)",
             observed=False,
         )
+    if live_route:
+        evidence_payload, evidence_error = _read_json(evidence_path)
+        if evidence_error:
+            return _layer(
+                "Runtime route evidence",
+                "FAIL",
+                f"invalid formal live-route evidence: {evidence_error}",
+                observed=False,
+            )
+        assert evidence_payload is not None
+        issue = _formal_live_route_input_issue(evidence_payload)
+        if issue is not None:
+            return _layer(
+                "Runtime route evidence",
+                "FAIL",
+                issue,
+                observed=False,
+                live_route=True,
+            )
     verifier = Path(__file__).parent / "runtime-evidence.py"
     try:
         result = subprocess.run(
@@ -482,6 +517,17 @@ def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> dict[str, 
         return _layer("Runtime route evidence", "FAIL", f"runtime-evidence output is invalid: {error}")
     assert payload is not None
     status, summary = _runtime_status(payload)
+    permission = payload.get("permission_evidence", {})
+    ancestry = payload.get("ancestry_evidence", {})
+    permission_status = permission.get("status") if isinstance(permission, dict) else None
+    ancestry_status = ancestry.get("status") if isinstance(ancestry, dict) else None
+    if live_route and status == "OK" and (
+        payload.get("runtime_observation_complete") is not True
+        or permission_status != "matched"
+        or ancestry_status != "matched"
+    ):
+        status = "UNKNOWN"
+        summary = "formal live-route evidence is incomplete"
     return _layer(
         "Runtime route evidence",
         status,
@@ -491,6 +537,8 @@ def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> dict[str, 
         normalizer="runtime-evidence.py",
         evidence_grade=payload.get("evidence_grade"),
         route_status=payload.get("route_evidence", {}).get("status") if isinstance(payload.get("route_evidence"), dict) else None,
+        ancestry_status=ancestry_status,
+        permission_status=permission_status,
     )
 
 
@@ -621,6 +669,11 @@ def main() -> None:
     report = diagnose(args, codex_home)
     statuses = [layer["status"] for layer in report["layers"]]
     healthy = not any(status in {"WARN", "FAIL"} for status in statuses)
+    if args.live_route:
+        runtime_layer = next(
+            layer for layer in report["layers"] if layer["name"] == "Runtime route evidence"
+        )
+        healthy = healthy and runtime_layer["status"] == "OK"
     report["healthy"] = healthy
     report["actions"] = actions
 

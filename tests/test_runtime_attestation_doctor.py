@@ -26,13 +26,8 @@ def install(home: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_metadata(
-    tmp_path: Path,
-):
-    home = tmp_path / "codex-home"
-    install(home)
-    evidence = tmp_path / "runtime.json"
-    route = {
+def route() -> dict:
+    return {
         "thread_id": THREAD,
         "parent_thread_id": PARENT,
         "agent_role": WORKER["agent_type"],
@@ -41,45 +36,118 @@ def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_
         "sandbox_policy_type": "danger-full-access",
         "permission_profile_type": "disabled",
     }
-    evidence.write_text(
-        json.dumps(
-            {
-                "subject": "child",
-                "expected": {
-                    "thread_id": THREAD,
-                    "parent_thread_id": PARENT,
-                    "agent_role": WORKER["agent_type"],
-                    "model": WORKER["model"],
-                    "effort": WORKER["effort"],
-                    "runtime_observation_required": True,
-                    "requires_permission_observation": True,
-                },
-                "local": route,
-                "effective_permission_source": {
-                    "source_kind": "parent_turn",
-                    "sandbox_policy_type": "danger-full-access",
-                    "permission_profile_type": "disabled",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(DOCTOR),
-            "--codex-home",
-            str(home),
-            "--check",
-            "--runtime-evidence",
-            str(evidence),
-        ],
+
+def formal_evidence(*, include_permission_provenance: bool = True) -> dict:
+    source = {
+        "source_kind": "parent_turn",
+        "source_id": PARENT,
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
+    }
+    if include_permission_provenance:
+        source.update(
+            {
+                "evidence_source": "local",
+                "evidence_ref": "rollout:parent",
+                "selection_evidence_ref": "host:permission-source-selection",
+            }
+        )
+    return {
+        "subject": "child",
+        "expected": {
+            "thread_id": THREAD,
+            "parent_thread_id": PARENT,
+            "agent_role": WORKER["agent_type"],
+            "model": WORKER["model"],
+            "effort": WORKER["effort"],
+            "runtime_observation_required": True,
+            "requires_permission_observation": True,
+        },
+        "local": route(),
+        "effective_permission_source": source,
+    }
+
+
+def run_doctor(home: Path, evidence: Path, *, live_route: bool = True) -> subprocess.CompletedProcess[str]:
+    command = [
+        sys.executable,
+        str(DOCTOR),
+        "--codex-home",
+        str(home),
+        "--check",
+        "--runtime-evidence",
+        str(evidence),
+    ]
+    if live_route:
+        command.append("--live-route")
+    return subprocess.run(
+        command,
         cwd=ROOT,
         text=True,
         capture_output=True,
         check=False,
     )
 
+
+def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_metadata(
+    tmp_path: Path,
+):
+    home = tmp_path / "codex-home"
+    install(home)
+    evidence = tmp_path / "runtime.json"
+    evidence.write_text(json.dumps(formal_evidence()), encoding="utf-8")
+
+    result = run_doctor(home, evidence)
+
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Layer: Runtime route evidence: OK" in result.stdout
+    assert "Overall: OK" in result.stdout
+
+
+def test_doctor_live_route_rejects_missing_formal_requirement_flags(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    payload = formal_evidence()
+    del payload["expected"]["requires_permission_observation"]
+    evidence = tmp_path / "runtime-missing-flag.json"
+    evidence.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = run_doctor(home, evidence)
+
+    assert result.returncode == 1
+    assert "Layer: Runtime route evidence: FAIL" in result.stdout
+    assert "requires expected.requires_permission_observation=true" in result.stdout
+    assert "Overall: UNHEALTHY" in result.stdout
+
+
+def test_doctor_live_route_does_not_pass_unbound_permission_source(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    evidence = tmp_path / "runtime-unbound-source.json"
+    evidence.write_text(
+        json.dumps(formal_evidence(include_permission_provenance=False)),
+        encoding="utf-8",
+    )
+
+    result = run_doctor(home, evidence)
+
+    assert result.returncode == 1
+    assert "Layer: Runtime route evidence: UNKNOWN" in result.stdout
+    assert "Overall: UNHEALTHY" in result.stdout
+
+
+def test_non_live_doctor_keeps_unknown_runtime_evidence_nonfatal(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    evidence = tmp_path / "runtime-unbound-source.json"
+    evidence.write_text(
+        json.dumps(formal_evidence(include_permission_provenance=False)),
+        encoding="utf-8",
+    )
+
+    result = run_doctor(home, evidence, live_route=False)
+
+    assert result.returncode == 0
+    assert "Layer: Runtime route evidence: UNKNOWN" in result.stdout
+    assert "Overall: OK" in result.stdout

@@ -39,6 +39,18 @@ def full_observation() -> dict:
     }
 
 
+def permission_source(*, kind: str = "parent_turn", source_id: str | None = None) -> dict:
+    return {
+        "source_kind": kind,
+        "source_id": source_id or (PARENT if kind == "parent_turn" else "environment:test"),
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
+        "evidence_source": "local" if kind == "parent_turn" else "native",
+        "evidence_ref": "runtime:permission-source",
+        "selection_evidence_ref": "runtime:permission-source-selection",
+    }
+
+
 def normalize(payload: dict) -> dict:
     result = subprocess.run(
         [sys.executable, str(NORMALIZER)],
@@ -58,11 +70,7 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
             "subject": "child",
             "expected": expected(),
             "local": full_observation(),
-            "effective_permission_source": {
-                "source_kind": "parent_turn",
-                "sandbox_policy_type": "danger-full-access",
-                "permission_profile_type": "disabled",
-            },
+            "effective_permission_source": permission_source(),
         }
     )
 
@@ -87,8 +95,13 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
         "expected_sandbox": "danger-full-access",
         "observed_permission_profile": "disabled",
         "observed_sandbox": "danger-full-access",
+        "selection_evidence_ref": "runtime:permission-source-selection",
         "source": "local",
+        "source_evidence_ref": "runtime:permission-source",
+        "source_evidence_source": "local",
+        "source_id": PARENT,
         "source_kind": "parent_turn",
+        "source_provenance": "matched",
         "status": "matched",
     }
     assert data["runtime_observation_complete"] is True
@@ -111,11 +124,7 @@ def test_public_and_local_runtime_sources_can_collectively_close_required_fields
             "expected": expected(),
             "native": native,
             "local": local,
-            "effective_permission_source": {
-                "source_kind": "selected_environment",
-                "sandbox_policy_type": "danger-full-access",
-                "permission_profile_type": "disabled",
-            },
+            "effective_permission_source": permission_source(kind="selected_environment"),
         }
     )
 
@@ -130,7 +139,41 @@ def test_public_and_local_runtime_sources_can_collectively_close_required_fields
     }
     assert data["ancestry_evidence"] == {"status": "matched", "source": "local"}
     assert data["permission_evidence"]["source"] == "local"
+    assert data["permission_evidence"]["source_id"] == "environment:test"
     assert data["runtime_observation_complete"] is True
+
+
+def test_permission_source_provenance_is_required_for_formal_permission_observation():
+    source = permission_source()
+    source["selection_evidence_ref"] = None
+    data = normalize(
+        {
+            "subject": "child",
+            "expected": expected(),
+            "local": full_observation(),
+            "effective_permission_source": source,
+        }
+    )
+    assert data["permission_evidence"] == {"status": "not_observed", "source": "none"}
+    assert data["status"] == "not_exposed"
+    assert data["decision"] == "return_to_main_session"
+
+
+def test_parent_permission_source_must_bind_expected_parent_identity():
+    data = normalize(
+        {
+            "subject": "child",
+            "expected": expected(),
+            "local": full_observation(),
+            "effective_permission_source": permission_source(
+                source_id="22222222-2222-7222-8222-222222222222"
+            ),
+        }
+    )
+    assert data["permission_evidence"]["status"] == "mismatch"
+    assert data["permission_evidence"]["source_provenance"] == "conflict"
+    assert "permission:source_identity_mismatch" in data["violations"]
+    assert data["decision"] == "quarantine"
 
 
 def test_public_and_local_runtime_conflict_quarantines_the_route():

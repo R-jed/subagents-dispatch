@@ -50,6 +50,20 @@ def observation(**overrides):
     return value
 
 
+def permission_source(**overrides):
+    value = {
+        "source_kind": "parent_turn",
+        "source_id": PARENT,
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
+        "evidence_source": "local",
+        "evidence_ref": "rollout:parent",
+        "selection_evidence_ref": "host:permission-source-selection",
+    }
+    value.update(overrides)
+    return value
+
+
 def test_child_configuration_only_stays_c1():
     result, data = run_verifier({"expected": expected(), "native": None, "local": None})
     assert result.returncode == 0
@@ -160,15 +174,23 @@ def test_child_route_ancestry_and_permission_conflicts_remain_typed():
         {
             "expected": expected(requires_enforced_read_only=True),
             "native": observation(),
-            "effective_permission_source": {
-                "source_kind": "parent_turn",
-                "sandbox_policy_type": "danger-full-access",
-                "permission_profile_type": "disabled",
-            },
+            "effective_permission_source": permission_source(),
         }
     )
     assert result.returncode == 0
     assert data["permission_evidence"]["status"] == "broader_than_required"
+
+
+def test_invalid_permission_source_evidence_kind_fails_closed():
+    result, data = run_verifier(
+        {
+            "expected": expected(requires_permission_observation=True),
+            "native": observation(),
+            "effective_permission_source": permission_source(evidence_source="configuration"),
+        }
+    )
+    assert result.returncode != 0 and data is None
+    assert "evidence_source must be native, local, or both" in result.stderr
 
 
 def test_native_sol_main_provides_covered_judgment_state():

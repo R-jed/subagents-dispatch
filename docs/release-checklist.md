@@ -45,7 +45,7 @@ Model self-report
 -> explanatory only; it cannot by itself close a Host/UI gate or a runtime-route gate about the model's own registration, selection, model, or reasoning effort
 ```
 
-For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the `local` runtime-evidence source. Configured profile values, accepted role values, manually copied JSON, and child prose cannot be substituted for Observed fields. Public and exact-rollout evidence must agree wherever both expose the same field.
+For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the `local` runtime-evidence source. Configured profile values, accepted role values, manually copied JSON, and child prose cannot be substituted for Observed fields. Public and exact-rollout evidence must agree wherever both expose the same field. Effective permission-source evidence must also be bound to a concrete source identity plus source and source-selection provenance before it can close a formal permission gate.
 
 The following App facts require direct human observation and cannot be delegated entirely to the Codex instance under test:
 
@@ -188,9 +188,11 @@ python scripts/inspect-agent-runtime.py <child-thread-id> \
   --expected-agent-role <exact-agent-type>
 ```
 
-Put public Host runtime fields in `native`, put only the inspector's allowlisted object in `local`, record the effective parent-turn or selected-environment permission in `effective_permission_source`, set `runtime_observation_required=true` and `requires_permission_observation=true`, and normalize through `scripts/runtime-evidence.py`. Record the source for every Observed field as `native`, `local`, or `both`.
+Put public Host runtime fields in `native`, put only the inspector's allowlisted object in `local`, and record the effective parent-turn or selected-environment permission in `effective_permission_source`. Formal permission evidence must include `source_kind`, concrete `source_id`, sandbox, permission profile, `evidence_source`, `evidence_ref`, and `selection_evidence_ref`. For `parent_turn`, the source id must equal the exact root/parent thread id. For `selected_environment`, the source id must be a concrete Host-observed environment identity. Source-selection evidence must establish why that source was effective under the ordered `permission_semantics.sources` precedence. Set `runtime_observation_required=true` and `requires_permission_observation=true`, then normalize through `scripts/runtime-evidence.py`. Record the source for every Observed field as `native`, `local`, or `both`.
 
-An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence remains `UNKNOWN`; an observed mismatch is `FAIL`, including a route mismatch or child/inheritance-source permission mismatch; a public/local runtime conflict is also `FAIL`. Matching broad inherited permission is not a failure by itself, but behavioral read-only remains binding and hard isolation still requires `requires_enforced_read_only`. Never copy configured values, accepted values, or child self-report into observed columns.
+An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence or unbound permission-source provenance remains `UNKNOWN`; an observed mismatch is `FAIL`, including a route mismatch, child/inheritance-source permission mismatch, or bound parent-source identity mismatch; a public/local runtime conflict is also `FAIL`. Matching broad inherited permission is not a failure by itself, but behavioral read-only remains binding and hard isolation still requires `requires_enforced_read_only`. If hard isolation is required, Main may retain the responsibility only when Main itself is proven Host-enforced read-only; otherwise the responsibility remains blocked. Never copy configured values, accepted values, or child self-report into observed columns.
+
+For Reader, Investigator, and Advisor, record a narrow workspace mutation baseline before the smoke responsibility and verify the project-file state is unchanged after the child settles. This verifies behavioral read-only compliance only; it is not Host sandbox evidence and cannot replace permission attestation.
 
 For each new project child, inspect the first actual `spawn_agent` call and confirm:
 
@@ -222,7 +224,7 @@ While a writing child is active, invoke the Takeover Skill for the exact unit. M
 
 ### Doctor safety
 
-Through the human-verified Doctor App entry, exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
+Through the human-verified Doctor App entry, exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files. For a formal `--live-route --check`, omit one required formal flag and separately omit permission-source provenance; both cases must fail to produce a passing gate. Ordinary Doctor without explicit live-route evidence may still report Runtime route `UNKNOWN` while remaining healthy.
 
 ### Update and uninstall
 
@@ -243,7 +245,7 @@ any of the five configured project roles cannot be spawned as its exact `agent_t
 first-use stale task attempts a child spawn after provisioning
 normal project-child spawn uses fork_turns other than none or omits fork_turns
 pre-child spawn rejection is counted as an Agent retry or receipt retry
-For a release gate that explicitly requires observed evidence, `UNKNOWN` blocks that gate. A normal Doctor run remains healthy when route evidence was not requested and therefore reports `UNKNOWN`; it must not be relabeled as a runtime pass.
+For a release gate that explicitly requires observed evidence, `UNKNOWN` blocks that gate. Formal Doctor `--live-route --check` must not pass on `UNKNOWN`, missing formal flags, or unbound permission-source provenance. A normal Doctor run remains healthy when route evidence was not requested and therefore reports `UNKNOWN`; it must not be relabeled as a runtime pass.
 Main writes before a previous writer is proven settled during takeover
 modified or unowned Agent configuration is overwritten automatically
 subagents-dispatch implicitly activates on unrelated ordinary tasks

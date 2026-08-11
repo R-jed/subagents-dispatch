@@ -27,6 +27,7 @@ MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS)
+PERMISSION_SOURCE_EVIDENCE_KINDS = frozenset({"native", "local", "both"})
 
 
 def fail(message: str) -> NoReturn:
@@ -159,11 +160,20 @@ def normalize_permission_source(value: dict[str, Any] | None) -> dict[str, str |
         return None
     normalized = {
         "source_kind": text(value.get("source_kind")),
+        "source_id": text(value.get("source_id")),
         "sandbox_policy_type": canonical_sandbox(text(value.get("sandbox_policy_type"))),
         "permission_profile_type": text(value.get("permission_profile_type")),
+        "evidence_source": text(value.get("evidence_source")),
+        "evidence_ref": text(value.get("evidence_ref")),
+        "selection_evidence_ref": text(value.get("selection_evidence_ref")),
     }
     if normalized["source_kind"] is not None and normalized["source_kind"] not in PERMISSION_SOURCE_KINDS:
         fail("effective_permission_source.source_kind is not allowed by policy")
+    if (
+        normalized["evidence_source"] is not None
+        and normalized["evidence_source"] not in PERMISSION_SOURCE_EVIDENCE_KINDS
+    ):
+        fail("effective_permission_source.evidence_source must be native, local, or both")
     return normalized
 
 
@@ -508,8 +518,20 @@ def permission_result(
     for field in PERMISSION_FIELDS:
         native_value = native.get(field) if native else None
         observed[field] = native_value if native_value is not None else local.get(field) if local else None
+    observed_source = evidence_source(
+        any(native and native.get(field) is not None for field in PERMISSION_FIELDS),
+        any(local and local.get(field) is not None for field in PERMISSION_FIELDS),
+    )
+    required_source_fields = (
+        "source_kind",
+        "source_id",
+        "evidence_source",
+        "evidence_ref",
+        "selection_evidence_ref",
+        *PERMISSION_FIELDS,
+    )
     source_complete = effective_source is not None and all(
-        effective_source.get(field) is not None for field in ("source_kind", *PERMISSION_FIELDS)
+        effective_source.get(field) is not None for field in required_source_fields
     )
     observed_complete = all(observed[field] is not None for field in PERMISSION_FIELDS)
     if not source_complete or not observed_complete:
@@ -523,19 +545,29 @@ def permission_result(
         "expected_permission_profile": effective_source["permission_profile_type"],
         "observed_sandbox": observed["sandbox_policy_type"],
         "observed_permission_profile": observed["permission_profile_type"],
-        "source": evidence_source(
-            any(native and native.get(field) is not None for field in PERMISSION_FIELDS),
-            any(local and local.get(field) is not None for field in PERMISSION_FIELDS),
-        ),
+        "source": observed_source,
         "source_kind": effective_source["source_kind"],
+        "source_id": effective_source["source_id"],
+        "source_evidence_source": effective_source["evidence_source"],
+        "source_evidence_ref": effective_source["evidence_ref"],
+        "selection_evidence_ref": effective_source["selection_evidence_ref"],
     }
+    if effective_source["source_kind"] == "parent_turn":
+        expected_parent = text(expected.get("parent_thread_id"))
+        if expected_parent is None:
+            if permission_required:
+                return {"status": "not_observed", "source": "none"}, permission_required
+            return {"status": "not_required", "source": "none"}, permission_required
+        if effective_source["source_id"] != expected_parent:
+            violations.append("permission:source_identity_mismatch")
+            return {**base, "source_provenance": "conflict", "status": "mismatch"}, permission_required
     if any(observed[field] != effective_source[field] for field in PERMISSION_FIELDS):
         violations.append("permission:inheritance_mismatch")
-        return {**base, "status": "mismatch"}, permission_required
+        return {**base, "source_provenance": "matched", "status": "mismatch"}, permission_required
     if requires_read_only and observed["sandbox_policy_type"] != "read-only":
         violations.append("permission:read_only_not_enforced")
-        return {**base, "status": "broader_than_required"}, permission_required
-    return {**base, "status": "matched"}, permission_required
+        return {**base, "source_provenance": "matched", "status": "broader_than_required"}, permission_required
+    return {**base, "source_provenance": "matched", "status": "matched"}, permission_required
 
 
 def child_result(payload: dict[str, Any]) -> dict[str, Any]:

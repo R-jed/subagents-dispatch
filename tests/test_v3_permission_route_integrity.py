@@ -83,13 +83,18 @@ def native_for(
 def effective_permission_source(
     *,
     source_kind: str = "parent_turn",
+    source_id: str | None = None,
     sandbox: str = "danger-full-access",
     profile: str = "disabled",
 ) -> dict:
     return {
         "source_kind": source_kind,
+        "source_id": source_id or (PARENT if source_kind == "parent_turn" else "environment:test"),
         "sandbox_policy_type": sandbox,
         "permission_profile_type": profile,
+        "evidence_source": "native",
+        "evidence_ref": "host:effective-permission-source",
+        "selection_evidence_ref": "host:permission-source-selection",
     }
 
 
@@ -108,6 +113,8 @@ def test_live_route_permission_matches_inherited_host_permission_for_all_managed
     assert data["decision"] == "continue"
     assert data["permission_evidence"]["status"] == "matched"
     assert data["permission_evidence"]["source_kind"] == "parent_turn"
+    assert data["permission_evidence"]["source_id"] == PARENT
+    assert data["permission_evidence"]["source_provenance"] == "matched"
     assert data["permission_evidence"]["observed_sandbox"] == "danger-full-access"
     assert data["permission_match"] is True
 
@@ -127,6 +134,7 @@ def test_read_only_environment_permission_is_inherited_by_all_managed_roles(rout
         }
     )
     assert data["permission_evidence"]["status"] == "matched"
+    assert data["permission_evidence"]["source_id"] == "environment:test"
     assert data["decision"] == "continue"
 
 
@@ -158,6 +166,43 @@ def test_incomplete_effective_permission_source_remains_unknown():
     )
     assert data["permission_evidence"]["status"] == "not_observed"
     assert data["decision"] == "return_to_main_session"
+
+
+def test_permission_source_without_provenance_cannot_close_formal_gate():
+    route = managed_routes()[0]
+    source = effective_permission_source()
+    del source["evidence_ref"]
+    data = run_runtime_evidence(
+        {
+            "subject": "child",
+            "expected": expected_for(route),
+            "native": native_for(route),
+            "effective_permission_source": source,
+        }
+    )
+    assert data["permission_evidence"]["status"] == "not_observed"
+    assert data["permission_match"] is None
+    assert data["status"] == "not_exposed"
+    assert data["decision"] == "return_to_main_session"
+
+
+def test_parent_permission_source_identity_mismatch_quarantines():
+    route = managed_routes()[0]
+    data = run_runtime_evidence(
+        {
+            "subject": "child",
+            "expected": expected_for(route),
+            "native": native_for(route),
+            "effective_permission_source": effective_permission_source(
+                source_id="22222222-2222-7222-8222-222222222222"
+            ),
+        }
+    )
+    assert data["permission_evidence"]["status"] == "mismatch"
+    assert data["permission_evidence"]["source_provenance"] == "conflict"
+    assert data["permission_match"] is False
+    assert data["decision"] == "quarantine"
+    assert "permission:source_identity_mismatch" in data["violations"]
 
 
 @pytest.mark.parametrize(
@@ -221,10 +266,12 @@ def test_required_permission_absence_stays_unknown_in_doctor_classification():
     assert status == "UNKNOWN"
 
 
-def test_doctor_live_route_contract_requires_permission_observation():
+def test_doctor_live_route_contract_requires_permission_observation_and_source_provenance():
     skill = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
     assert "requires_permission_observation=true" in skill
     assert "effective_permission_source" in skill
+    assert "source_id" in skill
+    assert "selection_evidence_ref" in skill
     assert "contracts/policy.json" in skill
 
 
@@ -233,6 +280,8 @@ def test_runtime_assurance_cases_cover_inherited_permission_fail_closed():
     ids = {case["id"] for case in payload["cases"]}
     assert {
         "required-inherited-permission-source-unobserved",
+        "required-inherited-permission-source-unbound",
+        "required-inherited-permission-source-identity-mismatch",
         "required-inherited-permission-mismatch",
     } <= ids
 
@@ -303,3 +352,9 @@ def test_enforced_read_only_remains_an_independent_security_gate():
     assert data["permission_evidence"]["status"] == "broader_than_required"
     assert data["status"] == "mismatch"
     assert data["decision"] == "quarantine"
+
+
+def test_hard_read_only_documentation_blocks_when_main_is_not_host_enforced_read_only():
+    guardrails = (ROOT / "contracts" / "guardrails.md").read_text(encoding="utf-8")
+    assert "Main itself is proven Host-enforced read-only" in guardrails
+    assert "otherwise the responsibility remains blocked" in guardrails
