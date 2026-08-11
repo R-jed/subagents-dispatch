@@ -15,7 +15,8 @@
     "arm",
     "host_target",
     "root_thread_id",
-    "observed_controls",
+    "control_assurance",
+    "control_evidence",
     "execution",
     "route_assurance",
     "child_routes",
@@ -40,7 +41,8 @@
     },
     "host_target": {"$ref": "#/$defs/host_target"},
     "root_thread_id": {"type": "string", "minLength": 1},
-    "observed_controls": {"$ref": "#/$defs/controls"},
+    "control_assurance": {"enum": ["verified", "unknown", "failed"]},
+    "control_evidence": {"$ref": "#/$defs/control_evidence"},
     "execution": {"$ref": "#/$defs/execution"},
     "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "child_routes": {
@@ -80,23 +82,43 @@
       },
       "additionalProperties": false
     },
-    "controls": {
+    "scalar_control_evidence": {
       "type": "object",
-      "required": [
-        "main_session_route_fingerprint",
-        "permissions_fingerprint",
-        "tool_surface_fingerprint",
-        "project_rule_refs"
-      ],
+      "required": ["observed_fingerprint", "verdict", "evidence_ref"],
       "properties": {
-        "main_session_route_fingerprint": {"type": "string", "minLength": 1},
-        "permissions_fingerprint": {"type": "string", "minLength": 1},
-        "tool_surface_fingerprint": {"type": "string", "minLength": 1},
-        "project_rule_refs": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        }
+        "observed_fingerprint": {"type": ["string", "null"]},
+        "verdict": {"enum": ["verified", "unknown", "failed"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "rules_control_evidence": {
+      "type": "object",
+      "required": ["observed_refs", "verdict", "evidence_ref"],
+      "properties": {
+        "observed_refs": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1},
+              "uniqueItems": true
+            },
+            {"type": "null"}
+          ]
+        },
+        "verdict": {"enum": ["verified", "unknown", "failed"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "control_evidence": {
+      "type": "object",
+      "required": ["main_session_route", "permissions", "tool_surface", "project_rules"],
+      "properties": {
+        "main_session_route": {"$ref": "#/$defs/scalar_control_evidence"},
+        "permissions": {"$ref": "#/$defs/scalar_control_evidence"},
+        "tool_surface": {"$ref": "#/$defs/scalar_control_evidence"},
+        "project_rules": {"$ref": "#/$defs/rules_control_evidence"}
       },
       "additionalProperties": false
     },
