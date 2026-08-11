@@ -5,6 +5,7 @@ This folder contains test data used to check routing, coordination, recovery, in
 - `behavioral-workloads.json`: saved task shapes for repeated live behavioral tests. These are workload shapes, not benchmark claims.
 - `behavioral-result.schema.json`: format used to store paired behavioral test results.
 - `experiment-campaign.schema.json`: format for freezing either a fixed-role model/effort calibration or a real single-agent-versus-Dispatch product benchmark before expensive runs begin.
+- `experiment-run.schema.json`: campaign-bound fact envelope for one actual experiment run. It records attested inputs, execution/oracle refs, route evidence, and only directly attributable measurements; it does not score or aggregate a campaign.
 - `LOCAL_EVAL_FIXTURE_TEMPLATE.md`: template for freezing a local test case before comparing runs.
 - `routing-cases.json`: static cases that catch routing regressions, including adaptive multi-Agent fan-out.
 - `coordination-cases.json`: static cases for upstream workflow ownership, semantic independence, mutation authority, integration ordering, and requested/accepted/observed route truth.
@@ -13,11 +14,35 @@ This folder contains test data used to check routing, coordination, recovery, in
 
 `../scripts/validate-experiment-campaign.py` validates/freeze-hashes a campaign definition against the exact current plugin candidate. It does not run Agents, score results, or mutate `contracts/policy.json`.
 
-For `role_calibration`, the current route control must match project policy and challengers may change model/effort while keeping the role's sandbox/isolation contract fixed. Each workload belongs to one calibration role.
+`../scripts/validate-experiment-run.py` validates one run against that already-validated campaign. It checks campaign/candidate/workload/arm identity, actual input attestation, child route evidence, oracle/result provenance, and measurement provenance. It does not run Codex, rank routes, aggregate results, or change policy.
 
-For `product_benchmark`, the campaign compares ordinary `single_agent` with explicit `dispatch`. Workloads are classified by task stratum, not by a predeclared role; which project roles Dispatch actually materializes is result/runtime evidence.
+The campaign/run boundary follows the same truth discipline as runtime attestation:
 
-Formal campaigns require repeated real-repository workloads and actual controlled fingerprints. Exploratory fixtures may use synthetic placeholders to test the evaluator itself, but those fixtures are not benchmark evidence.
+```text
+campaign expected input
+-> run observed input + evidence ref
+-> verified | unknown | failed
+```
+
+A run cannot prove that it used the frozen Host, repository revision, task bytes, Main route, permission envelope, tool surface, or project rules merely by copying those values from the campaign. `experiment-run.schema.json` records the actual observation and a provenance ref, and `validate-experiment-run.py` derives `input_assurance`. Missing observations remain `unknown`; observed drift remains `failed`. Both stay in the evidence record rather than being discarded.
+
+For `role_calibration`, the current route control must match project policy and challengers may change model/effort while keeping the role's sandbox/isolation contract fixed. Each workload belongs to one calibration role. The frozen workload also binds `responsibility_packet_sha256` plus an evaluator-owned packet ref, and each run attests the packet hash actually used. This prevents a packet change from being misattributed to the model/effort challenger.
+
+For `product_benchmark`, the campaign compares ordinary `single_agent` with explicit `dispatch`. Workloads are classified by task stratum, not by a predeclared role; which project roles Dispatch actually materializes is result/runtime evidence. A valid Dispatch run may materialize zero project children. A `single_agent` run may not carry project-child route evidence, and product-benchmark input must not freeze a delegated responsibility packet because Dispatch decomposition is part of the behavior under test.
+
+Child route evidence uses only actual runtime sources accepted by the Runtime Attestation protocol (`native`, exact-rollout `local`, or `both`). Configured values and model self-report are not observed evidence. A route with missing required observation stays `unknown`; a route mismatch is recorded as `failed` rather than silently substituted.
+
+Measurements use an explicit status per field:
+
+```text
+observed       -> exact non-negative value + provenance ref
+unavailable    -> null value/ref; do not estimate
+not_applicable -> null value/ref because the measure does not apply
+```
+
+Reported Main and child token totals are reconciled into the aggregate only when those exact totals are actually observed. Response length, configured model names, or elapsed wall time must not be converted into guessed token/cost values.
+
+Formal campaigns require repeated real-repository workloads and actual controlled fingerprints. Exploratory fixtures may use synthetic placeholders to test the evaluator itself, but those fixtures are not benchmark evidence. Failed, interrupted, input-drifted, or route-UNKNOWN runs remain valid evidence records; they cannot be erased merely to improve an aggregate.
 
 The adaptive-routing checks cover both sides of the policy: several independent ready responsibilities may run together when useful, while duplicate, speculative, or low-value work stays out of the active team. The project does not use a fixed ordinary child-Agent count as the routing target.
 
@@ -27,7 +52,7 @@ The interaction cases protect the user control surface without creating a second
 
 The adversarial interaction set also covers missing thread identity; `SPAWN_PENDING` no-match, single-match, and multiple-match reconciliation; corrupt capsules with active writers; targetless Steer with one or many eligible units; `INTERRUPTED` Takeover; `fix-first` without correction; retry versus semantic rework; locale persistence; unrelated dispatch with an unresolved writer; repeated Status deduplication; same-child resume; and requested/accepted/observed route mismatch. These cases are fixtures, not a second runtime policy.
 
-Machine-checkable TeamPlan and recovery invariants are covered directly by `tests/test_team_plan.py` and `tests/test_recovery_policy.py`. Interaction and capsule invariants are bound by `tests/test_interaction_policy.py`. Runtime attestation has its own inspector/normalizer tests, and Experiment Plane campaign integrity is covered by `tests/test_experiment_campaign.py`.
+Machine-checkable TeamPlan and recovery invariants are covered directly by `tests/test_team_plan.py` and `tests/test_recovery_policy.py`. Interaction and capsule invariants are bound by `tests/test_interaction_policy.py`. Runtime attestation has its own inspector/normalizer tests. Experiment campaign and per-run evidence integrity are covered by `tests/test_experiment_campaign.py` and `tests/test_experiment_run.py`.
 
 These files do not control how the plugin routes or coordinates work. Live behavior is defined by the explicit Skills and the canonical files under `contracts/`, including `policy.json`, `routing.md`, `composition.md`, `interaction.md`, `state.md`, `receipt.md`, `team-plan.md`, `recovery.md`, `guardrails.md`, `handoff.md`, `evidence-artifact.md`, and `final-review.md`.
 
