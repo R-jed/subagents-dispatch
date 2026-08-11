@@ -11,6 +11,7 @@ MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 SKILLS_ROOT = PLUGIN_ROOT / "skills"
 SKILL_IDS = {"dispatch", "preview", "status", "steer", "takeover", "doctor"}
 INSTALL_DOC = ROOT / "docs" / "plugin-installation.md"
+PYTHON_RUNTIME_DOC = ROOT / "docs" / "python-runtime.md"
 POLICY = PLUGIN_ROOT / "contracts" / "policy.json"
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
 PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
@@ -125,6 +126,8 @@ def test_dispatch_skill_is_a_thin_adapter_to_canonical_contracts():
     text = (SKILLS_ROOT / "dispatch" / "SKILL.md").read_text(encoding="utf-8")
     for name in ["policy.json", "routing.md", "guardrails.md", "state.md", "team-plan.md", "recovery.md", "handoff.md", "final-review.md", "receipt.md"]:
         assert f"../../contracts/{name}" in text
+    assert "../../docs/python-runtime.md" in text
+    assert "Python 3.11+" in text
 
 
 def test_doctor_reuses_supported_diagnostics_and_existing_installer():
@@ -133,6 +136,7 @@ def test_doctor_reuses_supported_diagnostics_and_existing_installer():
         "../../contracts/policy.json",
         "../../contracts/state.md",
         "../../contracts/guardrails.md",
+        "../../docs/python-runtime.md",
         "../../scripts/doctor.py",
         "../../scripts/install-agents.py",
         "../../scripts/runtime-evidence.py",
@@ -141,6 +145,8 @@ def test_doctor_reuses_supported_diagnostics_and_existing_installer():
     assert "Diagnosis is read-only by default" in text
     assert "explicit user intent" in text
     assert "Do not edit Codex config files directly" in text
+    assert "<python-3.11+> ../../scripts/inspect-agent-runtime.py" in text
+    assert "python ../../scripts/inspect-agent-runtime.py" not in text
 
 
 def test_install_doc_contains_current_lifecycle_and_app_skill_menu_contract():
@@ -148,6 +154,10 @@ def test_install_doc_contains_current_lifecycle_and_app_skill_menu_contract():
     for phrase in [
         CANONICAL_MARKETPLACE,
         PLUGIN_ADD,
+        "## Python helper prerequisite",
+        "Python 3.11 or newer",
+        "python-runtime.md",
+        "PYTHON_PREREQUISITE_UNMET",
         "## First delegated run",
         "five managed custom-Agent profiles",
         "automatically provisions",
@@ -171,6 +181,24 @@ def test_install_doc_contains_current_lifecycle_and_app_skill_menu_contract():
     ]:
         assert phrase in text
     assert "asks permission" not in text
+
+
+def test_python_helper_runtime_declares_portable_resolution_and_ci_boundary():
+    assert PYTHON_RUNTIME_DOC.is_file()
+    text = PYTHON_RUNTIME_DOC.read_text(encoding="utf-8")
+    for phrase in [
+        "Python 3.11 or newer",
+        "python3",
+        "python",
+        "py -3.11",
+        "sys.executable",
+        "environment adaptation",
+        "PYTHON_PREREQUISITE_UNMET",
+        "actions/setup-python",
+        "real Codex App task shell",
+    ]:
+        assert phrase in text
+    assert "A single `command not found`" in text
 
 
 def test_public_readmes_use_explicit_skill_names_without_inventing_exact_slash_entry():

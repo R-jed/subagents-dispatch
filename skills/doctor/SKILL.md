@@ -25,10 +25,13 @@ Use deterministic owners instead of reproducing their logic:
 - `../../contracts/policy.json`: required Skills, five configured routes, and hard invariants
 - `../../contracts/state.md`: ephemeral dispatch-state meaning and safety
 - `../../contracts/guardrails.md`: mutation, trust, and user-authority boundaries
+- `../../docs/python-runtime.md`: Python 3.11+ helper-runtime resolution and prerequisite failure semantics
 - `../../scripts/doctor.py`: package diagnostics
 - `../../scripts/install-agents.py`: managed-profile verification and lifecycle
 - `../../scripts/inspect-agent-runtime.py`: exact Codex child-rollout allowlist inspection for explicit live attestation
 - `../../scripts/runtime-evidence.py`: configured/requested, accepted, and observed route normalization
+
+Before invoking a bundled Python helper, resolve one Python 3.11+ interpreter from the actual task environment according to `../../docs/python-runtime.md` and keep that resolved interpreter fixed for the operation. A missing command named `python` does not by itself fail the prerequisite when another supported Python 3.11+ invocation is available.
 
 Report Plugin, Skills, managed Agent profiles, dispatch state, Codex Host, and runtime route evidence separately as `OK`, `WARN`, `FAIL`, or `UNKNOWN`. Configuration is not runtime observation. A child saying which model it believes it is running is also not runtime evidence. Do not edit Codex config files directly, simulate missing Host controls, or delete ambiguous state. Do not invent App slash syntax or claim App-visible labels without direct observation.
 
@@ -51,10 +54,12 @@ Spawn each controlled child with `fork_turns = none`, delegation depth one, a no
 For each child, inspect public Host/spawn/details metadata first. Public Host metadata is the preferred runtime source. If it omits a required runtime field and the exact Codex rollout is locally available, run the bundled inspector against the exact child identity and bind it to the expected parent and managed role:
 
 ```text
-python ../../scripts/inspect-agent-runtime.py <child-thread-id> \
+<python-3.11+> ../../scripts/inspect-agent-runtime.py <child-thread-id> \
   --expected-parent-thread-id <root-thread-id> \
   --expected-agent-role <exact-agent-type>
 ```
+
+`<python-3.11+>` means the already resolved interpreter invocation from `../../docs/python-runtime.md`; it is not a literal command or a requirement that the shell expose a command named `python`.
 
 The inspector is read-only and explicit. It streams exactly one rollout selected by the exact child id, parses only `session_meta` and `turn_context` records for routing metadata, rejects ambiguous identity or cross-turn route drift, and emits only an allowlisted routing object. It never emits prompts, assistant output, tool payloads, reasoning, source contents, or the rollout path. Do not hand-copy profile values, child prose, or guessed values into its output.
 

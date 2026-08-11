@@ -22,6 +22,14 @@ Doctor
 
 The exact slash entry rendered by the App is a Host/UI fact. Release validation records it directly from the App instead of deriving it from package metadata.
 
+## Python helper prerequisite
+
+Managed-profile provisioning, deterministic Doctor helpers, and explicit runtime-attestation helpers require Python 3.11 or newer in the actual environment that runs those helpers. Codex itself does not imply that the task shell exposes a command named `python`.
+
+Before a bundled helper is needed, resolve one supported Python 3.11+ interpreter according to [Python Helper Runtime](python-runtime.md). `python3`, `python`, or a platform launcher may be used when it resolves to Python 3.11+, and the same resolved interpreter should be used throughout that operation. Resolving an available interpreter command is environment adaptation and does not change Agent, model, permission, or evidence semantics.
+
+If no Python 3.11+ interpreter is available, provisioning or diagnostics that require these helpers stop before child spawn with `PYTHON_PREREQUISITE_UNMET`. A missing command named `python` alone does not establish that failure when another supported Python 3.11+ invocation is available.
+
 ## First delegated run
 
 The Plugin package and its five managed custom-Agent profiles have separate local lifecycle state. On the first explicit task run through **Dispatch** that actually needs a child, Dispatch checks those five profiles before delegated execution.

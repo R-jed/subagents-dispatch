@@ -21,6 +21,8 @@ Load the canonical contracts required by the task:
 - `../../contracts/final-review.md`: consequence-driven exact-candidate review
 - `../../contracts/receipt.md`: terminal orchestration accounting and presentation
 
+When managed-profile readiness requires a bundled Python helper, follow `../../docs/python-runtime.md`. Resolve one Python 3.11+ interpreter from the actual task environment and use that same resolved interpreter for the helper operation. Interpreter command-name resolution is environment adaptation; it does not authorize role, model, Agent-type, permission-evidence, or acceptance substitution. If no supported interpreter is available, stop before child spawn and report the prerequisite failure.
+
 Delegate only when a distinct responsibility adds enough value to justify coordination cost. There is no child minimum or ordinary project-level child maximum; native Host capacity is only a ceiling. Keep delegation depth at one.
 
 Main retains the user's goal, authorization, team composition, integration, acceptance, and final response. Before conflicting writes, preserve semantic `single_writer` coordination for the canonical workspace. Treat configured, accepted, and observed route facts as different evidence levels. Preserve an accepted upstream workflow or external Skill's domain semantics and apply Dispatch only as an orchestration layer; role contracts may narrow authority but never widen it.

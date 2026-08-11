@@ -113,3 +113,26 @@ def test_release_checklist_requires_all_five_live_routes_without_promoting_accep
     assert "accepted exact `agent_type` proves role acceptance only" in release
     assert "Missing runtime evidence or unbound permission-source provenance remains `UNKNOWN`" in release
     assert "observed mismatch is `FAIL`" in release
+
+
+def test_formal_validation_resolves_python_311_without_bare_python_assumption():
+    release = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
+    runtime = (ROOT / "docs" / "runtime-attestation.md").read_text(encoding="utf-8")
+    helper_runtime = (ROOT / "docs" / "python-runtime.md").read_text(encoding="utf-8")
+
+    for text in [release, runtime, helper_runtime]:
+        assert "Python 3.11" in text
+    for phrase in [
+        "PYTHON_PREREQUISITE_UNMET",
+        "environment adaptation",
+        "sys.executable",
+    ]:
+        assert phrase in helper_runtime
+        assert phrase in release or phrase in runtime
+
+    assert "<python-3.11+>" in release
+    assert "<python-3.11+>" in runtime
+    assert "python scripts/inspect-agent-runtime.py" not in release
+    assert "python scripts/inspect-agent-runtime.py" not in runtime
+    assert "A missing command named `python` is not a failed prerequisite" in release
+    assert "downstream Host acceptance, runtime route, inspector, and behavioral gates are `NOT TESTED` or `INVALIDATED`" in release

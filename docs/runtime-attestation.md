@@ -4,6 +4,8 @@ This document defines how subagents-dispatch proves the actual runtime route of 
 
 It is an explicit diagnostic protocol. Ordinary Dispatch does not run it, scan Codex sessions, collect transcripts, or create background telemetry.
 
+Bundled Python helpers used by this protocol require Python 3.11 or newer. Before invoking one, resolve a supported interpreter from the actual task environment according to `docs/python-runtime.md`, record the resolved invocation, `sys.executable`, and Python version, and keep that interpreter fixed for the attestation operation. Interpreter command-name resolution is environment adaptation; it does not authorize role, model, Agent-type, permission-evidence, or acceptance substitution. If no supported interpreter is available, stop before child spawn and report `PYTHON_PREREQUISITE_UNMET`; downstream Host gates are not tested by that failed environment precondition.
+
 ## Evidence model
 
 Keep these facts separate:
@@ -50,10 +52,12 @@ Public acceptance of an exact `agent_type` proves role acceptance only. It does 
 If public Host metadata omits a required child-runtime field and the local Codex rollout is accessible, use the bundled inspector:
 
 ```text
-python scripts/inspect-agent-runtime.py <child-thread-id> \
+<python-3.11+> scripts/inspect-agent-runtime.py <child-thread-id> \
   --expected-parent-thread-id <root-thread-id> \
   --expected-agent-role <exact-agent-type>
 ```
+
+`<python-3.11+>` is the already resolved interpreter invocation from `docs/python-runtime.md`; it is a protocol placeholder, not a literal executable name.
 
 By default the inspector resolves the Codex sessions directory from `$CODEX_HOME` or `~/.codex`. `--codex-home <path>` may select another Codex home explicitly.
 

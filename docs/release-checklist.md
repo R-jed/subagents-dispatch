@@ -11,6 +11,7 @@ version
 candidate commit SHA
 Codex App / CLI version used for Host smoke
 operating system used for Host smoke
+resolved Python helper invocation / sys.executable / version when bundled helpers are used
 ```
 
 The version in `.codex-plugin/plugin.json` must match the public README badges, `README_AI.md`, and the newest `CHANGELOG.md` entry.
@@ -99,20 +100,26 @@ short-lived feature branch
 
 A pull request is optional. Do not invent a required PR merge-result gate when repository governance does not require one. Feature-branch CI is useful cross-platform evidence for the branch candidate; after direct integration, the final `main` push run confirms the merged candidate. GitHub Actions remains enabled even when it is not a pre-merge branch-protection requirement.
 
-Deterministic local gate:
+Before any local gate or real Host gate invokes a bundled Python helper, resolve one Python 3.11+ interpreter from the actual environment according to `docs/python-runtime.md`. Record the resolved invocation, `sys.executable`, and Python version and use that same interpreter for the operation. A missing command named `python` is not a failed prerequisite when another supported Python 3.11+ invocation is available. Interpreter command-name resolution is environment adaptation, not role/model/Agent/evidence substitution.
 
-```bash
-python -m json.tool .codex-plugin/plugin.json >/dev/null
-python -m json.tool .agents/plugins/marketplace.json >/dev/null
-python -m ruff check scripts tests --ignore E402
-python -m pytest -q
-tmp_home="$(mktemp -d)"
-python scripts/install-agents.py --codex-home "$tmp_home"
-python scripts/install-agents.py --codex-home "$tmp_home" --check
-python scripts/doctor.py --codex-home "$tmp_home" --check
-python scripts/install-agents.py --codex-home "$tmp_home"
-python scripts/install-agents.py --codex-home "$tmp_home" --check
+If no Python 3.11+ interpreter can be resolved, record `PYTHON_PREREQUISITE_UNMET` and stop before Host spawn. The Python-backed precondition fails; downstream Host acceptance, runtime route, inspector, and behavioral gates are `NOT TESTED` or `INVALIDATED` as appropriate. Do not report a Host role rejection or route mismatch when the helper never ran.
+
+Deterministic local gate, after `<python-3.11+>` has been resolved:
+
+```text
+<python-3.11+> -m json.tool .codex-plugin/plugin.json
+<python-3.11+> -m json.tool .agents/plugins/marketplace.json
+<python-3.11+> -m ruff check scripts tests --ignore E402
+<python-3.11+> -m pytest -q
+create an isolated temporary CODEX_HOME
+<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home>
+<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home> --check
+<python-3.11+> scripts/doctor.py --codex-home <temporary-codex-home> --check
+<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home>
+<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home> --check
 ```
+
+`<python-3.11+>` is a protocol placeholder for the resolved interpreter invocation. It is not a literal command. The canonical GitHub Actions workflow may continue to use `python` after `actions/setup-python` has provisioned that command inside CI; that does not establish the command name available inside a real Codex task shell.
 
 The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; run that exact pinned validator in the supported validation environment. Do not report App or Host smoke as passed until direct App observation and raw Host evidence are recorded.
 
@@ -152,6 +159,7 @@ Separately, run an unrelated ordinary task and use raw Host evidence to confirm 
 Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Through the human-verified Dispatch App entry, run a real task that genuinely needs delegation and confirm:
 
 ```text
+Python 3.11+ helper prerequisite is resolved from the actual task environment
 clean absence -> bounded automatic provisioning
 installer --check passes
 RESTART_REQUIRED is returned
@@ -180,10 +188,10 @@ Use one bounded smoke child per role with `fork_turns = none`, no broader behavi
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | policy value | policy value | none or assigned bounded-source-write | Host evidence | Host evidence | sandbox + permission profile | OK / UNKNOWN / FAIL | OK / UNKNOWN / FAIL |
 
-Follow `docs/runtime-attestation.md` for every smoke child. Inspect public Host/spawn/details metadata first. If it omits a required field and the exact local Codex rollout exists, run:
+Follow `docs/runtime-attestation.md` for every smoke child. Inspect public Host/spawn/details metadata first. If it omits a required field and the exact local Codex rollout exists, run with the same resolved interpreter:
 
 ```text
-python scripts/inspect-agent-runtime.py <child-thread-id> \
+<python-3.11+> scripts/inspect-agent-runtime.py <child-thread-id> \
   --expected-parent-thread-id <root-thread-id> \
   --expected-agent-role <exact-agent-type>
 ```
@@ -250,6 +258,8 @@ Main writes before a previous writer is proven settled during takeover
 modified or unowned Agent configuration is overwritten automatically
 subagents-dispatch implicitly activates on unrelated ordinary tasks
 ```
+
+`PYTHON_PREREQUISITE_UNMET` is an environment/precondition blocker for Python-backed validation or first-use provisioning. It invalidates the downstream gate that could not execute, but it is not evidence of Host role rejection, route mismatch, inspector regression, or permission failure.
 
 Keep Codex Host limitations separate from project defects in the validation report.
 
