@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "subagents-dispatch experiment run evidence",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "campaign_id",
+    "campaign_sha256",
+    "plugin_candidate_sha",
+    "stage",
+    "experiment_type",
+    "workload_id",
+    "repeat_index",
+    "arm",
+    "host_target",
+    "root_thread_id",
+    "observed_controls",
+    "execution",
+    "route_assurance",
+    "child_routes",
+    "metrics",
+    "evidence_artifact_ref"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "campaign_id": {"type": "string", "minLength": 1},
+    "campaign_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "plugin_candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "stage": {"enum": ["exploratory", "formal"]},
+    "experiment_type": {"enum": ["role_calibration", "product_benchmark"]},
+    "workload_id": {"type": "string", "minLength": 1},
+    "repeat_index": {"type": "integer", "minimum": 1},
+    "arm": {
+      "oneOf": [
+        {"$ref": "#/$defs/product_arm"},
+        {"$ref": "#/$defs/calibration_arm"}
+      ]
+    },
+    "host_target": {"$ref": "#/$defs/host_target"},
+    "root_thread_id": {"type": "string", "minLength": 1},
+    "observed_controls": {"$ref": "#/$defs/controls"},
+    "execution": {"$ref": "#/$defs/execution"},
+    "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+    "child_routes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/child_route"}
+    },
+    "metrics": {"$ref": "#/$defs/metrics"},
+    "evidence_artifact_ref": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "product_arm": {
+      "type": "object",
+      "required": ["kind", "mode"],
+      "properties": {
+        "kind": {"const": "product_benchmark"},
+        "mode": {"enum": ["single_agent", "dispatch"]}
+      },
+      "additionalProperties": false
+    },
+    "calibration_arm": {
+      "type": "object",
+      "required": ["kind", "role", "route_id"],
+      "properties": {
+        "kind": {"const": "role_calibration"},
+        "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
+        "route_id": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "host_target": {
+      "type": "object",
+      "required": ["product", "version", "platform"],
+      "properties": {
+        "product": {"const": "Codex"},
+        "version": {"type": "string", "minLength": 1},
+        "platform": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "controls": {
+      "type": "object",
+      "required": [
+        "main_session_route_fingerprint",
+        "permissions_fingerprint",
+        "tool_surface_fingerprint",
+        "project_rule_refs"
+      ],
+      "properties": {
+        "main_session_route_fingerprint": {"type": "string", "minLength": 1},
+        "permissions_fingerprint": {"type": "string", "minLength": 1},
+        "tool_surface_fingerprint": {"type": "string", "minLength": 1},
+        "project_rule_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "required": [
+        "status",
+        "acceptance_status",
+        "oracle_refs",
+        "quality_score",
+        "quality_score_ref",
+        "result_ref",
+        "failure_ref"
+      ],
+      "properties": {
+        "status": {"enum": ["completed", "failed", "interrupted", "unknown"]},
+        "acceptance_status": {"enum": ["passed", "failed", "unknown"]},
+        "oracle_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "quality_score": {"type": ["number", "null"], "minimum": 0},
+        "quality_score_ref": {"type": ["string", "null"]},
+        "result_ref": {"type": ["string", "null"]},
+        "failure_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "observed_route": {
+      "type": "object",
+      "required": ["model", "effort", "sandbox_intent"],
+      "properties": {
+        "model": {"type": ["string", "null"]},
+        "effort": {"type": ["string", "null"], "enum": [null, "minimal", "low", "medium", "high", "xhigh", "max"]},
+        "sandbox_intent": {"type": ["string", "null"], "enum": [null, "read-only", "workspace-write"]}
+      },
+      "additionalProperties": false
+    },
+    "child_route": {
+      "type": "object",
+      "required": [
+        "child_thread_id",
+        "parent_thread_id",
+        "agent_type",
+        "role",
+        "observed",
+        "verdict",
+        "evidence_source",
+        "evidence_ref"
+      ],
+      "properties": {
+        "child_thread_id": {"type": "string", "minLength": 1},
+        "parent_thread_id": {"type": "string", "minLength": 1},
+        "agent_type": {"type": "string", "minLength": 1},
+        "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
+        "observed": {"$ref": "#/$defs/observed_route"},
+        "verdict": {"enum": ["verified", "unknown", "failed"]},
+        "evidence_source": {"enum": ["native", "local", "both", "none"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "measurement": {
+      "type": "object",
+      "required": ["status", "value", "source_ref"],
+      "properties": {
+        "status": {"enum": ["observed", "unavailable", "not_applicable"]},
+        "value": {"type": ["integer", "null"], "minimum": 0},
+        "source_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "wall_clock_ms",
+        "main_total_tokens",
+        "child_total_tokens",
+        "aggregate_total_tokens",
+        "main_context_peak_tokens",
+        "user_interventions",
+        "semantic_reworks",
+        "retries",
+        "review_rounds",
+        "compactions"
+      ],
+      "properties": {
+        "wall_clock_ms": {"$ref": "#/$defs/measurement"},
+        "main_total_tokens": {"$ref": "#/$defs/measurement"},
+        "child_total_tokens": {"$ref": "#/$defs/measurement"},
+        "aggregate_total_tokens": {"$ref": "#/$defs/measurement"},
+        "main_context_peak_tokens": {"$ref": "#/$defs/measurement"},
+        "user_interventions": {"$ref": "#/$defs/measurement"},
+        "semantic_reworks": {"$ref": "#/$defs/measurement"},
+        "retries": {"$ref": "#/$defs/measurement"},
+        "review_rounds": {"$ref": "#/$defs/measurement"},
+        "compactions": {"$ref": "#/$defs/measurement"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
