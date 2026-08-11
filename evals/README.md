@@ -24,7 +24,9 @@ campaign expected input
 -> verified | unknown | failed
 ```
 
-A run cannot prove that it used the frozen Host, repository revision, task bytes, Main route, permission envelope, tool surface, or project rules merely by copying those values from the campaign. `experiment-run.schema.json` records the actual observation and a provenance ref, and `validate-experiment-run.py` derives `input_assurance`. Missing observations remain `unknown`; observed drift remains `failed`. Both stay in the evidence record rather than being discarded.
+A run cannot prove that it used the frozen plugin state, Host, repository revision, task bytes, reset procedure, acceptance contract, Main route, permission envelope, tool surface, or project rules merely by copying those values from the campaign. `experiment-run.schema.json` records the actual observation and a provenance ref, and `validate-experiment-run.py` derives `input_assurance`. Missing observations remain `unknown`; observed drift remains `failed`. Both stay in the evidence record rather than being discarded.
+
+For `product_benchmark`, plugin state is part of the controlled input. The `single_agent` baseline must independently attest that subagents-dispatch is absent, while the `dispatch` arm must attest the exact campaign candidate SHA. This prevents a baseline that accidentally loaded the plugin from being treated as a clean baseline. Each run also attests canonical hashes of the frozen reset procedure and acceptance contract, so environment-reset or oracle drift cannot be silently attributed to Dispatch.
 
 For `role_calibration`, the current route control must match project policy and challengers may change model/effort while keeping the role's sandbox/isolation contract fixed. Each workload belongs to one calibration role. The frozen workload also binds `responsibility_packet_sha256` plus an evaluator-owned packet ref, and each run attests the packet hash actually used. This prevents a packet change from being misattributed to the model/effort challenger.
 
