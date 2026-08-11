@@ -53,7 +53,7 @@ def load_role_policy() -> tuple[set[str], set[str]]:
     read_only = {
         role
         for role, spec in roles.items()
-        if isinstance(spec, dict) and spec.get("sandbox_intent") == "read-only"
+        if isinstance(spec, dict) and spec.get("mutation_authority") == "none"
     }
     if len(read_only) == 0 or any(not isinstance(role, str) or not role for role in role_names):
         raise RuntimeError("policy contract contains invalid TeamPlan role definitions")

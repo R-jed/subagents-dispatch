@@ -168,7 +168,7 @@ def load_installer_policy() -> dict:
     roles = payload.get("roles")
     if not isinstance(roles, dict) or set(roles) != ROLE_KEYS:
         fail("Policy contract must define reader, worker, solver, investigator, and advisor roles")
-    required = {"profile_file", "agent_type", "model", "effort", "sandbox_intent"}
+    required = {"profile_file", "agent_type", "model", "effort", "mutation_authority"}
     seen_files: set[str] = set()
     seen_names: set[str] = set()
     for role, spec in roles.items():
@@ -192,7 +192,6 @@ EXPECTED_PROFILES = {
         spec["agent_type"],
         spec["model"],
         spec["effort"],
-        spec["sandbox_intent"],
     )
     for spec in ROLE_SPECS.values()
 }
@@ -274,10 +273,11 @@ def validate_sources() -> None:
             str(data.get("name", "")).strip(),
             str(data.get("model", "")).strip(),
             str(data.get("model_reasoning_effort", "")).strip(),
-            str(data.get("sandbox_mode", "")).strip(),
         )
         if actual != expected:
             fail(f"Agent profile {filename} pins {actual!r}; expected {expected!r}")
+        if "sandbox_mode" in data:
+            fail(f"Agent profile {filename} must inherit Host permission; sandbox_mode is unsupported")
         if not str(data.get("description", "")).strip() or not str(data.get("developer_instructions", "")).strip():
             fail(f"Agent profile is incomplete: {filename}")
         if expected[0] in seen_names:

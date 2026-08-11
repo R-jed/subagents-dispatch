@@ -36,7 +36,7 @@ def test_policy_owns_capability_dedup_reference_route_and_aliases():
     reference = policy["roles"][role]
     order = dedup["reasoning_effort_order"]
 
-    assert policy["schema_version"] == 5
+    assert policy["schema_version"] == 6
     assert role == "solver"
     assert reference["model"] == "gpt-5.6-sol"
     assert reference["effort"] == "high"

@@ -43,8 +43,8 @@ def observation(**overrides):
         "agent_role": "subagents_dispatch_worker",
         "model": "gpt-5.6-luna",
         "effort": "max",
-        "sandbox_policy_type": "workspace-write",
-        "permission_profile_type": "default",
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
     }
     value.update(overrides)
     return value
@@ -159,7 +159,12 @@ def test_child_route_ancestry_and_permission_conflicts_remain_typed():
     result, data = run_verifier(
         {
             "expected": expected(requires_enforced_read_only=True),
-            "native": observation(sandbox_policy_type="workspace-write"),
+            "native": observation(),
+            "effective_permission_source": {
+                "source_kind": "parent_turn",
+                "sandbox_policy_type": "danger-full-access",
+                "permission_profile_type": "disabled",
+            },
         }
     )
     assert result.returncode == 0

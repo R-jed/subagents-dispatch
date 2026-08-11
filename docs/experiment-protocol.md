@@ -94,7 +94,7 @@ Then compare route candidates for that same responsibility.
 
 The current-policy route is the control. The experiment validator rejects a control that differs from current `policy.json`.
 
-A model/effort challenger must keep the role sandbox intent unchanged. Do not change task decomposition, acceptance, allowed tools, write scope, role decision rights, or isolation contract between route arms. If those change, it is a different experiment.
+A model/effort challenger must keep the role mutation authority unchanged. Do not change task decomposition, acceptance, allowed tools, write scope, role decision rights, or behavioral authority between route arms. Observed Host sandbox and permission profile are runtime evidence, not configured route fields. If those controls change, it is a different experiment.
 
 A challenger being syntactically valid in the campaign does not prove the current Host can run it. Host availability and actual runtime route are execution evidence. Unsupported, rejected, or unobservable candidate routes stay failed/UNKNOWN; never silently substitute another model or effort.
 
@@ -174,6 +174,8 @@ provenance grade
 ```
 
 For a run to support a model/effort conclusion, required model, effort, role identity, ancestry, and permission/sandbox facts must be observed at the evidence level required by the workload.
+
+Each recorded child route keeps observed `sandbox_policy_type` / `permission_profile_type` separate from `permission_inheritance`, which records the effective parent-turn or selected-environment values and an independent `verified` / `unknown` / `failed` verdict. A verified route cannot carry unknown or mismatched permission inheritance.
 
 If the Host cannot prove the route, mark the run `UNKNOWN` for route calibration. Do not copy configured values into Observed and do not use that run to claim that a particular model/effort produced the result.
 

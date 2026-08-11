@@ -74,7 +74,7 @@ def current_head() -> str:
 
 
 def route_tuple(route: dict[str, Any]) -> tuple[str, str, str]:
-    return route["model"], route["effort"], route["sandbox_intent"]
+    return route["model"], route["effort"], route["mutation_authority"]
 
 
 def expected_control(policy: dict[str, Any], role: str) -> tuple[str, str, str]:
@@ -83,7 +83,7 @@ def expected_control(policy: dict[str, Any], role: str) -> tuple[str, str, str]:
         return (
             configured["model"],
             configured["effort"],
-            configured["sandbox_intent"],
+            configured["mutation_authority"],
         )
     except (KeyError, TypeError) as exc:
         fail(f"policy does not define a complete route for role {role!r}: {exc}")
@@ -198,10 +198,10 @@ def validate_role_calibration(
                 fail(f"role {role!r} contains a challenger identical to another route")
             route_shapes.add(shape)
 
-            if challenger["sandbox_intent"] != control["sandbox_intent"]:
+            if challenger["mutation_authority"] != control["mutation_authority"]:
                 fail(
-                    f"role {role!r} challenger {challenger_id!r} changes sandbox_intent; "
-                    "route calibration must keep the role authority/isolation contract fixed"
+                    f"role {role!r} challenger {challenger_id!r} changes mutation_authority; "
+                    "route calibration must keep the behavioral authority contract fixed"
                 )
 
     workloads_by_role = {role: 0 for role in role_specs}

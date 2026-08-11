@@ -33,8 +33,8 @@ def full_observation() -> dict:
         "agent_role": WORKER["agent_type"],
         "model": WORKER["model"],
         "effort": WORKER["effort"],
-        "sandbox_policy_type": WORKER["sandbox_intent"],
-        "permission_profile_type": "default",
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
         "runtime_version": "0.999.0-test",
     }
 
@@ -58,6 +58,11 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
             "subject": "child",
             "expected": expected(),
             "local": full_observation(),
+            "effective_permission_source": {
+                "source_kind": "parent_turn",
+                "sandbox_policy_type": "danger-full-access",
+                "permission_profile_type": "disabled",
+            },
         }
     )
 
@@ -78,9 +83,12 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
         "effort": "local",
     }
     assert data["permission_evidence"] == {
-        "expected_sandbox": WORKER["sandbox_intent"],
-        "observed_sandbox": WORKER["sandbox_intent"],
+        "expected_permission_profile": "disabled",
+        "expected_sandbox": "danger-full-access",
+        "observed_permission_profile": "disabled",
+        "observed_sandbox": "danger-full-access",
         "source": "local",
+        "source_kind": "parent_turn",
         "status": "matched",
     }
     assert data["runtime_observation_complete"] is True
@@ -103,6 +111,11 @@ def test_public_and_local_runtime_sources_can_collectively_close_required_fields
             "expected": expected(),
             "native": native,
             "local": local,
+            "effective_permission_source": {
+                "source_kind": "selected_environment",
+                "sandbox_policy_type": "danger-full-access",
+                "permission_profile_type": "disabled",
+            },
         }
     )
 

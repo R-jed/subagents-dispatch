@@ -111,11 +111,11 @@
       }
     },
     {
-      "id": "required-readonly-native-unobserved",
+      "id": "required-readonly-permission-unobserved",
       "input": {
         "requires_enforced_read_only": true,
-        "native_sandbox": null,
-        "local_sandbox": "read-only"
+        "child_permission": null,
+        "effective_permission_source": null
       },
       "expected": {
         "decision": "return_to_main_session",
@@ -126,7 +126,8 @@
       "id": "required-readonly-broadened",
       "input": {
         "requires_enforced_read_only": true,
-        "native_sandbox": "workspace-write"
+        "child_sandbox": "danger-full-access",
+        "source_sandbox": "danger-full-access"
       },
       "expected": {
         "decision": "quarantine",
@@ -134,11 +135,12 @@
       }
     },
     {
-      "id": "required-workspace-write-native-unobserved",
+      "id": "required-inherited-permission-source-unobserved",
       "input": {
-        "agent_role": "subagents_dispatch_worker",
         "requires_permission_observation": true,
-        "native_sandbox": null
+        "child_sandbox": "danger-full-access",
+        "child_permission_profile": "disabled",
+        "effective_permission_source": null
       },
       "expected": {
         "decision": "return_to_main_session",
@@ -146,11 +148,13 @@
       }
     },
     {
-      "id": "required-workspace-write-mismatch",
+      "id": "required-inherited-permission-mismatch",
       "input": {
-        "agent_role": "subagents_dispatch_worker",
         "requires_permission_observation": true,
-        "native_sandbox": "read-only"
+        "child_sandbox": "read-only",
+        "child_permission_profile": "disabled",
+        "source_sandbox": "danger-full-access",
+        "source_permission_profile": "disabled"
       },
       "expected": {
         "decision": "quarantine",

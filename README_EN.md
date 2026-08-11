@@ -82,6 +82,8 @@ Role semantics and runtime policy are separate. A role says what responsibility 
 | Solver | Sol High | Execute | implementation where material technical judgment cannot be separated from the edit |
 | Advisor | Sol High | Decide / Review | read-only material judgment or independent Final Review |
 
+“Read-only” is a behavioral responsibility that forbids project-file mutation, not a per-role OS sandbox. Current Host permission is inherited from the active Codex environment; Worker / Solver gain behavioral write authority only for an explicit scope assigned by Main. See [Guardrails](contracts/guardrails.md) and [Runtime Attestation](docs/runtime-attestation.md).
+
 These routes are current policy. They are not a claim that this is already proven to be the universally optimal model/effort mix. Formal route calibration belongs to real experiments under the [Experiment Protocol](docs/experiment-protocol.md).
 
 ## Proving which model actually ran
@@ -97,7 +99,7 @@ Configured
 → Observed
 ```
 
-Observed fields come only from actual Host runtime evidence. When public Host metadata omits a required field, the exact child's local Codex rollout can be inspected through a read-only allowlist path for model, reasoning effort, sandbox / permission, and parent / child identity. Configured values and model self-report never fill an Observed field.
+Observed fields come only from actual Host runtime evidence. When public Host metadata omits a required field, the exact child's local Codex rollout can be inspected through a read-only allowlist path for model, reasoning effort, sandbox / permission, and parent / child identity. Actual child permission is compared independently with the effective parent-turn or selected-environment source. Configured values and model self-report never fill an Observed field.
 
 See [Runtime Attestation](docs/runtime-attestation.md).
 

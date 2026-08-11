@@ -352,7 +352,7 @@ def expected_policy_route(policy: dict[str, Any], role: str) -> dict[str, Any]:
             "agent_type": spec["agent_type"],
             "model": spec["model"],
             "effort": spec["effort"],
-            "sandbox_intent": spec["sandbox_intent"],
+            "mutation_authority": spec["mutation_authority"],
         }
     except (KeyError, TypeError) as exc:
         fail(f"policy does not define complete route truth for role {role!r}: {exc}")
@@ -373,7 +373,7 @@ def validate_child_route(
 
     observed = route["observed"]
     mismatches: list[str] = []
-    for field in ("model", "effort", "sandbox_intent"):
+    for field in ("model", "effort"):
         value = observed[field]
         if value is not None and value != expected[field]:
             mismatches.append(field)
@@ -384,10 +384,39 @@ def validate_child_route(
             + ", ".join(mismatches)
         )
 
+    inherited = route["permission_inheritance"]
+    child_permission = (
+        observed["sandbox_policy_type"],
+        observed["permission_profile_type"],
+    )
+    source_permission = (
+        inherited["sandbox_policy_type"],
+        inherited["permission_profile_type"],
+    )
+    permission_complete = (
+        inherited["source_kind"] is not None
+        and all(value is not None for value in (*child_permission, *source_permission))
+    )
+    if not permission_complete:
+        expected_permission_verdict = "unknown"
+    elif child_permission == source_permission:
+        expected_permission_verdict = "verified"
+    else:
+        expected_permission_verdict = "failed"
+    if inherited["verdict"] != expected_permission_verdict:
+        fail(
+            "permission inheritance verdict must be "
+            f"{expected_permission_verdict!r} for the recorded child/source permissions"
+        )
+    if expected_permission_verdict == "failed" and route["verdict"] != "failed":
+        fail("permission inheritance mismatch requires child route verdict=failed")
+    if expected_permission_verdict == "unknown" and route["verdict"] == "verified":
+        fail("unknown permission inheritance cannot have child route verdict=verified")
+
     source = route["evidence_source"]
     evidence_ref = route["evidence_ref"]
     if source == "none":
-        if any(observed[field] is not None for field in ("model", "effort", "sandbox_intent")):
+        if any(observed[field] is not None for field in ("model", "effort", "sandbox_policy_type", "permission_profile_type")):
             fail("child route with evidence_source=none must keep all observed route fields null")
         if route["verdict"] != "unknown":
             fail("child route with evidence_source=none must have verdict=unknown")
@@ -397,7 +426,7 @@ def validate_child_route(
         require_text(evidence_ref, "child route evidence_ref")
 
     if route["verdict"] == "verified":
-        missing = [field for field in ("model", "effort", "sandbox_intent") if observed[field] is None]
+        missing = [field for field in ("model", "effort", "sandbox_policy_type", "permission_profile_type") if observed[field] is None]
         if missing:
             fail("verified child route is missing observed fields: " + ", ".join(missing))
         if mismatches:
@@ -498,7 +527,7 @@ def validate_calibration_arm(
         "agent_type": policy_route["agent_type"],
         "model": selected["model"],
         "effort": selected["effort"],
-        "sandbox_intent": selected["sandbox_intent"],
+        "mutation_authority": selected["mutation_authority"],
     }
     validate_child_route(route, root_thread_id=run["root_thread_id"], expected=expected)
 

@@ -112,12 +112,14 @@ The installer is a project-specific lifecycle and ownership layer around native 
 ## Current exact roles
 
 ```text
-subagents_dispatch_reader        -> gpt-5.6-luna  / max   / read-only
-subagents_dispatch_worker        -> gpt-5.6-luna  / max   / workspace-write
-subagents_dispatch_solver        -> gpt-5.6-sol   / high  / workspace-write
-subagents_dispatch_investigator  -> gpt-5.6-terra / xhigh / read-only
-subagents_dispatch_advisor       -> gpt-5.6-sol   / high  / read-only
+subagents_dispatch_reader        -> gpt-5.6-luna  / max   / mutation none
+subagents_dispatch_worker        -> gpt-5.6-luna  / max   / bounded-source-write when assigned
+subagents_dispatch_solver        -> gpt-5.6-sol   / high  / bounded-source-write when assigned
+subagents_dispatch_investigator  -> gpt-5.6-terra / xhigh / mutation none
+subagents_dispatch_advisor       -> gpt-5.6-sol   / high  / mutation none
 ```
+
+Codex 0.147.0 currently applies base child configuration, then role configuration, then a runtime permission override from the selected environment or parent turn before spawn. Model and reasoning remain role configuration; effective sandbox and permission profile are Host-inherited. The Plugin exposes no per-child permission selector and does not claim one.
 
 Responsibility semantics follow the current model guidance:
 

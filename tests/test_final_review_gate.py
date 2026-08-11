@@ -39,7 +39,8 @@ def test_current_advisor_route_matches_policy_and_is_fresh():
     assert advisor["name"] == spec["agent_type"]
     assert advisor["model"] == spec["model"]
     assert advisor["model_reasoning_effort"] == spec["effort"]
-    assert advisor["sandbox_mode"] == spec["sandbox_intent"]
+    assert "sandbox_mode" not in advisor
+    assert spec["mutation_authority"] == "none"
 
 
 def test_review_lifecycle_remains_fail_closed_and_artifact_bound():

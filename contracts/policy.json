@@ -1,11 +1,18 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "delegation": {
     "max_depth": 1
   },
   "write_coordination": {
     "mode": "single_writer",
     "scope": "canonical_workspace"
+  },
+  "permission_semantics": {
+    "mode": "host_inherited",
+    "sources": [
+      "selected_environment",
+      "parent_turn"
+    ]
   },
   "capability_dedup": {
     "reference_role": "solver",
@@ -18,35 +25,35 @@
       "agent_type": "subagents_dispatch_reader",
       "model": "gpt-5.6-luna",
       "effort": "max",
-      "sandbox_intent": "read-only"
+      "mutation_authority": "none"
     },
     "worker": {
       "profile_file": "subagents-dispatch-worker.toml",
       "agent_type": "subagents_dispatch_worker",
       "model": "gpt-5.6-luna",
       "effort": "max",
-      "sandbox_intent": "workspace-write"
+      "mutation_authority": "bounded-source-write"
     },
     "solver": {
       "profile_file": "subagents-dispatch-solver.toml",
       "agent_type": "subagents_dispatch_solver",
       "model": "gpt-5.6-sol",
       "effort": "high",
-      "sandbox_intent": "workspace-write"
+      "mutation_authority": "bounded-source-write"
     },
     "investigator": {
       "profile_file": "subagents-dispatch-investigator.toml",
       "agent_type": "subagents_dispatch_investigator",
       "model": "gpt-5.6-terra",
       "effort": "xhigh",
-      "sandbox_intent": "read-only"
+      "mutation_authority": "none"
     },
     "advisor": {
       "profile_file": "subagents-dispatch-advisor.toml",
       "agent_type": "subagents_dispatch_advisor",
       "model": "gpt-5.6-sol",
       "effort": "high",
-      "sandbox_intent": "read-only"
+      "mutation_authority": "none"
     }
   },
   "final_review": {

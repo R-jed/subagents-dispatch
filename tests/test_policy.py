@@ -69,11 +69,12 @@ def test_dispatch_skill_and_openai_metadata_keep_explicit_identity():
 
 def test_policy_contract_is_the_single_machine_role_source():
     payload = contract()
-    assert payload["schema_version"] == 5
+    assert payload["schema_version"] == 6
     assert set(payload) == {
         "schema_version",
         "delegation",
         "write_coordination",
+        "permission_semantics",
         "capability_dedup",
         "roles",
         "final_review",
@@ -82,6 +83,10 @@ def test_policy_contract_is_the_single_machine_role_source():
     assert payload["write_coordination"] == {
         "mode": "single_writer",
         "scope": "canonical_workspace",
+    }
+    assert payload["permission_semantics"] == {
+        "mode": "host_inherited",
+        "sources": ["selected_environment", "parent_turn"],
     }
     assert set(payload["roles"]) == {"reader", "worker", "solver", "investigator", "advisor"}
 
@@ -92,7 +97,9 @@ def test_policy_contract_is_the_single_machine_role_source():
         assert profile["name"] == spec["agent_type"]
         assert profile["model"] == spec["model"]
         assert profile["model_reasoning_effort"] == spec["effort"]
-        assert profile["sandbox_mode"] == spec["sandbox_intent"]
+        assert "sandbox_mode" not in profile
+        assert spec["mutation_authority"] in {"none", "bounded-source-write"}
+        assert "sandbox_intent" not in spec
 
 
 def test_agent_profiles_do_not_invent_semantic_blockers():
@@ -168,8 +175,7 @@ def test_static_routing_cases_match_policy_owned_role_routes():
             assert node["model"] == spec["model"]
             assert node["effort"] == spec["effort"]
             assert node["agent_type"] == spec["agent_type"]
-            expected_mutation = "none" if spec["sandbox_intent"] == "read-only" else "bounded-source-write"
-            assert node["mutation_authority"] == expected_mutation
+            assert node["mutation_authority"] == spec["mutation_authority"]
 
 
 def test_public_docs_keep_product_identity_while_ai_reference_points_to_policy_owners():

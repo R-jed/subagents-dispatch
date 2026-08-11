@@ -9,8 +9,11 @@ It is an explicit diagnostic protocol. Ordinary Dispatch does not run it, scan C
 Keep these facts separate:
 
 ```text
-Configured
--> contracts/policy.json and the exact managed Agent profile describe intended model, effort, sandbox, and agent_type
+Configured route
+-> contracts/policy.json and the exact managed Agent profile describe intended model, effort, and agent_type
+
+Behavioral authority
+-> role mutation_authority describes whether the responsibility may mutate source
 
 Requested
 -> the actual spawn request selects the exact managed agent_type
@@ -91,11 +94,15 @@ runtime_observation_required = true
 requires_permission_observation = true
 ```
 
-Put public Host runtime metadata in `native`. Put only the exact inspector output in `local`. Then pass the record to `scripts/runtime-evidence.py`.
+Put public Host runtime metadata in `native`. Put only the exact inspector output in `local`. Record the effective inherited permission separately in `effective_permission_source`, including `source_kind` (`parent_turn` or `selected_environment`), `sandbox_policy_type`, and `permission_profile_type`. Then pass the record to `scripts/runtime-evidence.py`.
 
-A field may be proven by `native`, `local`, or both. When both runtime sources expose the same field, they must agree. Any actual-runtime source that conflicts with the expected route, or any conflict between accepted and observed facts, quarantines the route claim.
+A field may be proven by `native`, `local`, or both. When both runtime sources expose the same field, they must agree. Route integrity compares role, model, effort, child identity, and ancestry with the configured route. Permission integrity independently compares the actual child sandbox and permission profile with the effective inherited permission source.
+
+Accepted permission is retained as an accepted-layer fact but is not used to decide inheritance: Codex 0.147.0 applies the runtime permission profile after role configuration. A child/source permission mismatch is `FAIL` and quarantines the permission claim. Missing child or source permission fields are `UNKNOWN`. A matching inherited permission is `OK`, including a broad sandbox inherited from a broad parent. Separately, `requires_enforced_read_only=true` still rejects a broad sandbox even when inheritance matches.
 
 The normalizer must never fill an absent Observed field from Configured, Requested, or Accepted values.
+
+The application order observed on Codex 0.147.0 is base child configuration, role configuration, runtime permission override, then spawn. Re-attest this Host behavior for future supported Codex versions; do not assume it is immutable.
 
 ## Evidence grades
 
@@ -145,6 +152,12 @@ multiple exact rollout matches
 observed route differs from policy/configured route
 -> FAIL / quarantine
 
+observed child permission differs from effective parent/environment permission
+-> FAIL / quarantine
+
+effective permission source or either permission field is unavailable
+-> UNKNOWN
+
 public Host and exact rollout disagree
 -> FAIL / quarantine
 
@@ -158,13 +171,13 @@ Do not silently fall back to a different role, model, effort, or permission leve
 
 For a formal live-route smoke, record all five exact managed roles separately:
 
-| Role | Configured model / effort / sandbox | Host accepted identity | Observed model | Observed effort | Observed sandbox / permission | Parent / child identity | Source | Verdict |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Reader | from policy | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | actual or `UNKNOWN` | actual | native/local/both | VERIFIED/UNKNOWN/FAIL |
-| Worker | from policy | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | actual or `UNKNOWN` | actual | native/local/both | VERIFIED/UNKNOWN/FAIL |
-| Solver | from policy | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | actual or `UNKNOWN` | actual | native/local/both | VERIFIED/UNKNOWN/FAIL |
-| Investigator | from policy | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | actual or `UNKNOWN` | actual | native/local/both | VERIFIED/UNKNOWN/FAIL |
-| Advisor | from policy | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | actual or `UNKNOWN` | actual | native/local/both | VERIFIED/UNKNOWN/FAIL |
+| Role | Configured model / effort | Behavioral authority | Host accepted identity | Observed model / effort | Observed Host permission | Permission source | Inheritance verdict | Parent / child identity | Overall |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Reader | from policy | none | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
+| Worker | from policy | assigned bounded-source-write | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
+| Solver | from policy | assigned bounded-source-write | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
+| Investigator | from policy | none | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
+| Advisor | from policy | none | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
 
 For a release gate that explicitly requires observed model, effort, permission, or ancestry, `UNKNOWN` does not pass that gate.
 

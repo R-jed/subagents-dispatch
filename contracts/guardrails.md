@@ -42,7 +42,7 @@ bounded-source-write
 
 `none` permits no artifact mutation. `declared-output-only` permits only the explicitly named report, generated artifact, or other declared deliverable. `bounded-source-write` permits source mutation only inside the packet's granted write scope and decision rights.
 
-Reader, Investigator, Advisor, inspect, verify, and review responsibilities do not gain source-write authority merely because the host sandbox is broader than required. Worker or Solver may write source only when Main explicitly grants bounded-source-write authority for that responsibility.
+Reader, Investigator, and Advisor are behaviorally read-only roles: their responsibility contract forbids repository/source mutation even when the current Codex Host provisions a broader inherited filesystem/process capability. Behavioral read-only is not an OS sandbox security boundary. Worker or Solver may write source only when Main explicitly grants bounded-source-write authority for that responsibility.
 
 If useful completion requires broader mutation than the packet grants, stop and return the required scope change to Main. Children do not self-upgrade mutation authority.
 
@@ -243,7 +243,7 @@ A configured read-only profile is intent, not proof of Host enforcement.
 
 When hard read-only isolation is required, demand actual Host runtime evidence or keep the responsibility in the main session/blocked. That evidence may be public Host metadata, an exact inspected Codex rollout, or both, but configured/accepted values and child self-report are insufficient.
 
-When hard isolation is not required, behavioral read-only may be accepted only if mutation is forbidden, relevant state is captured before and after execution, no mutation is observed, and broader effective permission remains recorded as residual risk.
+When hard isolation is not required, expected Host-inherited permission is not itself a warning. Behavioral read-only still forbids mutation. Broader Host capability never grants semantic write ownership, weakens `single_writer`, settles `UNKNOWN`/`INTERRUPTED`, or lets Main bypass Takeover ownership settlement before conflicting writes.
 
 ## 11. External actions
 

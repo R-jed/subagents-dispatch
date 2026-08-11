@@ -71,7 +71,7 @@ def test_validator_derives_role_and_read_only_sets_from_policy_contract():
     policy = json.loads(POLICY.read_text())
     assert VALIDATOR.ROLES == set(policy["roles"])
     assert VALIDATOR.READ_ONLY_ROLES == {
-        role for role, spec in policy["roles"].items() if spec["sandbox_intent"] == "read-only"
+        role for role, spec in policy["roles"].items() if spec["mutation_authority"] == "none"
     }
 
 

@@ -174,7 +174,11 @@ subagents_dispatch_investigator
 subagents_dispatch_advisor
 ```
 
-Use one bounded smoke child per role with `fork_turns = none`, no broader authority than the route check requires, and settle every child before returning. For each role, record configured route intent separately from Host-accepted identity and observed runtime evidence for model, reasoning effort, permission/sandbox, ancestry, and child identity.
+Use one bounded smoke child per role with `fork_turns = none`, no broader behavioral authority than the route check requires, and settle every child before returning. For each role, keep these columns separate:
+
+| Configured model | Configured reasoning | Behavioral authority | Observed model | Observed reasoning | Observed Host permission | Permission inheritance | Overall |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| policy value | policy value | none or assigned bounded-source-write | Host evidence | Host evidence | sandbox + permission profile | OK / UNKNOWN / FAIL | OK / UNKNOWN / FAIL |
 
 Follow `docs/runtime-attestation.md` for every smoke child. Inspect public Host/spawn/details metadata first. If it omits a required field and the exact local Codex rollout exists, run:
 
@@ -184,9 +188,9 @@ python scripts/inspect-agent-runtime.py <child-thread-id> \
   --expected-agent-role <exact-agent-type>
 ```
 
-Put public Host runtime fields in `native`, put only the inspector's allowlisted object in `local`, set `runtime_observation_required=true` and `requires_permission_observation=true`, and normalize through `scripts/runtime-evidence.py`. Record the source for every Observed field as `native`, `local`, or `both`.
+Put public Host runtime fields in `native`, put only the inspector's allowlisted object in `local`, record the effective parent-turn or selected-environment permission in `effective_permission_source`, set `runtime_observation_required=true` and `requires_permission_observation=true`, and normalize through `scripts/runtime-evidence.py`. Record the source for every Observed field as `native`, `local`, or `both`.
 
-An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence remains `UNKNOWN`; an observed mismatch is `FAIL`; a public/local runtime source conflict is also `FAIL`. Never copy configured values, accepted values, or child self-report into observed columns.
+An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. An exact Host-produced rollout is actual runtime evidence, but only after the bundled inspector binds it to the exact child/parent/role and rejects ambiguous or drifting records. Missing runtime evidence remains `UNKNOWN`; an observed mismatch is `FAIL`, including a route mismatch or child/inheritance-source permission mismatch; a public/local runtime conflict is also `FAIL`. Matching broad inherited permission is not a failure by itself, but behavioral read-only remains binding and hard isolation still requires `requires_enforced_read_only`. Never copy configured values, accepted values, or child self-report into observed columns.
 
 For each new project child, inspect the first actual `spawn_agent` call and confirm:
 

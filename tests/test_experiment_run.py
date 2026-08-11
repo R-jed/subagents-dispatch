@@ -112,14 +112,14 @@ def calibration_campaign() -> dict:
         "id": "reader-control",
         "model": reader["model"],
         "effort": reader["effort"],
-        "sandbox_intent": reader["sandbox_intent"],
+        "mutation_authority": reader["mutation_authority"],
     }
     challenger_effort = "xhigh" if reader["effort"] != "xhigh" else "high"
     challenger = {
         "id": "reader-challenger",
         "model": reader["model"],
         "effort": challenger_effort,
-        "sandbox_intent": reader["sandbox_intent"],
+        "mutation_authority": reader["mutation_authority"],
     }
     return {
         "schema_version": "2.0",
@@ -276,7 +276,8 @@ def child_route(role: str = "worker", *, verdict: str = "verified") -> dict:
     observed = {
         "model": spec["model"],
         "effort": spec["effort"],
-        "sandbox_intent": spec["sandbox_intent"],
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
     }
     return {
         "child_thread_id": f"child-{role}-1",
@@ -284,6 +285,12 @@ def child_route(role: str = "worker", *, verdict: str = "verified") -> dict:
         "agent_type": spec["agent_type"],
         "role": role,
         "observed": observed,
+        "permission_inheritance": {
+            "source_kind": "parent_turn",
+            "sandbox_policy_type": "danger-full-access",
+            "permission_profile_type": "disabled",
+            "verdict": "verified",
+        },
         "verdict": verdict,
         "evidence_source": "native" if verdict != "unknown" else "none",
         "evidence_ref": "runtime:child-1" if verdict != "unknown" else None,
@@ -531,6 +538,34 @@ def test_observed_route_mismatch_cannot_be_marked_verified(tmp_path: Path):
         validate(tmp_path, campaign, run)
 
 
+def test_permission_inheritance_mismatch_cannot_be_marked_verified(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    route = child_route()
+    route["permission_inheritance"]["sandbox_policy_type"] = "read-only"
+    add_one_child(run, route)
+    with pytest.raises(SystemExit, match="permission inheritance verdict must be 'failed'"):
+        validate(tmp_path, campaign, run)
+
+
+def test_missing_permission_source_keeps_child_route_unknown(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    route = child_route(verdict="unknown")
+    route["permission_inheritance"] = {
+        "source_kind": None,
+        "sandbox_policy_type": None,
+        "permission_profile_type": None,
+        "verdict": "unknown",
+    }
+    route["evidence_source"] = "native"
+    route["evidence_ref"] = "runtime:permission-source-unavailable"
+    add_one_child(run, route)
+    run["route_assurance"] = "unknown"
+    result = validate(tmp_path, campaign, run)
+    assert result["route_assurance"] == "unknown"
+
+
 def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
@@ -546,7 +581,18 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
 
     run = base_run(campaign, mode="dispatch")
     unknown = child_route(verdict="unknown")
-    unknown["observed"] = {"model": None, "effort": None, "sandbox_intent": None}
+    unknown["observed"] = {
+        "model": None,
+        "effort": None,
+        "sandbox_policy_type": None,
+        "permission_profile_type": None,
+    }
+    unknown["permission_inheritance"] = {
+        "source_kind": None,
+        "sandbox_policy_type": None,
+        "permission_profile_type": None,
+        "verdict": "unknown",
+    }
     add_one_child(run, unknown)
     run["route_assurance"] = "verified"
     with pytest.raises(SystemExit, match="route_assurance must be 'unknown'"):
@@ -574,7 +620,14 @@ def calibration_run(campaign: dict) -> dict:
             "observed": {
                 "model": challenger["model"],
                 "effort": challenger["effort"],
-                "sandbox_intent": challenger["sandbox_intent"],
+                "sandbox_policy_type": "danger-full-access",
+                "permission_profile_type": "disabled",
+            },
+            "permission_inheritance": {
+                "source_kind": "parent_turn",
+                "sandbox_policy_type": "danger-full-access",
+                "permission_profile_type": "disabled",
+                "verdict": "verified",
             },
             "verdict": "verified",
             "evidence_source": "both",

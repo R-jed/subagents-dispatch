@@ -233,11 +233,12 @@
     },
     "observed_route": {
       "type": "object",
-      "required": ["model", "effort", "sandbox_intent"],
+      "required": ["model", "effort", "sandbox_policy_type", "permission_profile_type"],
       "properties": {
         "model": {"type": ["string", "null"]},
         "effort": {"type": ["string", "null"], "enum": [null, "minimal", "low", "medium", "high", "xhigh", "max"]},
-        "sandbox_intent": {"type": ["string", "null"], "enum": [null, "read-only", "workspace-write"]}
+        "sandbox_policy_type": {"type": ["string", "null"]},
+        "permission_profile_type": {"type": ["string", "null"]}
       },
       "additionalProperties": false
     },
@@ -249,6 +250,7 @@
         "agent_type",
         "role",
         "observed",
+        "permission_inheritance",
         "verdict",
         "evidence_source",
         "evidence_ref"
@@ -259,6 +261,17 @@
         "agent_type": {"type": "string", "minLength": 1},
         "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
         "observed": {"$ref": "#/$defs/observed_route"},
+        "permission_inheritance": {
+          "type": "object",
+          "required": ["source_kind", "sandbox_policy_type", "permission_profile_type", "verdict"],
+          "properties": {
+            "source_kind": {"type": ["string", "null"], "enum": [null, "parent_turn", "selected_environment"]},
+            "sandbox_policy_type": {"type": ["string", "null"]},
+            "permission_profile_type": {"type": ["string", "null"]},
+            "verdict": {"enum": ["verified", "unknown", "failed"]}
+          },
+          "additionalProperties": false
+        },
         "verdict": {"enum": ["verified", "unknown", "failed"]},
         "evidence_source": {"enum": ["native", "local", "both", "none"]},
         "evidence_ref": {"type": ["string", "null"]}

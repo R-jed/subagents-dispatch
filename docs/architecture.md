@@ -106,13 +106,15 @@ Main grows the ready frontier only when another responsibility is useful, ready,
 
 Configured routes are owned by `contracts/policy.json`:
 
-| Role | Agent type | Configured lane | Sandbox intent |
+| Role | Agent type | Configured lane | Mutation authority |
 | --- | --- | --- | --- |
-| Reader | `subagents_dispatch_reader` | Luna Max | read-only |
-| Worker | `subagents_dispatch_worker` | Luna Max | workspace-write |
-| Solver | `subagents_dispatch_solver` | Sol High | workspace-write |
-| Investigator | `subagents_dispatch_investigator` | Terra XHigh | read-only |
-| Advisor | `subagents_dispatch_advisor` | Sol High | read-only |
+| Reader | `subagents_dispatch_reader` | Luna Max | none |
+| Worker | `subagents_dispatch_worker` | Luna Max | bounded-source-write when assigned |
+| Solver | `subagents_dispatch_solver` | Sol High | bounded-source-write when assigned |
+| Investigator | `subagents_dispatch_investigator` | Terra XHigh | none |
+| Advisor | `subagents_dispatch_advisor` | Sol High | none |
+
+Host sandbox and permission profile are inherited from the selected Codex environment or parent turn; they are not per-role route settings.
 
 Reader handles narrow inspectable evidence. Worker implements behavior that is already materially decided. Solver owns judgment-coupled implementation. Investigator performs broader read-heavy technical investigation after semantics stabilize. Advisor owns one material read-only judgment or fresh independent Final Review.
 

@@ -38,8 +38,8 @@ def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_
         "agent_role": WORKER["agent_type"],
         "model": WORKER["model"],
         "effort": WORKER["effort"],
-        "sandbox_policy_type": WORKER["sandbox_intent"],
-        "permission_profile_type": "default",
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
     }
     evidence.write_text(
         json.dumps(
@@ -55,6 +55,11 @@ def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_
                     "requires_permission_observation": True,
                 },
                 "local": route,
+                "effective_permission_source": {
+                    "source_kind": "parent_turn",
+                    "sandbox_policy_type": "danger-full-access",
+                    "permission_profile_type": "disabled",
+                },
             }
         ),
         encoding="utf-8",

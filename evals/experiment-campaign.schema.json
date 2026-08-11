@@ -133,12 +133,12 @@
   "$defs": {
     "route": {
       "type": "object",
-      "required": ["id", "model", "effort", "sandbox_intent"],
+      "required": ["id", "model", "effort", "mutation_authority"],
       "properties": {
         "id": {"type": "string", "minLength": 1},
         "model": {"type": "string", "minLength": 1},
         "effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]},
-        "sandbox_intent": {"enum": ["read-only", "workspace-write"]}
+        "mutation_authority": {"enum": ["none", "bounded-source-write"]}
       },
       "additionalProperties": false
     },

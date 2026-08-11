@@ -98,7 +98,7 @@ def test_plugin_brand_assets_and_supported_components():
 
 def test_policy_contract_owns_the_five_packaged_profiles():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["schema_version"] == 5
+    assert policy["schema_version"] == 6
     assert set(policy["roles"]) == {"reader", "worker", "solver", "investigator", "advisor"}
     expected = {spec["profile_file"] for spec in policy["roles"].values()}
     assert len(expected) == 5

@@ -31,7 +31,7 @@ def route(role: str, *, route_id: str, challenger: bool = False) -> dict:
         "id": route_id,
         "model": configured["model"] if not challenger else f"{configured['model']}-candidate",
         "effort": configured["effort"],
-        "sandbox_intent": configured["sandbox_intent"],
+        "mutation_authority": configured["mutation_authority"],
     }
 
 
@@ -193,16 +193,16 @@ def test_control_must_match_current_policy(tmp_path: Path):
     assert "control must exactly match the current policy route" in result.stderr
 
 
-def test_challenger_cannot_change_sandbox_contract(tmp_path: Path):
+def test_challenger_cannot_change_mutation_authority_contract(tmp_path: Path):
     payload = role_campaign()
     control = payload["experiment"]["roles"][0]["control"]
     challenger = payload["experiment"]["roles"][0]["challengers"][0]
-    challenger["sandbox_intent"] = (
-        "workspace-write" if control["sandbox_intent"] == "read-only" else "read-only"
+    challenger["mutation_authority"] = (
+        "bounded-source-write" if control["mutation_authority"] == "none" else "none"
     )
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
-    assert "changes sandbox_intent" in result.stderr
+    assert "changes mutation_authority" in result.stderr
 
 
 def test_task_hash_binds_exact_task_bytes(tmp_path: Path):
@@ -253,7 +253,7 @@ def test_duplicate_route_shape_is_rejected(tmp_path: Path):
         "id": "different-id",
         "model": control["model"],
         "effort": control["effort"],
-        "sandbox_intent": control["sandbox_intent"],
+        "mutation_authority": control["mutation_authority"],
     }
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0

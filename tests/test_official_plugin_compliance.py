@@ -66,4 +66,4 @@ def test_managed_agent_profiles_follow_policy_owned_native_shape():
         assert isinstance(payload["developer_instructions"], str) and payload["developer_instructions"].strip()
         assert payload["model"] == role["model"]
         assert payload["model_reasoning_effort"] == role["effort"]
-        assert payload["sandbox_mode"] == role["sandbox_intent"]
+        assert "sandbox_mode" not in payload

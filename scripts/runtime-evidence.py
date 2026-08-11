@@ -27,7 +27,6 @@ MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS)
-MANAGED_SANDBOX_INTENTS = {"read-only", "workspace-write"}
 
 
 def fail(message: str) -> NoReturn:
@@ -74,31 +73,37 @@ def load_main_coverage_policy() -> tuple[str, str, tuple[str, ...], tuple[str, .
     return model.strip().lower(), effort.strip().lower(), normalized_order, normalized_aliases
 
 
-def load_role_sandbox_policy() -> dict[str, str]:
+def load_permission_policy() -> tuple[frozenset[str], frozenset[str]]:
     try:
-        roles = load_policy_contract()["roles"]
+        policy = load_policy_contract()
+        roles = policy["roles"]
+        semantics = policy["permission_semantics"]
     except (RuntimeError, KeyError, TypeError) as exc:
-        fail(f"invalid policy contract for managed role sandbox intents: {exc}")
+        fail(f"invalid Host permission policy: {exc}")
     if not isinstance(roles, dict) or not roles:
         fail("policy roles must be a non-empty object")
-    by_agent_type: dict[str, str] = {}
+    agent_types: set[str] = set()
     for role_name, route in roles.items():
         if not isinstance(route, dict):
             fail(f"policy role {role_name!r} must be an object")
         agent_type = route.get("agent_type")
-        sandbox = canonical_sandbox(route.get("sandbox_intent"))
         if not isinstance(agent_type, str) or not agent_type.strip():
             fail(f"policy role {role_name!r} has invalid agent_type")
-        if sandbox not in MANAGED_SANDBOX_INTENTS:
-            fail(f"policy role {role_name!r} has unsupported sandbox_intent")
-        if agent_type in by_agent_type:
+        if agent_type in agent_types:
             fail(f"duplicate managed agent_type in policy: {agent_type}")
-        by_agent_type[agent_type] = sandbox
-    return by_agent_type
+        agent_types.add(agent_type)
+    if not isinstance(semantics, dict):
+        fail("permission_semantics must be an object")
+    sources = semantics.get("sources")
+    if semantics.get("mode") != "host_inherited" or not isinstance(sources, list):
+        fail("permission_semantics must declare host_inherited sources")
+    if not sources or not all(isinstance(item, str) and item for item in sources):
+        fail("permission_semantics.sources must be a non-empty string list")
+    return frozenset(agent_types), frozenset(sources)
 
 
 REFERENCE_MODEL, REFERENCE_EFFORT, EFFORT_ORDER, REFERENCE_MODEL_ALIASES = load_main_coverage_policy()
-ROLE_SANDBOX_INTENTS = load_role_sandbox_policy()
+MANAGED_AGENT_TYPES, PERMISSION_SOURCE_KINDS = load_permission_policy()
 
 
 def parse_args() -> argparse.Namespace:
@@ -146,6 +151,19 @@ def normalize(value: dict[str, Any] | None) -> dict[str, str | None] | None:
     }
     normalized = {key: text(value.get(key)) for key in allowed}
     normalized["sandbox_policy_type"] = canonical_sandbox(normalized["sandbox_policy_type"])
+    return normalized
+
+
+def normalize_permission_source(value: dict[str, Any] | None) -> dict[str, str | None] | None:
+    if value is None:
+        return None
+    normalized = {
+        "source_kind": text(value.get("source_kind")),
+        "sandbox_policy_type": canonical_sandbox(text(value.get("sandbox_policy_type"))),
+        "permission_profile_type": text(value.get("permission_profile_type")),
+    }
+    if normalized["source_kind"] is not None and normalized["source_kind"] not in PERMISSION_SOURCE_KINDS:
+        fail("effective_permission_source.source_kind is not allowed by policy")
     return normalized
 
 
@@ -442,7 +460,7 @@ def validate_expected(expected: dict[str, Any]) -> None:
         if not isinstance(expected.get(flag, False), bool):
             fail(f"expected.{flag} must be boolean when present")
     agent_role = text(expected.get("agent_role"))
-    if agent_role not in ROLE_SANDBOX_INTENTS:
+    if agent_role not in MANAGED_AGENT_TYPES:
         fail("expected.agent_role is not a managed policy role")
 
 
@@ -474,73 +492,50 @@ def route_complete(
 
 def permission_result(
     expected: dict[str, Any],
-    accepted: dict[str, str | None] | None,
     native: dict[str, str | None] | None,
     local: dict[str, str | None] | None,
+    effective_source: dict[str, str | None] | None,
     violations: list[str],
 ) -> tuple[dict[str, Any], bool]:
-    agent_role = text(expected.get("agent_role"))
-    assert agent_role is not None
     requires_read_only = expected.get("requires_enforced_read_only", False)
     permission_required = bool(
         expected.get("requires_permission_observation", False) or requires_read_only
     )
-    expected_sandbox = "read-only" if requires_read_only else ROLE_SANDBOX_INTENTS[agent_role]
-    base = {"expected_sandbox": expected_sandbox}
+    if any(f"source_conflict:{field}" in violations for field in PERMISSION_FIELDS):
+        return {"status": "conflict", "source": "both"}, permission_required
 
-    mismatch_sources: list[tuple[str, str]] = []
-    for label, observation in (
-        ("accepted", accepted),
-        ("native", native),
-        ("local", local),
-    ):
-        observed_sandbox = (
-            observation.get("sandbox_policy_type") if observation is not None else None
-        )
-        if observed_sandbox is not None and observed_sandbox != expected_sandbox:
-            violations.append(f"{label}:sandbox_policy_type_mismatch")
-            mismatch_sources.append((label, observed_sandbox))
-
-    if (
-        "source_conflict:sandbox_policy_type" in violations
-        or "source_conflict:permission_profile_type" in violations
-        or "accepted_observed_conflict:sandbox_policy_type" in violations
-        or "accepted_observed_conflict:permission_profile_type" in violations
-    ):
-        return {**base, "status": "conflict", "source": "both"}, permission_required
-
-    if mismatch_sources:
-        source, observed_sandbox = next(
-            (item for item in mismatch_sources if item[0] == "native"),
-            mismatch_sources[0],
-        )
-        if expected_sandbox == "read-only":
-            status = "broader_than_required"
-            violations.append("permission:read_only_not_enforced")
-        else:
-            status = "mismatch"
-            violations.append("permission:sandbox_intent_mismatch")
-        return {
-            **base,
-            "status": status,
-            "source": source,
-            "observed_sandbox": observed_sandbox,
-        }, permission_required
-
-    native_sandbox = native.get("sandbox_policy_type") if native is not None else None
-    local_sandbox = local.get("sandbox_policy_type") if local is not None else None
-    if native_sandbox is None and local_sandbox is None:
+    observed = {}
+    for field in PERMISSION_FIELDS:
+        native_value = native.get(field) if native else None
+        observed[field] = native_value if native_value is not None else local.get(field) if local else None
+    source_complete = effective_source is not None and all(
+        effective_source.get(field) is not None for field in ("source_kind", *PERMISSION_FIELDS)
+    )
+    observed_complete = all(observed[field] is not None for field in PERMISSION_FIELDS)
+    if not source_complete or not observed_complete:
         if permission_required:
-            return {**base, "status": "not_observed", "source": "none"}, permission_required
-        return {**base, "status": "not_required", "source": "none"}, permission_required
+            return {"status": "not_observed", "source": "none"}, permission_required
+        return {"status": "not_required", "source": "none"}, permission_required
 
-    observed_sandbox = native_sandbox if native_sandbox is not None else local_sandbox
-    return {
-        **base,
-        "status": "matched",
-        "source": evidence_source(native_sandbox is not None, local_sandbox is not None),
-        "observed_sandbox": observed_sandbox,
-    }, permission_required
+    assert effective_source is not None
+    base = {
+        "expected_sandbox": effective_source["sandbox_policy_type"],
+        "expected_permission_profile": effective_source["permission_profile_type"],
+        "observed_sandbox": observed["sandbox_policy_type"],
+        "observed_permission_profile": observed["permission_profile_type"],
+        "source": evidence_source(
+            any(native and native.get(field) is not None for field in PERMISSION_FIELDS),
+            any(local and local.get(field) is not None for field in PERMISSION_FIELDS),
+        ),
+        "source_kind": effective_source["source_kind"],
+    }
+    if any(observed[field] != effective_source[field] for field in PERMISSION_FIELDS):
+        violations.append("permission:inheritance_mismatch")
+        return {**base, "status": "mismatch"}, permission_required
+    if requires_read_only and observed["sandbox_policy_type"] != "read-only":
+        violations.append("permission:read_only_not_enforced")
+        return {**base, "status": "broader_than_required"}, permission_required
+    return {**base, "status": "matched"}, permission_required
 
 
 def child_result(payload: dict[str, Any]) -> dict[str, Any]:
@@ -551,6 +546,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     accepted = normalize(obj(payload.get("accepted"), "accepted"))
     native = normalize(obj(payload.get("native"), "native"))
     local = normalize(obj(payload.get("local"), "local"))
+    effective_source = normalize_permission_source(
+        obj(payload.get("effective_permission_source"), "effective_permission_source")
+    )
 
     violations: list[str] = []
     if accepted is not None:
@@ -560,8 +558,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     if local is not None:
         violations.extend(compare_expected(expected, local, "local"))
     violations.extend(source_conflicts(native, local, OBSERVED_FIELDS))
-    violations.extend(layer_conflicts(accepted, native, OBSERVED_FIELDS))
-    violations.extend(layer_conflicts(accepted, local, OBSERVED_FIELDS))
+    accepted_comparable_fields = (*IDENTITY_FIELDS, *CHILD_ROUTE_FIELDS)
+    violations.extend(layer_conflicts(accepted, native, accepted_comparable_fields))
+    violations.extend(layer_conflicts(accepted, local, accepted_comparable_fields))
 
     native_complete = route_complete(native, "native", violations)
     local_complete = route_complete(local, "local", violations)
@@ -634,9 +633,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
 
     permission, permission_required = permission_result(
         expected,
-        accepted,
         native,
         local,
+        effective_source,
         violations,
     )
 
