@@ -92,6 +92,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--calibration-evidence-root", type=Path)
     parser.add_argument("--calibration-campaign", type=Path)
+    parser.add_argument("--calibration-host-home-evidence", type=Path)
+    parser.add_argument("--calibration-provisioning-task-id")
     parser.add_argument(
         "--repair",
         action="store_true",
@@ -676,8 +678,14 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
             diagnose_host(args.host_evidence),
             *runtime_layers,
         ]
-    if (args.calibration_evidence_root is None) != (args.calibration_campaign is None):
-        layers.append(_layer("Calibration readiness", "FAIL", "both calibration evidence root and campaign are required"))
+    calibration_inputs = (
+        args.calibration_evidence_root,
+        args.calibration_campaign,
+        args.calibration_host_home_evidence,
+        args.calibration_provisioning_task_id,
+    )
+    if any(item is not None for item in calibration_inputs) and not all(item is not None for item in calibration_inputs):
+        layers.append(_layer("Calibration readiness", "FAIL", "calibration evidence root, campaign, and Host-home evidence are all required"))
     elif args.calibration_evidence_root is not None and args.calibration_campaign is not None:
         repository_status = subprocess.run(
             ["git", "-C", str(ROOT), "status", "--porcelain"],
@@ -687,7 +695,9 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / "calibration_profiles.py"), "check",
              "--evaluator-root", str(args.calibration_evidence_root), "--codex-home", str(codex_home),
-             "--campaign", str(args.calibration_campaign)],
+             "--campaign", str(args.calibration_campaign),
+             "--host-home-evidence", str(args.calibration_host_home_evidence),
+             "--provisioning-task-id", str(args.calibration_provisioning_task_id)],
             cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
         )
         detail = (result.stdout if result.returncode == 0 else result.stderr).strip()

@@ -534,7 +534,9 @@ def validate_expected(expected: dict[str, Any]) -> None:
         if not isinstance(expected.get(flag, False), bool):
             fail(f"expected.{flag} must be boolean when present")
     agent_role = text(expected.get("agent_role"))
-    if agent_role not in MANAGED_AGENT_TYPES:
+    if agent_role not in MANAGED_AGENT_TYPES and not (
+        agent_role and agent_role.startswith("subagents_dispatch_calibration_")
+    ):
         fail("expected.agent_role is not a managed policy role")
 
 
@@ -542,12 +544,19 @@ def compare_expected(
     expected: dict[str, Any],
     observation: dict[str, str | None],
     label: str,
-    fields: tuple[str, ...] = (*IDENTITY_FIELDS, *CHILD_ROUTE_FIELDS),
+    fields: tuple[str, ...] = (*IDENTITY_FIELDS, *CHILD_ROUTE_FIELDS, *AUXILIARY_OBSERVED_FIELDS),
 ) -> list[str]:
     violations: list[str] = []
     for field in fields:
         wanted, got = text(expected.get(field)), observation.get(field)
-        if wanted is not None and got is not None and wanted != got:
+        if field == "agent_path" and wanted is not None and got is not None:
+            try:
+                matches = Path(wanted).resolve(strict=True) == Path(got).resolve(strict=True)
+            except OSError:
+                matches = False
+        else:
+            matches = wanted == got
+        if wanted is not None and got is not None and not matches:
             violations.append(f"{label}:{field}_mismatch")
     return violations
 
@@ -719,7 +728,7 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
             PERMISSION_PROVENANCE_FIELDS,
         )
     )
-    accepted_comparable_fields = (*IDENTITY_FIELDS, *CHILD_ROUTE_FIELDS)
+    accepted_comparable_fields = (*IDENTITY_FIELDS, *CHILD_ROUTE_FIELDS, *AUXILIARY_OBSERVED_FIELDS)
     violations.extend(layer_conflicts(accepted, native, accepted_comparable_fields))
     violations.extend(layer_conflicts(accepted, local, accepted_comparable_fields))
 
@@ -894,10 +903,38 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
                 CHILD_ROUTE_FIELDS,
                 violations,
             ),
+            "observed_auxiliary": runtime_observed_layer(
+                native,
+                local,
+                AUXILIARY_OBSERVED_FIELDS,
+                violations,
+            ),
         },
         "route_evidence": route,
         "ancestry_evidence": ancestry,
         "route_assurance": route_assurance,
+        "profile_origin_observation": {
+            "status": (
+                "failed" if any("agent_path" in item for item in violations)
+                else "verified" if runtime_fields_complete(native, local, ("agent_path",), violations)
+                else "unknown"
+            ),
+            "observed_agent_path": (
+                native.get("agent_path") if native and native.get("agent_path") is not None
+                else local.get("agent_path") if local else None
+            ),
+        },
+        "provider_control_assurance": {
+            "status": (
+                "failed" if any("model_provider" in item for item in violations)
+                else "verified" if runtime_fields_complete(native, local, ("model_provider",), violations)
+                else "unknown"
+            ),
+            "observed_model_provider": (
+                native.get("model_provider") if native and native.get("model_provider") is not None
+                else local.get("model_provider") if local else None
+            ),
+        },
         "permission_state_assurance": permission_state,
         "permission_provenance_assurance": permission_provenance,
         "configuration_match": tri(route["status"], {"conflict"}),

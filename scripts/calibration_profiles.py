@@ -9,6 +9,7 @@ under an evaluator-owned CODEX_HOME.
 from __future__ import annotations
 
 import argparse
+import ctypes
 from contextlib import contextmanager
 import hashlib
 import json
@@ -37,7 +38,7 @@ MANIFEST_NAME = ".subagents-dispatch-calibration.json"
 LOCK_NAME = ".subagents-dispatch-calibration.lock"
 EVALUATOR_MARKER = ".subagents-dispatch-evaluator-root.json"
 EVALUATOR_MARKER_SCHEMA = 1
-MANIFEST_SCHEMA = 3
+MANIFEST_SCHEMA = 4
 LOCK_MARKER = b"subagents-dispatch calibration lock v1\n"
 PROFILE_STATUSES = {"PREPARED", "APPLIED", "COMMITTED", "CLEANED"}
 
@@ -160,7 +161,94 @@ def _load_template() -> dict[str, Any]:
     return data
 
 
-def _validate_roots(evaluator_root_arg: Path, codex_home_arg: Path) -> tuple[Path, Path]:
+def _normal_codex_home() -> Path:
+    if os.name == "posix":
+        import pwd
+
+        return (Path(pwd.getpwuid(os.getuid()).pw_dir) / ".codex").resolve()
+    return (Path.home() / ".codex").resolve()
+
+
+def _host_home_identity(
+    codex_home: Path,
+    evidence_path_arg: Path,
+    provisioning_task_id: str,
+    *,
+    require_active_task: bool,
+) -> dict[str, str]:
+    if require_active_task and os.environ.get("CODEX_THREAD_ID") != provisioning_task_id:
+        fail("provisioning task identity does not match the active Codex task")
+    evidence_path = evidence_path_arg.expanduser()
+    if not evidence_path.is_absolute() or evidence_path.is_symlink():
+        fail("--host-home-evidence must be an absolute regular file")
+    evidence = _load_json(evidence_path, "Host-home evidence")
+    if set(evidence) != {"active_codex_home", "provisioning_rollout_path", "provisioning_rollout_sha256"}:
+        fail(
+            "Host-home evidence must contain only active_codex_home, "
+            "provisioning_rollout_path, and provisioning_rollout_sha256"
+        )
+    active = evidence.get("active_codex_home")
+    rollout_value = evidence.get("provisioning_rollout_path")
+    rollout_sha256 = evidence.get("provisioning_rollout_sha256")
+    if (
+        not isinstance(active, str) or not active
+        or not isinstance(rollout_value, str) or not rollout_value
+        or not isinstance(rollout_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", rollout_sha256)
+    ):
+        fail("Host-home evidence is incomplete")
+    active_path = Path(active).expanduser()
+    if not active_path.is_absolute() or active_path.is_symlink():
+        fail("active Codex home evidence is not an absolute regular path")
+    normal_home = _normal_codex_home()
+    if active_path.resolve() != codex_home or codex_home != normal_home:
+        fail("requested Codex home does not match the confirmed active normal ~/.codex home")
+    rollout = Path(rollout_value).expanduser()
+    if not rollout.is_absolute() or rollout.is_symlink():
+        fail("provisioning rollout evidence must be an absolute regular file")
+    _regular(rollout, "provisioning rollout evidence", missing_ok=False)
+    try:
+        rollout = rollout.resolve(strict=True)
+        rollout.relative_to((codex_home / "sessions").resolve(strict=True))
+    except (OSError, ValueError):
+        fail("provisioning rollout evidence is not under the requested normal Codex home")
+    raw = rollout.read_bytes()
+    if _sha256(raw) != rollout_sha256:
+        fail("provisioning rollout evidence SHA256 does not match")
+    if not rollout.name.startswith("rollout-") or not rollout.name.endswith(
+        f"-{provisioning_task_id}.jsonl"
+    ):
+        fail("provisioning rollout evidence does not use the Host rollout identity name")
+    session_ids: list[str] = []
+    turn_contexts = 0
+    try:
+        for line in raw.decode("utf-8").splitlines():
+            record = json.loads(line)
+            if record.get("type") == "session_meta":
+                payload = record.get("payload")
+                if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
+                    fail("provisioning rollout session_meta is incomplete")
+                session_ids.append(payload["id"])
+            elif record.get("type") == "turn_context" and isinstance(record.get("payload"), dict):
+                turn_contexts += 1
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        fail(f"provisioning rollout evidence is malformed: {exc}")
+    if session_ids != [provisioning_task_id] or turn_contexts == 0:
+        fail("provisioning rollout does not identify the preparation task")
+    return {
+        "active_codex_home": str(codex_home),
+        "provisioning_rollout_path": str(rollout),
+        "provisioning_rollout_sha256": rollout_sha256,
+    }
+
+
+def _validate_roots(
+    evaluator_root_arg: Path,
+    codex_home_arg: Path,
+    host_home_evidence_arg: Path,
+    provisioning_task_id: str,
+    *,
+    require_active_task: bool = False,
+) -> tuple[Path, Path, dict[str, str]]:
     evaluator_root = evaluator_root_arg.expanduser()
     codex_home = codex_home_arg.expanduser()
     if not evaluator_root.is_absolute() or not codex_home.is_absolute():
@@ -186,7 +274,10 @@ def _validate_roots(evaluator_root_arg: Path, codex_home_arg: Path) -> tuple[Pat
     else:
         fail("profile-only Codex home must remain outside the Experiment Plane")
     _directory(codex_home, "calibration CODEX_HOME")
-    return evaluator_root, codex_resolved
+    return evaluator_root, codex_resolved, _host_home_identity(
+        codex_resolved, host_home_evidence_arg, provisioning_task_id,
+        require_active_task=require_active_task,
+    )
 
 
 def _safe_child(parent: Path, child: str, label: str) -> Path:
@@ -323,6 +414,25 @@ def _atomic_write(path: Path, data: bytes) -> None:
         staged.unlink(missing_ok=True)
 
 
+def _rename_no_replace(source: Path, destination: Path) -> None:
+    if destination.exists() or destination.is_symlink():
+        fail(f"owned cleanup quarantine already exists: {destination}")
+    if os.name == "nt":
+        os.rename(source, destination)
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    source_bytes, destination_bytes = os.fsencode(source), os.fsencode(destination)
+    if sys.platform == "darwin" and hasattr(libc, "renamex_np"):
+        result = libc.renamex_np(source_bytes, destination_bytes, 0x00000004)
+    elif hasattr(libc, "renameat2"):
+        result = libc.renameat2(-2, source_bytes, -2, destination_bytes, 0x00000001)
+    else:
+        fail("platform lacks atomic no-replace rename required for profile cleanup")
+    if result != 0:
+        error = ctypes.get_errno()
+        fail(f"atomic profile cleanup rename failed: {os.strerror(error)}")
+
+
 @contextmanager
 def _lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
     _directory(codex_home, "calibration CODEX_HOME", missing_ok=check_only)
@@ -404,6 +514,8 @@ def _load_manifest(evaluator_root: Path) -> dict[str, Any]:
         "campaign_path", "campaign_sha256", "campaign_raw_sha256", "candidate_sha",
         "materialization_mode", "profiles", "owned_objects", "shared_config_mutations",
         "environment_baseline",
+        "host_home_identity",
+        "campaign_id", "provisioning_task_id",
     }
     if set(payload) != expected_fields:
         fail(f"calibration manifest contains unknown or missing fields: {path}")
@@ -475,6 +587,8 @@ def _manifest_payload(
     campaign_raw_sha256: str,
     records: list[dict[str, Any]],
     environment_baseline: dict[str, Any],
+    host_home_identity: dict[str, str],
+    provisioning_task_id: str,
 ) -> dict[str, Any]:
     profiles = _manifest_profiles(records)
     return {
@@ -483,6 +597,7 @@ def _manifest_payload(
         "evaluator_root": str(evaluator_root),
         "codex_home": str(codex_home),
         "campaign_path": str(campaign_path),
+        "campaign_id": records[0]["campaign_id"],
         "campaign_sha256": campaign_sha256,
         "campaign_raw_sha256": campaign_raw_sha256,
         "candidate_sha": records[0]["candidate_sha"],
@@ -494,6 +609,8 @@ def _manifest_payload(
         ],
         "shared_config_mutations": [],
         "environment_baseline": environment_baseline,
+        "host_home_identity": host_home_identity,
+        "provisioning_task_id": provisioning_task_id,
     }
 
 
@@ -522,6 +639,8 @@ def _manifest_profiles(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "staging_path": record["staging_path"],
             "device": record["device"],
             "inode": record["inode"],
+            "parent_device": record["parent_device"],
+            "parent_inode": record["parent_inode"],
             "status": record["status"],
         }
         for record in records
@@ -545,7 +664,9 @@ def _require_exact_manifest_profiles(
             fail("calibration manifest does not match the recomputed owned profile set")
         if item.get("status") not in PROFILE_STATUSES:
             fail("calibration profile transaction status is invalid")
-        if not isinstance(item.get("device"), int) or not isinstance(item.get("inode"), int):
+        if not all(isinstance(item.get(field), int) for field in (
+            "device", "inode", "parent_device", "parent_inode"
+        )):
             fail("calibration profile transaction identity is invalid")
     expected_objects = [
         {"object_type": "file", "path": item["path"], "sha256": item["sha256"]}
@@ -665,19 +786,54 @@ def _prepare_profile_intent(
 def _apply_profile(record: dict[str, Any], data: bytes, persist: Callable[[], None]) -> None:
     target = Path(record["path"])
     staging = Path(record["staging_path"])
+    parent = target.parent
+    parent_identity = os.stat(parent, follow_symlinks=False)
+    if not stat.S_ISDIR(parent_identity.st_mode) or (
+        parent_identity.st_dev, parent_identity.st_ino
+    ) != (record["parent_device"], record["parent_inode"]):
+        fail(f"calibration Agent directory identity drifted: {parent}")
     _regular(staging, "owned profile staging file", missing_ok=False)
     identity = staging.stat()
     if (identity.st_dev, identity.st_ino) != (record["device"], record["inode"]):
         fail(f"profile staging identity drifted: {staging}")
-    with staging.open("wb") as handle:
+    flags = os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(staging, flags)
+    except OSError as exc:
+        fail(f"could not reopen owned profile staging file: {staging}: {exc}")
+    opened = os.fstat(fd)
+    if (opened.st_dev, opened.st_ino) != (record["device"], record["inode"]):
+        os.close(fd)
+        fail(f"profile staging identity drifted while opening: {staging}")
+    with os.fdopen(fd, "wb") as handle:
         handle.write(data)
         handle.flush()
         os.fsync(handle.fileno())
     if _sha256(staging.read_bytes()) != record["sha256"]:
         fail("profile staging verification failed")
+    linked_staging = os.stat(staging, follow_symlinks=False)
+    if not stat.S_ISREG(linked_staging.st_mode) or (
+        linked_staging.st_dev, linked_staging.st_ino
+    ) != (record["device"], record["inode"]):
+        fail(f"profile staging identity drifted before publication: {staging}")
     if target.exists() or target.is_symlink():
         fail(f"refusing pre-existing calibration profile: {target}")
+    parent_before_link = os.stat(parent, follow_symlinks=False)
+    if (
+        parent_before_link.st_dev, parent_before_link.st_ino
+    ) != (record["parent_device"], record["parent_inode"]):
+        fail(f"calibration Agent directory identity drifted before publication: {parent}")
     os.link(staging, target, follow_symlinks=False)
+    parent_after_link = os.stat(parent, follow_symlinks=False)
+    if (
+        parent_after_link.st_dev, parent_after_link.st_ino
+    ) != (record["parent_device"], record["parent_inode"]):
+        fail(f"calibration Agent directory identity drifted during publication: {parent}")
+    published = os.stat(target, follow_symlinks=False)
+    if not stat.S_ISREG(published.st_mode) or (
+        published.st_dev, published.st_ino
+    ) != (record["device"], record["inode"]):
+        fail(f"published calibration profile identity is unsafe: {target}")
     parent_fd = os.open(target.parent, os.O_RDONLY)
     try:
         os.fsync(parent_fd)
@@ -695,18 +851,36 @@ def _apply_profile(record: dict[str, Any], data: bytes, persist: Callable[[], No
 def _cleanup_profile(record: dict[str, Any], persist: Callable[[], None]) -> None:
     target = Path(record["path"])
     staging = Path(record["staging_path"])
-    for path in (target, staging):
+    quarantine = target.parent / f".{record['materialized_agent_type']}.calibration-cleanup"
+    parent = target.parent
+    parent_identity = os.stat(parent, follow_symlinks=False)
+    if not stat.S_ISDIR(parent_identity.st_mode) or (
+        parent_identity.st_dev, parent_identity.st_ino
+    ) != (record["parent_device"], record["parent_inode"]):
+        fail(f"calibration Agent directory identity drifted: {parent}")
+    if target.exists() or target.is_symlink():
+        _rename_no_replace(target, quarantine)
+        moved = os.stat(quarantine, follow_symlinks=False)
+        if not stat.S_ISREG(moved.st_mode) or (
+            moved.st_dev, moved.st_ino
+        ) != (record["device"], record["inode"]):
+            fail(f"owned calibration profile changed during cleanup; preserved at {quarantine}")
+        if _sha256(quarantine.read_bytes()) != record["sha256"]:
+            if not target.exists() and not target.is_symlink():
+                _rename_no_replace(quarantine, target)
+                fail(f"owned calibration profile drifted: {target}")
+            fail(f"owned calibration profile drifted; preserved at {quarantine}")
+        _crash_at(f"after_profile_{record['route_id']}_cleanup_unlink")
+    for path in (staging, quarantine):
         if not path.exists() and not path.is_symlink():
             continue
         _regular(path, "owned calibration profile", missing_ok=False)
         identity = path.stat()
         if (identity.st_dev, identity.st_ino) != (record["device"], record["inode"]):
             fail(f"owned calibration profile identity drifted: {path}")
-        if path == target and _sha256(path.read_bytes()) != record["sha256"]:
+        if path == quarantine and _sha256(path.read_bytes()) != record["sha256"]:
             fail(f"owned calibration profile drifted: {path}")
         path.unlink()
-        if path == target:
-            _crash_at(f"after_profile_{record['route_id']}_cleanup_unlink")
     record["status"] = "CLEANED"
     persist()
 
@@ -734,9 +908,16 @@ def create(
     evaluator_root_arg: Path,
     codex_home_arg: Path,
     campaign_path_arg: Path,
+    host_home_evidence_arg: Path,
+    provisioning_task_id: str,
     *_: Path,
 ) -> None:
-    evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
+    if not provisioning_task_id.strip():
+        fail("--provisioning-task-id must be concrete")
+    evaluator_root, codex_home, host_home_identity = _validate_roots(
+        evaluator_root_arg, codex_home_arg, host_home_evidence_arg, provisioning_task_id,
+        require_active_task=True,
+    )
     campaign_path, campaign, summary, campaign_raw_sha256, records = _campaign_context(
         evaluator_root, campaign_path_arg
     )
@@ -749,6 +930,8 @@ def create(
         manifest_path = _manifest_path(evaluator_root)
         if manifest_path.exists() or manifest_path.is_symlink():
             existing = _load_manifest(evaluator_root)
+            if existing["host_home_identity"] != host_home_identity:
+                fail("existing calibration manifest Host-home evidence drifted")
             if Path(existing.get("evaluator_root", "")).resolve() != evaluator_root or Path(existing.get("codex_home", "")).resolve() != codex_home:
                 fail("existing calibration manifest owner root drifted")
             if Path(existing.get("campaign_path", "")).resolve() != campaign_path:
@@ -778,13 +961,16 @@ def create(
             if record["materialized_agent_type"] in identities or target.exists() or target.is_symlink():
                 fail(f"calibration Agent identity/path collides with existing profile: {target}")
         baseline = _environment_baseline(codex_home)
+        agents_identity = agents_dir.stat()
         for index, (record, target) in enumerate(zip(records, targets, strict=True)):
             record.update(
                 campaign_sha256=summary["campaign_sha256"],
                 path=str(target),
-                staging_path=str(evaluator_root / f".{target.name}.staging"),
+                staging_path=str(agents_dir / f".{record['materialized_agent_type']}.calibration-staging"),
                 device=-1,
                 inode=-1,
+                parent_device=agents_identity.st_dev,
+                parent_inode=agents_identity.st_ino,
                 status="PREPARED",
                 sha256=_sha256(record["profile_bytes"]),
             )
@@ -796,6 +982,8 @@ def create(
             campaign_raw_sha256,
             records,
             baseline,
+            host_home_identity,
+            provisioning_task_id,
         )
         def persist() -> None:
             manifest["profiles"] = _manifest_profiles(records)
@@ -832,13 +1020,19 @@ def create(
         print("NEW TASK REQUIRED: YES")
 
 
-def check(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, *_: Path) -> None:
-    evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
+def check(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, host_home_evidence_arg: Path, provisioning_task_id: str, *_: Path) -> None:
+    evaluator_root, codex_home, host_home_identity = _validate_roots(
+        evaluator_root_arg, codex_home_arg, host_home_evidence_arg, provisioning_task_id
+    )
     campaign_path, campaign, summary, campaign_raw_sha256, records = _campaign_context(
         evaluator_root, campaign_path_arg
     )
     with calibration_lock(evaluator_root, check_only=True):
         manifest = _load_manifest(evaluator_root)
+        if manifest["provisioning_task_id"] != provisioning_task_id:
+            fail("provisioning task identity drifted from preparation")
+        if manifest["host_home_identity"] != host_home_identity:
+            fail("active Host-home evidence drifted from preparation")
         _verify_manifest_files(codex_home, manifest)
         if Path(manifest["evaluator_root"]).resolve() != evaluator_root or Path(manifest["codex_home"]).resolve() != codex_home:
             fail("calibration manifest owner root drifted")
@@ -858,8 +1052,10 @@ def check(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Pat
         print("CHECK PASSED: calibration profiles and ownership are exact")
 
 
-def cleanup(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, *_: Path) -> None:
-    evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
+def cleanup(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, host_home_evidence_arg: Path, provisioning_task_id: str, *_: Path) -> None:
+    evaluator_root, codex_home, _ = _validate_roots(
+        evaluator_root_arg, codex_home_arg, host_home_evidence_arg, provisioning_task_id
+    )
     campaign_path, _, summary, campaign_raw_sha256, records = _campaign_context(
         evaluator_root, campaign_path_arg
     )
@@ -883,8 +1079,10 @@ def cleanup(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: P
     print("CLEANUP COMPLETE: exact owned profiles removed; journal and lock retained")
 
 
-def recover(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, *_: Path) -> None:
-    evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
+def recover(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, host_home_evidence_arg: Path, provisioning_task_id: str, *_: Path) -> None:
+    evaluator_root, codex_home, _ = _validate_roots(
+        evaluator_root_arg, codex_home_arg, host_home_evidence_arg, provisioning_task_id
+    )
     _, _, _, _, records = _campaign_context(evaluator_root, campaign_path_arg)
     with calibration_lock(evaluator_root, check_only=True):
         manifest = _load_manifest(evaluator_root)
@@ -908,6 +1106,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--evaluator-root", required=True, type=Path)
     parser.add_argument("--codex-home", type=Path)
     parser.add_argument("--campaign", type=Path)
+    parser.add_argument("--host-home-evidence", type=Path)
+    parser.add_argument("--provisioning-task-id")
     parser.add_argument("--shared-config", type=Path)
     parser.add_argument("--marketplace-source", type=Path)
     return parser.parse_args()
@@ -921,8 +1121,8 @@ def main() -> None:
     if args.command == "init":
         init_evaluator(args.evaluator_root)
         return
-    if args.codex_home is None or args.campaign is None:
-        fail("--codex-home and --campaign are required for create/check/cleanup")
+    if args.codex_home is None or args.campaign is None or args.host_home_evidence is None or args.provisioning_task_id is None:
+        fail("--codex-home, --campaign, --host-home-evidence, and --provisioning-task-id are required")
     if args.shared_config is not None or args.marketplace_source is not None:
         fail("profile_only rejects Marketplace, Plugin, and shared-config arguments")
     {
@@ -934,6 +1134,8 @@ def main() -> None:
         args.evaluator_root,
         args.codex_home,
         args.campaign,
+        args.host_home_evidence,
+        args.provisioning_task_id,
         args.shared_config,
         args.marketplace_source,
     )

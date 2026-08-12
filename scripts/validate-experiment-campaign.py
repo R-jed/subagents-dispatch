@@ -322,6 +322,8 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
     assurance = campaign["assurance_requirements"]
     experiment = campaign["experiment"]
     claim_kind = assurance["claim_kind"]
+    if claim_kind == "model_effort":
+        require_frozen_text(campaign["model_provider_control"], "model_provider_control")
     required = set(assurance["required"])
     allow_unknown = set(assurance["allow_unknown"])
     if required & allow_unknown:

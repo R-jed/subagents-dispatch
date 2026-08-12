@@ -111,7 +111,7 @@ Handoff / Claims Plane
 Experiment Plane
 -> freeze real experiments before execution
 -> role_calibration: fixed role contract, model/effort route is the independent variable
--> formal model_effort materialization: two profile-only Agent TOMLs; evidence remains outside Host discovery; no Marketplace, Plugin, config.toml, or alternate CODEX_HOME state
+-> formal model_effort materialization: two profile-only Agent TOMLs in the confirmed active normal Host home; exact origin/SHA and frozen provider are claim gates; no Marketplace, Plugin, config.toml, or alternate CODEX_HOME state
 -> product_benchmark: fixed real task/environment, single_agent vs dispatch is the independent variable
 -> docs/experiment-protocol.md
 -> evals/experiment-campaign.schema.json

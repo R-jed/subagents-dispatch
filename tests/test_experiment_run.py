@@ -41,6 +41,13 @@ def load_run_validator():
 VALIDATOR = load_run_validator()
 
 
+@pytest.fixture(autouse=True)
+def normal_home_is_test_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        VALIDATOR.pwd, "getpwuid", lambda _: type("Account", (), {"pw_dir": str(tmp_path)})()
+    )
+
+
 def head_sha() -> str:
     result = subprocess.run(
         ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
@@ -143,6 +150,7 @@ def calibration_campaign() -> dict:
         "campaign_id": "calibration-campaign",
         "stage": "exploratory",
         "materialization_mode": "profile_only",
+        "model_provider_control": "openai",
         "plugin_candidate_sha": head_sha(),
         "host_target": {"product": "Codex", "version": "test-host-1", "platform": "linux-test"},
         "repeat_policy": {"minimum_completed_per_arm": 1, "ordering": "randomized"},
@@ -299,6 +307,8 @@ def child_route(role: str = "worker", *, verdict: str = "verified") -> dict:
         "effort": spec["effort"],
         "sandbox_policy_type": "danger-full-access",
         "permission_profile_type": "disabled",
+        "agent_path": None,
+        "model_provider": None,
     }
     return {
         "child_thread_id": f"child-{role}-1",
@@ -330,6 +340,140 @@ def write_campaign(tmp_path: Path, payload: dict) -> Path:
 
 
 def validate(tmp_path: Path, campaign: dict, run: dict) -> dict:
+    if campaign["experiment"]["type"] == "role_calibration":
+        route = run["child_routes"][0]
+        if "provider_control_verdict" not in route:
+            route["observed"]["model_provider"] = campaign["model_provider_control"]
+        route.setdefault("provider_control_verdict", "verified")
+        evaluator_root = tmp_path / "evaluator"
+        evaluator_root.mkdir(exist_ok=True)
+        (evaluator_root / ".subagents-dispatch-evaluator-root.json").write_text(json.dumps({
+            "schema_version": 1, "managed_by": "subagents-dispatch-calibration",
+            "evaluator_root": str(evaluator_root),
+        }))
+        codex_home = tmp_path / ".codex"
+        agents = codex_home / "agents"
+        agents.mkdir(parents=True, exist_ok=True)
+        profile = agents / f"{route['materialized_agent_type']}.toml"
+        sys.path.insert(0, str(ROOT / "scripts"))
+        try:
+            from calibration_profiles import _load_policy, _profile_records
+            generated, _ = _profile_records(campaign, _load_policy())
+        finally:
+            sys.path.pop(0)
+        generated_item = next(
+            (item for item in generated if item["route_id"] == run["arm"]["route_id"]),
+            generated[0],
+        )
+        profile.write_bytes(generated_item["profile_bytes"])
+        route.setdefault("expected_profile_path", str(profile))
+        route.setdefault("expected_profile_sha256", hashlib.sha256(profile.read_bytes()).hexdigest())
+        if "profile_origin_verdict" not in route:
+            route["observed"]["agent_path"] = str(profile)
+        route.setdefault("profile_origin_verdict", "verified")
+        sessions = codex_home / "sessions"
+        sessions.mkdir(parents=True, exist_ok=True)
+        child_id = route["child_thread_id"]
+        rollout_path = sessions / f"rollout-test-{child_id}.jsonl"
+        rollout_path.write_text("\n".join(json.dumps(item) for item in [
+            {"type": "session_meta", "payload": {
+                "id": child_id, "parent_thread_id": run["root_thread_id"],
+                "agent_role": route["observed_agent_type"],
+                "agent_path": route["observed"]["agent_path"],
+                "model_provider": route["observed"]["model_provider"],
+            }},
+            {"type": "turn_context", "payload": {
+                "model": route["observed"]["model"], "effort": route["observed"]["effort"],
+                "sandbox_policy": {"type": route["observed"]["sandbox_policy_type"]},
+                "permission_profile": {"type": route["observed"]["permission_profile_type"]},
+            }},
+        ]) + "\n", encoding="utf-8")
+        provisioning = sessions / "rollout-test-provisioning-task-1.jsonl"
+        provisioning.write_text("\n".join([
+            json.dumps({"type": "session_meta", "payload": {"id": "provisioning-task-1"}}),
+            json.dumps({"type": "turn_context", "payload": {"model": "test"}}),
+        ]) + "\n")
+        runtime_input = {
+            "subject": "child",
+            "expected": {
+                "agent_role": route["observed_agent_type"],
+                "model": route["configured_model"],
+                "effort": route["configured_effort"],
+                "agent_path": route["observed"]["agent_path"],
+                "model_provider": campaign["model_provider_control"],
+            },
+            "native": {
+                "thread_id": child_id,
+                "parent_thread_id": run["root_thread_id"],
+                "agent_role": route["observed_agent_type"],
+                "model": route["observed"]["model"],
+                "effort": route["observed"]["effort"],
+                "agent_path": route["observed"]["agent_path"],
+                "model_provider": route["observed"]["model_provider"],
+            },
+            "rollout": {
+                "thread_id": child_id,
+                "sessions_dir": str(sessions),
+                "expected_parent_thread_id": run["root_thread_id"],
+                "expected_agent_role": route["observed_agent_type"],
+            },
+        }
+        runtime_path = tmp_path / "runtime-evidence.json"
+        runtime_path.write_text(json.dumps(runtime_input), encoding="utf-8")
+        route.setdefault("runtime_evidence_ref", str(runtime_path))
+        route.setdefault("runtime_evidence_sha256", hashlib.sha256(runtime_path.read_bytes()).hexdigest())
+        parent = agents.stat()
+        identity = profile.stat()
+        campaign_path = evaluator_root / "campaign.json"
+        campaign_path.write_text(json.dumps(campaign))
+        manifest = {
+            "schema_version": 4,
+            "managed_by": "subagents-dispatch-calibration",
+            "campaign_id": campaign["campaign_id"],
+            "campaign_sha256": canonical_hash(campaign),
+            "candidate_sha": campaign["plugin_candidate_sha"],
+            "materialization_mode": "profile_only",
+            "shared_config_mutations": [],
+            "provisioning_task_id": "provisioning-task-1",
+            "evaluator_root": str(evaluator_root),
+            "codex_home": str(codex_home),
+            "campaign_path": str(campaign_path),
+            "campaign_raw_sha256": hashlib.sha256(campaign_path.read_bytes()).hexdigest(),
+            "environment_baseline": {},
+            "host_home_identity": {
+                "active_codex_home": str(codex_home),
+                "provisioning_rollout_path": str(provisioning),
+                "provisioning_rollout_sha256": hashlib.sha256(provisioning.read_bytes()).hexdigest(),
+            },
+            "profiles": [{
+                "campaign_id": campaign["campaign_id"],
+                "campaign_sha256": canonical_hash(campaign),
+                "candidate_sha": campaign["plugin_candidate_sha"],
+                "route_id": run["arm"]["route_id"],
+                "materialized_agent_type": route["materialized_agent_type"],
+                "filename": profile.name,
+                "path": route["expected_profile_path"],
+                "sha256": route["expected_profile_sha256"],
+                "staging_path": str(agents / f".{route['materialized_agent_type']}.calibration-staging"),
+                "semantic_role": route["semantic_role"],
+                "role_contract_digest": route["role_contract_digest"],
+                "configured_model": route["configured_model"],
+                "configured_effort": route["configured_effort"],
+                "device": identity.st_dev, "inode": identity.st_ino,
+                "parent_device": parent.st_dev, "parent_inode": parent.st_ino,
+                "status": "COMMITTED",
+            }],
+        }
+        manifest["owned_objects"] = [{
+            "object_type": "file",
+            "path": route["expected_profile_path"],
+            "sha256": route["expected_profile_sha256"],
+        }]
+        manifest_path = evaluator_root / ".subagents-dispatch-calibration.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        run.setdefault("materialization_manifest_ref", str(manifest_path))
+        run.setdefault("profile_origin_assurance", route["profile_origin_verdict"])
+        run.setdefault("provider_control_assurance", route["provider_control_verdict"])
     return VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
 
 
@@ -658,6 +802,8 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
         "effort": None,
         "sandbox_policy_type": None,
         "permission_profile_type": None,
+        "agent_path": None,
+        "model_provider": None,
     }
     unknown["permission_state_verdict"] = "unknown"
     unknown["permission_provenance"] = {
@@ -689,10 +835,11 @@ def calibration_run(campaign: dict) -> dict:
         child_materialization=materialization(1),
         metrics=metrics(children=True),
     )
+    run["root_thread_id"] = "11111111-1111-4111-8111-111111111111"
     run["child_routes"] = [
         {
-            "child_thread_id": "child-reader-1",
-            "parent_thread_id": "root-thread-1",
+            "child_thread_id": "22222222-2222-4222-8222-222222222222",
+            "parent_thread_id": run["root_thread_id"],
             "agent_type": challenger["materialized_agent_type"],
             "requested_agent_type": challenger["materialized_agent_type"],
             "accepted_agent_type": challenger["materialized_agent_type"],
@@ -710,11 +857,13 @@ def calibration_run(campaign: dict) -> dict:
                 "effort": challenger["effort"],
                 "sandbox_policy_type": "danger-full-access",
                 "permission_profile_type": "disabled",
+                "agent_path": None,
+                "model_provider": None,
             },
             "permission_state_verdict": "verified",
             "permission_provenance": {
                 "source_kind": "parent_turn",
-                "source_id": "root-thread-1",
+                "source_id": run["root_thread_id"],
                 "sandbox_policy_type": "danger-full-access",
                 "permission_profile_type": "disabled",
                 "evidence_source": "both",
@@ -728,10 +877,10 @@ def calibration_run(campaign: dict) -> dict:
         }
     ]
     run["fresh_root_evidence"] = {
-        "provisioning_root_id": "provisioning-root-1",
-        "execution_root_id": "execution-root-1",
+        "provisioning_task_id": "provisioning-task-1",
+        "execution_task_id": run["root_thread_id"],
         "fork_turns": "none",
-        "host_restart_evidence_ref": "host:full-app-restart",
+        "fresh_task_evidence_ref": "host:fresh-task-boundary",
     }
     return run
 
@@ -743,6 +892,9 @@ def test_role_calibration_run_binds_packet_and_declared_challenger(tmp_path: Pat
     assert result["run_valid"] is True
     assert result["input_assurance"] == "verified"
     assert result["materialized_children"] == 1
+    assert result["profile_origin_assurance"] == "verified"
+    assert result["provider_control_assurance"] == "verified"
+    assert result["claim_eligible"] is True
 
     run["arm"]["route_id"] = "undeclared-route"
     with pytest.raises(SystemExit, match="not a declared route"):
@@ -783,6 +935,129 @@ def test_observed_calibration_route_mismatch_is_failed_without_overwriting_obser
     assert route["observed"]["model"] == "gpt-5.6-sol"
 
 
+def test_calibration_profile_origin_requires_exact_owned_path_and_current_sha(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["profile_origin_verdict"] = "failed"
+    route["observed"]["agent_path"] = str(tmp_path / "different.toml")
+    run["profile_origin_assurance"] = "failed"
+    with pytest.raises(SystemExit, match="runtime evidence|profile origin"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["profile_origin_verdict"] = "unknown"
+    route["observed"]["agent_path"] = None
+    run["profile_origin_assurance"] = "unknown"
+    result = validate(tmp_path, campaign, run)
+    assert result["claim_eligible"] is False
+
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    Path(run["child_routes"][0]["expected_profile_path"]).write_text("drifted\n")
+    run["child_routes"][0]["profile_origin_verdict"] = "failed"
+    run["profile_origin_assurance"] = "failed"
+    result = VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+    assert result["claim_eligible"] is False
+
+
+def test_calibration_provider_control_missing_or_different_is_ineligible(tmp_path: Path):
+    campaign = calibration_campaign()
+    for provider, verdict in [(None, "unknown")]:
+        run = calibration_run(campaign)
+        route = run["child_routes"][0]
+        route["provider_control_verdict"] = verdict
+        route["observed"]["model_provider"] = provider
+        run["provider_control_assurance"] = verdict
+        result = validate(tmp_path, campaign, run)
+        assert result["provider_control_assurance"] == verdict
+        assert result["claim_eligible"] is False
+
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["provider_control_verdict"] = "failed"
+    route["observed"]["model_provider"] = "external"
+    run["provider_control_assurance"] = "failed"
+    with pytest.raises(SystemExit, match="runtime evidence|provider"):
+        validate(tmp_path, campaign, run)
+
+
+def test_calibration_rejects_forged_profile_or_provider_assurance(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    run["profile_origin_assurance"] = "unknown"
+    with pytest.raises(SystemExit, match="profile_origin_assurance"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    run["provider_control_assurance"] = "unknown"
+    with pytest.raises(SystemExit, match="provider_control_assurance"):
+        validate(tmp_path, campaign, run)
+
+
+def test_calibration_rejects_forged_manifest_ownership_or_runtime_artifact(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    manifest_path = Path(run["materialization_manifest_ref"])
+    manifest = json.loads(manifest_path.read_text())
+    manifest["owned_objects"] = []
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(SystemExit, match="does not own"):
+        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    artifact_path = Path(run["child_routes"][0]["runtime_evidence_ref"])
+    artifact = json.loads(artifact_path.read_text())
+    artifact["local"] = {**artifact["native"], "agent_path": str(tmp_path / "other.toml")}
+    artifact_path.write_text(json.dumps(artifact))
+    run["child_routes"][0]["runtime_evidence_sha256"] = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+    with pytest.raises(SystemExit, match="conflict"):
+        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    artifact_path = Path(run["child_routes"][0]["runtime_evidence_ref"])
+    artifact = json.loads(artifact_path.read_text())
+    artifact["rollout"]["thread_id"] = "33333333-3333-4333-8333-333333333333"
+    artifact_path.write_text(json.dumps(artifact))
+    run["child_routes"][0]["runtime_evidence_sha256"] = hashlib.sha256(
+        artifact_path.read_bytes()
+    ).hexdigest()
+    with pytest.raises(SystemExit, match="rollout identity|no rollout filename matched"):
+        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+
+
+def test_calibration_rejects_synthetic_partial_manifest(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    manifest_path = Path(run["materialization_manifest_ref"])
+    manifest = json.loads(manifest_path.read_text())
+    manifest.pop("environment_baseline")
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(SystemExit, match="exact calibration producer artifact"):
+        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+
+
+def test_calibration_rejects_unbound_provisioning_rollout(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    manifest_path = Path(run["materialization_manifest_ref"])
+    manifest = json.loads(manifest_path.read_text())
+    rollout = Path(manifest["host_home_identity"]["provisioning_rollout_path"])
+    rollout.write_text(json.dumps({"type": "session_meta", "payload": {"id": "other"}}) + "\n")
+    manifest["host_home_identity"]["provisioning_rollout_sha256"] = hashlib.sha256(
+        rollout.read_bytes()
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(SystemExit, match="does not identify preparation"):
+        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+
+
 def test_product_run_rejects_calibration_agent_identity_prefix(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
@@ -796,8 +1071,28 @@ def test_product_run_rejects_calibration_agent_identity_prefix(tmp_path: Path):
 def test_calibration_requires_distinct_fresh_roots_and_verified_agent_identity(tmp_path: Path):
     campaign = calibration_campaign()
     run = calibration_run(campaign)
-    run["fresh_root_evidence"]["execution_root_id"] = run["fresh_root_evidence"]["provisioning_root_id"]
-    with pytest.raises(SystemExit, match="different provisioning and execution roots"):
+    run["fresh_root_evidence"]["execution_task_id"] = run["fresh_root_evidence"]["provisioning_task_id"]
+    with pytest.raises(SystemExit, match="different provisioning and execution tasks"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    run["fresh_root_evidence"]["fork_turns"] = "all"
+    with pytest.raises(SystemExit, match="schema validation"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    run["fresh_root_evidence"]["execution_task_id"] = "different-task"
+    with pytest.raises(SystemExit, match="must equal the run root_thread_id"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    run["fresh_root_evidence"]["fresh_task_evidence_ref"] = "TBD"
+    with pytest.raises(SystemExit, match="fresh_task_evidence_ref"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    run["fresh_root_evidence"]["host_restart_evidence_ref"] = "host:restart"
+    with pytest.raises(SystemExit, match="schema validation"):
         validate(tmp_path, campaign, run)
 
     run = calibration_run(campaign)

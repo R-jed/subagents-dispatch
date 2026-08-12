@@ -111,6 +111,7 @@ def role_campaign(*, stage: str = "exploratory", repeats: int = 1, promotion: bo
         "campaign_id": "reader-calibration-fixture",
         "stage": stage,
         "materialization_mode": "profile_only",
+        "model_provider_control": "openai",
         "plugin_candidate_sha": head_sha(),
         "host_target": {
             "product": "Codex",
@@ -209,6 +210,17 @@ def test_campaign_hash_binds_materialization_mode(tmp_path: Path):
     assert profile_hash != task_hash(
         json.dumps(changed, sort_keys=True, separators=(",", ":"))
     )
+
+
+def test_model_effort_campaign_requires_frozen_provider_control(tmp_path: Path):
+    payload = role_campaign()
+    payload.pop("model_provider_control")
+    assert run_validator(tmp_path, payload).returncode != 0
+
+    payload["model_provider_control"] = "TBD"
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "model_provider_control" in result.stderr
 
 
 def test_model_effort_role_calibration_requires_profile_only(tmp_path: Path):

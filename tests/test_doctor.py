@@ -125,6 +125,8 @@ def test_doctor_calibration_readiness_uses_profile_only_checker(tmp_path: Path):
     result = run_doctor(
         home, "--json", "--calibration-evidence-root", str(evidence),
         "--calibration-campaign", str(campaign_path),
+        "--calibration-host-home-evidence", str(evidence / "host-home.json"),
+        "--calibration-provisioning-task-id", "provisioning-task-1",
         env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"},
     )
     assert result.returncode == 0, result.stderr

@@ -23,6 +23,7 @@ def write_rollout(
     session_id: str | None = None,
     parent_thread_id: str | None = PARENT,
     agent_role: str | None = ROLE,
+    agent_path: str | None = None,
     turns: list[dict] | None = None,
     relative_dir: str = "2026/08/10",
     extra_records: list[dict] | None = None,
@@ -41,6 +42,7 @@ def write_rollout(
             "cli_version": "0.999.0-test",
             "cwd": "/private/project",
             "model_provider": "openai",
+            "agent_path": agent_path,
         },
     }
     default_turn = {
@@ -207,6 +209,54 @@ def test_runtime_evidence_rejects_auxiliary_public_rollout_conflict(tmp_path: Pa
     output = json.loads(result.stdout)
     assert output["decision"] == "quarantine"
     assert "source_conflict:cwd" in output["violations"]
+
+
+def test_runtime_evidence_reports_exact_profile_origin_and_provider_control(tmp_path: Path):
+    profile = tmp_path / "owned.toml"
+    profile.write_text("owned\n")
+    sessions = tmp_path / "sessions"
+    write_rollout(sessions, agent_path=str(profile))
+    payload = {
+        "expected": {
+            "agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max",
+            "agent_path": str(profile), "model_provider": "openai",
+        },
+        "native": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
+        "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["profile_origin_observation"]["status"] == "verified"
+    assert output["provider_control_assurance"]["status"] == "verified"
+    assert output["truth_layers"]["observed_auxiliary"]["fields"]["agent_path"] == str(profile)
+
+
+@pytest.mark.parametrize("field", ["agent_path", "model_provider"])
+def test_runtime_evidence_fails_closed_on_public_rollout_origin_or_provider_conflict(
+    tmp_path: Path, field: str
+):
+    profile = tmp_path / "owned.toml"
+    profile.write_text("owned\n")
+    sessions = tmp_path / "sessions"
+    write_rollout(sessions, agent_path=str(profile))
+    native = {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"}
+    native[field] = str(tmp_path / "other.toml") if field == "agent_path" else "external"
+    payload = {
+        "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
+        "native": native,
+        "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    output = json.loads(result.stdout)
+    assert output["decision"] == "quarantine"
+    assert f"source_conflict:{field}" in output["violations"]
 
 
 def test_distinct_live_session_id_does_not_change_child_binding(tmp_path: Path):

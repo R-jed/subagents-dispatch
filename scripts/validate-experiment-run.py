@@ -15,11 +15,14 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import pwd
 from typing import Any, NoReturn
 
 import jsonschema
 
 from policy import load_policy_contract
+from calibration_profiles import _load_policy as load_calibration_policy
+from calibration_profiles import _profile_records as calibration_profile_records
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "evals" / "experiment-run.schema.json"
@@ -159,13 +162,184 @@ def validate_materialized_binding(route: dict[str, Any], *, role: str, label: st
 
 def validate_fresh_root(run: dict[str, Any]) -> None:
     evidence = run["fresh_root_evidence"]
-    require_text(evidence["provisioning_root_id"], "fresh_root_evidence.provisioning_root_id")
-    require_text(evidence["execution_root_id"], "fresh_root_evidence.execution_root_id")
-    if evidence["provisioning_root_id"] == evidence["execution_root_id"]:
-        fail("fresh_root_evidence requires different provisioning and execution roots")
+    require_text(evidence["provisioning_task_id"], "fresh_root_evidence.provisioning_task_id")
+    require_text(evidence["execution_task_id"], "fresh_root_evidence.execution_task_id")
+    if evidence["provisioning_task_id"] == evidence["execution_task_id"]:
+        fail("fresh_root_evidence requires different provisioning and execution tasks")
+    if evidence["execution_task_id"] != run["root_thread_id"]:
+        fail("fresh_root_evidence execution_task_id must equal the run root_thread_id")
+    manifest = load_json(Path(run["materialization_manifest_ref"]), "materialization manifest")
+    if manifest.get("provisioning_task_id") != evidence["provisioning_task_id"]:
+        fail("fresh_root_evidence provisioning_task_id must match materialization preparation")
     if evidence["fork_turns"] != "none":
         fail("calibration execution requires fork_turns=none")
-    require_text(evidence["host_restart_evidence_ref"], "fresh_root_evidence.host_restart_evidence_ref")
+    require_text(evidence["fresh_task_evidence_ref"], "fresh_root_evidence.fresh_task_evidence_ref")
+
+
+def calibration_profile_record(
+    run: dict[str, Any], campaign: dict[str, Any], route: dict[str, Any]
+) -> tuple[dict[str, Any], Path]:
+    ref = Path(run["materialization_manifest_ref"])
+    if not ref.is_absolute() or ref.is_symlink():
+        fail("materialization_manifest_ref must be an absolute regular file")
+    manifest = load_json(ref, "materialization manifest")
+    evaluator_root = ref.parent.resolve()
+    marker = evaluator_root / ".subagents-dispatch-evaluator-root.json"
+    expected_fields = {
+        "schema_version", "managed_by", "evaluator_root", "codex_home", "campaign_path",
+        "campaign_sha256", "campaign_raw_sha256", "candidate_sha", "materialization_mode",
+        "profiles", "owned_objects", "shared_config_mutations", "environment_baseline",
+        "host_home_identity", "campaign_id", "provisioning_task_id",
+    }
+    if set(manifest) != expected_fields or ref.name != ".subagents-dispatch-calibration.json":
+        fail("materialization manifest is not the exact calibration producer artifact")
+    if load_json(marker, "calibration evaluator marker") != {
+        "schema_version": 1,
+        "managed_by": "subagents-dispatch-calibration",
+        "evaluator_root": str(evaluator_root),
+    }:
+        fail("materialization manifest evaluator ownership is invalid")
+    try:
+        codex_home = Path(manifest["codex_home"]).resolve(strict=True)
+        Path(manifest["campaign_path"]).resolve(strict=True).relative_to(evaluator_root)
+    except (KeyError, OSError, ValueError):
+        fail("materialization manifest owner paths are invalid")
+    if Path(manifest["evaluator_root"]).resolve() != evaluator_root:
+        fail("materialization manifest evaluator root is invalid")
+    normal_home = (Path(pwd.getpwuid(os.getuid()).pw_dir) / ".codex").resolve()
+    host_identity = manifest.get("host_home_identity")
+    if codex_home != normal_home or not isinstance(host_identity, dict) or (
+        host_identity.get("active_codex_home") != str(normal_home)
+    ):
+        fail("materialization manifest does not bind the active normal Codex home")
+    provisioning_rollout = Path(host_identity.get("provisioning_rollout_path", ""))
+    try:
+        provisioning_rollout.resolve(strict=True).relative_to((normal_home / "sessions").resolve(strict=True))
+    except (OSError, ValueError):
+        fail("materialization manifest provisioning rollout is outside the normal Codex home")
+    if hashlib.sha256(provisioning_rollout.read_bytes()).hexdigest() != host_identity.get(
+        "provisioning_rollout_sha256"
+    ):
+        fail("materialization manifest provisioning rollout drifted")
+    provisioning_id = manifest.get("provisioning_task_id")
+    if (
+        not isinstance(provisioning_id, str)
+        or not provisioning_rollout.name.startswith("rollout-")
+        or not provisioning_rollout.name.endswith(f"-{provisioning_id}.jsonl")
+    ):
+        fail("materialization manifest provisioning rollout identity is invalid")
+    session_ids: list[str] = []
+    turn_contexts = 0
+    try:
+        for line in provisioning_rollout.read_text(encoding="utf-8").splitlines():
+            item = json.loads(line)
+            if item.get("type") == "session_meta" and isinstance(item.get("payload"), dict):
+                session_ids.append(item["payload"].get("id"))
+            elif item.get("type") == "turn_context" and isinstance(item.get("payload"), dict):
+                turn_contexts += 1
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        fail("materialization manifest provisioning rollout is malformed")
+    if session_ids != [provisioning_id] or turn_contexts == 0:
+        fail("materialization manifest provisioning rollout does not identify preparation")
+    if hashlib.sha256(Path(manifest["campaign_path"]).read_bytes()).hexdigest() != manifest["campaign_raw_sha256"]:
+        fail("materialization manifest campaign bytes drifted")
+    if (
+        manifest.get("schema_version") != 4
+        or manifest.get("managed_by") != "subagents-dispatch-calibration"
+        or manifest.get("campaign_id") != campaign["campaign_id"]
+        or manifest.get("campaign_sha256") != run["campaign_sha256"]
+        or manifest.get("candidate_sha") != run["plugin_candidate_sha"]
+        or manifest.get("materialization_mode") != "profile_only"
+        or manifest.get("shared_config_mutations") != []
+    ):
+        fail("materialization manifest does not match the frozen campaign")
+    matches = [
+        item for item in manifest.get("profiles", [])
+        if isinstance(item, dict)
+        and item.get("route_id") == run["arm"]["route_id"]
+        and item.get("materialized_agent_type") == route["materialized_agent_type"]
+    ]
+    if len(matches) != 1 or matches[0].get("status") != "COMMITTED":
+        fail("materialization manifest does not identify one committed campaign-owned profile")
+    record = matches[0]
+    profile_path = Path(record.get("path", ""))
+    if (
+        record.get("filename") != f"{record.get('materialized_agent_type')}.toml"
+        or profile_path != codex_home / "agents" / record.get("filename", "")
+        or record.get("staging_path") != str(
+            codex_home / "agents" / f".{record.get('materialized_agent_type')}.calibration-staging"
+        )
+        or not all(isinstance(record.get(field), int) for field in (
+            "device", "inode", "parent_device", "parent_inode"
+        ))
+    ):
+        fail("materialization manifest selected profile ownership is invalid")
+    expected_object = {"object_type": "file", "path": record.get("path"), "sha256": record.get("sha256")}
+    expected_objects = [
+        {"object_type": "file", "path": item.get("path"), "sha256": item.get("sha256")}
+        for item in manifest.get("profiles", []) if isinstance(item, dict)
+    ]
+    if manifest.get("owned_objects") != expected_objects or expected_object not in expected_objects:
+        fail("materialization manifest does not own the selected profile path and SHA256")
+    generated, _ = calibration_profile_records(campaign, load_calibration_policy())
+    expected_generated = next(
+        (item for item in generated if item["route_id"] == run["arm"]["route_id"]), None
+    )
+    if expected_generated is None or any(
+        record.get(field) != expected_generated[field]
+        for field in (
+            "campaign_id", "candidate_sha", "route_id", "materialized_agent_type",
+            "semantic_role", "role_contract_digest", "configured_model", "configured_effort",
+        )
+    ) or record.get("sha256") != hashlib.sha256(expected_generated["profile_bytes"]).hexdigest():
+        fail("materialization manifest profile is not exact campaign-derived producer output")
+    current = os.stat(profile_path, follow_symlinks=False)
+    parent = os.stat(profile_path.parent, follow_symlinks=False)
+    if (current.st_dev, current.st_ino, parent.st_dev, parent.st_ino) != (
+        record["device"], record["inode"], record["parent_device"], record["parent_inode"]
+    ):
+        fail("materialization manifest profile filesystem identity drifted")
+    return record, codex_home
+
+
+def validate_runtime_artifact(
+    route: dict[str, Any], *, root_thread_id: str, codex_home: Path
+) -> None:
+    ref = Path(route["runtime_evidence_ref"])
+    if not ref.is_absolute() or ref.is_symlink():
+        fail("runtime_evidence_ref must be an absolute regular file")
+    raw = ref.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != route["runtime_evidence_sha256"]:
+        fail("runtime evidence input drifted from its frozen SHA256")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "runtime-evidence.py"), "--input", str(ref)],
+        cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+    if result.returncode != 0:
+        fail("runtime evidence input is conflicted or invalid: " + result.stderr.strip())
+    artifact = json.loads(result.stdout)
+    runtime_input = json.loads(raw)
+    rollout = runtime_input.get("rollout")
+    if not isinstance(rollout, dict):
+        fail("formal calibration runtime evidence requires an exact Host rollout")
+    if (
+        rollout.get("thread_id") != route["child_thread_id"]
+        or rollout.get("expected_parent_thread_id") != root_thread_id
+        or rollout.get("expected_agent_role") != route["observed_agent_type"]
+        or Path(rollout.get("sessions_dir", "")).resolve() != (codex_home / "sessions").resolve()
+    ):
+        fail("runtime rollout identity does not match the calibration child and root")
+    auxiliary = artifact.get("truth_layers", {}).get("observed_auxiliary", {})
+    fields = auxiliary.get("fields", {})
+    if artifact.get("subject") != "child" or any(
+        item.startswith(("source_conflict:", "accepted_observed_conflict:"))
+        for item in artifact.get("violations", [])
+    ):
+        fail("runtime evidence contains a conflict or is not child evidence")
+    if fields.get("agent_path") != route["observed"]["agent_path"] or fields.get("model_provider") != route["observed"]["model_provider"]:
+        fail("run copied agent_path/model_provider do not match runtime evidence")
+    if artifact.get("provider_control_assurance", {}).get("status") != route["provider_control_verdict"]:
+        fail("provider control verdict does not match runtime evidence")
 
 
 def validate_measurement(measurement: dict[str, Any], label: str) -> None:
@@ -616,6 +790,42 @@ def validate_calibration_arm(
     )
     if route_identity["observed_agent_type"] != selected["materialized_agent_type"]:
         fail("calibration child observed_agent_type does not match selected route")
+    record, codex_home = calibration_profile_record(run, campaign, route)
+    validate_runtime_artifact(
+        route, root_thread_id=run["root_thread_id"], codex_home=codex_home
+    )
+    expected_path = Path(record.get("path", ""))
+    if not expected_path.is_absolute() or expected_path.is_symlink():
+        fail("campaign-owned profile path is not an absolute regular path")
+    expected_sha256 = record.get("sha256")
+    if route["expected_profile_path"] != str(expected_path) or route["expected_profile_sha256"] != expected_sha256:
+        fail("calibration child profile origin does not match the materialization manifest")
+    observed_path = route["observed"]["agent_path"]
+    if observed_path is None:
+        expected_origin_verdict = "unknown"
+    else:
+        observed = Path(observed_path)
+        expected_origin_verdict = "verified" if observed.is_absolute() and observed.resolve() == expected_path.resolve() else "failed"
+    if expected_origin_verdict == "verified":
+        try:
+            current_sha256 = hashlib.sha256(expected_path.read_bytes()).hexdigest()
+        except OSError:
+            expected_origin_verdict = "failed"
+        else:
+            if current_sha256 != expected_sha256:
+                expected_origin_verdict = "failed"
+    if route["profile_origin_verdict"] != expected_origin_verdict:
+        fail(f"profile origin verdict must be {expected_origin_verdict!r} for observed agent_path and frozen profile SHA256")
+
+    observed_provider = route["observed"]["model_provider"]
+    if observed_provider is None:
+        expected_provider_verdict = "unknown"
+    elif observed_provider == campaign["model_provider_control"]:
+        expected_provider_verdict = "verified"
+    else:
+        expected_provider_verdict = "failed"
+    if route["provider_control_verdict"] != expected_provider_verdict:
+        fail(f"provider control verdict must be {expected_provider_verdict!r} for the observed model_provider")
     validate_child_route(route, root_thread_id=run["root_thread_id"], expected=expected)
 
 
@@ -703,6 +913,19 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
             f"{expected_permission_provenance!r} for the recorded Host provenance evidence"
         )
 
+    calibration = campaign["experiment"]["type"] == "role_calibration"
+    expected_profile_origin = derived_assurance(
+        {route["profile_origin_verdict"] for route in run["child_routes"]}, materialized_count
+    ) if calibration else "not_applicable"
+    expected_provider_control = derived_assurance(
+        {route["provider_control_verdict"] for route in run["child_routes"]}, materialized_count
+    ) if calibration else "not_applicable"
+    if calibration:
+        if run["profile_origin_assurance"] != expected_profile_origin:
+            fail(f"profile_origin_assurance must be {expected_profile_origin!r}")
+        if run["provider_control_assurance"] != expected_provider_control:
+            fail(f"provider_control_assurance must be {expected_provider_control!r}")
+
     dimension_status = {
         "route": run["route_assurance"],
         "permission_state": run["permission_state_assurance"],
@@ -723,6 +946,8 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
         and run["input_assurance"] == "verified"
         and run["execution"]["status"] == "completed"
         and run["execution"]["acceptance_status"] == "passed"
+        and (not calibration or expected_profile_origin == "verified")
+        and (not calibration or expected_provider_control == "verified")
     )
 
     validate_metrics(run, materialized_count)
@@ -740,6 +965,8 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
         "route_assurance": run["route_assurance"],
         "permission_state_assurance": run["permission_state_assurance"],
         "permission_provenance_assurance": run["permission_provenance_assurance"],
+        "profile_origin_assurance": expected_profile_origin,
+        "provider_control_assurance": expected_provider_control,
         "claim_eligible": claim_eligible,
         "execution_status": run["execution"]["status"],
         "acceptance_status": run["execution"]["acceptance_status"],

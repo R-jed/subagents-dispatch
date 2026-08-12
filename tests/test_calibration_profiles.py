@@ -51,10 +51,33 @@ def campaign(evidence: Path) -> Path:
 
 
 def run(evidence: Path, home: Path, path: Path, command: str, *extra: str):
+    sessions = home / "sessions" / "2026" / "08" / "13"
+    sessions.mkdir(parents=True, exist_ok=True)
+    rollout = sessions / "rollout-test-provisioning-task-1.jsonl"
+    rollout.write_text("\n".join([
+        json.dumps({"type": "session_meta", "payload": {"id": "provisioning-task-1"}}),
+        json.dumps({"type": "turn_context", "payload": {"model": "test"}}),
+    ]) + "\n", encoding="utf-8")
+    host_home_evidence = evidence / "host-home.json"
+    host_home_evidence.write_text(json.dumps({
+        "active_codex_home": str(home),
+        "provisioning_rollout_path": str(rollout),
+        "provisioning_rollout_sha256": hashlib.sha256(rollout.read_bytes()).hexdigest(),
+    }), encoding="utf-8")
+    runner = (
+        "import sys; from pathlib import Path; "
+        "scripts=sys.argv[1]; home=sys.argv[2]; del sys.argv[1:3]; "
+        "sys.path.insert(0, scripts); import calibration_profiles as m; "
+        "m._normal_codex_home=lambda: Path(home).resolve(); m.main()"
+    )
     return subprocess.run(
-        [sys.executable, str(SCRIPT), command, "--evaluator-root", str(evidence),
-         "--codex-home", str(home), "--campaign", str(path), *extra],
-        cwd=ROOT, text=True, capture_output=True, check=False,
+        [sys.executable, "-c", runner, str(ROOT / "scripts"), str(home), command,
+         "--evaluator-root", str(evidence),
+         "--codex-home", str(home), "--campaign", str(path),
+         "--host-home-evidence", str(host_home_evidence),
+         "--provisioning-task-id", "provisioning-task-1", *extra],
+        cwd=ROOT, env={**__import__("os").environ, "CODEX_THREAD_ID": "provisioning-task-1"},
+        text=True, capture_output=True, check=False,
     )
 
 
@@ -96,6 +119,11 @@ def test_profile_only_lifecycle_has_exact_host_surface_and_preserves_environment
         assert parsed["name"] == item["materialized_agent_type"]
         assert hashlib.sha256(profile.read_bytes()).hexdigest() == item["sha256"]
         assert item["filename"] == item["materialized_agent_type"] + ".toml"
+        assert Path(item["staging_path"]).parent == home / "agents"
+        assert not Path(item["staging_path"]).name.endswith(".toml")
+    host_identity = owned["host_home_identity"]
+    assert Path(host_identity["provisioning_rollout_path"]).is_relative_to(home / "sessions")
+    assert len(host_identity["provisioning_rollout_sha256"]) == 64
     assert len({item["role_contract_digest"] for item in owned["profiles"]}) == 1
     assert run(evidence, home, path, "check").returncode == 0
     assert run(evidence, home, path, "create").returncode == 0
@@ -190,6 +218,169 @@ def test_symlinked_normal_home_ancestor_is_rejected(tmp_path: Path):
     result = run(evidence, linked_parent, path, "create")
     assert result.returncode != 0
     assert "symlinked calibration" in result.stderr
+
+
+def test_profile_only_rejects_unconfirmed_or_alternate_host_home_before_writes(tmp_path: Path):
+    evidence, home, path, _ = setup(tmp_path)
+    evidence_path = evidence / "host-home.json"
+    evidence_path.write_text(json.dumps({
+        "active_codex_home": str(tmp_path / "other" / ".codex"),
+        "provisioning_rollout_path": str(home / "sessions" / "missing.jsonl"),
+        "provisioning_rollout_sha256": "0" * 64,
+    }))
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "create", "--evaluator-root", str(evidence),
+         "--codex-home", str(home), "--campaign", str(path),
+         "--host-home-evidence", str(evidence_path),
+         "--provisioning-task-id", "provisioning-task-1"],
+        cwd=ROOT, env={
+            **__import__("os").environ,
+            "HOME": str(home.parent),
+            "CODEX_THREAD_ID": "provisioning-task-1",
+        },
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "active normal" in result.stderr
+    assert list((home / "agents").glob("subagents_dispatch_calibration_*.toml")) == []
+
+
+def test_profile_only_rejects_replayed_rollout_from_inactive_task(tmp_path: Path):
+    evidence, home, path, _ = setup(tmp_path)
+    result = run(evidence, home, path, "create")
+    assert result.returncode == 0
+    result = subprocess.run(
+        result.args, cwd=ROOT,
+        env={**__import__("os").environ, "CODEX_THREAD_ID": "different-active-task"},
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "does not match the active Codex task" in result.stderr
+
+
+def test_profile_only_rejects_caller_authored_home_claim_without_host_rollout(tmp_path: Path):
+    evidence, home, path, _ = setup(tmp_path)
+    evidence_path = evidence / "host-home.json"
+    evidence_path.write_text(json.dumps({
+        "active_codex_home": str(home),
+        "provisioning_rollout_path": str(evidence / "forged.jsonl"),
+        "provisioning_rollout_sha256": "0" * 64,
+    }))
+    runner = (
+        "import sys; from pathlib import Path; "
+        "scripts=sys.argv[1]; home=sys.argv[2]; del sys.argv[1:3]; "
+        "sys.path.insert(0, scripts); import calibration_profiles as m; "
+        "m._normal_codex_home=lambda: Path(home).resolve(); m.main()"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", runner, str(ROOT / "scripts"), str(home), "create",
+         "--evaluator-root", str(evidence), "--codex-home", str(home),
+         "--campaign", str(path), "--host-home-evidence", str(evidence_path),
+         "--provisioning-task-id", "provisioning-task-1"], cwd=ROOT,
+        env={**__import__("os").environ, "CODEX_THREAD_ID": "provisioning-task-1"},
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "missing provisioning rollout evidence" in result.stderr
+    assert list((home / "agents").glob("subagents_dispatch_calibration_*.toml")) == []
+
+
+def test_profile_staging_reopen_rejects_symlink_substitution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import calibration_profiles as profiles
+    finally:
+        sys.path.pop(0)
+    staging = tmp_path / ".owned.calibration-staging"
+    victim = tmp_path / "victim"
+    victim.write_text("keep")
+    staging.write_text("")
+    identity = staging.stat()
+    target = tmp_path / "owned.toml"
+    parent = tmp_path.stat()
+    record = {
+        "path": str(target), "staging_path": str(staging),
+        "device": identity.st_dev, "inode": identity.st_ino,
+        "parent_device": parent.st_dev, "parent_inode": parent.st_ino,
+        "sha256": hashlib.sha256(b"profile").hexdigest(), "route_id": "current",
+    }
+    real_open = profiles.os.open
+    def substitute(path, flags, *args):
+        if Path(path) == staging and flags & profiles.os.O_WRONLY:
+            staging.unlink()
+            staging.symlink_to(victim)
+        return real_open(path, flags, *args)
+    monkeypatch.setattr(profiles.os, "open", substitute)
+    with pytest.raises(SystemExit, match="could not reopen|identity drifted"):
+        profiles._apply_profile(record, b"profile", lambda: None)
+    assert victim.read_text() == "keep"
+
+
+def test_profile_publication_rejects_staging_substitution_after_close(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import calibration_profiles as profiles
+    finally:
+        sys.path.pop(0)
+    staging = tmp_path / ".owned.calibration-staging"
+    staging.write_bytes(b"profile")
+    identity = staging.stat()
+    target = tmp_path / "owned.toml"
+    parent = tmp_path.stat()
+    record = {
+        "path": str(target), "staging_path": str(staging),
+        "device": identity.st_dev, "inode": identity.st_ino,
+        "parent_device": parent.st_dev, "parent_inode": parent.st_ino,
+        "sha256": hashlib.sha256(b"profile").hexdigest(), "route_id": "current",
+    }
+    real_link = profiles.os.link
+    def substitute(source, destination, **kwargs):
+        Path(source).unlink()
+        Path(source).write_bytes(b"profile")
+        return real_link(source, destination, **kwargs)
+    monkeypatch.setattr(profiles.os, "link", substitute)
+    with pytest.raises(SystemExit, match="published calibration profile identity is unsafe"):
+        profiles._apply_profile(record, b"profile", lambda: None)
+    assert target.exists()
+
+
+def test_profile_publication_rejects_agent_directory_substitution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import calibration_profiles as profiles
+    finally:
+        sys.path.pop(0)
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    staging = agents / ".owned.calibration-staging"
+    staging.write_bytes(b"profile")
+    identity = staging.stat()
+    parent = agents.stat()
+    target = agents / "owned.toml"
+    record = {
+        "path": str(target), "staging_path": str(staging),
+        "device": identity.st_dev, "inode": identity.st_ino,
+        "parent_device": parent.st_dev, "parent_inode": parent.st_ino,
+        "sha256": hashlib.sha256(b"profile").hexdigest(), "route_id": "current",
+    }
+    real_link = profiles.os.link
+    def substitute(source, destination, **kwargs):
+        original = tmp_path / "original-agents"
+        agents.rename(original)
+        agents.mkdir()
+        new_staging = agents / staging.name
+        real_link(original / staging.name, new_staging)
+        return real_link(new_staging, destination, **kwargs)
+    monkeypatch.setattr(profiles.os, "link", substitute)
+    with pytest.raises(SystemExit, match="Agent directory identity drifted during publication"):
+        profiles._apply_profile(record, b"profile", lambda: None)
+    assert target.exists()
 
 
 def test_production_surface_remains_exact():

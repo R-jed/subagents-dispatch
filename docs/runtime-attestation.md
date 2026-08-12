@@ -105,6 +105,8 @@ cwd
 runtime_version
 ```
 
+Formal `model_effort` calibration uses these Host-observed auxiliary fields as required controls. Public Host metadata and the exact rollout must agree where both expose them. `agent_path` must canonicalize to the exact committed campaign-owned profile path and that profile must still match its frozen SHA-256. `model_provider` must equal the provider frozen by the campaign. Missing evidence remains `UNKNOWN`; configured values and agent-type identity are never copied into Observed.
+
 The inspector does not emit prompts, assistant messages, tool payloads, hidden reasoning, source contents, or rollout paths. `cwd` is emitted only as an allowlisted runtime field and must be unique across all `turn_context` records.
 
 ## Normalize and compare

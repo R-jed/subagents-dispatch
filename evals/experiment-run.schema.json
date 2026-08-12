@@ -49,6 +49,9 @@
     "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "permission_state_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "permission_provenance_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+    "profile_origin_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+    "provider_control_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+    "materialization_manifest_ref": {"type": "string", "minLength": 1},
     "child_routes": {
       "type": "array",
       "items": {"$ref": "#/$defs/child_route"}
@@ -64,7 +67,7 @@
         "required": ["experiment_type"]
       },
       "then": {
-        "required": ["fresh_root_evidence"],
+        "required": ["fresh_root_evidence", "profile_origin_assurance", "provider_control_assurance", "materialization_manifest_ref"],
         "properties": {
           "child_routes": {
             "items": {
@@ -74,6 +77,12 @@
                 "role_contract_digest",
                 "configured_model",
                 "configured_effort",
+                "expected_profile_path",
+                "expected_profile_sha256",
+                "profile_origin_verdict",
+                "provider_control_verdict",
+                "runtime_evidence_ref",
+                "runtime_evidence_sha256",
                 "requested_agent_type",
                 "accepted_agent_type",
                 "accepted_agent_type_verdict",
@@ -108,12 +117,12 @@
     },
     "fresh_root_evidence": {
       "type": "object",
-      "required": ["provisioning_root_id", "execution_root_id", "fork_turns", "host_restart_evidence_ref"],
+      "required": ["provisioning_task_id", "execution_task_id", "fork_turns", "fresh_task_evidence_ref"],
       "properties": {
-        "provisioning_root_id": {"type": "string", "minLength": 1},
-        "execution_root_id": {"type": "string", "minLength": 1},
+        "provisioning_task_id": {"type": "string", "minLength": 1},
+        "execution_task_id": {"type": "string", "minLength": 1},
         "fork_turns": {"const": "none"},
-        "host_restart_evidence_ref": {"type": "string", "minLength": 1}
+        "fresh_task_evidence_ref": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },
@@ -278,12 +287,14 @@
     },
     "observed_route": {
       "type": "object",
-      "required": ["model", "effort", "sandbox_policy_type", "permission_profile_type"],
+      "required": ["model", "effort", "sandbox_policy_type", "permission_profile_type", "agent_path", "model_provider"],
       "properties": {
         "model": {"type": ["string", "null"]},
         "effort": {"type": ["string", "null"], "enum": [null, "minimal", "low", "medium", "high", "xhigh", "max"]},
         "sandbox_policy_type": {"type": ["string", "null"]},
         "permission_profile_type": {"type": ["string", "null"]}
+        ,"agent_path": {"type": ["string", "null"]}
+        ,"model_provider": {"type": ["string", "null"]}
       },
       "additionalProperties": false
     },
@@ -315,6 +326,12 @@
         "role_contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "configured_model": {"type": "string", "minLength": 1},
         "configured_effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]},
+        "expected_profile_path": {"type": "string", "minLength": 1},
+        "expected_profile_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "profile_origin_verdict": {"enum": ["verified", "unknown", "failed"]},
+        "provider_control_verdict": {"enum": ["verified", "unknown", "failed"]},
+        "runtime_evidence_ref": {"type": "string", "minLength": 1},
+        "runtime_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
         "observed": {"$ref": "#/$defs/observed_route"},
         "permission_state_verdict": {"enum": ["verified", "unknown", "failed"]},
