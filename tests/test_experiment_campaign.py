@@ -5,10 +5,14 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
+sys.path.insert(0, str(ROOT / "scripts"))
+from calibration_profile_contract import materialized_agent_type, role_contract_digest  # noqa: E402
+sys.path.pop(0)
 
 
 def assurance_requirements(claim_kind: str = "model_effort") -> dict:
@@ -35,12 +39,28 @@ def task_hash(text: str) -> str:
 
 def route(role: str, *, route_id: str, challenger: bool = False) -> dict:
     configured = POLICY["roles"][role]
-    return {
+    payload = {
         "id": route_id,
-        "model": configured["model"] if not challenger else f"{configured['model']}-candidate",
-        "effort": configured["effort"],
+        "model": (
+            configured["model"]
+            if not challenger or role != "reader"
+            else "gpt-5.6-terra"
+        ),
+        "effort": "xhigh" if challenger and role == "reader" else configured["effort"],
         "mutation_authority": configured["mutation_authority"],
     }
+    if role == "reader":
+        profile = tomllib.loads((ROOT / "agent-profiles" / "subagents-dispatch-reader.toml").read_text())
+        payload.update(
+            semantic_role="reader",
+            configured_model=payload["model"],
+            configured_effort=payload["effort"],
+            materialized_agent_type=materialized_agent_type("reader-calibration-fixture", "reader", route_id),
+            role_contract_digest=role_contract_digest(
+                "reader", profile["description"], profile["developer_instructions"], "none"
+            ),
+        )
+    return payload
 
 
 def workload(
@@ -249,7 +269,7 @@ def test_challenger_cannot_change_mutation_authority_contract(tmp_path: Path):
     )
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
-    assert "changes mutation_authority" in result.stderr
+    assert "must be exactly Terra XHigh" in result.stderr
 
 
 def test_task_hash_binds_exact_task_bytes(tmp_path: Path):
@@ -298,13 +318,47 @@ def test_duplicate_route_shape_is_rejected(tmp_path: Path):
     control = payload["experiment"]["roles"][0]["control"]
     payload["experiment"]["roles"][0]["challengers"][0] = {
         "id": "different-id",
-        "model": control["model"],
+        "model": "gpt-5.6-terra",
         "effort": control["effort"],
         "mutation_authority": control["mutation_authority"],
+        "semantic_role": control["semantic_role"],
+        "configured_model": control["configured_model"],
+        "configured_effort": control["configured_effort"],
+        "materialized_agent_type": "subagents_dispatch_calibration_reader_different_id_0000000000000000",
+        "role_contract_digest": control["role_contract_digest"],
     }
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
-    assert "challenger identical to another route" in result.stderr
+    assert "must be exactly Terra XHigh" in result.stderr
+
+
+def test_reader_calibration_rejects_contract_identity_and_configured_route_drift(tmp_path: Path):
+    cases = [
+        ("role_contract_digest", "0" * 64, "role_contract_digest does not match"),
+        (
+            "materialized_agent_type",
+            "subagents_dispatch_calibration_reader_wrong_0000000000000000",
+            "materialized_agent_type is not deterministic",
+        ),
+        ("configured_model", "gpt-5.6-sol", "configured route must match model/effort"),
+        ("configured_effort", "low", "configured route must match model/effort"),
+    ]
+    for field, value, message in cases:
+        payload = role_campaign()
+        payload["experiment"]["roles"][0]["challengers"][0][field] = value
+        result = run_validator(tmp_path, payload)
+        assert result.returncode != 0
+        assert message in result.stderr
+
+
+def test_reader_calibration_rejects_duplicate_materialized_identity(tmp_path: Path):
+    payload = role_campaign()
+    role_spec = payload["experiment"]["roles"][0]
+    role_spec["challengers"][0]["id"] = role_spec["control"]["id"]
+    role_spec["challengers"][0]["materialized_agent_type"] = role_spec["control"]["materialized_agent_type"]
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert "duplicates materialized_agent_type" in result.stderr
 
 
 def test_product_benchmark_rejects_predeclared_calibration_role(tmp_path: Path):
@@ -398,4 +452,4 @@ def test_role_calibration_rejects_declared_role_without_workload(tmp_path: Path)
     )
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
-    assert "role-calibration campaign has no workload for roles: worker" in result.stderr
+    assert "initial calibration profile materialization supports only the Reader role" in result.stderr

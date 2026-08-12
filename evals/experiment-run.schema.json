@@ -54,8 +54,38 @@
       "items": {"$ref": "#/$defs/child_route"}
     },
     "metrics": {"$ref": "#/$defs/metrics"},
-    "evidence_artifact_ref": {"type": "string", "minLength": 1}
+    "evidence_artifact_ref": {"type": "string", "minLength": 1},
+    "fresh_root_evidence": {"$ref": "#/$defs/fresh_root_evidence"}
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"experiment_type": {"const": "role_calibration"}},
+        "required": ["experiment_type"]
+      },
+      "then": {
+        "required": ["fresh_root_evidence"],
+        "properties": {
+          "child_routes": {
+            "items": {
+              "required": [
+                "semantic_role",
+                "materialized_agent_type",
+                "role_contract_digest",
+                "configured_model",
+                "configured_effort",
+                "requested_agent_type",
+                "accepted_agent_type",
+                "accepted_agent_type_verdict",
+                "accepted_agent_type_evidence_ref",
+                "observed_agent_type"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "product_arm": {
       "type": "object",
@@ -73,6 +103,17 @@
         "kind": {"const": "role_calibration"},
         "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
         "route_id": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "fresh_root_evidence": {
+      "type": "object",
+      "required": ["provisioning_root_id", "execution_root_id", "fork_turns", "host_restart_evidence_ref"],
+      "properties": {
+        "provisioning_root_id": {"type": "string", "minLength": 1},
+        "execution_root_id": {"type": "string", "minLength": 1},
+        "fork_turns": {"const": "none"},
+        "host_restart_evidence_ref": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },
@@ -264,6 +305,16 @@
         "child_thread_id": {"type": "string", "minLength": 1},
         "parent_thread_id": {"type": "string", "minLength": 1},
         "agent_type": {"type": "string", "minLength": 1},
+        "requested_agent_type": {"type": "string", "minLength": 1},
+        "accepted_agent_type": {"type": ["string", "null"]},
+        "accepted_agent_type_verdict": {"enum": ["verified", "unknown", "failed"]},
+        "accepted_agent_type_evidence_ref": {"type": ["string", "null"]},
+        "observed_agent_type": {"type": "string", "minLength": 1},
+        "semantic_role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
+        "materialized_agent_type": {"type": "string", "minLength": 1},
+        "role_contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "configured_model": {"type": "string", "minLength": 1},
+        "configured_effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]},
         "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
         "observed": {"$ref": "#/$defs/observed_route"},
         "permission_state_verdict": {"enum": ["verified", "unknown", "failed"]},

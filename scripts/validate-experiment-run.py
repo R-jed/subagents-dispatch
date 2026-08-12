@@ -10,9 +10,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 from typing import Any, NoReturn
 
 import jsonschema
@@ -71,15 +73,26 @@ def canonical_sha256(payload: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def validated_campaign_summary(path: Path) -> dict[str, Any]:
+def validated_campaign(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        frozen_bytes = path.read_bytes()
+    except OSError as exc:
+        fail(f"could not freeze campaign: {exc}")
+    fd, frozen_name = tempfile.mkstemp(prefix=".frozen-campaign-", suffix=".json", dir=path.parent)
+    frozen_path = Path(frozen_name)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(frozen_bytes)
+        handle.flush()
+        os.fsync(handle.fileno())
     result = subprocess.run(
-        [sys.executable, str(CAMPAIGN_VALIDATOR), str(path), "--json"],
+        [sys.executable, str(CAMPAIGN_VALIDATOR), str(frozen_path), "--json"],
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
     )
+    frozen_path.unlink(missing_ok=True)
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip() or str(result.returncode)
         fail(f"campaign validation failed: {detail}")
@@ -89,7 +102,19 @@ def validated_campaign_summary(path: Path) -> dict[str, Any]:
         fail(f"campaign validator returned invalid JSON: {exc}")
     if not isinstance(summary, dict):
         fail("campaign validator summary must be a JSON object")
-    return summary
+    try:
+        campaign = json.loads(frozen_bytes)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        fail(f"could not load frozen campaign: {exc}")
+    if not isinstance(campaign, dict):
+        fail("frozen campaign must be a JSON object")
+    try:
+        current_bytes = path.read_bytes()
+    except OSError as exc:
+        fail(f"could not recheck campaign: {exc}")
+    if current_bytes != frozen_bytes:
+        fail("campaign changed while validating the run")
+    return summary, campaign
 
 
 def validate_schema(run: dict[str, Any]) -> None:
@@ -118,6 +143,29 @@ def calibration_route(campaign: dict[str, Any], role: str, route_id: str) -> dic
     if len(matches) != 1:
         fail(f"route_id {route_id!r} is not a declared route for calibration role {role!r}")
     return matches[0]
+
+
+def validate_materialized_binding(route: dict[str, Any], *, role: str, label: str) -> None:
+    expected = route.get("materialized_agent_type")
+    if expected is not None and route.get("semantic_role") != role:
+        fail(f"{label} semantic_role must match {role!r}")
+    if expected is not None and route.get("role_contract_digest") is None:
+        fail(f"{label} role_contract_digest is required for calibration binding")
+    if expected is not None and route.get("configured_model", route["model"]) != route["model"]:
+        fail(f"{label} configured_model must match the campaign route")
+    if expected is not None and route.get("configured_effort", route["effort"]) != route["effort"]:
+        fail(f"{label} configured_effort must match the campaign route")
+
+
+def validate_fresh_root(run: dict[str, Any]) -> None:
+    evidence = run["fresh_root_evidence"]
+    require_text(evidence["provisioning_root_id"], "fresh_root_evidence.provisioning_root_id")
+    require_text(evidence["execution_root_id"], "fresh_root_evidence.execution_root_id")
+    if evidence["provisioning_root_id"] == evidence["execution_root_id"]:
+        fail("fresh_root_evidence requires different provisioning and execution roots")
+    if evidence["fork_turns"] != "none":
+        fail("calibration execution requires fork_turns=none")
+    require_text(evidence["host_restart_evidence_ref"], "fresh_root_evidence.host_restart_evidence_ref")
 
 
 def validate_measurement(measurement: dict[str, Any], label: str) -> None:
@@ -489,6 +537,8 @@ def derived_assurance(verdicts: set[str], materialized_count: int | None) -> str
 
 
 def validate_product_arm(run: dict[str, Any], campaign: dict[str, Any], policy: dict[str, Any]) -> None:
+    if "fresh_root_evidence" in run:
+        fail("product_benchmark runs cannot use calibration fresh_root_evidence")
     arm = run["arm"]
     if arm["kind"] != "product_benchmark":
         fail("product_benchmark campaign requires a product_benchmark run arm")
@@ -505,6 +555,8 @@ def validate_product_arm(run: dict[str, Any], campaign: dict[str, Any], policy: 
 
     seen_children: set[str] = set()
     for route in routes:
+        if route.get("materialized_agent_type", "").startswith("subagents_dispatch_calibration_"):
+            fail("product_benchmark runs cannot use calibration materialized_agent_type")
         child_id = route["child_thread_id"]
         if child_id in seen_children:
             fail(f"run duplicates child_thread_id {child_id!r}")
@@ -523,6 +575,7 @@ def validate_calibration_arm(
         fail("calibration run arm role must match the workload calibration_role")
 
     selected = calibration_route(campaign, arm["role"], arm["route_id"])
+    validate_fresh_root(run)
     routes = run["child_routes"]
     if len(routes) != 1:
         fail("role_calibration run must bind exactly one materialized project child")
@@ -530,13 +583,39 @@ def validate_calibration_arm(
     if route["role"] != arm["role"]:
         fail("calibration child role must match the selected calibration arm role")
 
-    policy_route = expected_policy_route(policy, arm["role"])
+    if selected.get("materialized_agent_type") is None:
+        fail("calibration route is missing its dedicated materialized_agent_type")
     expected = {
-        "agent_type": policy_route["agent_type"],
+        "agent_type": selected["materialized_agent_type"],
         "model": selected["model"],
         "effort": selected["effort"],
         "mutation_authority": selected["mutation_authority"],
     }
+    validate_materialized_binding(selected, role=arm["role"], label="calibration route")
+    for field in (
+        "semantic_role",
+        "materialized_agent_type",
+        "role_contract_digest",
+        "configured_model",
+        "configured_effort",
+    ):
+        if route.get(field) != selected.get(field, selected.get("role_contract_digest")):
+            fail(f"calibration child {field} does not match the selected campaign route")
+    route_identity = {
+        "requested_agent_type": route.get("requested_agent_type"),
+        "accepted_agent_type": route.get("accepted_agent_type"),
+        "observed_agent_type": route.get("observed_agent_type"),
+    }
+    if route_identity["requested_agent_type"] != selected["materialized_agent_type"]:
+        fail("calibration child requested_agent_type does not match selected route")
+    if route_identity["accepted_agent_type"] != selected["materialized_agent_type"] or route.get("accepted_agent_type_verdict") != "verified":
+        fail("calibration child accepted_agent_type must verify the selected route")
+    require_text(
+        route.get("accepted_agent_type_evidence_ref"),
+        "calibration child accepted_agent_type_evidence_ref",
+    )
+    if route_identity["observed_agent_type"] != selected["materialized_agent_type"]:
+        fail("calibration child observed_agent_type does not match selected route")
     validate_child_route(route, root_thread_id=run["root_thread_id"], expected=expected)
 
 
@@ -568,8 +647,7 @@ def validate_metrics(run: dict[str, Any], materialized_count: int | None) -> Non
 
 def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
     validate_schema(run)
-    campaign_summary = validated_campaign_summary(campaign_path)
-    campaign = load_json(campaign_path, "campaign")
+    campaign_summary, campaign = validated_campaign(campaign_path)
 
     for field, expected in (
         ("campaign_id", campaign_summary["campaign_id"]),

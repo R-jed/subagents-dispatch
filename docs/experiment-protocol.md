@@ -48,6 +48,8 @@ External/community configurations are useful sources of challenger hypotheses. T
 
 A role-calibration workload names exactly one `calibration_role`. The campaign declares the current-policy control route and one or more model/effort challengers for that same role. Every role declared in `experiment.roles` must be backed by at least one workload in the same frozen campaign; unused route arms are invalid campaign input.
 
+The initial materialization helper supports one Reader control and one exact Terra XHigh challenger. Run `scripts/calibration_profiles.py init` on an empty evaluator-owned root first; then freeze the campaign with computed route metadata. `create|check|cleanup` never edits that campaign. It derives each calibration TOML from the canonical Reader profile, adds a deterministic collision-safe `materialized_agent_type`, and records one shared `role_contract_digest` for the semantic role contract plus fixed fresh-context/depth/permission requirements. Creation returns `RESTART_REQUIRED`: a full App restart and fresh isolated root are mandatory before execution, with `fork_turns=none`. Cleanup removes only recomputed owned profiles and the manifest; the ownership lock is retained for mutual exclusion. Production `~/.codex`, packaged profiles, and ordinary Dispatch discovery are never managed by this helper.
+
 ### Product benchmark
 
 ```json
@@ -95,6 +97,8 @@ Then compare route candidates for that same responsibility.
 The current-policy route is the control. The experiment validator rejects a control that differs from current `policy.json`.
 
 A model/effort challenger must keep the role mutation authority unchanged. Do not change task decomposition, acceptance, allowed tools, write scope, role decision rights, or behavioral authority between route arms. Observed Host sandbox and permission profile are runtime evidence, not configured route fields. If those controls change, it is a different experiment.
+
+The binding failure that motivated this helper is concrete: the campaign requested a Terra XHigh challenger, but the spawn used the production Reader `agent_type`, whose installed profile pins Luna Max; Host observation recorded Luna Max. The Host's internal precedence/override reason remains unknown. Calibration runs therefore record requested, accepted, and observed Agent identity separately and require all three to equal the frozen materialized profile.
 
 A challenger being syntactically valid in the campaign does not prove the current Host can run it. Host availability and actual runtime route are execution evidence. Unsupported, rejected, or unobservable candidate routes stay failed/UNKNOWN; never silently substitute another model or effort.
 

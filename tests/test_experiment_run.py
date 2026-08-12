@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 RUN_VALIDATOR = SCRIPTS / "validate-experiment-run.py"
 POLICY = ROOT / "contracts" / "policy.json"
+sys.path.insert(0, str(SCRIPTS))
+from calibration_profile_contract import materialized_agent_type, role_contract_digest  # noqa: E402
+sys.path.pop(0)
 
 
 def assurance_requirements(claim_kind: str = "model_effort") -> dict:
@@ -117,18 +120,22 @@ def product_campaign(*, stage: str = "exploratory") -> dict:
 def calibration_campaign() -> dict:
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     reader = policy["roles"]["reader"]
+    profile = __import__("tomllib").loads((ROOT / "agent-profiles" / "subagents-dispatch-reader.toml").read_text())
+    digest = role_contract_digest("reader", profile["description"], profile["developer_instructions"], "none")
     control = {
         "id": "reader-control",
         "model": reader["model"],
         "effort": reader["effort"],
         "mutation_authority": reader["mutation_authority"],
+        "semantic_role": "reader", "configured_model": reader["model"], "configured_effort": reader["effort"], "materialized_agent_type": materialized_agent_type("calibration-campaign", "reader", "reader-control"), "role_contract_digest": digest,
     }
-    challenger_effort = "xhigh" if reader["effort"] != "xhigh" else "high"
+    challenger_effort = "xhigh"
     challenger = {
         "id": "reader-challenger",
-        "model": reader["model"],
+        "model": "gpt-5.6-terra",
         "effort": challenger_effort,
         "mutation_authority": reader["mutation_authority"],
+        "semantic_role": "reader", "configured_model": "gpt-5.6-terra", "configured_effort": challenger_effort, "materialized_agent_type": materialized_agent_type("calibration-campaign", "reader", "reader-challenger"), "role_contract_digest": digest,
     }
     return {
         "schema_version": "2.0",
@@ -669,7 +676,6 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
 
 def calibration_run(campaign: dict) -> dict:
     challenger = campaign["experiment"]["roles"][0]["challengers"][0]
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))["roles"]["reader"]
     run = base_run(campaign)
     run.update(
         run_id="run-reader-challenger-1",
@@ -685,7 +691,17 @@ def calibration_run(campaign: dict) -> dict:
         {
             "child_thread_id": "child-reader-1",
             "parent_thread_id": "root-thread-1",
-            "agent_type": policy["agent_type"],
+            "agent_type": challenger["materialized_agent_type"],
+            "requested_agent_type": challenger["materialized_agent_type"],
+            "accepted_agent_type": challenger["materialized_agent_type"],
+            "accepted_agent_type_verdict": "verified",
+            "accepted_agent_type_evidence_ref": "host:accepted-agent",
+            "observed_agent_type": challenger["materialized_agent_type"],
+            "semantic_role": "reader",
+            "materialized_agent_type": challenger["materialized_agent_type"],
+            "role_contract_digest": challenger["role_contract_digest"],
+            "configured_model": challenger["configured_model"],
+            "configured_effort": challenger["configured_effort"],
             "role": "reader",
             "observed": {
                 "model": challenger["model"],
@@ -709,6 +725,12 @@ def calibration_run(campaign: dict) -> dict:
             "evidence_ref": "runtime:reader-challenger",
         }
     ]
+    run["fresh_root_evidence"] = {
+        "provisioning_root_id": "provisioning-root-1",
+        "execution_root_id": "execution-root-1",
+        "fork_turns": "none",
+        "host_restart_evidence_ref": "host:full-app-restart",
+    }
     return run
 
 
@@ -723,6 +745,69 @@ def test_role_calibration_run_binds_packet_and_declared_challenger(tmp_path: Pat
     run["arm"]["route_id"] = "undeclared-route"
     with pytest.raises(SystemExit, match="not a declared route"):
         validate(tmp_path, campaign, run)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("materialized_agent_type", "subagents_dispatch_calibration_reader_wrong_0000000000000000"),
+        ("role_contract_digest", "0" * 64),
+        ("configured_model", "gpt-5.6-sol"),
+        ("configured_effort", "low"),
+    ],
+)
+def test_role_calibration_child_identity_and_configured_metadata_must_match_campaign(
+    tmp_path: Path, field: str, value: str
+):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    run["child_routes"][0][field] = value
+    with pytest.raises(SystemExit, match=f"calibration child {field}"):
+        validate(tmp_path, campaign, run)
+
+
+def test_observed_calibration_route_mismatch_is_failed_without_overwriting_observation(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["observed"]["model"] = "gpt-5.6-sol"
+    with pytest.raises(SystemExit, match="mismatch requires verdict=failed"):
+        validate(tmp_path, campaign, run)
+
+    route["verdict"] = "failed"
+    run["route_assurance"] = "failed"
+    result = validate(tmp_path, campaign, run)
+    assert result["route_assurance"] == "failed"
+    assert route["observed"]["model"] == "gpt-5.6-sol"
+
+
+def test_product_run_rejects_calibration_agent_identity_prefix(tmp_path: Path):
+    campaign = product_campaign()
+    run = base_run(campaign, mode="dispatch")
+    route = child_route()
+    route["materialized_agent_type"] = "subagents_dispatch_calibration_reader_fake"
+    add_one_child(run, route)
+    with pytest.raises(SystemExit, match="cannot use calibration materialized_agent_type"):
+        validate(tmp_path, campaign, run)
+
+
+def test_calibration_requires_distinct_fresh_roots_and_verified_agent_identity(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    run["fresh_root_evidence"]["execution_root_id"] = run["fresh_root_evidence"]["provisioning_root_id"]
+    with pytest.raises(SystemExit, match="different provisioning and execution roots"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    run["child_routes"][0]["accepted_agent_type"] = "wrong"
+    with pytest.raises(SystemExit, match="accepted_agent_type"):
+        validate(tmp_path, campaign, run)
+
+    for invalid_ref in (None, "", "TBD"):
+        run = calibration_run(campaign)
+        run["child_routes"][0]["accepted_agent_type_evidence_ref"] = invalid_ref
+        with pytest.raises(SystemExit, match="accepted_agent_type_evidence_ref"):
+            validate(tmp_path, campaign, run)
 
 
 def test_role_calibration_requires_observed_exactly_one_child(tmp_path: Path):

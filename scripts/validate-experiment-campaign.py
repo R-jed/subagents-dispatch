@@ -9,15 +9,18 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tomllib
 from typing import Any, NoReturn
 
 import jsonschema
 
 from policy import load_policy_contract
+from calibration_profile_contract import materialized_agent_type, role_contract_digest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "evals" / "experiment-campaign.schema.json"
 PLACEHOLDERS = {"unknown", "tbd", "todo", "placeholder"}
+CALIBRATION_PROFILE = ROOT / "agent-profiles" / "subagents-dispatch-reader.toml"
 
 
 def fail(message: str) -> NoReturn:
@@ -55,6 +58,21 @@ def canonical_sha256(payload: dict[str, Any]) -> str:
 
 def task_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def canonical_role_contract_digest(role: str) -> str:
+    if role != "reader":
+        fail("initial calibration profile materialization supports only the Reader role")
+    try:
+        profile = tomllib.loads(CALIBRATION_PROFILE.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        fail(f"could not load canonical Reader profile: {exc}")
+    return role_contract_digest(
+        role,
+        str(profile.get("description", "")),
+        str(profile.get("developer_instructions", "")),
+        "none",
+    )
 
 
 def current_head() -> str:
@@ -167,8 +185,11 @@ def validate_role_calibration(
         require_frozen_text(promotion_ref, "promotion_criteria_ref")
 
     role_specs: dict[str, dict[str, Any]] = {}
+    identities: set[str] = set()
     for spec in experiment["roles"]:
         role = spec["role"]
+        if role != "reader":
+            fail("initial calibration profile materialization supports only the Reader role")
         if role in role_specs:
             fail(f"campaign duplicates role {role!r}")
         role_specs[role] = spec
@@ -182,6 +203,36 @@ def validate_role_calibration(
                 f"role {role!r} control must exactly match the current policy route; "
                 "calibration cannot rewrite its baseline"
             )
+        if len(spec["challengers"]) != 1:
+            fail("Reader calibration currently requires exactly one challenger arm")
+        challenger = spec["challengers"][0]
+        if (challenger["model"], challenger["effort"], challenger["mutation_authority"]) != (
+            "gpt-5.6-terra",
+            "xhigh",
+            "none",
+        ):
+            fail("Reader calibration challenger must be exactly Terra XHigh with mutation_authority=none")
+        # Detect duplicate route shapes before optional materialization metadata,
+        # preserving the original campaign error for malformed challengers.
+        for challenger in spec["challengers"]:
+            if route_tuple(challenger) == route_tuple(control):
+                fail(f"role {role!r} contains a challenger identical to another route")
+        if role == "reader":
+            expected_digest = canonical_role_contract_digest(role)
+            for route_label, route in [("control", control), *[(f"challenger {item['id']!r}", item) for item in spec["challengers"]]]:
+                if route.get("semantic_role") not in {None, role}:
+                    fail(f"role {role!r} {route_label} semantic_role must equal {role!r}")
+                if route.get("configured_model", route["model"]) != route["model"] or route.get("configured_effort", route["effort"]) != route["effort"]:
+                    fail(f"role {role!r} {route_label} configured route must match model/effort")
+                expected_identity = materialized_agent_type(campaign["campaign_id"], role, route["id"])
+                if route.get("materialized_agent_type", expected_identity) != expected_identity:
+                    fail(f"role {role!r} {route_label} materialized_agent_type is not deterministic")
+                materialized = route.get("materialized_agent_type", expected_identity)
+                if materialized in identities:
+                    fail(f"campaign duplicates materialized_agent_type {materialized!r}")
+                identities.add(materialized)
+                if route.get("role_contract_digest", expected_digest) != expected_digest:
+                    fail(f"role {role!r} {route_label} role_contract_digest does not match canonical contract")
 
         route_ids = {control["id"]}
         route_shapes = {route_tuple(control)}
@@ -203,6 +254,8 @@ def validate_role_calibration(
                     f"role {role!r} challenger {challenger_id!r} changes mutation_authority; "
                     "route calibration must keep the behavioral authority contract fixed"
                 )
+            if (challenger["model"], challenger["effort"]) == (control["model"], control["effort"]):
+                fail(f"role {role!r} challenger {challenger_id!r} must change model and/or effort")
 
     workloads_by_role = {role: 0 for role in role_specs}
     for workload in campaign["workloads"]:
