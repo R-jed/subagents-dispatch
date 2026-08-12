@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tomllib
 
 import pytest
 
@@ -77,6 +78,16 @@ def run(tmp_path: Path, command: str, *, home: Path | None = None, campaign_path
     evaluator.mkdir(exist_ok=True)
     home = home or evaluator / "isolated-codex"
     campaign_path = campaign_path or prepare_campaign(evaluator)
+    config = evaluator / "config.toml"
+    if not config.exists():
+        config.write_text('model = "keep"\n', encoding="utf-8")
+    marketplace = evaluator / "marketplace"
+    plugin = marketplace / "plugins" / "subagents-dispatch"
+    plugin.mkdir(parents=True, exist_ok=True)
+    (plugin / ".codex-plugin").mkdir(exist_ok=True)
+    (plugin / ".codex-plugin" / "plugin.json").write_text(
+        '{"name":"subagents-dispatch","version":"3.0.0"}', encoding="utf-8"
+    )
     return subprocess.run(
         [
             sys.executable,
@@ -88,12 +99,538 @@ def run(tmp_path: Path, command: str, *, home: Path | None = None, campaign_path
             str(home),
             "--campaign",
             str(campaign_path),
+            "--shared-config",
+            str(evaluator / "config.toml"),
+            "--marketplace-source",
+            str(evaluator / "marketplace"),
         ],
         cwd=ROOT,
         text=True,
         capture_output=True,
         check=False,
     )
+
+
+def test_create_rejects_preexisting_identical_shared_marketplace(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    source = evaluator / "marketplace"
+    (source / "plugins" / "subagents-dispatch").mkdir(parents=True)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    marketplace = f"subagents-dispatch-v3-exact-{payload['plugin_candidate_sha'][:8]}"
+    (evaluator / "config.toml").write_text(
+        f'[marketplaces.{marketplace}]\nsource = "{source}"\n', encoding="utf-8"
+    )
+    result = run(tmp_path, "create", campaign_path=path)
+    assert result.returncode != 0
+    assert "pre-existing shared config object" in result.stderr
+
+
+def test_failure_after_prepared_leaves_durable_intent_without_config_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    source = evaluator / "marketplace"
+    (source / "plugins" / "subagents-dispatch").mkdir(parents=True)
+    config = evaluator / "config.toml"
+    config.write_text('model = "keep"\n', encoding="utf-8")
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT", "after_prepared")
+    result = run(tmp_path, "create", campaign_path=path)
+    assert result.returncode != 0
+    assert "marketplaces." not in config.read_text(encoding="utf-8")
+    journal = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert journal["shared_config_mutations"][0]["status"] == "PREPARED"
+
+
+def test_cleanup_preserves_cc_switch_and_unrelated_config_changes(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    config = evaluator / "config.toml"
+    owned_table = config.read_text(encoding="utf-8").split("\n", 1)[1]
+    config.write_text(
+        'model = "cc-switch-model"\nmodel_provider = "cc-switch-provider"\n'
+        + '[model_providers.cc-switch-provider]\nbase_url = "https://example.invalid"\n'
+        + '[features]\nnew_feature = true\n'
+        + '[projects."/unrelated"]\ntrust_level = "trusted"\n'
+        + '[mcp_servers.unrelated]\ncommand = "keep"\n'
+        + '[marketplaces.user-added]\nsource = "/unrelated"\n'
+        + owned_table,
+        encoding="utf-8",
+    )
+    cleaned = run(tmp_path, "cleanup", campaign_path=path)
+    assert cleaned.returncode == 0, cleaned.stderr
+    parsed = tomllib.loads(config.read_text(encoding="utf-8"))
+    assert parsed["model"] == "cc-switch-model"
+    assert parsed["model_provider"] == "cc-switch-provider"
+    assert parsed["model_providers"]["cc-switch-provider"]["base_url"] == "https://example.invalid"
+    assert parsed["features"]["new_feature"] is True
+    assert parsed["projects"]["/unrelated"]["trust_level"] == "trusted"
+    assert parsed["mcp_servers"]["unrelated"]["command"] == "keep"
+    assert parsed["marketplaces"]["user-added"]["source"] == "/unrelated"
+    assert all("subagents-dispatch-v3-exact" not in key for key in parsed["marketplaces"])
+
+
+def test_recover_after_config_write_before_applied_removes_only_owned_table(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT", "after_config_mutation")
+    failed = run(tmp_path, "create", campaign_path=path)
+    assert failed.returncode != 0
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT")
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode == 0, recovered.stderr
+    parsed = tomllib.loads((evaluator / "config.toml").read_text(encoding="utf-8"))
+    assert "marketplaces" not in parsed
+    assert "plugins" not in parsed
+
+
+@pytest.mark.parametrize(
+    "boundary",
+    ["after_applied", "after_committed", "after_cleanup_pending", "after_cleanup_mutation"],
+)
+def test_crash_boundaries_recover_idempotently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, boundary: str
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    if boundary.startswith("after_cleanup"):
+        assert run(tmp_path, "create", campaign_path=path).returncode == 0
+        command = "cleanup"
+    else:
+        command = "create"
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", boundary)
+    crashed = run(tmp_path, command, campaign_path=path)
+    assert crashed.returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+    assert run(tmp_path, "recover", campaign_path=path).returncode == 0
+    assert run(tmp_path, "recover", campaign_path=path).returncode == 0
+    parsed = tomllib.loads((evaluator / "config.toml").read_text(encoding="utf-8"))
+    assert all("subagents-dispatch-v3-exact" not in key for key in parsed.get("marketplaces", {}))
+
+
+def test_cleanup_conflicts_when_owned_marketplace_changes(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    config = evaluator / "config.toml"
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            str(evaluator / "marketplace"), "/externally-modified"
+        ),
+        encoding="utf-8",
+    )
+    result = run(tmp_path, "cleanup", campaign_path=path)
+    assert result.returncode != 0
+    assert "externally modified" in result.stderr
+    assert "/externally-modified" in config.read_text(encoding="utf-8")
+
+
+def test_shared_config_symlink_is_rejected(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    target = evaluator / "real.toml"
+    target.write_text('model = "keep"\n', encoding="utf-8")
+    (evaluator / "config.toml").symlink_to(target)
+    result = run(tmp_path, "create", campaign_path=path)
+    assert result.returncode != 0
+    assert "symlinked shared config" in result.stderr
+
+
+def test_malformed_shared_config_is_rejected_before_setup_and_cleanup(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    config = evaluator / "config.toml"
+    config.write_text("[broken", encoding="utf-8")
+    assert run(tmp_path, "create", campaign_path=path).returncode != 0
+    config.write_text('model = "keep"\n', encoding="utf-8")
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    config.write_text("[broken", encoding="utf-8")
+    result = run(tmp_path, "cleanup", campaign_path=path)
+    assert result.returncode != 0
+    assert "malformed shared config" in result.stderr
+
+
+def test_config_replaced_after_prepared_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT", "after_prepared")
+    assert run(tmp_path, "create", campaign_path=path).returncode != 0
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT")
+    config = evaluator / "config.toml"
+    replacement = evaluator / "replacement.toml"
+    replacement.write_text(config.read_text(encoding="utf-8"), encoding="utf-8")
+    replacement.replace(config)
+    result = run(tmp_path, "create", campaign_path=path)
+    assert result.returncode != 0
+    assert "unresolved shared config transaction" in result.stderr
+    recover = run(tmp_path, "recover", campaign_path=path)
+    assert recover.returncode == 0, recover.stderr
+
+
+def test_manifest_and_transaction_tampering_fail_closed(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json"
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["shared_config_mutations"][0]["semantic_path"] = ["model"]
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    result = run(tmp_path, "cleanup", campaign_path=path)
+    assert result.returncode != 0
+    assert "semantic path" in result.stderr
+
+
+@pytest.mark.parametrize("field", ["campaign_id", "candidate_sha", "transaction_id"])
+def test_transaction_identity_tampering_fails_closed(tmp_path: Path, field: str):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json"
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["shared_config_mutations"][0][field] = "tampered"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    result = run(tmp_path, "cleanup", campaign_path=path)
+    assert result.returncode != 0
+    assert "mismatch" in result.stderr or "identity drifted" in result.stderr
+
+
+def test_owned_entry_already_removed_cleanup_is_idempotent(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    config = evaluator / "config.toml"
+    text = config.read_text(encoding="utf-8")
+    config.write_text(text[: text.index("\n[marketplaces.")] + "\n", encoding="utf-8")
+    first = run(tmp_path, "cleanup", campaign_path=path)
+    second = run(tmp_path, "cleanup", campaign_path=path)
+    assert first.returncode == second.returncode == 0
+
+
+def test_cleanup_recovers_after_one_profile_was_already_removed(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    home = evaluator / "isolated-codex"
+    assert run(tmp_path, "create", home=home, campaign_path=path).returncode == 0
+    sorted((home / "agents").glob("*.toml"))[0].unlink()
+    result = run(tmp_path, "recover", home=home, campaign_path=path)
+    assert result.returncode == 0, result.stderr
+    assert list((home / "agents").glob("*.toml")) == []
+
+
+def test_plugin_setup_failure_rolls_back_shared_config_and_profiles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT", "plugin_install")
+    result = run(tmp_path, "create", campaign_path=path)
+    assert result.returncode != 0
+    parsed = tomllib.loads((evaluator / "config.toml").read_text(encoding="utf-8"))
+    assert "marketplaces" not in parsed
+    assert "plugins" not in parsed
+    assert list((evaluator / "isolated-codex" / "agents").glob("*.toml")) == []
+
+
+def test_check_rejects_orphaned_plugin_cache(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    cache = next(
+        Path(item["path"])
+        for item in manifest["owned_objects"]
+        if item["object_type"] == "directory" and "/plugins/cache/" in item["path"]
+    )
+    import shutil
+
+    shutil.rmtree(cache)
+    checked = run(tmp_path, "check", campaign_path=path)
+    assert checked.returncode != 0
+    assert "filesystem ownership is incomplete" in checked.stderr
+
+
+def test_directory_ownership_tampering_cannot_delete_unrelated_directory(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    unrelated = evaluator / "unrelated-directory"
+    unrelated.mkdir()
+    (unrelated / "keep").write_text("keep", encoding="utf-8")
+    manifest = evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json"
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    next(item for item in payload["owned_objects"] if item["object_type"] == "directory")["path"] = str(unrelated)
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    result = run(tmp_path, "cleanup", campaign_path=path)
+    assert result.returncode != 0
+    assert (unrelated / "keep").read_text(encoding="utf-8") == "keep"
+
+
+def test_modified_owned_directory_is_preserved_as_conflict(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    directory = Path(next(item for item in manifest["owned_objects"] if item["object_type"] == "directory")["path"])
+    (directory / "externally-added").write_text("preserve", encoding="utf-8")
+    result = run(tmp_path, "cleanup", campaign_path=path)
+    assert result.returncode != 0
+    assert (directory / "externally-added").read_text(encoding="utf-8") == "preserve"
+
+
+def test_recover_after_directory_rename_before_identity_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_directory_rename")
+    crashed = run(tmp_path, "create", campaign_path=path)
+    assert crashed.returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode == 0, recovered.stderr
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert all(
+        not Path(item["path"]).exists()
+        for item in manifest["owned_objects"]
+        if item["object_type"] == "directory"
+    )
+
+
+def test_recover_rejects_same_content_directory_substitution_after_rename_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_directory_rename")
+    assert run(tmp_path, "create", campaign_path=path).returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+
+    manifest_path = evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    directory = next(
+        Path(item["path"])
+        for item in manifest["owned_objects"]
+        if item["object_type"] == "directory" and Path(item["path"]).exists()
+    )
+    original = directory.with_name(f"{directory.name}.original")
+    directory.rename(original)
+    import shutil
+
+    shutil.copytree(original, directory)
+    replacement_inode = directory.stat().st_ino
+
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode != 0
+    assert directory.exists()
+    assert directory.stat().st_ino == replacement_inode
+
+
+def test_preexisting_staging_directory_is_preserved(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    candidate = json.loads(path.read_text(encoding="utf-8"))["plugin_candidate_sha"]
+    staging = evaluator / "local-marketplaces" / f".subagents-dispatch-v3-exact-{candidate[:8]}.calibration-staging"
+    staging.parent.mkdir()
+    staging.mkdir()
+    (staging / "keep").write_text("keep", encoding="utf-8")
+
+    created = run(tmp_path, "create", campaign_path=path)
+    assert created.returncode != 0
+    assert (staging / "keep").read_text(encoding="utf-8") == "keep"
+
+
+def test_recover_preserves_substituted_staging_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_staging_prepared")
+    assert run(tmp_path, "create", campaign_path=path).returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+
+    manifest_path = evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    staging = next(
+        Path(item["staging_path"])
+        for item in manifest["owned_objects"]
+        if item["object_type"] == "directory" and Path(item["staging_path"]).exists()
+    )
+    original = staging.with_name(f"{staging.name}.original")
+    staging.rename(original)
+    staging.mkdir()
+    (staging / "keep").write_text("keep", encoding="utf-8")
+
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode != 0
+    assert (staging / "keep").read_text(encoding="utf-8") == "keep"
+
+
+def test_crash_before_staging_identity_persistence_leaves_no_orphan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    candidate = json.loads(path.read_text(encoding="utf-8"))["plugin_candidate_sha"]
+    staging = evaluator / "local-marketplaces" / f".subagents-dispatch-v3-exact-{candidate[:8]}.calibration-staging"
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_staging_mkdir")
+    assert run(tmp_path, "create", campaign_path=path).returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+    for _ in range(100):
+        if not staging.exists():
+            break
+        import time
+
+        time.sleep(0.01)
+    assert not staging.exists()
+
+
+def test_directory_replacement_during_cleanup_is_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    directory = Path(
+        next(item for item in manifest["owned_objects"] if item["object_type"] == "directory")["path"]
+    )
+    original = directory.with_name(f"{directory.name}.external-original")
+    real_digest = MODULE._tree_digest
+    substituted = False
+
+    def substitute_after_verification(target: Path):
+        nonlocal substituted
+        digest = real_digest(target)
+        if target == directory and not substituted:
+            target.rename(original)
+            target.mkdir()
+            (target / "keep").write_text("keep", encoding="utf-8")
+            substituted = True
+        return digest
+
+    monkeypatch.setattr(MODULE, "_tree_digest", substitute_after_verification)
+    item = next(item for item in manifest["owned_objects"] if item["path"] == str(directory))
+    with pytest.raises(SystemExit):
+        MODULE._remove_owned_directory(
+            directory, item["device"], item["inode"], item["tree_sha256"]
+        )
+    assert (directory / "keep").read_text(encoding="utf-8") == "keep"
+    assert original.exists()
+
+
+def test_recover_after_cleanup_quarantine_rename_is_idempotent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_cleanup_rename")
+    assert run(tmp_path, "cleanup", campaign_path=path).returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode == 0, recovered.stderr
+    assert run(tmp_path, "recover", campaign_path=path).returncode == 0
+    assert not list(evaluator.rglob("*.calibration-cleanup"))
+
+
+def test_in_place_change_during_directory_cleanup_is_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    item = next(item for item in manifest["owned_objects"] if item["object_type"] == "directory")
+    directory = Path(item["path"])
+    real_digest = MODULE._tree_digest
+    calls = 0
+
+    def modify_after_first_digest(target: Path):
+        nonlocal calls
+        digest = real_digest(target)
+        calls += 1
+        if calls == 1:
+            (target / "external-change").write_text("preserve", encoding="utf-8")
+        return digest
+
+    monkeypatch.setattr(MODULE, "_tree_digest", modify_after_first_digest)
+    with pytest.raises(SystemExit):
+        MODULE._remove_owned_directory(
+            directory, item["device"], item["inode"], item["tree_sha256"]
+        )
+    assert (directory / "external-change").read_text(encoding="utf-8") == "preserve"
+
+
+def test_whole_file_rollback_authority_and_wildcards_are_prohibited(tmp_path: Path):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    assert run(tmp_path, "create", campaign_path=path).returncode == 0
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for mutation in manifest["shared_config_mutations"]:
+        assert "config_contents" not in mutation
+        assert "rollback_file" not in mutation
+        assert mutation["pre_state"] == {"exists": False}
+    assert [mutation["semantic_path"][0] for mutation in manifest["shared_config_mutations"]] == ["marketplaces", "plugins"]
+    assert all("*" not in item["path"] for item in manifest["owned_objects"])
 
 
 def test_create_check_cleanup_is_idempotent_and_preserves_unrelated(tmp_path: Path):
@@ -222,8 +759,7 @@ def test_cleanup_and_create_fail_closed_for_owned_or_existing_identity_drift(
     if owned_state == "missing":
         owned.unlink()
         result = run(tmp_path, "cleanup", home=home, campaign_path=path)
-        assert result.returncode != 0
-        assert "missing" in result.stderr
+        assert result.returncode == 0, result.stderr
     else:
         duplicate = home / "agents" / "duplicate.toml"
         duplicate.write_bytes(owned.read_bytes())

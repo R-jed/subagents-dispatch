@@ -112,6 +112,10 @@ Deterministic local gate, after `<python-3.11+>` has been resolved:
 <python-3.11+> -m ruff check scripts tests --ignore E402
 <python-3.11+> -m pytest -q
 create an isolated temporary CODEX_HOME
+prepare an exact temporary config.toml and frozen local Marketplace source
+<python-3.11+> scripts/calibration_profiles.py create --evaluator-root <evaluator-root> --codex-home <temporary-codex-home> --campaign <campaign> --shared-config <config.toml> --marketplace-source <marketplace>
+<python-3.11+> scripts/calibration_profiles.py check --evaluator-root <evaluator-root> --codex-home <temporary-codex-home> --campaign <campaign>
+confirm shared_config_mutations is COMMITTED with no pending/conflicted transaction or orphan candidate object before Host proof
 <python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home>
 <python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home> --check
 <python-3.11+> scripts/doctor.py --codex-home <temporary-codex-home> --check

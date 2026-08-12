@@ -295,6 +295,8 @@ One common campaign envelope contains one typed experiment spec.
 
 Role calibration holds responsibility semantics and sandbox/isolation fixed while changing model/effort. The current `policy.json` route is the control. A challenger cannot silently widen sandbox authority.
 
+Shared `config.toml` remains user-owned. The Experiment Plane receives authority only for the exact temporary `marketplaces.<candidate-id>` and `plugins.subagents-dispatch` tables, recorded intent-first in `shared_config_mutations`. Filesystem ownership remains exact-path and wildcard-free in `owned_objects`. Semantic cleanup never restores the file; it removes each exact owned table only after matching its expected value. External unrelated edits survive, while owned-value drift, journal tampering, malformed TOML, and path substitution fail closed.
+
 Actual model/effort conclusions require runtime-attested runs. `UNKNOWN` cannot support a claim that a specific route produced a measured outcome.
 
 ### Product benchmark
