@@ -2,6 +2,19 @@
 
 本文件记录 subagents-dispatch 的重要变更。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [3.0.0] - 2026-08-12
+
+### Added
+
+- **声明敏感的运行保证**：运行证据、Doctor 与 Experiment Plane 分别报告 Runtime Route、Effective Permission State 和 Permission Provenance；每个实验 campaign 明确声明当前结论需要哪些保证维度
+- **权限来源证据绑定**：来源身份、来源权限和选择证据只能从对应的 Host `native` / `local` 证据层进入；配置值、分离对象和相同权限值不能生成来源证明
+
+### Changed
+
+- **权限来源策略**：`selected_environment` 与 `parent_turn` 仅保留为候选来源词汇，不再被描述为项目已观察到的 Host precedence
+- **发布门与校准门**：已观察的实际 sandbox/profile 不再因来源 provenance 不可见而丢失；只有依赖来源或选择结论的声明才要求 provenance。所有只读、单写入者、takeover 与冲突关闭边界保持不变
+- **发行身份**：Plugin 版本与 Marketplace source ref 同步迁移到 `3.0.0`；本次不创建 `v3.0.0` tag
+
 ## [2.1.2] - 2026-08-09
 
 ### Fixed

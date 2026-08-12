@@ -56,7 +56,6 @@ def permission_source(**overrides):
         "source_id": PARENT,
         "sandbox_policy_type": "danger-full-access",
         "permission_profile_type": "disabled",
-        "evidence_source": "local",
         "evidence_ref": "rollout:parent",
         "selection_evidence_ref": "host:permission-source-selection",
     }
@@ -174,23 +173,65 @@ def test_child_route_ancestry_and_permission_conflicts_remain_typed():
         {
             "expected": expected(requires_enforced_read_only=True),
             "native": observation(),
-            "effective_permission_source": permission_source(),
+            "native_permission_source": permission_source(),
         }
     )
     assert result.returncode == 0
-    assert data["permission_evidence"]["status"] == "broader_than_required"
+    assert data["permission_state_assurance"]["status"] == "failed"
+    assert data["permission_provenance_assurance"]["status"] == "verified"
 
 
-def test_invalid_permission_source_evidence_kind_fails_closed():
+def test_detached_hand_written_permission_source_cannot_manufacture_provenance():
     result, data = run_verifier(
         {
             "expected": expected(requires_permission_observation=True),
             "native": observation(),
-            "effective_permission_source": permission_source(evidence_source="configuration"),
+            "effective_permission_source": permission_source(),
         }
     )
     assert result.returncode != 0 and data is None
-    assert "evidence_source must be native, local, or both" in result.stderr
+    assert "effective_permission_source is not Host-observed evidence" in result.stderr
+
+
+def test_native_and_local_permission_source_disagreement_fails_closed():
+    native_source = permission_source()
+    local_source = permission_source(sandbox_policy_type="read-only")
+
+    result, data = run_verifier(
+        {
+            "expected": expected(requires_permission_observation=True),
+            "native": observation(),
+            "native_permission_source": native_source,
+            "local_permission_source": local_source,
+        }
+    )
+
+    assert result.returncode == 0
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "failed"
+    assert data["decision"] == "quarantine"
+    assert (
+        "permission_source_conflict:sandbox_policy_type" in data["violations"]
+    )
+
+
+def test_unknown_permission_provenance_blocks_only_claims_that_require_it():
+    payload = {
+        "expected": expected(
+            runtime_observation_required=True,
+            requires_permission_observation=True,
+            requires_permission_provenance=True,
+        ),
+        "native": observation(),
+    }
+
+    result, data = run_verifier(payload)
+
+    assert result.returncode == 0
+    assert data["route_assurance"]["status"] == "verified"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "unknown"
+    assert data["decision"] == "return_to_main_session"
 
 
 def test_native_sol_main_provides_covered_judgment_state():
@@ -282,3 +323,32 @@ def test_conflicting_main_route_is_quarantined_and_unknown():
 def test_unknown_subject_fails_closed():
     result, data = run_verifier({"subject": "mystery"})
     assert result.returncode != 0 and data is None
+
+
+def test_observed_route_and_permission_state_stay_verified_when_provenance_is_unknown():
+    result, data = run_verifier(
+        {
+            "subject": "child",
+            "expected": expected(
+                runtime_observation_required=True,
+                requires_permission_observation=True,
+            ),
+            "native": observation(),
+        }
+    )
+
+    assert result.returncode == 0
+    assert data["route_assurance"]["status"] == "verified"
+    assert data["permission_state_assurance"] == {
+        "status": "verified",
+        "source": "native",
+        "observed_sandbox": "danger-full-access",
+        "observed_permission_profile": "disabled",
+        "violations": [],
+    }
+    assert data["permission_provenance_assurance"] == {
+        "status": "unknown",
+        "source": "none",
+        "violations": [],
+    }
+    assert data["decision"] == "continue"

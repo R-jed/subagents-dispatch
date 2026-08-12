@@ -80,7 +80,7 @@ def native_for(
     return value
 
 
-def effective_permission_source(
+def host_permission_source(
     *,
     source_kind: str = "parent_turn",
     source_id: str | None = None,
@@ -92,49 +92,48 @@ def effective_permission_source(
         "source_id": source_id or (PARENT if source_kind == "parent_turn" else "environment:test"),
         "sandbox_policy_type": sandbox,
         "permission_profile_type": profile,
-        "evidence_source": "native",
         "evidence_ref": "host:effective-permission-source",
         "selection_evidence_ref": "host:permission-source-selection",
     }
 
 
 @pytest.mark.parametrize("route", managed_routes(), ids=lambda route: route["agent_type"])
-def test_live_route_permission_matches_inherited_host_permission_for_all_managed_roles(route: dict):
+def test_live_route_permission_matches_host_observed_source_for_all_managed_roles(route: dict):
     data = run_runtime_evidence(
         {
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route),
-            "effective_permission_source": effective_permission_source(),
+            "native_permission_source": host_permission_source(),
         }
     )
 
     assert data["status"] == "matched"
     assert data["decision"] == "continue"
-    assert data["permission_evidence"]["status"] == "matched"
-    assert data["permission_evidence"]["source_kind"] == "parent_turn"
-    assert data["permission_evidence"]["source_id"] == PARENT
-    assert data["permission_evidence"]["source_provenance"] == "matched"
-    assert data["permission_evidence"]["observed_sandbox"] == "danger-full-access"
-    assert data["permission_match"] is True
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_state_assurance"]["observed_sandbox"] == "danger-full-access"
+    assert data["permission_provenance_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["source_kind"] == "parent_turn"
+    assert data["permission_provenance_assurance"]["source_id"] == PARENT
 
 
 @pytest.mark.parametrize("route", managed_routes(), ids=lambda route: route["agent_type"])
-def test_read_only_environment_permission_is_inherited_by_all_managed_roles(route: dict):
+def test_read_only_environment_source_is_host_observed_for_all_managed_roles(route: dict):
     data = run_runtime_evidence(
         {
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route, sandbox="read-only", profile="default"),
-            "effective_permission_source": effective_permission_source(
+            "native_permission_source": host_permission_source(
                 source_kind="selected_environment",
                 sandbox="read-only",
                 profile="default",
             ),
         }
     )
-    assert data["permission_evidence"]["status"] == "matched"
-    assert data["permission_evidence"]["source_id"] == "environment:test"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["source_id"] == "environment:test"
     assert data["decision"] == "continue"
 
 
@@ -145,45 +144,46 @@ def test_permission_profile_mismatch_quarantines_even_when_sandbox_matches():
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route),
-            "effective_permission_source": effective_permission_source(profile="default"),
+            "native_permission_source": host_permission_source(profile="default"),
         }
     )
-    assert data["permission_evidence"]["status"] == "mismatch"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "failed"
     assert data["decision"] == "quarantine"
 
 
-def test_incomplete_effective_permission_source_remains_unknown():
+def test_incomplete_host_permission_source_remains_unknown():
     route = managed_routes()[0]
-    source = effective_permission_source()
+    source = host_permission_source()
     del source["permission_profile_type"]
     data = run_runtime_evidence(
         {
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route),
-            "effective_permission_source": source,
+            "native_permission_source": source,
         }
     )
-    assert data["permission_evidence"]["status"] == "not_observed"
-    assert data["decision"] == "return_to_main_session"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "unknown"
+    assert data["decision"] == "continue"
 
 
-def test_permission_source_without_provenance_cannot_close_formal_gate():
+def test_permission_source_without_provenance_cannot_close_a_provenance_gate():
     route = managed_routes()[0]
-    source = effective_permission_source()
+    source = host_permission_source()
     del source["evidence_ref"]
     data = run_runtime_evidence(
         {
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route),
-            "effective_permission_source": source,
+            "native_permission_source": source,
         }
     )
-    assert data["permission_evidence"]["status"] == "not_observed"
-    assert data["permission_match"] is None
-    assert data["status"] == "not_exposed"
-    assert data["decision"] == "return_to_main_session"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "unknown"
+    assert data["decision"] == "continue"
 
 
 def test_parent_permission_source_identity_mismatch_quarantines():
@@ -193,14 +193,13 @@ def test_parent_permission_source_identity_mismatch_quarantines():
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route),
-            "effective_permission_source": effective_permission_source(
+            "native_permission_source": host_permission_source(
                 source_id="22222222-2222-7222-8222-222222222222"
             ),
         }
     )
-    assert data["permission_evidence"]["status"] == "mismatch"
-    assert data["permission_evidence"]["source_provenance"] == "conflict"
-    assert data["permission_match"] is False
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "failed"
     assert data["decision"] == "quarantine"
     assert "permission:source_identity_mismatch" in data["violations"]
 
@@ -212,7 +211,7 @@ def test_parent_permission_source_identity_mismatch_quarantines():
         ("subagents_dispatch_worker", "read-only"),
     ],
 )
-def test_routes_quarantine_observed_inheritance_mismatch(
+def test_routes_quarantine_observed_provenance_state_mismatch(
     agent_type: str,
     wrong_sandbox: str,
 ):
@@ -222,22 +221,22 @@ def test_routes_quarantine_observed_inheritance_mismatch(
             "subject": "child",
             "expected": expected_for(route),
             "native": native_for(route, sandbox=wrong_sandbox),
-            "effective_permission_source": effective_permission_source(),
+            "native_permission_source": host_permission_source(),
         }
     )
 
     assert data["route_evidence"]["status"] == "matched"
-    assert data["permission_evidence"]["status"] == "mismatch"
-    assert data["permission_evidence"]["expected_sandbox"] == "danger-full-access"
-    assert data["permission_evidence"]["observed_sandbox"] == wrong_sandbox
-    assert data["permission_match"] is False
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_state_assurance"]["observed_sandbox"] == wrong_sandbox
+    assert data["permission_provenance_assurance"]["status"] == "failed"
+    assert data["permission_provenance_assurance"]["source_sandbox"] == "danger-full-access"
     assert data["status"] == "mismatch"
     assert data["decision"] == "quarantine"
     assert data["evidence_grade"] == "X0_conflicted"
-    assert "permission:inheritance_mismatch" in data["violations"]
+    assert "permission:provenance_state_mismatch" in data["violations"]
 
 
-def test_required_permission_absence_stays_unknown_in_doctor_classification():
+def test_observed_permission_state_stays_verified_when_provenance_is_absent():
     route = next(
         item
         for item in managed_routes()
@@ -252,37 +251,34 @@ def test_required_permission_absence_stays_unknown_in_doctor_classification():
     )
 
     assert data["route_evidence"]["status"] == "matched"
-    assert data["permission_evidence"] == {
-        "status": "not_observed",
-        "source": "none",
-    }
-    assert data["permission_match"] is None
-    assert data["status"] == "not_exposed"
-    assert data["decision"] == "return_to_main_session"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "unknown"
+    assert data["decision"] == "continue"
     assert data["violations"] == []
 
     doctor = load_doctor_module()
     status, _ = doctor._runtime_status(data)
-    assert status == "UNKNOWN"
+    assert status == "OK"
 
 
-def test_doctor_live_route_contract_requires_permission_observation_and_source_provenance():
+def test_doctor_live_route_contract_keeps_permission_state_and_provenance_separate():
     skill = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
     assert "requires_permission_observation=true" in skill
-    assert "effective_permission_source" in skill
-    assert "source_id" in skill
-    assert "selection_evidence_ref" in skill
+    assert "requires_permission_provenance=true" in skill
+    assert "native_permission_source" in skill
+    assert "candidate source kinds" in skill
+    assert "Never infer a source from equal permission values" in skill
     assert "contracts/policy.json" in skill
 
 
-def test_runtime_assurance_cases_cover_inherited_permission_fail_closed():
+def test_runtime_assurance_cases_cover_permission_provenance_fail_closed():
     payload = json.loads(RUNTIME_CASES.read_text(encoding="utf-8"))
     ids = {case["id"] for case in payload["cases"]}
     assert {
-        "required-inherited-permission-source-unobserved",
-        "required-inherited-permission-source-unbound",
-        "required-inherited-permission-source-identity-mismatch",
-        "required-inherited-permission-mismatch",
+        "required-permission-provenance-unobserved",
+        "required-permission-provenance-unbound",
+        "required-permission-provenance-identity-mismatch",
+        "required-permission-provenance-state-mismatch",
     } <= ids
 
 
@@ -301,14 +297,15 @@ def test_accepted_permission_override_is_non_blocking_and_does_not_relabel_route
             "expected": expected_for(route),
             "accepted": accepted,
             "native": native,
-            "effective_permission_source": effective_permission_source(),
+            "native_permission_source": host_permission_source(),
         }
     )
 
     assert data["route_evidence"]["status"] == "matched"
     assert data["truth_layers"]["accepted"]["status"] == "matched"
     assert data["truth_layers"]["observed"]["status"] == "matched"
-    assert data["permission_evidence"]["status"] == "matched"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "verified"
     assert data["status"] == "matched"
     assert data["decision"] == "continue"
 
@@ -327,12 +324,13 @@ def test_permission_observation_requires_both_child_permission_fields():
             "subject": "child",
             "expected": expected_for(route),
             "native": native,
-            "effective_permission_source": effective_permission_source(),
+            "native_permission_source": host_permission_source(),
         }
     )
 
     assert data["route_evidence"]["status"] == "matched"
-    assert data["permission_evidence"]["status"] == "not_observed"
+    assert data["permission_state_assurance"]["status"] == "unknown"
+    assert data["permission_provenance_assurance"]["status"] == "unknown"
     assert data["status"] == "not_exposed"
     assert data["decision"] == "return_to_main_session"
 
@@ -346,10 +344,11 @@ def test_enforced_read_only_remains_an_independent_security_gate():
             "subject": "child",
             "expected": expected,
             "native": native_for(route),
-            "effective_permission_source": effective_permission_source(),
+            "native_permission_source": host_permission_source(),
         }
     )
-    assert data["permission_evidence"]["status"] == "broader_than_required"
+    assert data["permission_state_assurance"]["status"] == "failed"
+    assert data["permission_provenance_assurance"]["status"] == "verified"
     assert data["status"] == "mismatch"
     assert data["decision"] == "quarantine"
 

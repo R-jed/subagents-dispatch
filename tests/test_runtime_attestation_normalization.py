@@ -45,7 +45,6 @@ def permission_source(*, kind: str = "parent_turn", source_id: str | None = None
         "source_id": source_id or (PARENT if kind == "parent_turn" else "environment:test"),
         "sandbox_policy_type": "danger-full-access",
         "permission_profile_type": "disabled",
-        "evidence_source": "local" if kind == "parent_turn" else "native",
         "evidence_ref": "runtime:permission-source",
         "selection_evidence_ref": "runtime:permission-source-selection",
     }
@@ -70,7 +69,7 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
             "subject": "child",
             "expected": expected(),
             "local": full_observation(),
-            "effective_permission_source": permission_source(),
+            "local_permission_source": permission_source(),
         }
     )
 
@@ -90,19 +89,23 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
         "model": "local",
         "effort": "local",
     }
-    assert data["permission_evidence"] == {
-        "expected_permission_profile": "disabled",
-        "expected_sandbox": "danger-full-access",
+    assert data["permission_state_assurance"] == {
+        "status": "verified",
+        "source": "local",
         "observed_permission_profile": "disabled",
         "observed_sandbox": "danger-full-access",
-        "selection_evidence_ref": "runtime:permission-source-selection",
+        "violations": [],
+    }
+    assert data["permission_provenance_assurance"] == {
+        "status": "verified",
         "source": "local",
+        "selection_evidence_ref": "runtime:permission-source-selection",
         "source_evidence_ref": "runtime:permission-source",
-        "source_evidence_source": "local",
         "source_id": PARENT,
         "source_kind": "parent_turn",
-        "source_provenance": "matched",
-        "status": "matched",
+        "source_permission_profile": "disabled",
+        "source_sandbox": "danger-full-access",
+        "violations": [],
     }
     assert data["runtime_observation_complete"] is True
     assert data["runtime_reported"] is False
@@ -124,7 +127,7 @@ def test_public_and_local_runtime_sources_can_collectively_close_required_fields
             "expected": expected(),
             "native": native,
             "local": local,
-            "effective_permission_source": permission_source(kind="selected_environment"),
+            "native_permission_source": permission_source(kind="selected_environment"),
         }
     )
 
@@ -138,12 +141,12 @@ def test_public_and_local_runtime_sources_can_collectively_close_required_fields
         "effort": "local",
     }
     assert data["ancestry_evidence"] == {"status": "matched", "source": "local"}
-    assert data["permission_evidence"]["source"] == "local"
-    assert data["permission_evidence"]["source_id"] == "environment:test"
+    assert data["permission_state_assurance"]["source"] == "local"
+    assert data["permission_provenance_assurance"]["source_id"] == "environment:test"
     assert data["runtime_observation_complete"] is True
 
 
-def test_permission_source_provenance_is_required_for_formal_permission_observation():
+def test_permission_source_provenance_is_independent_from_formal_permission_observation():
     source = permission_source()
     source["selection_evidence_ref"] = None
     data = normalize(
@@ -151,12 +154,16 @@ def test_permission_source_provenance_is_required_for_formal_permission_observat
             "subject": "child",
             "expected": expected(),
             "local": full_observation(),
-            "effective_permission_source": source,
+            "local_permission_source": source,
         }
     )
-    assert data["permission_evidence"] == {"status": "not_observed", "source": "none"}
-    assert data["status"] == "not_exposed"
-    assert data["decision"] == "return_to_main_session"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"] == {
+        "status": "unknown",
+        "source": "none",
+        "violations": [],
+    }
+    assert data["decision"] == "continue"
 
 
 def test_parent_permission_source_must_bind_expected_parent_identity():
@@ -165,13 +172,13 @@ def test_parent_permission_source_must_bind_expected_parent_identity():
             "subject": "child",
             "expected": expected(),
             "local": full_observation(),
-            "effective_permission_source": permission_source(
+            "native_permission_source": permission_source(
                 source_id="22222222-2222-7222-8222-222222222222"
             ),
         }
     )
-    assert data["permission_evidence"]["status"] == "mismatch"
-    assert data["permission_evidence"]["source_provenance"] == "conflict"
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "failed"
     assert "permission:source_identity_mismatch" in data["violations"]
     assert data["decision"] == "quarantine"
 

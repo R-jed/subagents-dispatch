@@ -15,6 +15,13 @@ RUN_VALIDATOR = SCRIPTS / "validate-experiment-run.py"
 POLICY = ROOT / "contracts" / "policy.json"
 
 
+def assurance_requirements() -> dict:
+    return {
+        "required": ["route", "permission_state"],
+        "allow_unknown": ["permission_provenance"],
+    }
+
+
 def load_run_validator():
     sys.path.insert(0, str(SCRIPTS))
     try:
@@ -96,6 +103,7 @@ def product_campaign(*, stage: str = "exploratory") -> dict:
             "minimum_completed_per_arm": 3 if stage == "formal" else 1,
             "ordering": "interleaved",
         },
+        "assurance_requirements": assurance_requirements(),
         "experiment": {
             "type": "product_benchmark",
             "baseline_mode": "single_agent",
@@ -128,6 +136,7 @@ def calibration_campaign() -> dict:
         "plugin_candidate_sha": head_sha(),
         "host_target": {"product": "Codex", "version": "test-host-1", "platform": "linux-test"},
         "repeat_policy": {"minimum_completed_per_arm": 1, "ordering": "randomized"},
+        "assurance_requirements": assurance_requirements(),
         "experiment": {
             "type": "role_calibration",
             "policy_promotion": False,
@@ -264,6 +273,8 @@ def base_run(campaign: dict, *, mode: str = "single_agent") -> dict:
             "failure_ref": None,
         },
         "route_assurance": "not_applicable",
+        "permission_state_assurance": "not_applicable",
+        "permission_provenance_assurance": "not_applicable",
         "child_routes": [],
         "metrics": metrics(children=False),
         "evidence_artifact_ref": "artifact:run-W1-1",
@@ -285,10 +296,15 @@ def child_route(role: str = "worker", *, verdict: str = "verified") -> dict:
         "agent_type": spec["agent_type"],
         "role": role,
         "observed": observed,
-        "permission_inheritance": {
+        "permission_state_verdict": "verified",
+        "permission_provenance": {
             "source_kind": "parent_turn",
+            "source_id": "root-thread-1",
             "sandbox_policy_type": "danger-full-access",
             "permission_profile_type": "disabled",
+            "evidence_source": "native",
+            "evidence_ref": "host:permission-source",
+            "selection_evidence_ref": "host:permission-selection",
             "verdict": "verified",
         },
         "verdict": verdict,
@@ -311,6 +327,8 @@ def add_one_child(run: dict, route: dict | None = None) -> None:
     run["child_routes"] = [route or child_route()]
     run["child_materialization"] = materialization(1)
     run["route_assurance"] = run["child_routes"][0]["verdict"]
+    run["permission_state_assurance"] = run["child_routes"][0]["permission_state_verdict"]
+    run["permission_provenance_assurance"] = run["child_routes"][0]["permission_provenance"]["verdict"]
     run["metrics"] = metrics(children=True)
 
 
@@ -341,6 +359,8 @@ def test_zero_child_dispatch_requires_observed_zero_materialization(tmp_path: Pa
 
     run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
     run["route_assurance"] = "unknown"
+    run["permission_state_assurance"] = "unknown"
+    run["permission_provenance_assurance"] = "unknown"
     run["metrics"]["child_total_tokens"] = metric("unavailable")
     run["metrics"]["aggregate_total_tokens"] = metric("unavailable")
     result = validate(tmp_path, campaign, run)
@@ -354,6 +374,8 @@ def test_materialized_child_count_cannot_omit_or_invent_route_rows(tmp_path: Pat
     run = base_run(campaign, mode="dispatch")
     run["child_materialization"] = materialization(1)
     run["route_assurance"] = "unknown"
+    run["permission_state_assurance"] = "unknown"
+    run["permission_provenance_assurance"] = "unknown"
     run["metrics"]["child_total_tokens"] = metric("unavailable")
     run["metrics"]["aggregate_total_tokens"] = metric("unavailable")
     with pytest.raises(SystemExit, match="count must equal the number of child_routes"):
@@ -538,32 +560,71 @@ def test_observed_route_mismatch_cannot_be_marked_verified(tmp_path: Path):
         validate(tmp_path, campaign, run)
 
 
-def test_permission_inheritance_mismatch_cannot_be_marked_verified(tmp_path: Path):
+def test_permission_provenance_mismatch_cannot_be_marked_verified(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
     route = child_route()
-    route["permission_inheritance"]["sandbox_policy_type"] = "read-only"
+    route["permission_provenance"]["sandbox_policy_type"] = "read-only"
     add_one_child(run, route)
-    with pytest.raises(SystemExit, match="permission inheritance verdict must be 'failed'"):
+    with pytest.raises(SystemExit, match="permission provenance verdict must be 'failed'"):
         validate(tmp_path, campaign, run)
 
 
-def test_missing_permission_source_keeps_child_route_unknown(tmp_path: Path):
+def test_unknown_permission_provenance_does_not_erase_verified_route_or_state(tmp_path: Path):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
-    route = child_route(verdict="unknown")
-    route["permission_inheritance"] = {
+    route = child_route()
+    route["permission_provenance"] = {
         "source_kind": None,
+        "source_id": None,
         "sandbox_policy_type": None,
         "permission_profile_type": None,
+        "evidence_source": "none",
+        "evidence_ref": None,
+        "selection_evidence_ref": None,
         "verdict": "unknown",
     }
     route["evidence_source"] = "native"
     route["evidence_ref"] = "runtime:permission-source-unavailable"
     add_one_child(run, route)
-    run["route_assurance"] = "unknown"
     result = validate(tmp_path, campaign, run)
-    assert result["route_assurance"] == "unknown"
+    assert result["route_assurance"] == "verified"
+    assert result["permission_state_assurance"] == "verified"
+    assert result["permission_provenance_assurance"] == "unknown"
+    assert result["claim_eligible"] is True
+
+
+def test_unknown_permission_provenance_cannot_support_a_source_claim(tmp_path: Path):
+    campaign = product_campaign()
+    campaign["assurance_requirements"] = {
+        "required": ["route", "permission_state", "permission_provenance"],
+        "allow_unknown": [],
+    }
+    run = base_run(campaign, mode="dispatch")
+    route = child_route()
+    route["permission_provenance"] = {
+        "source_kind": "parent_turn",
+        "source_id": run["root_thread_id"],
+        "sandbox_policy_type": "danger-full-access",
+        "permission_profile_type": "disabled",
+        "evidence_source": "native",
+        "evidence_ref": "host:permission-source",
+        "selection_evidence_ref": None,
+        "verdict": "unknown",
+    }
+    add_one_child(run, route)
+
+    result = validate(tmp_path, campaign, run)
+
+    assert result["route_assurance"] == "verified"
+    assert result["permission_state_assurance"] == "verified"
+    assert result["permission_provenance_assurance"] == "unknown"
+    assert result["claim_eligible"] is False
+
+    route["permission_provenance"]["verdict"] = "verified"
+    run["permission_provenance_assurance"] = "verified"
+    with pytest.raises(SystemExit, match="permission provenance verdict must be 'unknown'"):
+        validate(tmp_path, campaign, run)
 
 
 def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_path: Path):
@@ -587,10 +648,15 @@ def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_pat
         "sandbox_policy_type": None,
         "permission_profile_type": None,
     }
-    unknown["permission_inheritance"] = {
+    unknown["permission_state_verdict"] = "unknown"
+    unknown["permission_provenance"] = {
         "source_kind": None,
+        "source_id": None,
         "sandbox_policy_type": None,
         "permission_profile_type": None,
+        "evidence_source": "none",
+        "evidence_ref": None,
+        "selection_evidence_ref": None,
         "verdict": "unknown",
     }
     add_one_child(run, unknown)
@@ -608,6 +674,8 @@ def calibration_run(campaign: dict) -> dict:
         experiment_type="role_calibration",
         arm={"kind": "role_calibration", "role": "reader", "route_id": challenger["id"]},
         route_assurance="verified",
+        permission_state_assurance="verified",
+        permission_provenance_assurance="verified",
         child_materialization=materialization(1),
         metrics=metrics(children=True),
     )
@@ -623,10 +691,15 @@ def calibration_run(campaign: dict) -> dict:
                 "sandbox_policy_type": "danger-full-access",
                 "permission_profile_type": "disabled",
             },
-            "permission_inheritance": {
+            "permission_state_verdict": "verified",
+            "permission_provenance": {
                 "source_kind": "parent_turn",
+                "source_id": "root-thread-1",
                 "sandbox_policy_type": "danger-full-access",
                 "permission_profile_type": "disabled",
+                "evidence_source": "both",
+                "evidence_ref": "host:permission-source",
+                "selection_evidence_ref": "host:permission-selection",
                 "verdict": "verified",
             },
             "verdict": "verified",
@@ -691,6 +764,8 @@ def test_unavailable_materialization_cannot_mark_child_tokens_not_applicable(tmp
     run = base_run(campaign, mode="dispatch")
     run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
     run["route_assurance"] = "unknown"
+    run["permission_state_assurance"] = "unknown"
+    run["permission_provenance_assurance"] = "unknown"
     with pytest.raises(SystemExit, match="unavailable child materialization"):
         validate(tmp_path, campaign, run)
 

@@ -11,6 +11,13 @@ VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
 
 
+def assurance_requirements() -> dict:
+    return {
+        "required": ["route", "permission_state"],
+        "allow_unknown": ["permission_provenance"],
+    }
+
+
 def head_sha() -> str:
     return subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -93,6 +100,7 @@ def role_campaign(*, stage: str = "exploratory", repeats: int = 1, promotion: bo
             "ordering": "interleaved",
             "fixed_order_reason": None,
         },
+        "assurance_requirements": assurance_requirements(),
         "experiment": {
             "type": "role_calibration",
             "policy_promotion": promotion,
@@ -126,6 +134,7 @@ def product_campaign(*, stage: str = "formal", repeats: int = 3) -> dict:
             "ordering": "randomized",
             "fixed_order_reason": None,
         },
+        "assurance_requirements": assurance_requirements(),
         "experiment": {
             "type": "product_benchmark",
             "baseline_mode": "single_agent",
@@ -171,6 +180,28 @@ def test_valid_product_benchmark_does_not_predeclare_role_challengers(tmp_path: 
     assert summary["experiment_type"] == "product_benchmark"
     assert summary["roles"] == []
     assert summary["minimum_completed_per_arm"] == 3
+
+
+def test_campaign_can_require_permission_provenance_for_a_source_claim(tmp_path: Path):
+    payload = role_campaign()
+    payload["assurance_requirements"] = {
+        "required": ["route", "permission_state", "permission_provenance"],
+        "allow_unknown": [],
+    }
+
+    result = run_validator(tmp_path, payload)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_campaign_must_declare_how_unknown_provenance_affects_its_claim(tmp_path: Path):
+    payload = role_campaign()
+    payload["assurance_requirements"]["allow_unknown"] = []
+
+    result = run_validator(tmp_path, payload)
+
+    assert result.returncode != 0
+    assert "must classify every assurance dimension" in result.stderr
 
 
 def test_formal_campaign_requires_three_repeats(tmp_path: Path):

@@ -443,17 +443,45 @@ def diagnose_host(host_evidence: Path | None) -> dict[str, Any]:
 
 
 def _runtime_status(result: dict[str, Any]) -> tuple[str, str]:
-    status = result.get("status")
-    violations = result.get("violations")
-    if status in {"conflict", "mismatch"} or (isinstance(violations, list) and violations):
-        return "FAIL", "runtime route evidence conflicts with the requested or accepted route"
-    route = result.get("route_evidence", {})
-    source = route.get("source") if isinstance(route, dict) else None
-    if status in {"observed", "matched"} and source in {"native", "local", "both"}:
-        return "OK", "observed runtime route evidence is consistent"
-    if status in {"observed", "matched", "partial", "not_exposed", "not_observed"}:
-        return "UNKNOWN", "configured/requested values are not observed runtime proof; observed runtime route was not reported"
-    return "UNKNOWN", "observed runtime route was not reported"
+    assurance = result.get("route_assurance")
+    if not isinstance(assurance, dict):
+        return "UNKNOWN", "observed runtime route was not reported"
+    status = assurance.get("status")
+    if status == "verified":
+        return "OK", "observed runtime route is verified"
+    if status == "failed":
+        return "FAIL", "observed runtime route conflicts with the requested or accepted route"
+    return "UNKNOWN", "observed runtime route was not reported completely"
+
+
+def _assurance_layer(
+    name: str,
+    assurance: Any,
+    *,
+    required: bool,
+    live_route: bool,
+) -> dict[str, Any]:
+    item = assurance if isinstance(assurance, dict) else {}
+    raw_status = item.get("status", "unknown")
+    status = {"verified": "OK", "failed": "FAIL", "unknown": "UNKNOWN"}.get(
+        raw_status,
+        "UNKNOWN",
+    )
+    summaries = {
+        "verified": f"{name.lower()} is verified by observed Host evidence",
+        "failed": f"{name.lower()} conflicts with observed Host evidence",
+        "unknown": f"{name.lower()} is not exposed by current Host evidence",
+    }
+    return _layer(
+        name,
+        status,
+        summaries.get(raw_status, summaries["unknown"]),
+        assurance_status=raw_status,
+        required=required,
+        live_route=live_route,
+        source=item.get("source"),
+        violations=item.get("violations", []),
+    )
 
 
 def _formal_live_route_input_issue(payload: dict[str, Any]) -> str | None:
@@ -472,33 +500,27 @@ def _formal_live_route_input_issue(payload: dict[str, Any]) -> str | None:
     return None
 
 
-def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> dict[str, Any]:
+def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> list[dict[str, Any]]:
+    def unavailable(route_status: str, summary: str) -> list[dict[str, Any]]:
+        return [
+            _layer("Runtime route", route_status, summary, observed=False),
+            _layer("Effective permission state", "UNKNOWN", summary, observed=False),
+            _layer("Permission-source provenance", "UNKNOWN", summary, observed=False),
+        ]
+
     if evidence_path is None:
-        return _layer(
-            "Runtime route evidence",
+        return unavailable(
             "UNKNOWN",
             "not run; pass --runtime-evidence with explicit evidence (or --live-route to record the limitation)",
-            observed=False,
         )
+    evidence_payload, evidence_error = _read_json(evidence_path)
+    if evidence_error:
+        return unavailable("FAIL", f"invalid runtime evidence: {evidence_error}")
+    assert evidence_payload is not None
     if live_route:
-        evidence_payload, evidence_error = _read_json(evidence_path)
-        if evidence_error:
-            return _layer(
-                "Runtime route evidence",
-                "FAIL",
-                f"invalid formal live-route evidence: {evidence_error}",
-                observed=False,
-            )
-        assert evidence_payload is not None
         issue = _formal_live_route_input_issue(evidence_payload)
         if issue is not None:
-            return _layer(
-                "Runtime route evidence",
-                "FAIL",
-                issue,
-                observed=False,
-                live_route=True,
-            )
+            return unavailable("FAIL", issue)
     verifier = Path(__file__).parent / "runtime-evidence.py"
     try:
         result = subprocess.run(
@@ -508,38 +530,36 @@ def diagnose_runtime(evidence_path: Path | None, live_route: bool) -> dict[str, 
             timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return _layer("Runtime route evidence", "FAIL", f"runtime-evidence normalizer failed: {exc}")
+        return unavailable("FAIL", f"runtime-evidence normalizer failed: {exc}")
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
-        return _layer("Runtime route evidence", "FAIL", f"runtime-evidence normalizer failed: {detail}")
+        return unavailable("FAIL", f"runtime-evidence normalizer failed: {detail}")
     payload, error = _read_json_from_text(result.stdout)
     if error:
-        return _layer("Runtime route evidence", "FAIL", f"runtime-evidence output is invalid: {error}")
+        return unavailable("FAIL", f"runtime-evidence output is invalid: {error}")
     assert payload is not None
-    status, summary = _runtime_status(payload)
-    permission = payload.get("permission_evidence", {})
-    ancestry = payload.get("ancestry_evidence", {})
-    permission_status = permission.get("status") if isinstance(permission, dict) else None
-    ancestry_status = ancestry.get("status") if isinstance(ancestry, dict) else None
-    if live_route and status == "OK" and (
-        payload.get("runtime_observation_complete") is not True
-        or permission_status != "matched"
-        or ancestry_status != "matched"
-    ):
-        status = "UNKNOWN"
-        summary = "formal live-route evidence is incomplete"
-    return _layer(
-        "Runtime route evidence",
-        status,
-        summary,
-        explicit=True,
-        live_route=live_route,
-        normalizer="runtime-evidence.py",
-        evidence_grade=payload.get("evidence_grade"),
-        route_status=payload.get("route_evidence", {}).get("status") if isinstance(payload.get("route_evidence"), dict) else None,
-        ancestry_status=ancestry_status,
-        permission_status=permission_status,
-    )
+    expected = evidence_payload.get("expected")
+    requirements = expected if live_route and isinstance(expected, dict) else {}
+    return [
+        _assurance_layer(
+            "Runtime route",
+            payload.get("route_assurance"),
+            required=requirements.get("runtime_observation_required") is True,
+            live_route=live_route,
+        ),
+        _assurance_layer(
+            "Effective permission state",
+            payload.get("permission_state_assurance"),
+            required=requirements.get("requires_permission_observation") is True,
+            live_route=live_route,
+        ),
+        _assurance_layer(
+            "Permission-source provenance",
+            payload.get("permission_provenance_assurance"),
+            required=requirements.get("requires_permission_provenance") is True,
+            live_route=live_route,
+        ),
+    ]
 
 
 def _read_json_from_text(raw: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -642,6 +662,10 @@ def show_legacy_diagnostics(codex_home: Path) -> None:
 
 def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
     thread_id = args.thread_id if args.thread_id is not None else os.environ.get("CODEX_THREAD_ID")
+    runtime_layers = diagnose_runtime(
+        args.runtime_evidence if args.live_route or args.runtime_evidence else None,
+        args.live_route,
+    )
     return {
         "layers": [
             diagnose_plugin(),
@@ -649,7 +673,7 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
             diagnose_profiles(codex_home),
             diagnose_dispatch_state(args.temp_root, thread_id),
             diagnose_host(args.host_evidence),
-            diagnose_runtime(args.runtime_evidence if args.live_route or args.runtime_evidence else None, args.live_route),
+            *runtime_layers,
         ]
     }
 
@@ -670,10 +694,13 @@ def main() -> None:
     statuses = [layer["status"] for layer in report["layers"]]
     healthy = not any(status in {"WARN", "FAIL"} for status in statuses)
     if args.live_route:
-        runtime_layer = next(
-            layer for layer in report["layers"] if layer["name"] == "Runtime route evidence"
-        )
-        healthy = healthy and runtime_layer["status"] == "OK"
+        required_runtime_layers = [
+            layer
+            for layer in report["layers"]
+            if layer.get("details", {}).get("live_route") is True
+            and layer.get("details", {}).get("required") is True
+        ]
+        healthy = healthy and all(layer["status"] == "OK" for layer in required_runtime_layers)
     report["healthy"] = healthy
     report["actions"] = actions
 

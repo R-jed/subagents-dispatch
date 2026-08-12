@@ -101,7 +101,11 @@ def test_hard_read_only_requires_actual_host_runtime_evidence():
 def test_runtime_evidence_keeps_route_ancestry_and_permission_typed():
     runtime = RUNTIME_DOC.read_text(encoding="utf-8")
     verifier = RUNTIME_VERIFIER.read_text(encoding="utf-8")
-    for field in ["route_evidence", "ancestry_evidence", "permission_evidence"]:
+    for field in [
+        "route_assurance",
+        "permission_state_assurance",
+        "permission_provenance_assurance",
+    ]:
         assert field in runtime
         assert field in verifier
     for grade in [

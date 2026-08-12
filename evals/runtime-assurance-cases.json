@@ -115,7 +115,8 @@
       "input": {
         "requires_enforced_read_only": true,
         "child_permission": null,
-        "effective_permission_source": null
+        "native_permission_source": null,
+        "local_permission_source": null
       },
       "expected": {
         "decision": "return_to_main_session",
@@ -135,12 +136,13 @@
       }
     },
     {
-      "id": "required-inherited-permission-source-unobserved",
+      "id": "required-permission-provenance-unobserved",
       "input": {
         "requires_permission_observation": true,
         "child_sandbox": "danger-full-access",
         "child_permission_profile": "disabled",
-        "effective_permission_source": null
+        "native_permission_source": null,
+        "local_permission_source": null
       },
       "expected": {
         "decision": "return_to_main_session",
@@ -148,7 +150,7 @@
       }
     },
     {
-      "id": "required-inherited-permission-source-unbound",
+      "id": "required-permission-provenance-unbound",
       "input": {
         "requires_permission_observation": true,
         "child_sandbox": "danger-full-access",
@@ -164,7 +166,7 @@
       }
     },
     {
-      "id": "required-inherited-permission-source-identity-mismatch",
+      "id": "required-permission-provenance-identity-mismatch",
       "input": {
         "requires_permission_observation": true,
         "source_kind": "parent_turn",
@@ -176,7 +178,7 @@
       }
     },
     {
-      "id": "required-inherited-permission-mismatch",
+      "id": "required-permission-provenance-state-mismatch",
       "input": {
         "requires_permission_observation": true,
         "child_sandbox": "read-only",

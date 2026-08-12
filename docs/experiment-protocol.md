@@ -170,14 +170,16 @@ Configured
 Requested
 Accepted
 Observed
-provenance grade
+route_assurance
+permission_state_assurance
+permission_provenance_assurance
 ```
 
-For a run to support a model/effort conclusion, required model, effort, role identity, ancestry, and permission/sandbox facts must be observed at the evidence level required by the workload.
+For a run to support a model/effort conclusion, the exact role/agent_type, model, effort, required ancestry, and actual child sandbox/profile must be verified. Permission state must be equivalent across compared arms, alongside the other frozen controls.
 
-Each recorded child route keeps observed `sandbox_policy_type` / `permission_profile_type` separate from `permission_inheritance`, which records the effective parent-turn or selected-environment values and an independent `verified` / `unknown` / `failed` verdict. A verified route cannot carry unknown or mismatched permission inheritance.
+Each recorded child route keeps actual `sandbox_policy_type` / `permission_profile_type` separate from `permission_provenance`. Route, permission state, and provenance have independent `verified` / `unknown` / `failed` verdicts. Unknown provenance does not relabel a verified route or verified permission state.
 
-If the Host cannot prove the route, mark the run `UNKNOWN` for route calibration. Do not copy configured values into Observed and do not use that run to claim that a particular model/effort produced the result.
+If the Host cannot prove a required dimension, the run is ineligible for that claim. Do not copy configured values into Observed. Every campaign classifies all three dimensions as either required or allowed unknown. Model/effort calibration may explicitly allow unknown permission provenance when route and actual permission state are verified. A Host permission-source or source-selection campaign must instead require provenance, so it remains claim-ineligible on a Host that does not expose that evidence.
 
 For product benchmarks, route-attest every materialized Dispatch child so the report can say what actually ran. A single-agent baseline has no project child route to invent. A Dispatch run that correctly chooses zero project children also has no child route to invent; record zero materialized children rather than fabricating an attestation row.
 
@@ -189,7 +191,7 @@ An `exploratory` campaign may begin with one run per arm to find broken setup or
 
 A `formal` campaign requires at least three completed repeats per workload arm. Three is a floor for replication discipline, not a claim of statistical sufficiency. If observed variance is large or one run dominates a mean, add repeats rather than hiding instability behind an average.
 
-For formal `role_calibration`, the minimum is three **valid route-attested completed runs** per workload arm. A run whose required route evidence is `UNKNOWN`, conflicted, quarantined, or failed does not count toward that minimum merely because the child returned a task result. Preserve the run in the evidence record, disclose it, and execute another repeat if the campaign still intends to reach the required valid count. If the Host cannot produce enough valid runs, the route comparison remains insufficient evidence.
+For formal `role_calibration`, the minimum is three claim-eligible completed runs per workload arm. Every campaign declares required assurance dimensions. A run with `UNKNOWN` or failed status in a required dimension does not count. `permission_provenance_assurance=unknown` may count only when the campaign explicitly allows it and route plus permission state are verified. Preserve every failed, no-op, zero-child, quarantined, and UNKNOWN run in the evidence record.
 
 For `product_benchmark`, failed/UNKNOWN runs remain part of the reported distribution and must not be erased to improve an aggregate. If a missing route observation limits what can be claimed about the actual child model/effort, narrow the claim accordingly rather than deleting the run.
 
@@ -336,6 +338,7 @@ real workload definitions
 repeat/ordering policy
 acceptance/oracle ids
 controlled Main route / permissions / tools / project rules
+required assurance dimensions and dimensions explicitly allowed `UNKNOWN`
 predeclared promotion criteria when role policy may change
 ```
 

@@ -50,7 +50,9 @@ def load_doctor_module():
         sys.path.remove(scripts)
 
 
-def test_doctor_reports_exact_six_layers_and_unobserved_runtime_is_not_unhealthy(tmp_path: Path):
+def test_doctor_reports_independent_assurance_layers_and_unobserved_runtime_is_not_unhealthy(
+    tmp_path: Path,
+):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, "--check", env={"CODEX_THREAD_ID": "doctor-test"})
@@ -63,14 +65,18 @@ def test_doctor_reports_exact_six_layers_and_unobserved_runtime_is_not_unhealthy
         "Managed Agent profiles",
         "Dispatch state",
         "Codex Host",
-        "Runtime route evidence",
+        "Runtime route",
+        "Effective permission state",
+        "Permission-source provenance",
     ]
     layer_lines = [line for line in output.splitlines() if line.startswith("Layer:")]
     assert len(layer_lines) == len(labels)
     for line, label in zip(layer_lines, labels):
         assert line.startswith(f"Layer: {label}:")
     assert "Layer: Codex Host: UNKNOWN" in output
-    assert "Layer: Runtime route evidence: UNKNOWN" in output
+    assert "Layer: Runtime route: UNKNOWN" in output
+    assert "Layer: Effective permission state: UNKNOWN" in output
+    assert "Layer: Permission-source provenance: UNKNOWN" in output
     assert "not run" in output
 
     temp_root = tmp_path / "temp"
@@ -146,9 +152,8 @@ def test_doctor_explicit_runtime_evidence_keeps_configured_and_observed_distinct
     result = run_doctor(home, "--check", "--runtime-evidence", str(evidence))
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Layer: Runtime route evidence: UNKNOWN" in result.stdout
-    assert "configured/requested" in result.stdout
-    assert "observed runtime route was not reported" in result.stdout
+    assert "Layer: Runtime route: UNKNOWN" in result.stdout
+    assert "runtime route is not exposed by current Host evidence" in result.stdout
 
 
 def test_doctor_accepts_agreeing_native_and_local_route_evidence(tmp_path: Path):
@@ -183,7 +188,9 @@ def test_doctor_accepts_agreeing_native_and_local_route_evidence(tmp_path: Path)
     result = run_doctor(home, "--check", "--runtime-evidence", str(evidence))
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Layer: Runtime route evidence: OK" in result.stdout
+    assert "Layer: Runtime route: OK" in result.stdout
+    assert "Layer: Effective permission state: OK" in result.stdout
+    assert "Layer: Permission-source provenance: UNKNOWN" in result.stdout
 
 
 def test_doctor_preserves_corrupt_dispatch_state(tmp_path: Path):

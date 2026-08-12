@@ -114,7 +114,7 @@ Configured routes are owned by `contracts/policy.json`:
 | Investigator | `subagents_dispatch_investigator` | Terra XHigh | none |
 | Advisor | `subagents_dispatch_advisor` | Sol High | none |
 
-Host sandbox and permission profile are inherited from the selected Codex environment or parent turn; they are not per-role route settings.
+Host sandbox and permission profile are not per-role route settings. The actual applied values require Host observation; the internal source and selection decision remain separate facts and stay `UNKNOWN` when the Host does not expose them.
 
 Reader handles narrow inspectable evidence. Worker implements behavior that is already materially decided. Solver owns judgment-coupled implementation. Investigator performs broader read-heavy technical investigation after semantics stabilize. Advisor owns one material read-only judgment or fresh independent Final Review.
 

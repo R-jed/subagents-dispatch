@@ -19,6 +19,8 @@
     "child_materialization",
     "execution",
     "route_assurance",
+    "permission_state_assurance",
+    "permission_provenance_assurance",
     "child_routes",
     "metrics",
     "evidence_artifact_ref"
@@ -45,6 +47,8 @@
     "child_materialization": {"$ref": "#/$defs/child_materialization"},
     "execution": {"$ref": "#/$defs/execution"},
     "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+    "permission_state_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
+    "permission_provenance_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "child_routes": {
       "type": "array",
       "items": {"$ref": "#/$defs/child_route"}
@@ -250,7 +254,8 @@
         "agent_type",
         "role",
         "observed",
-        "permission_inheritance",
+        "permission_state_verdict",
+        "permission_provenance",
         "verdict",
         "evidence_source",
         "evidence_ref"
@@ -261,13 +266,27 @@
         "agent_type": {"type": "string", "minLength": 1},
         "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
         "observed": {"$ref": "#/$defs/observed_route"},
-        "permission_inheritance": {
+        "permission_state_verdict": {"enum": ["verified", "unknown", "failed"]},
+        "permission_provenance": {
           "type": "object",
-          "required": ["source_kind", "sandbox_policy_type", "permission_profile_type", "verdict"],
+          "required": [
+            "source_kind",
+            "source_id",
+            "sandbox_policy_type",
+            "permission_profile_type",
+            "evidence_source",
+            "evidence_ref",
+            "selection_evidence_ref",
+            "verdict"
+          ],
           "properties": {
             "source_kind": {"type": ["string", "null"], "enum": [null, "parent_turn", "selected_environment"]},
+            "source_id": {"type": ["string", "null"]},
             "sandbox_policy_type": {"type": ["string", "null"]},
             "permission_profile_type": {"type": ["string", "null"]},
+            "evidence_source": {"enum": ["native", "local", "both", "none"]},
+            "evidence_ref": {"type": ["string", "null"]},
+            "selection_evidence_ref": {"type": ["string", "null"]},
             "verdict": {"enum": ["verified", "unknown", "failed"]}
           },
           "additionalProperties": false

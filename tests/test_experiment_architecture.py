@@ -49,9 +49,9 @@ def test_per_run_input_evidence_cannot_promote_frozen_campaign_values_to_observe
 
 def test_unknown_route_runs_do_not_count_as_valid_calibration_repeats():
     text = DOC.read_text(encoding="utf-8")
-    assert "valid route-attested completed runs" in text
-    assert "`UNKNOWN`, conflicted, quarantined, or failed does not count" in text
-    assert "the route comparison remains insufficient evidence" in text
+    assert "minimum is three claim-eligible completed runs" in text
+    assert "A run with `UNKNOWN` or failed status in a required dimension does not count" in text
+    assert "remains claim-ineligible on a Host that does not expose that evidence" in text
 
 
 def test_product_benchmark_preserves_zero_child_dispatch_as_a_real_outcome():

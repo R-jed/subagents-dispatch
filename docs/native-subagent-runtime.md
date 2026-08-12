@@ -119,7 +119,7 @@ subagents_dispatch_investigator  -> gpt-5.6-terra / xhigh / mutation none
 subagents_dispatch_advisor       -> gpt-5.6-sol   / high  / mutation none
 ```
 
-Codex 0.147.0 currently applies base child configuration, then role configuration, then a runtime permission override from the selected environment or parent turn before spawn. Model and reasoning remain role configuration; effective sandbox and permission profile are Host-inherited. The Plugin exposes no per-child permission selector and does not claim one.
+The Plugin configures model and reasoning per role, but it does not expose a per-child permission selector. Codex may expose the sandbox and permission profile that actually applied without exposing which internal source supplied them or why that source was selected. The Plugin therefore treats `selected_environment` and `parent_turn` only as candidate source vocabulary, never as an observed Host precedence rule.
 
 Responsibility semantics follow the current model guidance:
 
@@ -177,12 +177,12 @@ subject: main_session
 subject: child
 ```
 
-For child diagnostics it keeps route, ancestry, and permission evidence separate:
+For child diagnostics it keeps the three assurance dimensions separate:
 
 ```text
-route_evidence
-ancestry_evidence
-permission_evidence
+route_assurance
+permission_state_assurance
+permission_provenance_assurance
 ```
 
 Use runtime diagnostics when the claim actually depends on runtime observation, including:

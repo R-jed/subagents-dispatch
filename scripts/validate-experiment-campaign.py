@@ -266,6 +266,19 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
     if campaign["repeat_policy"]["ordering"] == "fixed_with_reason" and fixed_reason is None:
         fail("fixed_with_reason ordering requires a concrete fixed_order_reason")
 
+    assurance = campaign["assurance_requirements"]
+    required = set(assurance["required"])
+    allow_unknown = set(assurance["allow_unknown"])
+    if required & allow_unknown:
+        fail("assurance dimensions cannot be both required and allowed unknown")
+    if not {"route", "permission_state"} <= required:
+        fail("current model/effort and product claims require route and permission_state assurance")
+    dimensions = {"route", "permission_state", "permission_provenance"}
+    if required | allow_unknown != dimensions:
+        fail("campaign must classify every assurance dimension as required or allowed unknown")
+    if allow_unknown - {"permission_provenance"}:
+        fail("route and permission_state cannot be allowed unknown")
+
     validate_common_workloads(campaign)
     experiment = campaign["experiment"]
     if experiment["type"] == "role_calibration":

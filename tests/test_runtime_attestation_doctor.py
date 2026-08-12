@@ -38,7 +38,11 @@ def route() -> dict:
     }
 
 
-def formal_evidence(*, include_permission_provenance: bool = True) -> dict:
+def formal_evidence(
+    *,
+    include_permission_provenance: bool = True,
+    require_permission_provenance: bool = False,
+) -> dict:
     source = {
         "source_kind": "parent_turn",
         "source_id": PARENT,
@@ -48,7 +52,6 @@ def formal_evidence(*, include_permission_provenance: bool = True) -> dict:
     if include_permission_provenance:
         source.update(
             {
-                "evidence_source": "local",
                 "evidence_ref": "rollout:parent",
                 "selection_evidence_ref": "host:permission-source-selection",
             }
@@ -63,9 +66,10 @@ def formal_evidence(*, include_permission_provenance: bool = True) -> dict:
             "effort": WORKER["effort"],
             "runtime_observation_required": True,
             "requires_permission_observation": True,
+            "requires_permission_provenance": require_permission_provenance,
         },
         "local": route(),
-        "effective_permission_source": source,
+        "local_permission_source": source,
     }
 
 
@@ -101,7 +105,9 @@ def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_
     result = run_doctor(home, evidence)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Layer: Runtime route evidence: OK" in result.stdout
+    assert "Layer: Runtime route: OK" in result.stdout
+    assert "Layer: Effective permission state: OK" in result.stdout
+    assert "Layer: Permission-source provenance: OK" in result.stdout
     assert "Overall: OK" in result.stdout
 
 
@@ -116,12 +122,12 @@ def test_doctor_live_route_rejects_missing_formal_requirement_flags(tmp_path: Pa
     result = run_doctor(home, evidence)
 
     assert result.returncode == 1
-    assert "Layer: Runtime route evidence: FAIL" in result.stdout
+    assert "Layer: Runtime route: FAIL" in result.stdout
     assert "requires expected.requires_permission_observation=true" in result.stdout
     assert "Overall: UNHEALTHY" in result.stdout
 
 
-def test_doctor_live_route_does_not_pass_unbound_permission_source(tmp_path: Path):
+def test_doctor_live_route_keeps_verified_state_separate_from_unknown_provenance(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     evidence = tmp_path / "runtime-unbound-source.json"
@@ -132,8 +138,33 @@ def test_doctor_live_route_does_not_pass_unbound_permission_source(tmp_path: Pat
 
     result = run_doctor(home, evidence)
 
+    assert result.returncode == 0
+    assert "Layer: Runtime route: OK" in result.stdout
+    assert "Layer: Effective permission state: OK" in result.stdout
+    assert "Layer: Permission-source provenance: UNKNOWN" in result.stdout
+    assert "Overall: OK" in result.stdout
+
+
+def test_doctor_live_route_blocks_when_the_claim_requires_unknown_provenance(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    evidence = tmp_path / "runtime-unbound-source.json"
+    evidence.write_text(
+        json.dumps(
+            formal_evidence(
+                include_permission_provenance=False,
+                require_permission_provenance=True,
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_doctor(home, evidence)
+
     assert result.returncode == 1
-    assert "Layer: Runtime route evidence: UNKNOWN" in result.stdout
+    assert "Layer: Runtime route: OK" in result.stdout
+    assert "Layer: Effective permission state: OK" in result.stdout
+    assert "Layer: Permission-source provenance: UNKNOWN" in result.stdout
     assert "Overall: UNHEALTHY" in result.stdout
 
 
@@ -149,5 +180,7 @@ def test_non_live_doctor_keeps_unknown_runtime_evidence_nonfatal(tmp_path: Path)
     result = run_doctor(home, evidence, live_route=False)
 
     assert result.returncode == 0
-    assert "Layer: Runtime route evidence: UNKNOWN" in result.stdout
+    assert "Layer: Runtime route: OK" in result.stdout
+    assert "Layer: Effective permission state: OK" in result.stdout
+    assert "Layer: Permission-source provenance: UNKNOWN" in result.stdout
     assert "Overall: OK" in result.stdout

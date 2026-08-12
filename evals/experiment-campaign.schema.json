@@ -9,6 +9,7 @@
     "plugin_candidate_sha",
     "host_target",
     "repeat_policy",
+    "assurance_requirements",
     "experiment",
     "workloads"
   ],
@@ -34,6 +35,23 @@
         "minimum_completed_per_arm": {"type": "integer", "minimum": 1},
         "ordering": {"enum": ["randomized", "interleaved", "fixed_with_reason"]},
         "fixed_order_reason": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "assurance_requirements": {
+      "type": "object",
+      "required": ["required", "allow_unknown"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {"enum": ["route", "permission_state", "permission_provenance"]},
+          "uniqueItems": true
+        },
+        "allow_unknown": {
+          "type": "array",
+          "items": {"enum": ["route", "permission_state", "permission_provenance"]},
+          "uniqueItems": true
+        }
       },
       "additionalProperties": false
     },

@@ -41,6 +41,21 @@ local
 
 `local` here means a Host-produced local runtime record. It never means profile TOML, `policy.json`, a hand-written JSON object, copied configuration, remembered values, or child output.
 
+The normalizer reports three independent assurance dimensions:
+
+```text
+route_assurance
+-> exact child and parent identity, managed role/agent_type, model, and reasoning effort
+
+permission_state_assurance
+-> the sandbox_policy_type and permission_profile_type that actually applied to the child
+
+permission_provenance_assurance
+-> the effective source kind and identity, source permission, source evidence, and Host selection evidence
+```
+
+Each dimension is `verified`, `unknown`, or `failed`. They are not collapsed into one overall attestation result. A claim passes only when every dimension declared required for that claim is verified.
+
 ## Public Host evidence first
 
 Use public Host/spawn/details metadata first whenever it exposes the required field. Bind every observation to the exact child identity and expected parent/root thread when those identities are available.
@@ -98,27 +113,28 @@ runtime_observation_required = true
 requires_permission_observation = true
 ```
 
-Put public Host runtime metadata in `native`. Put only the exact inspector output in `local`. Record the effective inherited permission separately in `effective_permission_source` with all of these fields:
+Set `requires_permission_provenance=true` only when the intended claim is about the Host permission source or source-selection decision. Model/effort calibration and ordinary product-route checks require route plus actual permission state, not unavailable Host-internal provenance.
+
+Put public Host runtime metadata in `native`. Put only the exact inspector output in `local`. Record permission-source fields in `native_permission_source` or `local_permission_source` only when that corresponding Host evidence surface directly exposes all of these fields:
 
 ```text
 source_kind
 source_id
 sandbox_policy_type
 permission_profile_type
-evidence_source
 evidence_ref
 selection_evidence_ref
 ```
 
-`source_kind` is `parent_turn` or `selected_environment`. The `permission_semantics.sources` array in `contracts/policy.json` is the Host source precedence, with earlier entries taking priority. `source_id` binds the permission observation to the actual source: for `parent_turn` it must equal the exact expected parent/root thread id; for `selected_environment` it must be a concrete Host-observed environment identity. `evidence_source` is `native`, `local`, or `both`. `evidence_ref` identifies the Host evidence that supplied the source permission. `selection_evidence_ref` identifies the Host evidence establishing why that source was effective after source precedence was applied. If source identity or source-selection provenance is unavailable, permission integrity remains `UNKNOWN`.
+`source_kind` may be `parent_turn` or `selected_environment`; these are candidate source kinds in project vocabulary, not an asserted Host precedence. `source_id` binds the source claim to a concrete Host-observed identity. For `parent_turn` it must equal the exact expected parent/root thread id. The output `source` is derived from whether native, local, or agreeing native-and-local evidence supplied the fields. `evidence_ref` identifies the Host evidence that exposed the source permission. `selection_evidence_ref` identifies direct Host evidence for why that source was effective. A detached, configured, or hand-written source object is rejected; equality between child and candidate-source permission values cannot manufacture either source attribution or selection provenance.
 
-A field may be proven by `native`, `local`, or both. When both runtime sources expose the same field, they must agree. Route integrity compares role, model, effort, child identity, and ancestry with the configured route. Permission integrity independently compares the actual child sandbox and permission profile with the bound effective inherited permission source.
+A field may be proven by `native`, `local`, or both. When both runtime sources expose the same field, they must agree. Route assurance compares role, model, effort, child identity, and ancestry with the configured route. Permission-state assurance requires both actual child permission fields. Permission-provenance assurance separately requires a concrete source identity, source permission evidence, and source-selection evidence.
 
-Accepted route identity/model/effort is retained as accepted-layer fact when exposed. Accepted permission is not used to decide inheritance: Codex 0.147.0 applies the runtime permission profile after role configuration. A child/source permission mismatch or a bound `parent_turn` source-id mismatch is `FAIL` and quarantines the permission claim. Missing child permission, source permission, source identity, or source-selection provenance is `UNKNOWN`. A matching inherited permission is `OK`, including a broad sandbox inherited from a broad parent. Separately, `requires_enforced_read_only=true` still rejects a broad sandbox even when inheritance matches.
+Accepted route identity/model/effort is retained as accepted-layer fact when exposed. Accepted permission is not Observed permission. Missing child permission makes permission-state assurance `unknown`. Missing source identity or selection evidence makes only permission-provenance assurance `unknown`; it does not erase independently observed child permission state. A child/source mismatch or bound `parent_turn` source-id mismatch makes provenance `failed` and quarantines the conflicting claim. `requires_enforced_read_only=true` still rejects an observed broad sandbox independently of provenance.
 
 The normalizer must never fill an absent Observed field from Configured, Requested, or Accepted values.
 
-The application order observed on Codex 0.147.0 is base child configuration, role configuration, runtime permission override, then spawn. Re-attest this Host behavior for future supported Codex versions; do not assume it is immutable.
+Do not encode an internal Host decision model or source precedence unless a supported Host exposes direct selection evidence. Current Codex may expose the actual child sandbox and permission profile without exposing the identity of the effective source or why it was selected. In that case permission state can be verified while provenance remains unknown.
 
 ## Evidence grades
 
@@ -170,14 +186,17 @@ multiple exact rollout matches
 observed route differs from policy/configured route
 -> FAIL / quarantine
 
-observed child permission differs from effective parent/environment permission
--> FAIL / quarantine
+observed child permission differs from a directly evidenced source permission
+-> permission provenance FAIL / quarantine; observed permission state remains separately reported
 
 parent-turn permission source id differs from the expected parent/root thread id
 -> FAIL / quarantine
 
-effective permission source, source provenance, or either permission field is unavailable
--> UNKNOWN
+either actual child permission field is unavailable
+-> permission state UNKNOWN
+
+effective permission source identity or source-selection evidence is unavailable
+-> permission provenance UNKNOWN; route and actual permission state keep their independent verdicts
 
 public Host and exact rollout disagree
 -> FAIL / quarantine
@@ -192,17 +211,17 @@ Do not silently fall back to a different role, model, effort, or permission leve
 
 For a formal live-route smoke, record all five exact managed roles separately:
 
-| Role | Configured model / effort | Behavioral authority | Host accepted identity | Observed model / effort | Observed Host permission | Permission source | Inheritance verdict | Parent / child identity | Overall |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Reader | from policy | none | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | bound parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
-| Worker | from policy | assigned bounded-source-write | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | bound parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
-| Solver | from policy | assigned bounded-source-write | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | bound parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
-| Investigator | from policy | none | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | bound parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
-| Advisor | from policy | none | actual | actual or `UNKNOWN` | actual or `UNKNOWN` | bound parent/environment/unknown | OK/UNKNOWN/FAIL | actual | VERIFIED/UNKNOWN/FAIL |
+| Role | Configured model / effort | Behavioral authority | Host accepted identity | Route assurance | Effective permission state | Permission provenance |
+| --- | --- | --- | --- | --- | --- | --- |
+| Reader | from policy | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Worker | from policy | assigned bounded-source-write | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Solver | from policy | assigned bounded-source-write | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Investigator | from policy | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Advisor | from policy | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
 
 For Reader, Investigator, and Advisor, also record a narrow pre/post workspace mutation check appropriate to the smoke responsibility and require no project-file mutation. That check verifies the behavioral contract only. It is not Host sandbox proof and cannot replace permission attestation.
 
-For a release gate that explicitly requires observed model, effort, permission, or ancestry, `UNKNOWN` does not pass that gate.
+For a release gate that explicitly requires observed model, effort, actual permission state, ancestry, or permission provenance, `UNKNOWN` does not pass that specific gate. Provenance `UNKNOWN` cannot support a source/precedence claim, but does not downgrade verified route or permission-state facts.
 
 ## Privacy and scope
 

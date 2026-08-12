@@ -35,6 +35,8 @@ runtime metadata exposed to callers
 
 subagents-dispatch observes these capabilities when needed. It does not emulate a missing Host feature and does not claim unsupported behavior from repository configuration alone.
 
+Observed effective sandbox/profile and Host-internal source selection are different Host facts. When the Host exposes the former but not the latter, subagents-dispatch may verify the applied permission state while keeping source identity and selection provenance `UNKNOWN`. It does not infer an internal precedence model from configuration or equal values.
+
 ### Current user/system/developer authority
 
 Current conversation authority defines the permitted goal, scope, mutations, external effects, and any explicit workflow choice.

@@ -69,7 +69,7 @@ def test_dispatch_skill_and_openai_metadata_keep_explicit_identity():
 
 def test_policy_contract_is_the_single_machine_role_source():
     payload = contract()
-    assert payload["schema_version"] == 6
+    assert payload["schema_version"] == 7
     assert set(payload) == {
         "schema_version",
         "delegation",
@@ -85,8 +85,7 @@ def test_policy_contract_is_the_single_machine_role_source():
         "scope": "canonical_workspace",
     }
     assert payload["permission_semantics"] == {
-        "mode": "host_inherited",
-        "sources": ["selected_environment", "parent_turn"],
+        "candidate_source_kinds": ["selected_environment", "parent_turn"],
     }
     assert set(payload["roles"]) == {"reader", "worker", "solver", "investigator", "advisor"}
 

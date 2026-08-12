@@ -27,7 +27,13 @@ MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS)
-PERMISSION_SOURCE_EVIDENCE_KINDS = frozenset({"native", "local", "both"})
+PERMISSION_PROVENANCE_FIELDS = (
+    "source_kind",
+    "source_id",
+    *PERMISSION_FIELDS,
+    "evidence_ref",
+    "selection_evidence_ref",
+)
 
 
 def fail(message: str) -> NoReturn:
@@ -95,11 +101,11 @@ def load_permission_policy() -> tuple[frozenset[str], frozenset[str]]:
         agent_types.add(agent_type)
     if not isinstance(semantics, dict):
         fail("permission_semantics must be an object")
-    sources = semantics.get("sources")
-    if semantics.get("mode") != "host_inherited" or not isinstance(sources, list):
-        fail("permission_semantics must declare host_inherited sources")
+    sources = semantics.get("candidate_source_kinds")
+    if not isinstance(sources, list):
+        fail("permission_semantics must declare candidate_source_kinds")
     if not sources or not all(isinstance(item, str) and item for item in sources):
-        fail("permission_semantics.sources must be a non-empty string list")
+        fail("permission_semantics.candidate_source_kinds must be a non-empty string list")
     return frozenset(agent_types), frozenset(sources)
 
 
@@ -155,7 +161,10 @@ def normalize(value: dict[str, Any] | None) -> dict[str, str | None] | None:
     return normalized
 
 
-def normalize_permission_source(value: dict[str, Any] | None) -> dict[str, str | None] | None:
+def normalize_permission_source(
+    value: dict[str, Any] | None,
+    field: str,
+) -> dict[str, str | None] | None:
     if value is None:
         return None
     normalized = {
@@ -163,18 +172,29 @@ def normalize_permission_source(value: dict[str, Any] | None) -> dict[str, str |
         "source_id": text(value.get("source_id")),
         "sandbox_policy_type": canonical_sandbox(text(value.get("sandbox_policy_type"))),
         "permission_profile_type": text(value.get("permission_profile_type")),
-        "evidence_source": text(value.get("evidence_source")),
         "evidence_ref": text(value.get("evidence_ref")),
         "selection_evidence_ref": text(value.get("selection_evidence_ref")),
     }
     if normalized["source_kind"] is not None and normalized["source_kind"] not in PERMISSION_SOURCE_KINDS:
-        fail("effective_permission_source.source_kind is not allowed by policy")
-    if (
-        normalized["evidence_source"] is not None
-        and normalized["evidence_source"] not in PERMISSION_SOURCE_EVIDENCE_KINDS
-    ):
-        fail("effective_permission_source.evidence_source must be native, local, or both")
+        fail(f"{field}.source_kind is not allowed by policy")
     return normalized
+
+
+def merged_permission_source(
+    native: dict[str, str | None] | None,
+    local: dict[str, str | None] | None,
+) -> tuple[dict[str, str | None] | None, str]:
+    if native is None and local is None:
+        return None, "none"
+    merged = {
+        field: (
+            native.get(field)
+            if native is not None and native.get(field) is not None
+            else local.get(field) if local is not None else None
+        )
+        for field in PERMISSION_PROVENANCE_FIELDS
+    }
+    return merged, evidence_source(native is not None, local is not None)
 
 
 def seen(obs: dict[str, str | None] | None, fields: tuple[str, ...]) -> list[str]:
@@ -466,6 +486,7 @@ def validate_expected(expected: dict[str, Any]) -> None:
         "runtime_observation_required",
         "requires_enforced_read_only",
         "requires_permission_observation",
+        "requires_permission_provenance",
     ):
         if not isinstance(expected.get(flag, False), bool):
             fail(f"expected.{flag} must be boolean when present")
@@ -500,19 +521,31 @@ def route_complete(
     )
 
 
-def permission_result(
+def permission_results(
     expected: dict[str, Any],
     native: dict[str, str | None] | None,
     local: dict[str, str | None] | None,
     effective_source: dict[str, str | None] | None,
+    effective_source_kind: str,
     violations: list[str],
-) -> tuple[dict[str, Any], bool]:
+) -> tuple[dict[str, Any], dict[str, Any], bool, bool]:
     requires_read_only = expected.get("requires_enforced_read_only", False)
-    permission_required = bool(
+    state_required = bool(
         expected.get("requires_permission_observation", False) or requires_read_only
     )
+    provenance_required = bool(expected.get("requires_permission_provenance", False))
     if any(f"source_conflict:{field}" in violations for field in PERMISSION_FIELDS):
-        return {"status": "conflict", "source": "both"}, permission_required
+        state_violations = [
+            f"source_conflict:{field}"
+            for field in PERMISSION_FIELDS
+            if f"source_conflict:{field}" in violations
+        ]
+        return (
+            {"status": "failed", "source": "both", "violations": state_violations},
+            {"status": "unknown", "source": "none", "violations": []},
+            state_required,
+            provenance_required,
+        )
 
     observed = {}
     for field in PERMISSION_FIELDS:
@@ -522,10 +555,36 @@ def permission_result(
         any(native and native.get(field) is not None for field in PERMISSION_FIELDS),
         any(local and local.get(field) is not None for field in PERMISSION_FIELDS),
     )
+    state = {
+        "status": "verified" if all(observed[field] is not None for field in PERMISSION_FIELDS) else "unknown",
+        "source": observed_source,
+        "observed_sandbox": observed["sandbox_policy_type"],
+        "observed_permission_profile": observed["permission_profile_type"],
+        "violations": [],
+    }
+    if state["status"] == "verified" and requires_read_only and observed["sandbox_policy_type"] != "read-only":
+        violations.append("permission:read_only_not_enforced")
+        state["status"] = "failed"
+        state["violations"] = ["permission:read_only_not_enforced"]
+
+    provenance_conflicts = sorted(
+        item for item in set(violations) if item.startswith("permission_source_conflict:")
+    )
+    if provenance_conflicts:
+        return (
+            state,
+            {
+                "status": "failed",
+                "source": "both",
+                "violations": provenance_conflicts,
+            },
+            state_required,
+            provenance_required,
+        )
+
     required_source_fields = (
         "source_kind",
         "source_id",
-        "evidence_source",
         "evidence_ref",
         "selection_evidence_ref",
         *PERMISSION_FIELDS,
@@ -533,44 +592,54 @@ def permission_result(
     source_complete = effective_source is not None and all(
         effective_source.get(field) is not None for field in required_source_fields
     )
-    observed_complete = all(observed[field] is not None for field in PERMISSION_FIELDS)
+    observed_complete = state["status"] != "unknown"
     if not source_complete or not observed_complete:
-        if permission_required:
-            return {"status": "not_observed", "source": "none"}, permission_required
-        return {"status": "not_required", "source": "none"}, permission_required
+        return (
+            state,
+            {"status": "unknown", "source": "none", "violations": []},
+            state_required,
+            provenance_required,
+        )
 
     assert effective_source is not None
-    base = {
-        "expected_sandbox": effective_source["sandbox_policy_type"],
-        "expected_permission_profile": effective_source["permission_profile_type"],
-        "observed_sandbox": observed["sandbox_policy_type"],
-        "observed_permission_profile": observed["permission_profile_type"],
-        "source": observed_source,
+    provenance = {
+        "status": "verified",
+        "source": effective_source_kind,
         "source_kind": effective_source["source_kind"],
         "source_id": effective_source["source_id"],
-        "source_evidence_source": effective_source["evidence_source"],
         "source_evidence_ref": effective_source["evidence_ref"],
         "selection_evidence_ref": effective_source["selection_evidence_ref"],
+        "source_sandbox": effective_source["sandbox_policy_type"],
+        "source_permission_profile": effective_source["permission_profile_type"],
+        "violations": [],
     }
     if effective_source["source_kind"] == "parent_turn":
         expected_parent = text(expected.get("parent_thread_id"))
         if expected_parent is None:
-            if permission_required:
-                return {"status": "not_observed", "source": "none"}, permission_required
-            return {"status": "not_required", "source": "none"}, permission_required
+            return (
+                state,
+                {"status": "unknown", "source": "none", "violations": []},
+                state_required,
+                provenance_required,
+            )
         if effective_source["source_id"] != expected_parent:
             violations.append("permission:source_identity_mismatch")
-            return {**base, "source_provenance": "conflict", "status": "mismatch"}, permission_required
+            provenance["status"] = "failed"
+            provenance["violations"] = ["permission:source_identity_mismatch"]
+            return state, provenance, state_required, provenance_required
     if any(observed[field] != effective_source[field] for field in PERMISSION_FIELDS):
-        violations.append("permission:inheritance_mismatch")
-        return {**base, "source_provenance": "matched", "status": "mismatch"}, permission_required
-    if requires_read_only and observed["sandbox_policy_type"] != "read-only":
-        violations.append("permission:read_only_not_enforced")
-        return {**base, "source_provenance": "matched", "status": "broader_than_required"}, permission_required
-    return {**base, "source_provenance": "matched", "status": "matched"}, permission_required
+        violations.append("permission:provenance_state_mismatch")
+        provenance["status"] = "failed"
+        provenance["violations"] = ["permission:provenance_state_mismatch"]
+    return state, provenance, state_required, provenance_required
 
 
 def child_result(payload: dict[str, Any]) -> dict[str, Any]:
+    if "effective_permission_source" in payload:
+        fail(
+            "effective_permission_source is not Host-observed evidence; use "
+            "native_permission_source or local_permission_source"
+        )
     expected = obj(payload.get("expected"), "expected")
     if expected is None:
         fail("expected is required for child evidence")
@@ -578,8 +647,17 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     accepted = normalize(obj(payload.get("accepted"), "accepted"))
     native = normalize(obj(payload.get("native"), "native"))
     local = normalize(obj(payload.get("local"), "local"))
-    effective_source = normalize_permission_source(
-        obj(payload.get("effective_permission_source"), "effective_permission_source")
+    native_permission_source = normalize_permission_source(
+        obj(payload.get("native_permission_source"), "native_permission_source"),
+        "native_permission_source",
+    )
+    local_permission_source = normalize_permission_source(
+        obj(payload.get("local_permission_source"), "local_permission_source"),
+        "local_permission_source",
+    )
+    effective_source, effective_source_kind = merged_permission_source(
+        native_permission_source,
+        local_permission_source,
     )
 
     violations: list[str] = []
@@ -590,6 +668,14 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     if local is not None:
         violations.extend(compare_expected(expected, local, "local"))
     violations.extend(source_conflicts(native, local, OBSERVED_FIELDS))
+    violations.extend(
+        item.replace("source_conflict:", "permission_source_conflict:", 1)
+        for item in source_conflicts(
+            native_permission_source,
+            local_permission_source,
+            PERMISSION_PROVENANCE_FIELDS,
+        )
+    )
     accepted_comparable_fields = (*IDENTITY_FIELDS, *CHILD_ROUTE_FIELDS)
     violations.extend(layer_conflicts(accepted, native, accepted_comparable_fields))
     violations.extend(layer_conflicts(accepted, local, accepted_comparable_fields))
@@ -663,11 +749,17 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
             "source": evidence_source(native_parent_observed, local_parent_observed),
         }
 
-    permission, permission_required = permission_result(
+    (
+        permission_state,
+        permission_provenance,
+        permission_state_required,
+        permission_provenance_required,
+    ) = permission_results(
         expected,
         native,
         local,
         effective_source,
+        effective_source_kind,
         violations,
     )
 
@@ -682,13 +774,17 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     conflict = (
         route["status"] == "conflict"
         or ancestry["status"] == "conflict"
-        or permission["status"] in {"broader_than_required", "mismatch", "conflict"}
+        or permission_state["status"] == "failed"
+        or permission_provenance["status"] == "failed"
         or identity_conflict
         or any_source_conflict
+        or any(item.startswith("permission_source_conflict:") for item in violations)
     )
     if conflict:
         status, decision = "mismatch", "quarantine"
-    elif permission_required and permission["status"] == "not_observed":
+    elif permission_state_required and permission_state["status"] == "unknown":
+        status, decision = "not_exposed", "return_to_main_session"
+    elif permission_provenance_required and permission_provenance["status"] == "unknown":
         status, decision = "not_exposed", "return_to_main_session"
     elif runtime_required and not runtime_required_complete:
         status, decision = "not_exposed", "return_to_main_session"
@@ -716,6 +812,31 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
             return False
         return None
 
+    route_assurance = {
+        "status": (
+            "failed"
+            if route["status"] == "conflict" or ancestry["status"] == "conflict" or identity_conflict
+            else "verified"
+            if runtime_required_complete
+            else "unknown"
+        ),
+        "source": route["source"],
+        "violations": sorted(
+            item
+            for item in set(violations)
+            if item.startswith(
+                (
+                    "accepted:",
+                    "native:",
+                    "local:",
+                    "source_conflict:",
+                    "accepted_observed_conflict:",
+                )
+            )
+            and not any(field in item for field in PERMISSION_FIELDS)
+        ),
+    }
+
     return {
         "subject": "child",
         "status": status,
@@ -733,13 +854,14 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "route_evidence": route,
         "ancestry_evidence": ancestry,
-        "permission_evidence": permission,
+        "route_assurance": route_assurance,
+        "permission_state_assurance": permission_state,
+        "permission_provenance_assurance": permission_provenance,
         "configuration_match": tri(route["status"], {"conflict"}),
         "runtime_reported": native_complete,
         "local_record_observed": local_complete,
         "runtime_observation_complete": runtime_required_complete,
         "source_agreement": source_agreement,
-        "permission_match": tri(permission["status"], {"broader_than_required", "mismatch", "conflict"}),
         "ancestry_match": tri(ancestry["status"], {"conflict"}),
         "violations": sorted(set(violations)),
     }

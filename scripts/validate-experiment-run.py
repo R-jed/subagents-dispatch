@@ -384,34 +384,43 @@ def validate_child_route(
             + ", ".join(mismatches)
         )
 
-    inherited = route["permission_inheritance"]
+    permission_state = route["permission_state_verdict"]
     child_permission = (
         observed["sandbox_policy_type"],
         observed["permission_profile_type"],
     )
+    permission_complete = all(value is not None for value in child_permission)
+    if permission_state == "verified" and not permission_complete:
+        fail("verified permission state requires observed child sandbox and permission profile")
+    if permission_state == "unknown" and permission_complete:
+        fail("complete observed child permission state cannot be relabeled unknown")
+
+    provenance = route["permission_provenance"]
     source_permission = (
-        inherited["sandbox_policy_type"],
-        inherited["permission_profile_type"],
+        provenance["sandbox_policy_type"],
+        provenance["permission_profile_type"],
     )
-    permission_complete = (
-        inherited["source_kind"] is not None
+    provenance_complete = (
+        provenance["source_kind"] is not None
+        and provenance["source_id"] is not None
+        and provenance["evidence_source"] != "none"
+        and provenance["evidence_ref"] is not None
+        and provenance["selection_evidence_ref"] is not None
         and all(value is not None for value in (*child_permission, *source_permission))
     )
-    if not permission_complete:
-        expected_permission_verdict = "unknown"
+    if not provenance_complete:
+        expected_provenance_verdict = "unknown"
+    elif provenance["source_kind"] == "parent_turn" and provenance["source_id"] != root_thread_id:
+        expected_provenance_verdict = "failed"
     elif child_permission == source_permission:
-        expected_permission_verdict = "verified"
+        expected_provenance_verdict = "verified"
     else:
-        expected_permission_verdict = "failed"
-    if inherited["verdict"] != expected_permission_verdict:
+        expected_provenance_verdict = "failed"
+    if provenance["verdict"] != expected_provenance_verdict:
         fail(
-            "permission inheritance verdict must be "
-            f"{expected_permission_verdict!r} for the recorded child/source permissions"
+            "permission provenance verdict must be "
+            f"{expected_provenance_verdict!r} for the recorded Host source evidence"
         )
-    if expected_permission_verdict == "failed" and route["verdict"] != "failed":
-        fail("permission inheritance mismatch requires child route verdict=failed")
-    if expected_permission_verdict == "unknown" and route["verdict"] == "verified":
-        fail("unknown permission inheritance cannot have child route verdict=verified")
 
     source = route["evidence_source"]
     evidence_ref = route["evidence_ref"]
@@ -426,7 +435,7 @@ def validate_child_route(
         require_text(evidence_ref, "child route evidence_ref")
 
     if route["verdict"] == "verified":
-        missing = [field for field in ("model", "effort", "sandbox_policy_type", "permission_profile_type") if observed[field] is None]
+        missing = [field for field in ("model", "effort") if observed[field] is None]
         if missing:
             fail("verified child route is missing observed fields: " + ", ".join(missing))
         if mismatches:
@@ -473,6 +482,26 @@ def derived_route_assurance(routes: list[dict[str, Any]], materialized_count: in
     if materialized_count == 0:
         return "not_applicable"
     verdicts = {route["verdict"] for route in routes}
+    if "failed" in verdicts:
+        return "failed"
+    if "unknown" in verdicts:
+        return "unknown"
+    return "verified"
+
+
+def derived_permission_assurance(
+    routes: list[dict[str, Any]],
+    materialized_count: int | None,
+    field: str,
+) -> str:
+    if materialized_count is None:
+        return "unknown"
+    if materialized_count == 0:
+        return "not_applicable"
+    verdicts = {
+        route[field] if field == "permission_state_verdict" else route[field]["verdict"]
+        for route in routes
+    }
     if "failed" in verdicts:
         return "failed"
     if "unknown" in verdicts:
@@ -592,6 +621,44 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
         fail(
             f"route_assurance must be {expected_assurance!r} for the recorded child materialization and route verdicts"
         )
+    expected_permission_state = derived_permission_assurance(
+        run["child_routes"], materialized_count, "permission_state_verdict"
+    )
+    if run["permission_state_assurance"] != expected_permission_state:
+        fail(
+            "permission_state_assurance must be "
+            f"{expected_permission_state!r} for the recorded child permission states"
+        )
+    expected_permission_provenance = derived_permission_assurance(
+        run["child_routes"], materialized_count, "permission_provenance"
+    )
+    if run["permission_provenance_assurance"] != expected_permission_provenance:
+        fail(
+            "permission_provenance_assurance must be "
+            f"{expected_permission_provenance!r} for the recorded Host provenance evidence"
+        )
+
+    dimension_status = {
+        "route": run["route_assurance"],
+        "permission_state": run["permission_state_assurance"],
+        "permission_provenance": run["permission_provenance_assurance"],
+    }
+    assurance_policy = campaign["assurance_requirements"]
+    required_verified = all(
+        dimension_status[dimension] in {"verified", "not_applicable"}
+        for dimension in assurance_policy["required"]
+    )
+    allowed_unknown = all(
+        dimension_status[dimension] in {"verified", "unknown", "not_applicable"}
+        for dimension in assurance_policy["allow_unknown"]
+    )
+    claim_eligible = (
+        required_verified
+        and allowed_unknown
+        and run["input_assurance"] == "verified"
+        and run["execution"]["status"] == "completed"
+        and run["execution"]["acceptance_status"] == "passed"
+    )
 
     validate_metrics(run, materialized_count)
     return {
@@ -606,6 +673,9 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
         "input_assurance": run["input_assurance"],
         "materialized_children": materialized_count,
         "route_assurance": run["route_assurance"],
+        "permission_state_assurance": run["permission_state_assurance"],
+        "permission_provenance_assurance": run["permission_provenance_assurance"],
+        "claim_eligible": claim_eligible,
         "execution_status": run["execution"]["status"],
         "acceptance_status": run["execution"]["acceptance_status"],
     }
