@@ -111,6 +111,7 @@ Handoff / Claims Plane
 Experiment Plane
 -> freeze real experiments before execution
 -> role_calibration: fixed role contract, model/effort route is the independent variable
+-> formal model_effort materialization: two profile-only Agent TOMLs; evidence remains outside Host discovery; no Marketplace, Plugin, config.toml, or alternate CODEX_HOME state
 -> product_benchmark: fixed real task/environment, single_agent vs dispatch is the independent variable
 -> docs/experiment-protocol.md
 -> evals/experiment-campaign.schema.json
@@ -295,7 +296,7 @@ One common campaign envelope contains one typed experiment spec.
 
 Role calibration holds responsibility semantics and sandbox/isolation fixed while changing model/effort. The current `policy.json` route is the control. A challenger cannot silently widen sandbox authority.
 
-Shared `config.toml` remains user-owned. The Experiment Plane receives authority only for the exact temporary `marketplaces.<candidate-id>` and `plugins.subagents-dispatch` tables, recorded intent-first in `shared_config_mutations`. Filesystem ownership remains exact-path and wildcard-free in `owned_objects`. Semantic cleanup never restores the file; it removes each exact owned table only after matching its expected value. External unrelated edits survive, while owned-value drift, journal tampering, malformed TOML, and path substitution fail closed.
+Shared `config.toml` remains user-owned. Formal `model_effort` role calibration receives no authority over it and requires `shared_config_mutations=[]`. The semantic shared-config transaction module remains isolated infrastructure only for a future claim or workflow that explicitly requires and records exact shared-config authority; it is not reachable from formal model/effort preparation. Filesystem ownership remains exact-path and wildcard-free.
 
 Actual model/effort conclusions require runtime-attested runs. `UNKNOWN` cannot support a claim that a specific route produced a measured outcome.
 

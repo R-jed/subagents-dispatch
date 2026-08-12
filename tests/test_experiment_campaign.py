@@ -110,6 +110,7 @@ def role_campaign(*, stage: str = "exploratory", repeats: int = 1, promotion: bo
         "schema_version": "2.0",
         "campaign_id": "reader-calibration-fixture",
         "stage": stage,
+        "materialization_mode": "profile_only",
         "plugin_candidate_sha": head_sha(),
         "host_target": {
             "product": "Codex",
@@ -144,6 +145,7 @@ def product_campaign(*, stage: str = "formal", repeats: int = 3) -> dict:
         "schema_version": "2.0",
         "campaign_id": "single-vs-dispatch-fixture",
         "stage": stage,
+        "materialization_mode": "shared_config",
         "plugin_candidate_sha": head_sha(),
         "host_target": {
             "product": "Codex",
@@ -192,6 +194,34 @@ def test_valid_exploratory_role_calibration_is_frozen_with_sha256(tmp_path: Path
     assert summary["roles"] == ["reader"]
     assert summary["plugin_candidate_sha"] == head_sha()
     assert len(summary["campaign_sha256"]) == 64
+
+
+def test_campaign_hash_binds_materialization_mode(tmp_path: Path):
+    profile_only = role_campaign()
+    valid = run_validator(tmp_path, profile_only)
+    assert valid.returncode == 0, valid.stderr
+    profile_hash = json.loads(valid.stdout)["campaign_sha256"]
+
+    changed = {**profile_only, "materialization_mode": "shared_config"}
+    assert task_hash(json.dumps(profile_only, sort_keys=True, separators=(",", ":"))) != task_hash(
+        json.dumps(changed, sort_keys=True, separators=(",", ":"))
+    )
+    assert profile_hash != task_hash(
+        json.dumps(changed, sort_keys=True, separators=(",", ":"))
+    )
+
+
+def test_model_effort_role_calibration_requires_profile_only(tmp_path: Path):
+    payload = role_campaign(stage="formal", repeats=3)
+    payload.pop("materialization_mode")
+    missing = run_validator(tmp_path, payload)
+    assert missing.returncode != 0
+    assert "materialization_mode" in missing.stderr
+
+    payload["materialization_mode"] = "shared_config"
+    wrong = run_validator(tmp_path, payload)
+    assert wrong.returncode != 0
+    assert "profile_only" in wrong.stderr
 
 
 def test_valid_product_benchmark_does_not_predeclare_role_challengers(tmp_path: Path):

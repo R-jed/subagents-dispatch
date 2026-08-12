@@ -342,6 +342,9 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
             f"{experiment['type']} campaign must declare claim_kind={expected_claim!r}; "
             "current experiment types cannot support a Host permission-source claim"
         )
+    if experiment["type"] == "role_calibration" and claim_kind == "model_effort":
+        if campaign["materialization_mode"] != "profile_only":
+            fail("model_effort role calibration requires materialization_mode='profile_only'")
 
     validate_common_workloads(campaign)
     if experiment["type"] == "role_calibration":
@@ -365,6 +368,7 @@ def validate_campaign(campaign: dict[str, Any]) -> dict[str, Any]:
         "campaign_id": campaign["campaign_id"],
         "stage": campaign["stage"],
         "experiment_type": campaign["experiment"]["type"],
+        "materialization_mode": campaign["materialization_mode"],
         "campaign_sha256": canonical_sha256(campaign),
         "roles": roles,
         "workload_count": len(campaign["workloads"]),

@@ -99,6 +99,36 @@ def test_doctor_reports_independent_assurance_layers_and_unobserved_runtime_is_n
     assert state["details"]["unexpected_repository_state"] == []
 
 
+def test_doctor_calibration_readiness_uses_profile_only_checker(tmp_path: Path):
+    home = tmp_path / ".codex"
+    (home / "agents").mkdir(parents=True)
+    (home / "config.toml").write_text('model="keep"\n')
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    initialized = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "calibration_profiles.py"), "init",
+         "--evaluator-root", str(evidence)], cwd=ROOT, text=True, capture_output=True,
+    )
+    assert initialized.returncode == 0, initialized.stderr
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        from test_calibration_profiles import campaign, run
+        campaign_path = campaign(evidence)
+        assert run(evidence, home, campaign_path, "create").returncode == 0
+    finally:
+        sys.path.pop(0)
+    result = run_doctor(
+        home, "--json", "--calibration-evidence-root", str(evidence),
+        "--calibration-campaign", str(campaign_path),
+    )
+    assert result.returncode == 0, result.stderr
+    layer = next(item for item in json.loads(result.stdout)["layers"] if item["name"] == "Calibration readiness")
+    assert layer["status"] == "FAIL"
+    assert layer["details"]["repository_clean"] is False
+    assert layer["details"]["shared_config_mutations"] == 0
+    assert layer["details"]["exact_calibration_profiles"] == 2
+
+
 def test_doctor_detects_all_forbidden_repository_local_state_names(tmp_path: Path):
     module = load_doctor_module()
     forbidden = [

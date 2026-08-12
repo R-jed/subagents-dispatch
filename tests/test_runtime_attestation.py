@@ -10,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 INSPECTOR = ROOT / "scripts" / "inspect-agent-runtime.py"
+EVIDENCE = ROOT / "scripts" / "runtime-evidence.py"
 THREAD = "11111111-1111-7111-8111-111111111111"
 PARENT = "00000000-0000-7000-8000-000000000000"
 ROLE = "subagents_dispatch_worker"
@@ -47,6 +48,7 @@ def write_rollout(
         "type": "turn_context",
         "payload": {
             "model": "gpt-5.6-luna",
+            "model_provider": "openai",
             "effort": "max",
             "sandbox_policy": {"type": "workspace-write", "writable_roots": ["SECRET"]},
             "permission_profile": {"type": "default", "private": "SECRET"},
@@ -117,8 +119,11 @@ def test_exact_rollout_returns_only_allowlisted_runtime_metadata(tmp_path: Path)
     payload = json.loads(result.stdout)
     assert payload == {
         "agent_role": ROLE,
+        "agent_path": None,
+        "cwd": "/private/project",
         "effort": "max",
         "model": "gpt-5.6-luna",
+        "model_provider": "openai",
         "parent_thread_id": PARENT,
         "permission_profile_type": "default",
         "runtime_version": "0.999.0-test",
@@ -128,8 +133,80 @@ def test_exact_rollout_returns_only_allowlisted_runtime_metadata(tmp_path: Path)
     serialized = result.stdout
     assert "SECRET" not in serialized
     assert "developer_instructions" not in serialized
-    assert "/private/project" not in serialized
+    assert "/private/project" in serialized
     assert "rollout-" not in serialized
+
+
+def test_runtime_evidence_acquires_exact_rollout_and_merges_public_first(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    write_rollout(sessions)
+    payload = {
+        "subject": "child",
+        "expected": {
+            "agent_role": ROLE,
+            "model": "gpt-5.6-luna",
+            "effort": "max",
+            "thread_id": THREAD,
+            "parent_thread_id": PARENT,
+            "runtime_observation_required": True,
+            "requires_permission_observation": True,
+        },
+        "native": {"thread_id": THREAD, "parent_thread_id": PARENT, "agent_role": ROLE},
+        "rollout": {
+            "thread_id": THREAD,
+            "sessions_dir": str(sessions),
+            "expected_parent_thread_id": PARENT,
+            "expected_agent_role": ROLE,
+        },
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["route_assurance"]["status"] == "verified"
+    assert output["permission_state_assurance"]["status"] == "verified"
+    assert output["truth_layers"]["observed"]["source_by_field"] == {
+        "agent_role": "both", "effort": "local", "model": "local"
+    }
+    assert "SECRET" not in result.stdout
+
+
+def test_runtime_evidence_rejects_public_rollout_conflict(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    write_rollout(sessions)
+    payload = {
+        "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
+        "native": {"agent_role": ROLE, "model": "gpt-5.6-terra", "effort": "max"},
+        "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["decision"] == "quarantine"
+    assert "source_conflict:model" in output["violations"]
+
+
+def test_runtime_evidence_rejects_auxiliary_public_rollout_conflict(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    write_rollout(sessions)
+    payload = {
+        "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
+        "native": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max", "cwd": "/other"},
+        "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["decision"] == "quarantine"
+    assert "source_conflict:cwd" in output["violations"]
 
 
 def test_distinct_live_session_id_does_not_change_child_binding(tmp_path: Path):

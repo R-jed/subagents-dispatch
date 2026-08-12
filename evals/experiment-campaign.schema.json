@@ -6,6 +6,7 @@
     "schema_version",
     "campaign_id",
     "stage",
+    "materialization_mode",
     "plugin_candidate_sha",
     "host_target",
     "repeat_policy",
@@ -17,6 +18,7 @@
     "schema_version": {"const": "2.0"},
     "campaign_id": {"type": "string", "minLength": 1},
     "stage": {"enum": ["exploratory", "formal"]},
+    "materialization_mode": {"enum": ["profile_only", "shared_config"]},
     "plugin_candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "host_target": {
       "type": "object",

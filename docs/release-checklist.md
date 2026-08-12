@@ -111,16 +111,13 @@ Deterministic local gate, after `<python-3.11+>` has been resolved:
 <python-3.11+> -m json.tool .agents/plugins/marketplace.json
 <python-3.11+> -m ruff check scripts tests --ignore E402
 <python-3.11+> -m pytest -q
-create an isolated temporary CODEX_HOME
-prepare an exact temporary config.toml and frozen local Marketplace source
-<python-3.11+> scripts/calibration_profiles.py create --evaluator-root <evaluator-root> --codex-home <temporary-codex-home> --campaign <campaign> --shared-config <config.toml> --marketplace-source <marketplace>
-<python-3.11+> scripts/calibration_profiles.py check --evaluator-root <evaluator-root> --codex-home <temporary-codex-home> --campaign <campaign>
-confirm shared_config_mutations is COMMITTED with no pending/conflicted transaction or orphan candidate object before Host proof
-<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home>
-<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home> --check
-<python-3.11+> scripts/doctor.py --codex-home <temporary-codex-home> --check
-<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home>
-<python-3.11+> scripts/install-agents.py --codex-home <temporary-codex-home> --check
+use the normal Codex home; do not override or manipulate `CODEX_HOME`
+freeze `materialization_mode=profile_only` for the formal model/effort campaign
+<python-3.11+> scripts/calibration_profiles.py create --evaluator-root <evidence-root> --codex-home <normal-codex-home> --campaign <campaign>
+<python-3.11+> scripts/calibration_profiles.py check --evaluator-root <evidence-root> --codex-home <normal-codex-home> --campaign <campaign>
+verify exactly two calibration Agent TOMLs, zero shared-config mutations, zero temporary Marketplaces, zero temporary Plugins, zero Plugin-cache additions, and byte-identical `config.toml`; then open a fresh task without restarting the App
+confirm `shared_config_mutations=[]`, repository clean, no unresolved profile transaction, and no orphan calibration profile before Host proof
+<python-3.11+> scripts/doctor.py --codex-home <normal-codex-home> --calibration-evidence-root <evidence-root> --calibration-campaign <campaign> --check
 ```
 
 `<python-3.11+>` is a protocol placeholder for the resolved interpreter invocation. It is not a literal command. The canonical GitHub Actions workflow may continue to use `python` after `actions/setup-python` has provisioned that command inside CI; that does not establish the command name available inside a real Codex task shell.

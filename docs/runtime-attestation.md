@@ -64,7 +64,7 @@ Public acceptance of an exact `agent_type` proves role acceptance only. It does 
 
 ## Exact rollout fallback
 
-If public Host metadata omits a required child-runtime field and the local Codex rollout is accessible, use the bundled inspector:
+If public Host metadata omits a required child-runtime field and the local Codex rollout is accessible, pass the exact child UUID and sessions directory to `runtime-evidence.py`. It loads the bundled Python inspector directly; no shell runtime is required. The standalone inspector remains available for focused diagnostics:
 
 ```text
 <python-3.11+> scripts/inspect-agent-runtime.py <child-thread-id> \
@@ -95,14 +95,17 @@ The allowlist is:
 thread_id
 parent_thread_id
 agent_role
+agent_path
+model_provider
 model
 effort
 sandbox_policy_type
 permission_profile_type
+cwd
 runtime_version
 ```
 
-The inspector does not emit prompts, assistant messages, tool payloads, hidden reasoning, source contents, working-directory paths, or rollout paths.
+The inspector does not emit prompts, assistant messages, tool payloads, hidden reasoning, source contents, or rollout paths. `cwd` is emitted only as an allowlisted runtime field and must be unique across all `turn_context` records.
 
 ## Normalize and compare
 

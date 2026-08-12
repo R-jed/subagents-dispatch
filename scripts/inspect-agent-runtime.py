@@ -206,6 +206,7 @@ def inspect_rollout(
 
     models = [optional_text(item.get("model")) for item in turn_contexts]
     efforts = [optional_text(item.get("effort")) for item in turn_contexts]
+    cwd_values = [optional_text(item.get("cwd")) for item in turn_contexts]
     sandboxes = [nested_type(item.get("sandbox_policy")) for item in turn_contexts]
     permission_profiles = [nested_type(item.get("permission_profile")) for item in turn_contexts]
 
@@ -213,12 +214,15 @@ def inspect_rollout(
         "thread_id": thread_id,
         "parent_thread_id": parent,
         "agent_role": agent_role,
+        "agent_path": optional_text(session.get("agent_path")),
+        "model_provider": optional_text(session.get("model_provider")),
         "model": stable_field(models, "model"),
         "effort": stable_field(efforts, "effort"),
         "sandbox_policy_type": stable_field(sandboxes, "sandbox policy"),
         "permission_profile_type": stable_field(
             permission_profiles, "permission profile"
         ),
+        "cwd": stable_field(cwd_values, "cwd"),
         "runtime_version": optional_text(session.get("cli_version")),
     }
     return result

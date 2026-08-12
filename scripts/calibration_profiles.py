@@ -15,7 +15,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -28,7 +27,6 @@ from calibration_profile_contract import (
     materialized_agent_type,
     role_contract_digest,
 )
-import calibration_config_transaction as config_transaction
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,12 +37,18 @@ MANIFEST_NAME = ".subagents-dispatch-calibration.json"
 LOCK_NAME = ".subagents-dispatch-calibration.lock"
 EVALUATOR_MARKER = ".subagents-dispatch-evaluator-root.json"
 EVALUATOR_MARKER_SCHEMA = 1
-MANIFEST_SCHEMA = 2
+MANIFEST_SCHEMA = 3
 LOCK_MARKER = b"subagents-dispatch calibration lock v1\n"
+PROFILE_STATUSES = {"PREPARED", "APPLIED", "COMMITTED", "CLEANED"}
 
 
 def fail(message: str) -> NoReturn:
     raise SystemExit(f"ERROR: {message}")
+
+
+def _crash_at(boundary: str) -> None:
+    if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT") == boundary:
+        os._exit(86)
 
 
 def _regular(path: Path, label: str, *, missing_ok: bool = True) -> None:
@@ -167,32 +171,20 @@ def _validate_roots(evaluator_root_arg: Path, codex_home_arg: Path) -> tuple[Pat
     _require_evaluator_marker(evaluator_root)
     if evaluator_root == (Path.home() / ".codex").resolve():
         fail("refusing production ~/.codex as evaluator root")
-    if codex_home == (Path.home() / ".codex").resolve():
-        fail("refusing production ~/.codex as calibration CODEX_HOME")
     if codex_home.exists() and codex_home.is_symlink():
         fail(f"refusing symlinked calibration CODEX_HOME: {codex_home}")
-    # Do not allow an existing symlink anywhere below the evaluator-owned root.
-    # Resolving only the final path would otherwise make an escaped/interposed
-    # component appear to be an ordinary child of the resolved root.
-    try:
-        lexical_relative = codex_home.relative_to(evaluator_root)
-    except ValueError:
-        lexical_relative = None
-    if lexical_relative is not None:
-        current = evaluator_root
-        for component in lexical_relative.parts:
-            current = current / component
-            if current.is_symlink():
-                fail(f"refusing symlinked calibration path component: {current}")
+    current = Path(codex_home.anchor)
+    for component in codex_home.parts[1:]:
+        current = current / component
+        if current.is_symlink():
+            fail(f"refusing symlinked calibration path component: {current}")
     codex_resolved = codex_home.resolve()
     try:
-        relative = codex_resolved.relative_to(evaluator_root)
+        codex_resolved.relative_to(evaluator_root)
     except ValueError:
-        fail("calibration CODEX_HOME must remain inside --evaluator-root")
-    if not relative.parts:
-        fail("calibration CODEX_HOME must be a dedicated child of --evaluator-root")
-    if any(part in {"", ".", ".."} for part in relative.parts):
-        fail("calibration CODEX_HOME path escapes evaluator root")
+        pass
+    else:
+        fail("profile-only Codex home must remain outside the Experiment Plane")
     _directory(codex_home, "calibration CODEX_HOME")
     return evaluator_root, codex_resolved
 
@@ -288,8 +280,17 @@ def _profile_records(campaign: dict[str, Any], policy: dict[str, Any]) -> tuple[
         if agent_type in PRODUCTION_AGENT_TYPES or agent_type in seen_types:
             fail(f"calibration Agent identity collides: {agent_type}")
         seen_types.add(agent_type)
+        profile_bytes = _render_profile(template, agent_type, route["model"], route["effort"])
+        try:
+            parsed_profile = tomllib.loads(profile_bytes.decode("utf-8"))
+        except (UnicodeError, tomllib.TOMLDecodeError) as exc:
+            fail(f"generated calibration profile is invalid: {exc}")
+        if parsed_profile.get("name") != agent_type:
+            fail("generated calibration profile name does not match materialized_agent_type")
         records.append(
             {
+                "campaign_id": campaign["campaign_id"],
+                "candidate_sha": campaign["plugin_candidate_sha"],
                 "route": route,
                 "route_id": route_id,
                 "semantic_role": "reader",
@@ -297,7 +298,7 @@ def _profile_records(campaign: dict[str, Any], policy: dict[str, Any]) -> tuple[
                 "role_contract_digest": digest,
                 "configured_model": route["model"],
                 "configured_effort": route["effort"],
-                "profile_bytes": _render_profile(template, agent_type, route["model"], route["effort"]),
+                "profile_bytes": profile_bytes,
             }
         )
     return records, {"description": description, "developer_instructions": instructions, "digest": digest}
@@ -383,23 +384,26 @@ def calibration_lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
         yield path
 
 
-def _manifest_path(codex_home: Path) -> Path:
-    return _safe_child(codex_home, MANIFEST_NAME, "calibration manifest")
+def _manifest_path(evaluator_root: Path) -> Path:
+    return _safe_child(evaluator_root, MANIFEST_NAME, "calibration manifest")
 
 
-def _load_manifest(codex_home: Path) -> dict[str, Any]:
-    path = _manifest_path(codex_home)
+def _load_manifest(evaluator_root: Path) -> dict[str, Any]:
+    path = _manifest_path(evaluator_root)
     payload = _load_json(path, "calibration manifest")
     if payload.get("schema_version") != MANIFEST_SCHEMA or payload.get("managed_by") != "subagents-dispatch-calibration":
         fail(f"unsupported calibration manifest: {path}")
     if not isinstance(payload.get("profiles"), list) or not payload["profiles"]:
         fail(f"calibration manifest has no owned profiles: {path}")
-    if not isinstance(payload.get("shared_config_mutations"), list) or len(payload["shared_config_mutations"]) != 2:
-        fail(f"calibration manifest has no exact shared config ownership: {path}")
+    if payload.get("materialization_mode") != "profile_only":
+        fail(f"unsupported calibration materialization mode: {path}")
+    if payload.get("shared_config_mutations") != []:
+        fail(f"profile-only manifest contains shared config ownership: {path}")
     expected_fields = {
         "schema_version", "managed_by", "evaluator_root", "codex_home",
-        "campaign_path", "campaign_sha256", "campaign_raw_sha256", "profiles",
-        "owned_objects", "shared_config_mutations",
+        "campaign_path", "campaign_sha256", "campaign_raw_sha256", "candidate_sha",
+        "materialization_mode", "profiles", "owned_objects", "shared_config_mutations",
+        "environment_baseline",
     }
     if set(payload) != expected_fields:
         fail(f"calibration manifest contains unknown or missing fields: {path}")
@@ -409,7 +413,7 @@ def _load_manifest(codex_home: Path) -> dict[str, Any]:
 def _existing_profile_identities(agents_dir: Path) -> dict[str, Path]:
     _directory(agents_dir, "calibration agents directory")
     identities: dict[str, Path] = {}
-    for path in agents_dir.glob("*.toml"):
+    for path in agents_dir.rglob("*.toml"):
         if path.is_symlink() or not path.is_file():
             fail(f"unsafe Agent profile in calibration directory: {path}")
         try:
@@ -443,6 +447,9 @@ def _verify_manifest_files(codex_home: Path, manifest: dict[str, Any]) -> None:
         _regular(path, "owned calibration profile", missing_ok=False)
         if _sha256(path.read_bytes()) != digest:
             fail(f"owned calibration profile drifted: {path}")
+        identity = path.stat()
+        if (identity.st_dev, identity.st_ino) != (item.get("device"), item.get("inode")):
+            fail(f"owned calibration profile identity drifted: {path}")
         if identities.get(agent_type) != path:
             fail(f"owned calibration profile identity drifted: {path}")
         expected_names.add(agent_type)
@@ -467,7 +474,7 @@ def _manifest_payload(
     campaign_sha256: str,
     campaign_raw_sha256: str,
     records: list[dict[str, Any]],
-    shared_config_mutation: list[dict[str, Any]],
+    environment_baseline: dict[str, Any],
 ) -> dict[str, Any]:
     profiles = _manifest_profiles(records)
     return {
@@ -478,116 +485,171 @@ def _manifest_payload(
         "campaign_path": str(campaign_path),
         "campaign_sha256": campaign_sha256,
         "campaign_raw_sha256": campaign_raw_sha256,
+        "candidate_sha": records[0]["candidate_sha"],
+        "materialization_mode": "profile_only",
         "profiles": profiles,
         "owned_objects": [
             {"object_type": "file", "path": str(codex_home / "agents" / item["filename"]), "sha256": item["sha256"]}
             for item in profiles
         ],
-        "shared_config_mutations": shared_config_mutation,
+        "shared_config_mutations": [],
+        "environment_baseline": environment_baseline,
     }
 
 
-def _persist_manifest(codex_home: Path, manifest: dict[str, Any]) -> None:
+def _persist_manifest(evaluator_root: Path, manifest: dict[str, Any]) -> None:
     _atomic_write(
-        _manifest_path(codex_home),
+        _manifest_path(evaluator_root),
         (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"),
     )
 
 
-def _shared_records(
-    manifest: dict[str, Any], campaign: dict[str, Any]
-) -> list[dict[str, Any]]:
-    records = manifest["shared_config_mutations"]
-    for record in records:
-        if not isinstance(record, dict):
-            fail("shared config transaction entry is not an object")
-        config_transaction.validate_record(
-            record, campaign["campaign_id"], campaign["plugin_candidate_sha"]
-        )
-    if [record["semantic_path"][0] for record in records] != ["marketplaces", "plugins"]:
-        fail("shared config transaction set is incomplete")
-    return records
+def _manifest_profiles(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "campaign_id": record["campaign_id"],
+            "campaign_sha256": record["campaign_sha256"],
+            "candidate_sha": record["candidate_sha"],
+            "route_id": record["route_id"],
+            "filename": f"{record['materialized_agent_type']}.toml",
+            "path": record["path"],
+            "materialized_agent_type": record["materialized_agent_type"],
+            "semantic_role": record["semantic_role"],
+            "role_contract_digest": record["role_contract_digest"],
+            "configured_model": record["configured_model"],
+            "configured_effort": record["configured_effort"],
+            "sha256": _sha256(record["profile_bytes"]),
+            "staging_path": record["staging_path"],
+            "device": record["device"],
+            "inode": record["inode"],
+            "status": record["status"],
+        }
+        for record in records
+    ]
 
 
-def _tree_digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    for child in sorted(path.rglob("*")):
-        if child.is_symlink():
-            fail(f"refusing symlink in owned directory: {child}")
-        relative = child.relative_to(path).as_posix().encode()
-        digest.update(relative + b"\0" + (b"d" if child.is_dir() else b"f"))
-        if child.is_file():
-            digest.update(child.read_bytes())
-    return digest.hexdigest()
-
-
-def _remove_owned_directory(
-    path: Path, device: int, inode: int, tree_sha256: str | None = None
+def _require_exact_manifest_profiles(
+    manifest: dict[str, Any], records: list[dict[str, Any]]
 ) -> None:
-    current = path.stat()
-    if (current.st_dev, current.st_ino) != (device, inode):
-        fail(f"owned directory identity drifted: {path}")
-    if tree_sha256 is not None and _tree_digest(path) != tree_sha256:
-        fail(f"owned directory drifted: {path}")
-    quarantine = path.parent / f".{path.name}.calibration-cleanup"
-    if quarantine.exists() or quarantine.is_symlink():
-        fail(f"owned directory cleanup path already exists: {quarantine}")
-    path.rename(quarantine)
-    moved = quarantine.stat()
-    if (moved.st_dev, moved.st_ino) != (device, inode):
-        if not path.exists() and not path.is_symlink():
-            quarantine.rename(path)
-        fail(f"owned directory changed during cleanup: {path}")
-    if tree_sha256 is not None and _tree_digest(quarantine) != tree_sha256:
-        if not path.exists() and not path.is_symlink():
-            quarantine.rename(path)
-        fail(f"owned directory contents changed during cleanup: {path}")
-    if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT") == "after_cleanup_rename":
-        os._exit(86)
-    shutil.rmtree(quarantine)
+    profiles = manifest.get("profiles")
+    if not isinstance(profiles, list) or len(profiles) != len(records):
+        fail("calibration manifest does not contain the exact profile set")
+    immutable = {
+        "campaign_id", "campaign_sha256", "candidate_sha", "route_id", "filename", "path",
+        "materialized_agent_type", "semantic_role", "role_contract_digest", "configured_model",
+        "configured_effort", "sha256", "staging_path",
+    }
+    for item, record in zip(profiles, records, strict=True):
+        expected = _manifest_profiles([record])[0]
+        if any(item.get(field) != expected[field] for field in immutable):
+            fail("calibration manifest does not match the recomputed owned profile set")
+        if item.get("status") not in PROFILE_STATUSES:
+            fail("calibration profile transaction status is invalid")
+        if not isinstance(item.get("device"), int) or not isinstance(item.get("inode"), int):
+            fail("calibration profile transaction identity is invalid")
+    expected_objects = [
+        {"object_type": "file", "path": item["path"], "sha256": item["sha256"]}
+        for item in profiles
+    ]
+    if manifest.get("owned_objects") != expected_objects:
+        fail("calibration manifest filesystem ownership is incomplete")
 
 
-def _guard_staging_directory(path: Path) -> None:
-    if path.exists() or path.is_symlink():
+def _path_inventory(root: Path) -> list[str]:
+    if not root.exists():
+        return []
+    if root.is_symlink() or not root.is_dir():
+        fail(f"unsafe inventory root: {root}")
+    paths: list[str] = []
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            fail(f"refusing symlink in environment inventory: {path}")
+        paths.append(str(path.relative_to(root)))
+    return sorted(paths)
+
+
+def _environment_baseline(codex_home: Path) -> dict[str, Any]:
+    config = codex_home / "config.toml"
+    if config.is_symlink():
+        fail(f"refusing symlinked config.toml: {config}")
+    _regular(config, "config.toml")
+    config_sha256 = _sha256(config.read_bytes()) if config.exists() else None
+    agents = codex_home / "agents"
+    profile_hashes: dict[str, str] = {}
+    if agents.exists():
+        _directory(agents, "Agent directory", missing_ok=False)
+        for path in sorted(agents.rglob("*.toml")):
+            _regular(path, "Agent profile", missing_ok=False)
+            profile_hashes[str(path.relative_to(agents))] = _sha256(path.read_bytes())
+    return {
+        "config_exists": config.exists(),
+        "config_sha256": config_sha256,
+        "marketplace_inventory": _path_inventory(codex_home / "local-marketplaces"),
+        "plugin_inventory": _path_inventory(codex_home / "plugins" / "installed"),
+        "plugin_cache_inventory": _path_inventory(codex_home / "plugins" / "cache"),
+        "profile_hashes": profile_hashes,
+    }
+
+
+def _verify_environment_baseline(
+    codex_home: Path, baseline: dict[str, Any], allowed_profiles: set[str]
+) -> None:
+    current = _environment_baseline(codex_home)
+    for field in (
+        "config_exists", "config_sha256", "marketplace_inventory",
+        "plugin_inventory", "plugin_cache_inventory",
+    ):
+        if current[field] != baseline[field]:
+            fail(f"profile-only environment invariant changed: {field}")
+    current_profiles = current["profile_hashes"]
+    original_profiles = baseline["profile_hashes"]
+    unexpected = {
+        name for name in current_profiles
+        if name.startswith("subagents_dispatch_calibration_") and name not in allowed_profiles
+    }
+    if unexpected:
+        fail("unexpected third calibration profile blocks readiness")
+    if {name: digest for name, digest in current_profiles.items() if name not in allowed_profiles} != original_profiles:
+        fail("production or unrelated Agent profile inventory changed")
+
+
+def _guard_staging_file(path: Path) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        fd = os.open(path, flags, 0o600)
+    except OSError:
         print("ERROR: staging path already exists", flush=True)
         raise SystemExit(1)
-    path.mkdir()
-    identity = path.stat()
+    identity = os.fstat(fd)
     print(f"{identity.st_dev} {identity.st_ino}", flush=True)
     if sys.stdin.readline() == "commit\n":
+        os.close(fd)
         return
+    os.close(fd)
     if path.exists() and not path.is_symlink():
         current = path.stat()
         if (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
-            _remove_owned_directory(path, identity.st_dev, identity.st_ino)
+            path.unlink()
 
 
-def _create_owned_directory(
-    path: Path,
-    source: Path,
-    item: dict[str, Any],
-    persist: Callable[[], None],
+def _prepare_profile_intent(
+    record: dict[str, Any], evaluator_root: Path, persist: Callable[[], None]
 ) -> None:
-    if path.exists() or path.is_symlink():
-        fail(f"refusing pre-existing owned directory: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    staged = path.parent / f".{path.name}.calibration-staging"
-    if staged.exists() or staged.is_symlink():
-        fail(f"owned directory staging path already exists: {staged}")
+    staging = Path(record["staging_path"])
     guard = subprocess.Popen(
-        [sys.executable, str(Path(__file__).resolve()), "--staging-guard", str(staged)],
+        [sys.executable, str(Path(__file__).resolve()), "--profile-staging-guard", str(staging)],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         text=True,
     )
-    assert guard.stdout is not None and guard.stdin is not None
-    identity_line = guard.stdout.readline().strip()
-    if identity_line.startswith("ERROR:") or not identity_line:
+    assert guard.stdin is not None and guard.stdout is not None
+    identity = guard.stdout.readline().strip()
+    if not identity or identity.startswith("ERROR:"):
         guard.wait()
-        fail(identity_line or f"could not create owned staging directory: {staged}")
-    item["device"], item["inode"] = map(int, identity_line.split())
-    if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT") == "after_staging_mkdir":
-        os._exit(86)
+        fail(identity or f"could not create profile staging file: {staging}")
+    record["device"], record["inode"] = map(int, identity.split())
     try:
         persist()
     except BaseException:
@@ -597,128 +659,61 @@ def _create_owned_directory(
     guard.stdin.write("commit\n")
     guard.stdin.close()
     if guard.wait() != 0:
-        fail(f"could not commit owned staging directory: {staged}")
-    if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT") == "after_staging_prepared":
-        os._exit(86)
+        fail(f"could not commit profile staging intent: {staging}")
+
+
+def _apply_profile(record: dict[str, Any], data: bytes, persist: Callable[[], None]) -> None:
+    target = Path(record["path"])
+    staging = Path(record["staging_path"])
+    _regular(staging, "owned profile staging file", missing_ok=False)
+    identity = staging.stat()
+    if (identity.st_dev, identity.st_ino) != (record["device"], record["inode"]):
+        fail(f"profile staging identity drifted: {staging}")
+    with staging.open("wb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+    if _sha256(staging.read_bytes()) != record["sha256"]:
+        fail("profile staging verification failed")
+    if target.exists() or target.is_symlink():
+        fail(f"refusing pre-existing calibration profile: {target}")
+    os.link(staging, target, follow_symlinks=False)
+    parent_fd = os.open(target.parent, os.O_RDONLY)
     try:
-        shutil.copytree(source, staged, dirs_exist_ok=True, symlinks=False)
-        if _tree_digest(staged) != item["tree_sha256"]:
-            fail(f"owned directory source changed during copy: {source}")
-        staged.rename(path)
-        parent_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(parent_fd)
-        finally:
-            os.close(parent_fd)
+        os.fsync(parent_fd)
     finally:
-        if staged.exists():
-            _remove_owned_directory(staged, item["device"], item["inode"])
+        os.close(parent_fd)
+    _crash_at(f"after_profile_{record['route_id']}_link")
+    record["status"] = "APPLIED"
+    persist()
+    _crash_at(f"after_profile_{record['route_id']}_applied")
+    staging.unlink()
+    record["status"] = "COMMITTED"
+    persist()
 
 
-def _cleanup_owned_directories(manifest: dict[str, Any]) -> None:
-    for item in reversed(manifest["owned_objects"]):
-        if item["object_type"] != "directory":
+def _cleanup_profile(record: dict[str, Any], persist: Callable[[], None]) -> None:
+    target = Path(record["path"])
+    staging = Path(record["staging_path"])
+    for path in (target, staging):
+        if not path.exists() and not path.is_symlink():
             continue
-        staging = Path(item["staging_path"])
-        path = Path(item["path"])
-        cleanup_path = path.parent / f".{path.name}.calibration-cleanup"
-        if cleanup_path.is_symlink():
-            fail(f"refusing symlinked owned cleanup directory: {cleanup_path}")
-        if cleanup_path.exists():
-            if path.exists() or path.is_symlink():
-                fail(f"owned directory was replaced during cleanup: {path}")
-            current = cleanup_path.stat()
-            if (current.st_dev, current.st_ino) != (item["device"], item["inode"]):
-                fail(f"owned cleanup directory identity drifted: {cleanup_path}")
-            if _tree_digest(cleanup_path) != item["tree_sha256"]:
-                fail(f"owned cleanup directory drifted: {cleanup_path}")
-            cleanup_path.rename(path)
-        if staging.is_symlink():
-            fail(f"refusing symlinked owned staging directory: {staging}")
-        if staging.exists():
-            _remove_owned_directory(staging, item["device"], item["inode"])
-        if path.is_symlink():
-            fail(f"refusing symlinked owned directory: {path}")
-        if path.exists():
-            _remove_owned_directory(
-                path, item["device"], item["inode"], item["tree_sha256"]
-            )
+        _regular(path, "owned calibration profile", missing_ok=False)
+        identity = path.stat()
+        if (identity.st_dev, identity.st_ino) != (record["device"], record["inode"]):
+            fail(f"owned calibration profile identity drifted: {path}")
+        if path == target and _sha256(path.read_bytes()) != record["sha256"]:
+            fail(f"owned calibration profile drifted: {path}")
+        path.unlink()
+        if path == target:
+            _crash_at(f"after_profile_{record['route_id']}_cleanup_unlink")
+    record["status"] = "CLEANED"
+    persist()
 
 
-def _expected_owned_directories(
-    manifest: dict[str, Any], campaign: dict[str, Any], marketplace_source: Path
-) -> list[dict[str, str]]:
-    config = Path(manifest["shared_config_mutations"][0]["target_path"])
-    marketplace = f"subagents-dispatch-v3-exact-{campaign['plugin_candidate_sha'][:8]}"
-    paths = [
-        config.parent / "local-marketplaces" / marketplace,
-        config.parent / "plugins" / "cache" / marketplace / "subagents-dispatch" / "3.0.0",
-    ]
-    return [{"object_type": "directory", "path": str(path)} for path in paths]
-
-
-def _require_exact_owned_directories(
-    manifest: dict[str, Any], campaign: dict[str, Any]
-) -> None:
-    expected = _expected_owned_directories(manifest, campaign, Path("."))
-    directories = [item for item in manifest["owned_objects"] if item["object_type"] == "directory"]
-    if [{"object_type": item["object_type"], "path": item["path"]} for item in directories] not in [expected[: len(directories)], expected]:
-        fail("calibration manifest directory ownership drifted")
-    if any(set(item) != {"object_type", "path", "staging_path", "tree_sha256", "device", "inode"} for item in directories):
-        fail("calibration manifest directory identity is incomplete")
-    if any(item["staging_path"] != str(Path(item["path"]).parent / f".{Path(item['path']).name}.calibration-staging") for item in directories):
-        fail("calibration manifest staging ownership drifted")
-    marketplace_source = Path(
-        manifest["shared_config_mutations"][0]["expected_applied_state"]["source"]
-    )
-    expected_digests = [
-        _tree_digest(marketplace_source),
-        _tree_digest(marketplace_source / "plugins" / "subagents-dispatch"),
-    ]
-    if [item["tree_sha256"] for item in directories] != expected_digests[: len(directories)]:
-        fail("calibration manifest directory content identity drifted")
-
-
-def _manifest_profiles(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {
-            "filename": f"{record['materialized_agent_type']}.toml",
-            "materialized_agent_type": record["materialized_agent_type"],
-            "semantic_role": record["semantic_role"],
-            "role_contract_digest": record["role_contract_digest"],
-            "configured_model": record["configured_model"],
-            "configured_effort": record["configured_effort"],
-            "sha256": _sha256(record["profile_bytes"]),
-        }
-        for record in records
-    ]
-
-
-def _require_exact_manifest_profiles(
-    manifest: dict[str, Any], records: list[dict[str, Any]]
-) -> None:
-    if manifest.get("profiles") != _manifest_profiles(records):
-        fail("calibration manifest does not match the recomputed owned profile set")
-    expected = [
-        {"object_type": "file", "path": str(Path(manifest["codex_home"]) / "agents" / item["filename"]), "sha256": item["sha256"]}
-        for item in manifest["profiles"]
-    ]
-    if manifest.get("owned_objects", [])[: len(expected)] != expected:
-        fail("calibration manifest filesystem ownership is incomplete")
-    for item in manifest.get("owned_objects", [])[len(expected) :]:
-        if set(item) != {"object_type", "path", "staging_path", "tree_sha256", "device", "inode"} or item["object_type"] != "directory" or "*" in item["path"]:
-            fail("calibration manifest directory ownership is invalid")
-
-
-def create(
-    evaluator_root_arg: Path,
-    codex_home_arg: Path,
-    campaign_path_arg: Path,
-    shared_config_arg: Path,
-    marketplace_source_arg: Path,
-) -> None:
-    evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
-    codex_home.mkdir(parents=True, exist_ok=True)
+def _campaign_context(
+    evaluator_root: Path, campaign_path_arg: Path
+) -> tuple[Path, dict[str, Any], dict[str, Any], str, list[dict[str, Any]]]:
     campaign_path = campaign_path_arg.expanduser()
     if not campaign_path.is_absolute():
         fail("--campaign must be an explicit absolute path")
@@ -728,31 +723,53 @@ def create(
         campaign_path.relative_to(evaluator_root)
     except ValueError:
         fail("campaign must be under --evaluator-root")
-    with calibration_lock(codex_home, check_only=False):
-        campaign, summary, campaign_raw_sha256 = _validated_campaign(campaign_path)
-        policy = _load_policy()
-        records, _ = _profile_records(campaign, policy)
+    campaign, summary, campaign_raw_sha256 = _validated_campaign(campaign_path)
+    if campaign["materialization_mode"] != "profile_only":
+        fail("formal model_effort calibration requires materialization_mode=profile_only")
+    records, _ = _profile_records(campaign, _load_policy())
+    return campaign_path, campaign, summary, campaign_raw_sha256, records
+
+
+def create(
+    evaluator_root_arg: Path,
+    codex_home_arg: Path,
+    campaign_path_arg: Path,
+    *_: Path,
+) -> None:
+    evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
+    campaign_path, campaign, summary, campaign_raw_sha256, records = _campaign_context(
+        evaluator_root, campaign_path_arg
+    )
+    agents_dir = codex_home / "agents"
+    _directory(agents_dir, "Agent directory", missing_ok=False)
+    lock_root = evaluator_root
+    with calibration_lock(lock_root, check_only=False):
         agents_dir = codex_home / "agents"
-        _directory(agents_dir, "calibration agents directory")
-        agents_dir.mkdir(parents=True, exist_ok=True)
         identities = _existing_profile_identities(agents_dir)
-        manifest_path = _manifest_path(codex_home)
+        manifest_path = _manifest_path(evaluator_root)
         if manifest_path.exists() or manifest_path.is_symlink():
-            existing = _load_manifest(codex_home)
+            existing = _load_manifest(evaluator_root)
             if Path(existing.get("evaluator_root", "")).resolve() != evaluator_root or Path(existing.get("codex_home", "")).resolve() != codex_home:
                 fail("existing calibration manifest owner root drifted")
             if Path(existing.get("campaign_path", "")).resolve() != campaign_path:
                 fail("existing calibration manifest campaign path drifted")
             if existing.get("campaign_sha256") != summary["campaign_sha256"] or existing.get("campaign_raw_sha256") != campaign_raw_sha256:
                 fail("existing calibration manifest belongs to a different campaign")
+            for record, item in zip(records, existing["profiles"], strict=True):
+                record.update(item)
             _require_exact_manifest_profiles(existing, records)
-            shared_records = _shared_records(existing, campaign)
-            if all(record["status"] == "COMMITTED" for record in shared_records):
+            if all(record["status"] == "COMMITTED" for record in existing["profiles"]):
                 _verify_manifest_files(codex_home, existing)
-                print("RESTART_REQUIRED: calibration profiles already owned and exact")
+                _verify_environment_baseline(
+                    codex_home, existing["environment_baseline"],
+                    {item["filename"] for item in existing["profiles"]},
+                )
+                print("NEW TASK REQUIRED: YES")
                 return
-            if any(record["status"] != "CLEANED" for record in shared_records):
-                fail("unresolved shared config transaction; run recover")
+            if all(record["status"] == "CLEANED" for record in existing["profiles"]):
+                _verify_environment_baseline(codex_home, existing["environment_baseline"], set())
+            else:
+                fail("unresolved profile transaction; run recover")
         targets = [
             _safe_child(agents_dir, f"{record['materialized_agent_type']}.toml", "calibration profile")
             for record in records
@@ -760,217 +777,129 @@ def create(
         for record, target in zip(records, targets, strict=True):
             if record["materialized_agent_type"] in identities or target.exists() or target.is_symlink():
                 fail(f"calibration Agent identity/path collides with existing profile: {target}")
-        shared_config = shared_config_arg.expanduser()
-        marketplace_source = marketplace_source_arg.expanduser()
-        if not shared_config.is_absolute() or not marketplace_source.is_absolute():
-            fail("--shared-config and --marketplace-source must be explicit absolute paths")
-        _directory(marketplace_source, "calibration Marketplace source", missing_ok=False)
-        marketplace_name = f"subagents-dispatch-v3-exact-{campaign['plugin_candidate_sha'][:8]}"
-        marketplace_record = config_transaction.new_record(
-            shared_config,
-            ["marketplaces", marketplace_name],
-            marketplace_source.resolve(),
-            campaign["campaign_id"],
-            campaign["plugin_candidate_sha"],
-        )
-        campaign_sha = summary["campaign_sha256"]
-        plugin_id = f"subagents-dispatch@{marketplace_name}"
-        plugin_record = config_transaction.new_record(
-            shared_config,
-            ["plugins", plugin_id],
-            {"enabled": True},
-            campaign["campaign_id"],
-            campaign["plugin_candidate_sha"],
-        )
+        baseline = _environment_baseline(codex_home)
+        for index, (record, target) in enumerate(zip(records, targets, strict=True)):
+            record.update(
+                campaign_sha256=summary["campaign_sha256"],
+                path=str(target),
+                staging_path=str(evaluator_root / f".{target.name}.staging"),
+                device=-1,
+                inode=-1,
+                status="PREPARED",
+                sha256=_sha256(record["profile_bytes"]),
+            )
         manifest = _manifest_payload(
             evaluator_root,
             codex_home,
             campaign_path,
-            campaign_sha,
+            summary["campaign_sha256"],
             campaign_raw_sha256,
             records,
-            [marketplace_record, plugin_record],
+            baseline,
         )
-        _persist_manifest(codex_home, manifest)
-        if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == "after_prepared":
-            fail("injected failure after PREPARED")
-        created: list[Path] = []
-        try:
-            def persist() -> None:
-                _persist_manifest(codex_home, manifest)
+        def persist() -> None:
+            manifest["profiles"] = _manifest_profiles(records)
+            manifest["owned_objects"] = [
+                {"object_type": "file", "path": item["path"], "sha256": item["sha256"]}
+                for item in manifest["profiles"]
+            ]
+            _persist_manifest(evaluator_root, manifest)
 
-            config_transaction.apply(manifest["shared_config_mutations"][0], persist)
-            plugin_record = manifest["shared_config_mutations"][1]
-            current_raw, current_parsed, current_identity = config_transaction._read_config(
-                Path(plugin_record["target_path"])
-            )
-            if config_transaction._semantic_value(current_parsed, plugin_record["semantic_path"]) is not None:
-                fail("Plugin config object appeared during Marketplace preparation; conflict")
-            plugin_record["target_identity"] = {
-                "device": current_identity[0], "inode": current_identity[1]
-            }
-            plugin_record["config_sha256_before"] = _sha256(current_raw)
-            persist()
-            config_transaction.apply(plugin_record, persist)
-            if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == "after_applied":
-                fail("injected failure after APPLIED")
-            for record, target in zip(records, targets, strict=True):
-                _atomic_write(target, record["profile_bytes"])
-                created.append(target)
-            marketplace_target = shared_config.parent / "local-marketplaces" / marketplace_name
-            plugin_source = marketplace_source / "plugins" / "subagents-dispatch"
-            if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == "plugin_install":
-                fail("injected Plugin install failure")
-            if not plugin_source.is_dir():
-                fail(f"missing Plugin source in Marketplace: {plugin_source}")
-            cache_target = shared_config.parent / "plugins" / "cache" / marketplace_name / "subagents-dispatch" / "3.0.0"
-            for target, source in ((marketplace_target, marketplace_source), (cache_target, plugin_source)):
-                tree_sha256 = _tree_digest(source)
-                item = {
-                    "object_type": "directory",
-                    "path": str(target),
-                    "staging_path": str(target.parent / f".{target.name}.calibration-staging"),
-                    "tree_sha256": tree_sha256,
-                    "device": -1,
-                    "inode": -1,
-                }
-                manifest["owned_objects"].append(item)
-                persist()
-                _create_owned_directory(target, source, item, persist)
-                if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT") == "after_directory_rename":
-                    os._exit(86)
+        persist()
+        try:
+            for index, record in enumerate(records):
+                _prepare_profile_intent(record, evaluator_root, persist)
+                if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == f"profile_{index + 1}_prepared":
+                    fail(f"injected failure after profile {index + 1} preparation")
+                _apply_profile(record, record["profile_bytes"], persist)
+                if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == f"profile_{index + 1}_committed":
+                    fail(f"injected failure after profile {index + 1} commit")
             if _campaign_bytes(campaign_path)[1] != campaign_raw_sha256:
                 fail("campaign changed before manifest publication; refusing a TOCTOU race")
-            for shared in manifest["shared_config_mutations"]:
-                config_transaction.commit(shared, persist)
-            if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == "after_committed":
-                fail("injected failure after COMMITTED")
+            _verify_environment_baseline(
+                codex_home, baseline, {item["filename"] for item in manifest["profiles"]}
+            )
         except BaseException:
-            for path in created:
-                path.unlink(missing_ok=True)
-            for shared in reversed(manifest["shared_config_mutations"]):
-                if shared["status"] in {"PREPARED", "APPLIED", "COMMITTED", "CLEANUP_PENDING"}:
-                    config_transaction.cleanup(shared, lambda: _persist_manifest(codex_home, manifest))
-            _cleanup_owned_directories(manifest)
+            conflicts: list[str] = []
+            for record in reversed(records):
+                try:
+                    _cleanup_profile(record, persist)
+                except SystemExit as exc:
+                    conflicts.append(str(exc))
+            if conflicts:
+                fail("profile rollback conflict: " + "; ".join(conflicts))
             raise
-        print("RESTART_REQUIRED: calibration profiles created; run only from a fresh isolated CODEX_HOME with fork_turns=none")
+        print("NEW TASK REQUIRED: YES")
 
 
 def check(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, *_: Path) -> None:
     evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
-    campaign_path = campaign_path_arg.expanduser()
-    if not campaign_path.is_absolute():
-        fail("--campaign must be an explicit absolute path")
-    _regular(campaign_path, "campaign", missing_ok=False)
-    campaign_path = campaign_path.resolve()
-    try:
-        campaign_path.relative_to(evaluator_root)
-    except ValueError:
-        fail("campaign must be under --evaluator-root")
-    with calibration_lock(codex_home, check_only=True):
-        manifest = _load_manifest(codex_home)
+    campaign_path, campaign, summary, campaign_raw_sha256, records = _campaign_context(
+        evaluator_root, campaign_path_arg
+    )
+    with calibration_lock(evaluator_root, check_only=True):
+        manifest = _load_manifest(evaluator_root)
         _verify_manifest_files(codex_home, manifest)
         if Path(manifest["evaluator_root"]).resolve() != evaluator_root or Path(manifest["codex_home"]).resolve() != codex_home:
             fail("calibration manifest owner root drifted")
         if Path(manifest["campaign_path"]).resolve() != campaign_path:
             fail("calibration manifest campaign path drifted")
-        campaign, summary, campaign_raw_sha256 = _validated_campaign(campaign_path)
-        policy = _load_policy()
-        records, _ = _profile_records(campaign, policy)
+        for record, item in zip(records, manifest["profiles"], strict=True):
+            record.update(item)
         _require_exact_manifest_profiles(manifest, records)
-        _require_exact_owned_directories(manifest, campaign)
-        shared_records = _shared_records(manifest, campaign)
-        if any(record["status"] != "COMMITTED" for record in shared_records):
-            fail("calibration shared config transaction is not COMMITTED")
-        for shared in shared_records:
-            target = Path(shared["target_path"])
-            _, parsed, _ = config_transaction._read_config(target)
-            if config_transaction._semantic_value(parsed, shared["semantic_path"]) != shared["expected_applied_state"]:
-                fail("calibration shared config ownership is not exact")
-        for item in manifest["owned_objects"]:
-            if item["object_type"] == "directory":
-                directory = Path(item["path"])
-                if not directory.is_dir():
-                    fail("calibration filesystem ownership is incomplete")
-                identity = directory.stat()
-                if (identity.st_dev, identity.st_ino) != (item["device"], item["inode"]):
-                    fail("calibration filesystem identity drifted")
-                if _tree_digest(directory) != item["tree_sha256"]:
-                    fail("calibration filesystem content drifted")
+        if any(item["status"] != "COMMITTED" for item in manifest["profiles"]):
+            fail("calibration profile transaction is not COMMITTED")
         if summary["campaign_sha256"] != manifest["campaign_sha256"] or campaign_raw_sha256 != manifest["campaign_raw_sha256"]:
             fail("campaign drifted from owned calibration manifest")
+        _verify_environment_baseline(
+            codex_home, manifest["environment_baseline"],
+            {item["filename"] for item in manifest["profiles"]},
+        )
         print("CHECK PASSED: calibration profiles and ownership are exact")
 
 
 def cleanup(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, *_: Path) -> None:
     evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
-    campaign_path = campaign_path_arg.expanduser()
-    if not campaign_path.is_absolute():
-        fail("--campaign must be an explicit absolute path")
-    _regular(campaign_path, "campaign", missing_ok=False)
-    campaign_path = campaign_path.resolve()
-    try:
-        campaign_path.relative_to(evaluator_root)
-    except ValueError:
-        fail("campaign must be under --evaluator-root")
-    with calibration_lock(codex_home, check_only=True):
-        manifest = _load_manifest(codex_home)
+    campaign_path, _, summary, campaign_raw_sha256, records = _campaign_context(
+        evaluator_root, campaign_path_arg
+    )
+    with calibration_lock(evaluator_root, check_only=True):
+        manifest = _load_manifest(evaluator_root)
         if Path(manifest["evaluator_root"]).resolve() != evaluator_root or Path(manifest["codex_home"]).resolve() != codex_home:
             fail("calibration manifest owner root drifted")
         if Path(manifest["campaign_path"]).resolve() != campaign_path:
             fail("calibration manifest campaign path drifted")
-        campaign, summary, campaign_raw_sha256 = _validated_campaign(campaign_path)
-        policy = _load_policy()
-        records, _ = _profile_records(campaign, policy)
+        for record, item in zip(records, manifest["profiles"], strict=True):
+            record.update(item)
         _require_exact_manifest_profiles(manifest, records)
-        _require_exact_owned_directories(manifest, campaign)
         if summary["campaign_sha256"] != manifest["campaign_sha256"] or campaign_raw_sha256 != manifest["campaign_raw_sha256"]:
             fail("refusing cleanup after campaign drift")
-        _verify_cleanup_profiles(codex_home, manifest)
-        for shared in reversed(_shared_records(manifest, campaign)):
-            config_transaction.cleanup(shared, lambda: _persist_manifest(codex_home, manifest))
-        _cleanup_owned_directories(manifest)
-        for item in manifest["profiles"]:
-            path = _safe_child(codex_home / "agents", item["filename"], "owned profile")
-            if path.exists() or path.is_symlink():
-                _regular(path, "owned calibration profile", missing_ok=False)
-                if _sha256(path.read_bytes()) != item["sha256"]:
-                    fail(f"owned calibration profile drifted: {path}")
-                path.unlink()
-    print("CLEANUP COMPLETE: exact owned profiles and shared config mutation removed; journal and lock retained")
+        def persist() -> None:
+            manifest["profiles"] = _manifest_profiles(records)
+            _persist_manifest(evaluator_root, manifest)
+        for record in reversed(records):
+            _cleanup_profile(record, persist)
+        _verify_environment_baseline(codex_home, manifest["environment_baseline"], set())
+    print("CLEANUP COMPLETE: exact owned profiles removed; journal and lock retained")
 
 
 def recover(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: Path, *_: Path) -> None:
     evaluator_root, codex_home = _validate_roots(evaluator_root_arg, codex_home_arg)
-    campaign_path = campaign_path_arg.expanduser().resolve()
-    with calibration_lock(codex_home, check_only=True):
-        manifest = _load_manifest(codex_home)
-        campaign, _, _ = _validated_campaign(campaign_path)
+    _, _, _, _, records = _campaign_context(evaluator_root, campaign_path_arg)
+    with calibration_lock(evaluator_root, check_only=True):
+        manifest = _load_manifest(evaluator_root)
         if Path(manifest["evaluator_root"]).resolve() != evaluator_root or Path(manifest["codex_home"]).resolve() != codex_home:
             fail("calibration manifest owner root drifted")
-        policy = _load_policy()
-        records, _ = _profile_records(campaign, policy)
+        for record, item in zip(records, manifest["profiles"], strict=True):
+            record.update(item)
         _require_exact_manifest_profiles(manifest, records)
-        _require_exact_owned_directories(manifest, campaign)
-        for shared in reversed(_shared_records(manifest, campaign)):
-            if shared["status"] == "PREPARED":
-                _, parsed, _ = config_transaction._read_config(Path(shared["target_path"]))
-                current = config_transaction._semantic_value(parsed, shared["semantic_path"])
-                if current == shared["expected_applied_state"]:
-                    fail(
-                        "PREPARED shared config mutation has unresolved write attribution; "
-                        "preserving current config for manual remediation"
-                    )
-                elif current is not None:
-                    fail("PREPARED shared config transaction conflicts with current config")
-            config_transaction.cleanup(shared, lambda: _persist_manifest(codex_home, manifest))
-        _cleanup_owned_directories(manifest)
-        _verify_cleanup_profiles(codex_home, manifest)
-        for item in manifest["profiles"]:
-            path = _safe_child(codex_home / "agents", item["filename"], "owned profile")
-            if path.exists():
-                path.unlink()
-    print("RECOVERY COMPLETE: shared config transaction reconciled semantically")
+        def persist() -> None:
+            manifest["profiles"] = _manifest_profiles(records)
+            _persist_manifest(evaluator_root, manifest)
+        for record in reversed(records):
+            _cleanup_profile(record, persist)
+        _verify_environment_baseline(codex_home, manifest["environment_baseline"], set())
+    print("RECOVERY COMPLETE: exact profile transactions reconciled")
 
 
 def parse_args() -> argparse.Namespace:
@@ -985,8 +914,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    if len(sys.argv) == 3 and sys.argv[1] == "--staging-guard":
-        _guard_staging_directory(Path(sys.argv[2]))
+    if len(sys.argv) == 3 and sys.argv[1] == "--profile-staging-guard":
+        _guard_staging_file(Path(sys.argv[2]))
         return
     args = parse_args()
     if args.command == "init":
@@ -994,8 +923,8 @@ def main() -> None:
         return
     if args.codex_home is None or args.campaign is None:
         fail("--codex-home and --campaign are required for create/check/cleanup")
-    if args.command == "create" and (args.shared_config is None or args.marketplace_source is None):
-        fail("--shared-config and --marketplace-source are required for create")
+    if args.shared_config is not None or args.marketplace_source is not None:
+        fail("profile_only rejects Marketplace, Plugin, and shared-config arguments")
     {
         "create": create,
         "check": check,

@@ -90,6 +90,8 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Explicit JSON Host capability evidence captured outside Doctor.",
     )
+    parser.add_argument("--calibration-evidence-root", type=Path)
+    parser.add_argument("--calibration-campaign", type=Path)
     parser.add_argument(
         "--repair",
         action="store_true",
@@ -666,8 +668,7 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
         args.runtime_evidence if args.live_route or args.runtime_evidence else None,
         args.live_route,
     )
-    return {
-        "layers": [
+    layers = [
             diagnose_plugin(),
             diagnose_skills(),
             diagnose_profiles(codex_home),
@@ -675,7 +676,32 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
             diagnose_host(args.host_evidence),
             *runtime_layers,
         ]
-    }
+    if (args.calibration_evidence_root is None) != (args.calibration_campaign is None):
+        layers.append(_layer("Calibration readiness", "FAIL", "both calibration evidence root and campaign are required"))
+    elif args.calibration_evidence_root is not None and args.calibration_campaign is not None:
+        repository_status = subprocess.run(
+            ["git", "-C", str(ROOT), "status", "--porcelain"],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        repository_dirty = repository_status.returncode != 0 or bool(repository_status.stdout.strip())
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "calibration_profiles.py"), "check",
+             "--evaluator-root", str(args.calibration_evidence_root), "--codex-home", str(codex_home),
+             "--campaign", str(args.calibration_campaign)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        detail = (result.stdout if result.returncode == 0 else result.stderr).strip()
+        ready = result.returncode == 0 and not repository_dirty
+        if repository_dirty:
+            detail = (detail + "; " if detail else "") + "repository is dirty"
+        layers.append(_layer(
+            "Calibration readiness", "OK" if ready else "FAIL",
+            "profile-only calibration state is exact" if ready else "profile-only calibration state is not ready",
+            materialization_mode="profile_only", shared_config_mutations=0,
+            temporary_marketplaces=0, temporary_plugins=0, temporary_plugin_cache_additions=0,
+            exact_calibration_profiles=2, repository_clean=not repository_dirty, detail=detail,
+        ))
+    return {"layers": layers}
 
 
 def main() -> None:

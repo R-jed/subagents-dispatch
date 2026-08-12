@@ -101,6 +101,7 @@ def product_campaign(*, stage: str = "exploratory") -> dict:
         "schema_version": "2.0",
         "campaign_id": "product-campaign",
         "stage": stage,
+        "materialization_mode": "shared_config",
         "plugin_candidate_sha": head_sha(),
         "host_target": {"product": "Codex", "version": "test-host-1", "platform": "linux-test"},
         "repeat_policy": {
@@ -141,6 +142,7 @@ def calibration_campaign() -> dict:
         "schema_version": "2.0",
         "campaign_id": "calibration-campaign",
         "stage": "exploratory",
+        "materialization_mode": "profile_only",
         "plugin_candidate_sha": head_sha(),
         "host_target": {"product": "Codex", "version": "test-host-1", "platform": "linux-test"},
         "repeat_policy": {"minimum_completed_per_arm": 1, "ordering": "randomized"},

@@ -15,6 +15,7 @@ Host-produced local rollout record, or both; those sources must agree where they
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -26,7 +27,8 @@ CHILD_ROUTE_FIELDS = ("agent_role", "model", "effort")
 MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
-OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS)
+AUXILIARY_OBSERVED_FIELDS = ("agent_path", "model_provider", "cwd")
+OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS, *AUXILIARY_OBSERVED_FIELDS)
 PERMISSION_PROVENANCE_FIELDS = (
     "source_kind",
     "source_id",
@@ -119,6 +121,44 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def rollout_observation(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        fail("rollout must be an object or null")
+    allowed = {"thread_id", "sessions_dir", "expected_parent_thread_id", "expected_agent_role"}
+    if set(value) - allowed:
+        fail("rollout contains unsupported fields")
+    thread_id = text(value.get("thread_id"))
+    sessions_dir = text(value.get("sessions_dir"))
+    if thread_id is None or sessions_dir is None:
+        fail("rollout requires exact thread_id and sessions_dir")
+    inspector_path = Path(__file__).with_name("inspect-agent-runtime.py")
+    spec = importlib.util.spec_from_file_location("runtime_rollout_inspector", inspector_path)
+    if spec is None or spec.loader is None:
+        fail("could not load rollout inspector")
+    inspector = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(inspector)
+    child = inspector.canonical_uuid(thread_id, "rollout.thread_id")
+    parent = text(value.get("expected_parent_thread_id"))
+    if parent is not None:
+        parent = inspector.canonical_uuid(parent, "rollout.expected_parent_thread_id")
+    root = Path(sessions_dir).expanduser()
+    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+        fail("rollout sessions_dir must be an absolute regular directory")
+    matched = inspector.find_exact_rollout(root.resolve(), child)
+    result = inspector.inspect_rollout(
+        matched,
+        thread_id=child,
+        expected_parent_thread_id=parent,
+        expected_agent_role=text(value.get("expected_agent_role")),
+    )
+    missing = [field for field in CHILD_ROUTE_FIELDS if text(result.get(field)) is None]
+    if missing:
+        fail("exact rollout is missing required fields: " + ", ".join(missing))
+    return result
+
+
 def load_payload(path: Path | None) -> dict[str, Any]:
     try:
         raw = path.read_text(encoding="utf-8") if path else sys.stdin.read()
@@ -153,6 +193,9 @@ def normalize(value: dict[str, Any] | None) -> dict[str, str | None] | None:
         "effort",
         "sandbox_policy_type",
         "permission_profile_type",
+        "agent_path",
+        "model_provider",
+        "cwd",
         "runtime_version",
         "record_format_version",
     }
@@ -870,6 +913,13 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
 def main() -> None:
     args = parse_args()
     payload = load_payload(args.input)
+    if "rollout" in payload:
+        if payload.get("local") is not None:
+            fail("local evidence cannot be supplied together with exact rollout fallback")
+        try:
+            payload["local"] = rollout_observation(payload.get("rollout"))
+        except SystemExit as exc:
+            fail(f"rollout evidence unavailable: {str(exc).removeprefix('ERROR: ')}")
     subject = payload.get("subject", "child")
     if subject == "main_session":
         result = main_session_result(payload)
