@@ -957,8 +957,10 @@ def recover(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: P
                 _, parsed, _ = config_transaction._read_config(Path(shared["target_path"]))
                 current = config_transaction._semantic_value(parsed, shared["semantic_path"])
                 if current == shared["expected_applied_state"]:
-                    shared["status"] = "APPLIED"
-                    _persist_manifest(codex_home, manifest)
+                    fail(
+                        "PREPARED shared config mutation has unresolved write attribution; "
+                        "preserving current config for manual remediation"
+                    )
                 elif current is not None:
                     fail("PREPARED shared config transaction conflicts with current config")
             config_transaction.cleanup(shared, lambda: _persist_manifest(codex_home, manifest))

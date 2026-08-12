@@ -221,6 +221,7 @@ def apply(record: dict[str, Any], persist: Callable[[], None]) -> None:
         raw,
     )
     record["target_identity"] = {"device": new_identity[0], "inode": new_identity[1]}
+    _crash_at("after_config_mutation")
     if os.environ.get("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT") == "after_config_mutation":
         _fail("injected failure after config mutation")
     _, _, current, _ = _state(record)

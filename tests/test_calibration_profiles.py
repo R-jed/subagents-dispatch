@@ -149,6 +149,55 @@ def test_failure_after_prepared_leaves_durable_intent_without_config_mutation(
     assert journal["shared_config_mutations"][0]["status"] == "PREPARED"
 
 
+def test_recover_preserves_identical_external_write_after_prepared(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT", "after_prepared")
+    assert run(tmp_path, "create", campaign_path=path).returncode != 0
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT")
+    manifest = json.loads(
+        (evaluator / "isolated-codex" / ".subagents-dispatch-calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    record = manifest["shared_config_mutations"][0]
+    config = evaluator / "config.toml"
+    config.write_bytes(
+        MODULE.config_transaction._add_table(
+            config.read_bytes(), record["semantic_path"], record["expected_applied_state"]
+        )
+    )
+
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode != 0
+    assert "unresolved write attribution" in recovered.stderr
+    parsed = tomllib.loads(config.read_text(encoding="utf-8"))
+    assert MODULE.config_transaction._semantic_value(parsed, record["semantic_path"]) == record[
+        "expected_applied_state"
+    ]
+
+
+def test_true_write_before_applied_remains_unresolved_and_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    evaluator = tmp_path / "evaluator"
+    evaluator.mkdir()
+    path = prepare_campaign(evaluator)
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_config_mutation")
+    assert run(tmp_path, "create", campaign_path=path).returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+    config = evaluator / "config.toml"
+    before = config.read_bytes()
+
+    recovered = run(tmp_path, "recover", campaign_path=path)
+    assert recovered.returncode != 0
+    assert "unresolved write attribution" in recovered.stderr
+    assert config.read_bytes() == before
+
+
 def test_cleanup_preserves_cc_switch_and_unrelated_config_changes(tmp_path: Path):
     evaluator = tmp_path / "evaluator"
     evaluator.mkdir()
@@ -179,21 +228,23 @@ def test_cleanup_preserves_cc_switch_and_unrelated_config_changes(tmp_path: Path
     assert all("subagents-dispatch-v3-exact" not in key for key in parsed["marketplaces"])
 
 
-def test_recover_after_config_write_before_applied_removes_only_owned_table(
+def test_recover_after_config_write_before_applied_preserves_unresolved_table(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     evaluator = tmp_path / "evaluator"
     evaluator.mkdir()
     path = prepare_campaign(evaluator)
-    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT", "after_config_mutation")
+    monkeypatch.setenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT", "after_config_mutation")
     failed = run(tmp_path, "create", campaign_path=path)
-    assert failed.returncode != 0
-    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_FAIL_AT")
+    assert failed.returncode == 86
+    monkeypatch.delenv("SUBAGENTS_DISPATCH_CALIBRATION_CRASH_AT")
+    before = (evaluator / "config.toml").read_bytes()
     recovered = run(tmp_path, "recover", campaign_path=path)
-    assert recovered.returncode == 0, recovered.stderr
+    assert recovered.returncode != 0
+    assert "unresolved write attribution" in recovered.stderr
+    assert (evaluator / "config.toml").read_bytes() == before
     parsed = tomllib.loads((evaluator / "config.toml").read_text(encoding="utf-8"))
-    assert "marketplaces" not in parsed
-    assert "plugins" not in parsed
+    assert "marketplaces" in parsed
 
 
 @pytest.mark.parametrize(
