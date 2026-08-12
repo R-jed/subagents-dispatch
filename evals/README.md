@@ -16,7 +16,7 @@ This folder contains test data used to check routing, coordination, recovery, in
 
 `../scripts/validate-experiment-run.py` validates one run against that already-validated campaign. It checks campaign/candidate/workload/arm identity, actual input attestation, materialized-child completeness, child route evidence, oracle/result provenance, and measurement provenance. It does not run Codex, rank routes, aggregate results, or change policy.
 
-The campaign/run boundary follows the same truth discipline as runtime attestation:
+The campaign/run boundary follows the same truth discipline as runtime attestation. Each campaign also binds a typed claim kind: role calibration is `model_effort`, product benchmark is `product_behavior`, and neither may be relabeled as a Host permission-source claim.
 
 ```text
 campaign expected input

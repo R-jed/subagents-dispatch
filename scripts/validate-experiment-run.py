@@ -476,32 +476,11 @@ def validate_child_materialization(run: dict[str, Any], campaign: dict[str, Any]
     return count
 
 
-def derived_route_assurance(routes: list[dict[str, Any]], materialized_count: int | None) -> str:
+def derived_assurance(verdicts: set[str], materialized_count: int | None) -> str:
     if materialized_count is None:
         return "unknown"
     if materialized_count == 0:
         return "not_applicable"
-    verdicts = {route["verdict"] for route in routes}
-    if "failed" in verdicts:
-        return "failed"
-    if "unknown" in verdicts:
-        return "unknown"
-    return "verified"
-
-
-def derived_permission_assurance(
-    routes: list[dict[str, Any]],
-    materialized_count: int | None,
-    field: str,
-) -> str:
-    if materialized_count is None:
-        return "unknown"
-    if materialized_count == 0:
-        return "not_applicable"
-    verdicts = {
-        route[field] if field == "permission_state_verdict" else route[field]["verdict"]
-        for route in routes
-    }
     if "failed" in verdicts:
         return "failed"
     if "unknown" in verdicts:
@@ -616,21 +595,29 @@ def validate_run(run: dict[str, Any], campaign_path: Path) -> dict[str, Any]:
     else:
         validate_calibration_arm(run, campaign, workload, policy)
 
-    expected_assurance = derived_route_assurance(run["child_routes"], materialized_count)
+    expected_assurance = derived_assurance(
+        {route["verdict"] for route in run["child_routes"]},
+        materialized_count,
+    )
     if run["route_assurance"] != expected_assurance:
         fail(
             f"route_assurance must be {expected_assurance!r} for the recorded child materialization and route verdicts"
         )
-    expected_permission_state = derived_permission_assurance(
-        run["child_routes"], materialized_count, "permission_state_verdict"
+    expected_permission_state = derived_assurance(
+        {route["permission_state_verdict"] for route in run["child_routes"]},
+        materialized_count,
     )
     if run["permission_state_assurance"] != expected_permission_state:
         fail(
             "permission_state_assurance must be "
             f"{expected_permission_state!r} for the recorded child permission states"
         )
-    expected_permission_provenance = derived_permission_assurance(
-        run["child_routes"], materialized_count, "permission_provenance"
+    expected_permission_provenance = derived_assurance(
+        {
+            route["permission_provenance"]["verdict"]
+            for route in run["child_routes"]
+        },
+        materialized_count,
     )
     if run["permission_provenance_assurance"] != expected_permission_provenance:
         fail(

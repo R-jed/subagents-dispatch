@@ -40,8 +40,11 @@
     },
     "assurance_requirements": {
       "type": "object",
-      "required": ["required", "allow_unknown"],
+      "required": ["claim_kind", "required", "allow_unknown"],
       "properties": {
+        "claim_kind": {
+          "enum": ["model_effort", "product_behavior", "host_permission_provenance"]
+        },
         "required": {
           "type": "array",
           "items": {"enum": ["route", "permission_state", "permission_provenance"]},

@@ -273,13 +273,18 @@ def test_doctor_live_route_contract_keeps_permission_state_and_provenance_separa
 
 def test_runtime_assurance_cases_cover_permission_provenance_fail_closed():
     payload = json.loads(RUNTIME_CASES.read_text(encoding="utf-8"))
-    ids = {case["id"] for case in payload["cases"]}
-    assert {
+    cases = {case["id"]: case for case in payload["cases"]}
+    required_ids = {
         "required-permission-provenance-unobserved",
         "required-permission-provenance-unbound",
         "required-permission-provenance-identity-mismatch",
         "required-permission-provenance-state-mismatch",
-    } <= ids
+    }
+    assert required_ids <= cases.keys()
+    assert all(
+        cases[case_id]["input"]["requires_permission_provenance"] is True
+        for case_id in required_ids
+    )
 
 
 def test_accepted_permission_override_is_non_blocking_and_does_not_relabel_route_truth_layers():

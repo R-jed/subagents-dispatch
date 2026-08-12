@@ -267,6 +267,8 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
         fail("fixed_with_reason ordering requires a concrete fixed_order_reason")
 
     assurance = campaign["assurance_requirements"]
+    experiment = campaign["experiment"]
+    claim_kind = assurance["claim_kind"]
     required = set(assurance["required"])
     allow_unknown = set(assurance["allow_unknown"])
     if required & allow_unknown:
@@ -278,9 +280,17 @@ def validate_semantics(campaign: dict[str, Any], policy: dict[str, Any]) -> list
         fail("campaign must classify every assurance dimension as required or allowed unknown")
     if allow_unknown - {"permission_provenance"}:
         fail("route and permission_state cannot be allowed unknown")
+    expected_claim = {
+        "role_calibration": "model_effort",
+        "product_benchmark": "product_behavior",
+    }[experiment["type"]]
+    if claim_kind != expected_claim:
+        fail(
+            f"{experiment['type']} campaign must declare claim_kind={expected_claim!r}; "
+            "current experiment types cannot support a Host permission-source claim"
+        )
 
     validate_common_workloads(campaign)
-    experiment = campaign["experiment"]
     if experiment["type"] == "role_calibration":
         return validate_role_calibration(campaign, experiment, policy)
     if experiment["type"] == "product_benchmark":

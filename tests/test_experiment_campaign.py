@@ -11,8 +11,9 @@ VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
 
 
-def assurance_requirements() -> dict:
+def assurance_requirements(claim_kind: str = "model_effort") -> dict:
     return {
+        "claim_kind": claim_kind,
         "required": ["route", "permission_state"],
         "allow_unknown": ["permission_provenance"],
     }
@@ -134,7 +135,7 @@ def product_campaign(*, stage: str = "formal", repeats: int = 3) -> dict:
             "ordering": "randomized",
             "fixed_order_reason": None,
         },
-        "assurance_requirements": assurance_requirements(),
+        "assurance_requirements": assurance_requirements("product_behavior"),
         "experiment": {
             "type": "product_benchmark",
             "baseline_mode": "single_agent",
@@ -182,9 +183,10 @@ def test_valid_product_benchmark_does_not_predeclare_role_challengers(tmp_path: 
     assert summary["minimum_completed_per_arm"] == 3
 
 
-def test_campaign_can_require_permission_provenance_for_a_source_claim(tmp_path: Path):
+def test_campaign_can_require_stronger_permission_provenance(tmp_path: Path):
     payload = role_campaign()
     payload["assurance_requirements"] = {
+        "claim_kind": "model_effort",
         "required": ["route", "permission_state", "permission_provenance"],
         "allow_unknown": [],
     }
@@ -192,6 +194,20 @@ def test_campaign_can_require_permission_provenance_for_a_source_claim(tmp_path:
     result = run_validator(tmp_path, payload)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_current_experiment_types_cannot_claim_host_permission_source(tmp_path: Path):
+    payload = role_campaign()
+    payload["assurance_requirements"] = {
+        "claim_kind": "host_permission_provenance",
+        "required": ["route", "permission_state", "permission_provenance"],
+        "allow_unknown": [],
+    }
+
+    result = run_validator(tmp_path, payload)
+
+    assert result.returncode != 0
+    assert "cannot support a Host permission-source claim" in result.stderr
 
 
 def test_campaign_must_declare_how_unknown_provenance_affects_its_claim(tmp_path: Path):

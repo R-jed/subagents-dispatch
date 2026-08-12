@@ -15,8 +15,9 @@ RUN_VALIDATOR = SCRIPTS / "validate-experiment-run.py"
 POLICY = ROOT / "contracts" / "policy.json"
 
 
-def assurance_requirements() -> dict:
+def assurance_requirements(claim_kind: str = "model_effort") -> dict:
     return {
+        "claim_kind": claim_kind,
         "required": ["route", "permission_state"],
         "allow_unknown": ["permission_provenance"],
     }
@@ -103,7 +104,7 @@ def product_campaign(*, stage: str = "exploratory") -> dict:
             "minimum_completed_per_arm": 3 if stage == "formal" else 1,
             "ordering": "interleaved",
         },
-        "assurance_requirements": assurance_requirements(),
+        "assurance_requirements": assurance_requirements("product_behavior"),
         "experiment": {
             "type": "product_benchmark",
             "baseline_mode": "single_agent",
@@ -597,6 +598,7 @@ def test_unknown_permission_provenance_does_not_erase_verified_route_or_state(tm
 def test_unknown_permission_provenance_cannot_support_a_source_claim(tmp_path: Path):
     campaign = product_campaign()
     campaign["assurance_requirements"] = {
+        "claim_kind": "product_behavior",
         "required": ["route", "permission_state", "permission_provenance"],
         "allow_unknown": [],
     }

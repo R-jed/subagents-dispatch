@@ -139,6 +139,7 @@
       "id": "required-permission-provenance-unobserved",
       "input": {
         "requires_permission_observation": true,
+        "requires_permission_provenance": true,
         "child_sandbox": "danger-full-access",
         "child_permission_profile": "disabled",
         "native_permission_source": null,
@@ -153,6 +154,7 @@
       "id": "required-permission-provenance-unbound",
       "input": {
         "requires_permission_observation": true,
+        "requires_permission_provenance": true,
         "child_sandbox": "danger-full-access",
         "child_permission_profile": "disabled",
         "source_kind": "parent_turn",
@@ -169,6 +171,7 @@
       "id": "required-permission-provenance-identity-mismatch",
       "input": {
         "requires_permission_observation": true,
+        "requires_permission_provenance": true,
         "source_kind": "parent_turn",
         "source_id_matches_expected_parent": false
       },
@@ -181,6 +184,7 @@
       "id": "required-permission-provenance-state-mismatch",
       "input": {
         "requires_permission_observation": true,
+        "requires_permission_provenance": true,
         "child_sandbox": "read-only",
         "child_permission_profile": "disabled",
         "source_sandbox": "danger-full-access",

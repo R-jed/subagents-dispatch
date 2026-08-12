@@ -82,7 +82,7 @@ Main 会先判断有没有值得独立处理的职责。例如现有接口和测
 | Sol High | 执行 | 实现过程中存在不可分离的实质技术判断 |
 | Sol High | 决策 / 验收 | 只读技术决策或独立 Final Review |
 
-“只读”表示职责禁止修改项目文件，不表示按角色提供 OS sandbox。当前 Host 权限继承自活跃 Codex 环境；执行职责也只有在 Main 分配明确写入范围时才获得行为写权限。详见 [Guardrails](contracts/guardrails.md) 与 [Runtime Attestation](docs/runtime-attestation.md)。
+“只读”表示职责禁止修改项目文件，不表示按角色提供 OS sandbox。实际 sandbox / permission profile 由 Host 决定并需要运行时观察；Host 未暴露内部来源或选择过程时，这部分 provenance 保持 `UNKNOWN`。执行职责也只有在 Main 分配明确写入范围时才获得行为写权限。详见 [Guardrails](contracts/guardrails.md) 与 [Runtime Attestation](docs/runtime-attestation.md)。
 
 这些配置是当前 policy，不代表我们已经证明它们是所有任务上的“最优组合”。模型和 reasoning effort 的正式校准由真实实验数据决定，见 [Experiment Protocol](docs/experiment-protocol.md)。
 
@@ -99,7 +99,7 @@ Configured
 → Observed
 ```
 
-Observed 只来自 Host 真正暴露的运行时信息。Host 公共 metadata 不完整时，可以对 exact child 的本地 Codex rollout 做只读 allowlist 检查，核对 model、reasoning effort、sandbox / permission、parent / child identity。实际 child 权限要与 parent turn 或 selected environment 的有效权限来源独立比较；配置值和子代理自报身份都不能填进 Observed。
+Observed 只来自 Host 真正暴露的运行时信息。Host 公共 metadata 不完整时，可以对 exact child 的本地 Codex rollout 做只读 allowlist 检查，核对 model、reasoning effort、sandbox / permission、parent / child identity。实际 child 权限直接作为独立事实核对；只有 Host 另外暴露来源身份与选择证据时才报告 provenance，不能从相同权限值推导来源。配置值和子代理自报身份都不能填进 Observed。
 
 完整协议见 [Runtime Attestation](docs/runtime-attestation.md)。
 
