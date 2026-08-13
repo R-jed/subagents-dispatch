@@ -16,7 +16,20 @@ for _name in dir(_core):
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_ROLES = ("reader", "worker", "solver", "investigator", "advisor")
+_legacy_validate_schema = _core.validate_schema
 _legacy_validate_role_calibration = _core.validate_role_calibration
+
+
+def validate_schema(campaign: dict[str, Any]) -> None:
+    experiment = campaign.get("experiment")
+    if isinstance(experiment, dict) and experiment.get("type") == "role_calibration":
+        roles = experiment.get("roles")
+        if isinstance(roles, list) and len(roles) != 1:
+            _core.fail(
+                "initial calibration profile materialization supports only the Reader role; "
+                "five-role profile-only calibration now requires exactly one semantic role per campaign"
+            )
+    _legacy_validate_schema(campaign)
 
 
 def _canonical_profile(role: str, policy: dict[str, Any]) -> dict[str, Any]:
@@ -60,7 +73,10 @@ def _require_materialization_binding(campaign: dict[str, Any], role: str, route_
 def validate_role_calibration(campaign: dict[str, Any], experiment: dict[str, Any], policy: dict[str, Any]) -> list[str]:
     roles = experiment.get("roles", [])
     if len(roles) != 1:
-        _core.fail("initial calibration profile materialization supports only the Reader role; five-role profile-only calibration now requires exactly one semantic role per campaign")
+        _core.fail(
+            "initial calibration profile materialization supports only the Reader role; "
+            "five-role profile-only calibration now requires exactly one semantic role per campaign"
+        )
     role = roles[0].get("role")
     if role not in SUPPORTED_ROLES:
         _core.fail(f"unsupported calibration role: {role!r}")
@@ -113,6 +129,7 @@ def validate_role_calibration(campaign: dict[str, Any], experiment: dict[str, An
     return [role]
 
 
+_core.validate_schema = validate_schema
 _core.canonical_role_contract_digest = canonical_role_contract_digest
 _core.validate_role_calibration = validate_role_calibration
 
