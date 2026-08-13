@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+from ctypes import wintypes
 import hashlib
 import json
 import os
@@ -39,6 +40,27 @@ _legacy_profile_records = _core._profile_records
 _legacy_host_home_identity = _core._host_home_identity
 ACTIVE_TASK_NONCE_ENV = "SUBAGENTS_DISPATCH_ACTIVE_TASK_NONCE"
 ACTIVE_TASK_NONCE_RECEIPT_ROOT: Path | None = None
+
+def _open_windows_directory_handle(path: Path) -> tuple[Any, int]:
+    kernel32 = ctypes.windll.kernel32
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    create_file.restype = wintypes.HANDLE
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+    handle = create_file(str(path), 0, 0, None, 3, 0x02000000 | 0x00200000, None)
+    if handle == wintypes.HANDLE(-1).value:
+        _core.fail("could not lock nonce receipt root")
+    return close_handle, handle
 
 def _read_regular_bytes_without_following(path: Path, label: str) -> bytes:
     try:
@@ -102,17 +124,7 @@ def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
     receipt_name = hashlib.sha256(nonce.encode()).hexdigest()
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     if os.name == "nt":
-        handle = ctypes.windll.kernel32.CreateFileW(
-            str(receipt_root),
-            0,
-            0,
-            None,
-            3,
-            0x02000000 | 0x00200000,
-            None,
-        )
-        if handle == ctypes.c_void_p(-1).value:
-            _core.fail("could not lock nonce receipt root")
+        close_handle, handle = _open_windows_directory_handle(receipt_root)
         directory_fd = None
     else:
         directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
@@ -144,7 +156,7 @@ def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
             _core.fail("nonce receipt root changed while consuming active-task nonce")
     finally:
         if directory_fd is None:
-            ctypes.windll.kernel32.CloseHandle(handle)
+            close_handle(handle)
         else:
             os.close(directory_fd)
 

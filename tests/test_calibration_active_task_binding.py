@@ -276,6 +276,30 @@ def test_nonce_receipt_root_rejects_symlink(
         profiles._consume_active_task_nonce(receipt_root, "4" * 64)
 
 
+def test_windows_directory_lock_rejects_invalid_handle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    class Function:
+        def __init__(self, result):
+            self.result = result
+
+        def __call__(self, *args):
+            return self.result
+
+    class Kernel32:
+        CreateFileW = Function(profiles.wintypes.HANDLE(-1).value)
+        CloseHandle = Function(1)
+
+    monkeypatch.setattr(
+        profiles.ctypes,
+        "windll",
+        type("Windll", (), {"kernel32": Kernel32()})(),
+        raising=False,
+    )
+    with pytest.raises(SystemExit, match="could not lock"):
+        profiles._open_windows_directory_handle(tmp_path)
+
+
 def test_nonce_fallback_rejects_evidence_switch_after_scan(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
