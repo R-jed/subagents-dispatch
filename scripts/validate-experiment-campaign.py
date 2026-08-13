@@ -16,11 +16,11 @@ for _name in dir(_core):
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_ROLES = ("reader", "worker", "solver", "investigator", "advisor")
-_legacy_validate_schema = _core.validate_schema
+_legacy_validate_campaign = _core.validate_campaign
 _legacy_validate_role_calibration = _core.validate_role_calibration
 
 
-def validate_schema(campaign: dict[str, Any]) -> None:
+def validate_campaign(campaign: dict[str, Any]) -> dict[str, Any]:
     experiment = campaign.get("experiment")
     if isinstance(experiment, dict) and experiment.get("type") == "role_calibration":
         roles = experiment.get("roles")
@@ -29,7 +29,7 @@ def validate_schema(campaign: dict[str, Any]) -> None:
                 "initial calibration profile materialization supports only the Reader role; "
                 "five-role profile-only calibration now requires exactly one semantic role per campaign"
             )
-    _legacy_validate_schema(campaign)
+    return _legacy_validate_campaign(campaign)
 
 
 def _canonical_profile(role: str, policy: dict[str, Any]) -> dict[str, Any]:
@@ -129,7 +129,7 @@ def validate_role_calibration(campaign: dict[str, Any], experiment: dict[str, An
     return [role]
 
 
-_core.validate_schema = validate_schema
+_core.validate_campaign = validate_campaign
 _core.canonical_role_contract_digest = canonical_role_contract_digest
 _core.validate_role_calibration = validate_role_calibration
 
