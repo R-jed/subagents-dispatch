@@ -224,6 +224,41 @@ def test_nonce_cannot_be_replayed_from_another_evidence_root(
         )
 
 
+def test_nonce_receipt_namespace_ignores_home_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    nonce = "3" * 64
+    real_home = tmp_path / "account"
+    normal_codex_home = real_home / ".codex"
+    monkeypatch.setattr(profiles, "ACTIVE_TASK_NONCE_RECEIPT_ROOT", None)
+    monkeypatch.setattr(
+        profiles._core, "_normal_codex_home", lambda: normal_codex_home
+    )
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.setenv(profiles.ACTIVE_TASK_NONCE_ENV, nonce)
+    evidence = _evidence(
+        tmp_path, [{"command": f"{nonce} calibration_profiles.py create"}]
+    )
+    rollout = Path(json.loads(evidence.read_text())["provisioning_rollout_path"])
+    validated = {
+        "provisioning_rollout_path": str(rollout.resolve()),
+        "provisioning_rollout_sha256": hashlib.sha256(rollout.read_bytes()).hexdigest(),
+    }
+    monkeypatch.setattr(
+        profiles, "_legacy_host_home_identity", lambda *args, **kwargs: validated
+    )
+
+    monkeypatch.setenv("HOME", str(tmp_path / "override-a"))
+    profiles._host_home_identity(
+        tmp_path, evidence, "task-1", require_active_task=True
+    )
+    monkeypatch.setenv("HOME", str(tmp_path / "override-b"))
+    with pytest.raises(SystemExit, match="already been used"):
+        profiles._host_home_identity(
+            tmp_path, evidence, "task-1", require_active_task=True
+        )
+
+
 def test_nonce_fallback_rejects_evidence_switch_after_scan(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
