@@ -9,6 +9,11 @@ import pytest
 import test_experiment_run as experiment
 
 
+@pytest.fixture(autouse=True)
+def normal_home_is_test_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(experiment.VALIDATOR.Path, "home", lambda: tmp_path)
+
+
 def prepared_calibration(tmp_path: Path) -> tuple[dict, dict, Path, Path]:
     campaign = experiment.calibration_campaign()
     run = experiment.calibration_run(campaign)
