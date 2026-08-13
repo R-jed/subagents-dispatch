@@ -119,9 +119,13 @@ def test_doctor_calibration_readiness_uses_profile_only_checker(tmp_path: Path):
         sys.path.pop(0)
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    fake_git = fake_bin / "git"
-    fake_git.write_text("#!/bin/sh\nprintf ' M controlled-test-change\\n'\n")
-    fake_git.chmod(0o755)
+    if os.name == "nt":
+        fake_git = fake_bin / "git.cmd"
+        fake_git.write_text("@echo  M controlled-test-change\n")
+    else:
+        fake_git = fake_bin / "git"
+        fake_git.write_text("#!/bin/sh\nprintf ' M controlled-test-change\\n'\n")
+        fake_git.chmod(0o755)
     result = run_doctor(
         home, "--json", "--calibration-evidence-root", str(evidence),
         "--calibration-campaign", str(campaign_path),
