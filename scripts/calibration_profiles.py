@@ -405,13 +405,19 @@ def _atomic_write(path: Path, data: bytes) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(staged, path)
-        parent_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(parent_fd)
-        finally:
-            os.close(parent_fd)
+        _fsync_directory(path.parent)
     finally:
         staged.unlink(missing_ok=True)
+
+
+def _fsync_directory(path: Path) -> None:
+    if os.name == "nt":
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def _rename_no_replace(source: Path, destination: Path) -> None:
@@ -834,11 +840,7 @@ def _apply_profile(record: dict[str, Any], data: bytes, persist: Callable[[], No
         published.st_dev, published.st_ino
     ) != (record["device"], record["inode"]):
         fail(f"published calibration profile identity is unsafe: {target}")
-    parent_fd = os.open(target.parent, os.O_RDONLY)
-    try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
+    _fsync_directory(target.parent)
     _crash_at(f"after_profile_{record['route_id']}_link")
     record["status"] = "APPLIED"
     persist()

@@ -23,7 +23,7 @@ requires_atomic_exchange = pytest.mark.skipif(
 
 def record(tmp_path: Path) -> tuple[Path, dict]:
     config = tmp_path / "config.toml"
-    config.write_text('model="keep"\n[features]\nkeep=true\n')
+    config.write_bytes(b'model="keep"\n[features]\nkeep=true\n')
     return config, tx.new_record(
         config, ["marketplaces", "temporary"], SOURCE, "campaign", CANDIDATE
     )

@@ -13,6 +13,24 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "calibration_profiles.py"
 
 
+def test_directory_fsync_is_not_attempted_on_windows(monkeypatch: pytest.MonkeyPatch):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import calibration_profiles as profiles
+    finally:
+        sys.path.pop(0)
+    opened = False
+
+    def unexpected_open(*args, **kwargs):
+        nonlocal opened
+        opened = True
+
+    monkeypatch.setattr(profiles.os, "name", "nt")
+    monkeypatch.setattr(profiles.os, "open", unexpected_open)
+    profiles._fsync_directory(Path("unused"))
+    assert opened is False
+
+
 def init(evidence: Path) -> None:
     evidence.mkdir()
     result = subprocess.run(
