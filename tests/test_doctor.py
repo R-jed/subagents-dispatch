@@ -117,22 +117,17 @@ def test_doctor_calibration_readiness_uses_profile_only_checker(tmp_path: Path):
         assert run(evidence, home, campaign_path, "create").returncode == 0
     finally:
         sys.path.pop(0)
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    if os.name == "nt":
-        fake_git = fake_bin / "git.cmd"
-        fake_git.write_text("@echo  M controlled-test-change\n")
-    else:
-        fake_git = fake_bin / "git"
-        fake_git.write_text("#!/bin/sh\nprintf ' M controlled-test-change\\n'\n")
-        fake_git.chmod(0o755)
-    result = run_doctor(
-        home, "--json", "--calibration-evidence-root", str(evidence),
-        "--calibration-campaign", str(campaign_path),
-        "--calibration-host-home-evidence", str(evidence / "host-home.json"),
-        "--calibration-provisioning-task-id", "provisioning-task-1",
-        env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"},
-    )
+    dirty_marker = ROOT / ".doctor-controlled-test-change"
+    dirty_marker.write_text("controlled\n")
+    try:
+        result = run_doctor(
+            home, "--json", "--calibration-evidence-root", str(evidence),
+            "--calibration-campaign", str(campaign_path),
+            "--calibration-host-home-evidence", str(evidence / "host-home.json"),
+            "--calibration-provisioning-task-id", "provisioning-task-1",
+        )
+    finally:
+        dirty_marker.unlink()
     assert result.returncode == 0, result.stderr
     layer = next(item for item in json.loads(result.stdout)["layers"] if item["name"] == "Calibration readiness")
     assert layer["status"] == "FAIL"
