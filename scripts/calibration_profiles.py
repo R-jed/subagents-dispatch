@@ -10,10 +10,12 @@ profile-only materialization path without duplicating transaction logic.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -31,7 +33,78 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "contracts" / "policy.json"
 CAMPAIGN_VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 SUPPORTED_ROLES = ("reader", "worker", "solver", "investigator", "advisor")
+MANIFEST_SCHEMA = 5
 _legacy_profile_records = _core._profile_records
+
+
+def _inventory_file_sha256(path: Path, identity: os.stat_result) -> str:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        _core.fail(f"could not open environment inventory file without following links: {path}: {exc}")
+    try:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
+            identity.st_dev,
+            identity.st_ino,
+        ):
+            _core.fail(f"environment inventory file identity drifted while opening: {path}")
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+        closed = os.fstat(fd)
+        if (
+            (closed.st_dev, closed.st_ino) != (opened.st_dev, opened.st_ino)
+            or closed.st_size != opened.st_size
+            or closed.st_mtime_ns != opened.st_mtime_ns
+        ):
+            _core.fail(f"environment inventory file changed while being hashed: {path}")
+        return digest.hexdigest()
+    finally:
+        os.close(fd)
+
+
+def _path_inventory(root: Path) -> list[dict[str, str]]:
+    if not root.exists():
+        return []
+    if root.is_symlink() or not root.is_dir():
+        _core.fail(f"unsafe inventory root: {root}")
+    entries: list[dict[str, str]] = []
+    for path in root.rglob("*"):
+        try:
+            identity = os.lstat(path)
+        except OSError as exc:
+            _core.fail(f"could not stat environment inventory entry: {path}: {exc}")
+        relative = path.relative_to(root).as_posix()
+        if stat.S_ISLNK(identity.st_mode):
+            try:
+                target = os.readlink(path)
+                confirmed = os.lstat(path)
+            except OSError as exc:
+                _core.fail(f"could not inspect environment inventory symlink: {path}: {exc}")
+            if (
+                (confirmed.st_dev, confirmed.st_ino) != (identity.st_dev, identity.st_ino)
+                or confirmed.st_mtime_ns != identity.st_mtime_ns
+            ):
+                _core.fail(f"environment inventory symlink changed while being inspected: {path}")
+            entries.append({"path": relative, "type": "symlink", "target": target})
+        elif stat.S_ISDIR(identity.st_mode):
+            entries.append({"path": relative, "type": "directory"})
+        elif stat.S_ISREG(identity.st_mode):
+            entries.append(
+                {
+                    "path": relative,
+                    "type": "file",
+                    "sha256": _inventory_file_sha256(path, identity),
+                }
+            )
+        else:
+            _core.fail(f"unsupported environment inventory entry type: {path}")
+    return sorted(entries, key=lambda item: (item["path"], item["type"]))
 
 
 def _load_policy() -> dict[str, Any]:
@@ -187,6 +260,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+_core.MANIFEST_SCHEMA = MANIFEST_SCHEMA
+_core._path_inventory = _path_inventory
 _core._load_policy = _load_policy
 _core._validated_campaign = _validated_campaign
 _core._profile_records = _profile_records
