@@ -229,6 +229,7 @@ def test_nonce_receipt_namespace_ignores_home_override(
 ):
     nonce = "3" * 64
     real_home = tmp_path / "account"
+    real_home.mkdir()
     normal_codex_home = real_home / ".codex"
     monkeypatch.setattr(profiles, "ACTIVE_TASK_NONCE_RECEIPT_ROOT", None)
     monkeypatch.setattr(
@@ -257,6 +258,22 @@ def test_nonce_receipt_namespace_ignores_home_override(
         profiles._host_home_identity(
             tmp_path, evidence, "task-1", require_active_task=True
         )
+
+
+def test_nonce_receipt_root_rejects_symlink(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    target = tmp_path / "target"
+    target.mkdir()
+    receipt_root = tmp_path / "receipt-root"
+    try:
+        receipt_root.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation is unavailable")
+    monkeypatch.setattr(profiles, "ACTIVE_TASK_NONCE_RECEIPT_ROOT", receipt_root)
+
+    with pytest.raises(SystemExit, match="real directory"):
+        profiles._consume_active_task_nonce(receipt_root, "4" * 64)
 
 
 def test_nonce_fallback_rejects_evidence_switch_after_scan(

@@ -10,6 +10,7 @@ profile-only materialization path without duplicating transaction logic.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import json
 import os
@@ -76,6 +77,77 @@ def _read_regular_bytes_without_following(path: Path, label: str) -> bytes:
     finally:
         os.close(fd)
 
+def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
+    parent = receipt_root.parent
+    account_home = parent.parent
+    try:
+        account_identity = os.lstat(account_home)
+    except OSError as exc:
+        _core.fail(f"could not stat account home for nonce receipts: {exc}")
+    if not stat.S_ISDIR(account_identity.st_mode):
+        _core.fail("account home for nonce receipts must be a real directory")
+    for path, label in ((parent, "nonce receipt parent"), (receipt_root, "nonce receipt root")):
+        try:
+            path.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            _core.fail(f"could not prepare {label}: {exc}")
+        try:
+            identity = os.lstat(path)
+        except OSError as exc:
+            _core.fail(f"could not stat {label}: {exc}")
+        if not stat.S_ISDIR(identity.st_mode):
+            _core.fail(f"{label} must be a real directory")
+    receipt_name = hashlib.sha256(nonce.encode()).hexdigest()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    if os.name == "nt":
+        handle = ctypes.windll.kernel32.CreateFileW(
+            str(receipt_root),
+            0,
+            0,
+            None,
+            3,
+            0x02000000 | 0x00200000,
+            None,
+        )
+        if handle == ctypes.c_void_p(-1).value:
+            _core.fail("could not lock nonce receipt root")
+        directory_fd = None
+    else:
+        directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        try:
+            directory_fd = os.open(receipt_root, directory_flags)
+        except OSError as exc:
+            _core.fail(f"could not open nonce receipt root: {exc}")
+    try:
+        opened = os.lstat(receipt_root) if directory_fd is None else os.fstat(directory_fd)
+        current = os.lstat(receipt_root)
+        if (
+            not stat.S_ISDIR(opened.st_mode)
+            or (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino)
+        ):
+            _core.fail("nonce receipt root identity drifted while opening")
+        try:
+            if os.name == "nt":
+                fd = os.open(receipt_root / receipt_name, flags, 0o600)
+            else:
+                fd = os.open(receipt_name, flags, 0o600, dir_fd=directory_fd)
+        except FileExistsError:
+            _core.fail("active-task nonce has already been used")
+        except OSError as exc:
+            _core.fail(f"could not consume active-task nonce: {exc}")
+        else:
+            os.close(fd)
+        current = os.lstat(receipt_root)
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+            _core.fail("nonce receipt root changed while consuming active-task nonce")
+    finally:
+        if directory_fd is None:
+            ctypes.windll.kernel32.CloseHandle(handle)
+        else:
+            os.close(directory_fd)
+
 
 def _host_home_identity(
     codex_home: Path,
@@ -138,20 +210,7 @@ def _host_home_identity(
         / ".subagents-dispatch-evals"
         / ".active-task-nonces"
     )
-    try:
-        receipt_root.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        _core.fail(f"could not prepare active-task nonce receipts: {exc}")
-    receipt = receipt_root / hashlib.sha256(nonce.encode()).hexdigest()
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
-    try:
-        fd = os.open(receipt, flags, 0o600)
-    except FileExistsError:
-        _core.fail("active-task nonce has already been used")
-    except OSError as exc:
-        _core.fail(f"could not consume active-task nonce: {exc}")
-    else:
-        os.close(fd)
+    _consume_active_task_nonce(receipt_root, nonce)
     return validated
 
 
