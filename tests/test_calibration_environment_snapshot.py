@@ -65,6 +65,37 @@ def test_environment_snapshot_detects_symlink_target_change(tmp_path: Path):
     assert before != after
 
 
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation is not guaranteed on Windows runners")
+def test_profile_only_create_preserves_preexisting_plugin_cache_symlink(tmp_path: Path):
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        from test_calibration_profiles import manifest, run, setup
+    finally:
+        sys.path.pop(0)
+
+    evidence, home, campaign_path, _ = setup(tmp_path)
+    cache = home / "plugins" / "cache"
+    version = cache / "openai-bundled" / "chrome" / "123"
+    version.mkdir(parents=True)
+    payload = version / "payload.txt"
+    payload.write_text("keep", encoding="utf-8")
+    latest = version.parent / "latest"
+    latest.symlink_to("123", target_is_directory=True)
+    before = profiles._path_inventory(cache)
+
+    created = run(evidence, home, campaign_path, "create")
+
+    assert created.returncode == 0, created.stderr
+    assert created.stdout.strip() == "NEW TASK REQUIRED: YES"
+    assert profiles._path_inventory(cache) == before
+    assert os.readlink(latest) == "123"
+    assert payload.read_text(encoding="utf-8") == "keep"
+    owned = manifest(evidence)
+    assert owned["schema_version"] == 5
+    assert len(owned["profiles"]) == 2
+    assert all(item["status"] == "COMMITTED" for item in owned["profiles"])
+
+
 def test_environment_snapshot_manifest_schema_is_current():
     assert profiles.MANIFEST_SCHEMA == 5
     assert profiles._core.MANIFEST_SCHEMA == 5
