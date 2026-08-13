@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -20,13 +21,18 @@ from typing import Any, NoReturn
 import jsonschema
 
 from policy import load_policy_contract
-from calibration_profiles import _load_policy as load_calibration_policy
-from calibration_profiles import _profile_records as calibration_profile_records
+from calibration_profiles import (
+    MANIFEST_SCHEMA as CALIBRATION_MANIFEST_SCHEMA,
+    _load_policy as load_calibration_policy,
+    _profile_records as calibration_profile_records,
+    _read_regular_bytes_without_following as read_regular_bytes_without_following,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "evals" / "experiment-run.schema.json"
 CAMPAIGN_VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 PLACEHOLDERS = {"unknown", "tbd", "todo", "placeholder"}
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 def fail(message: str) -> NoReturn:
@@ -73,6 +79,29 @@ def canonical_sha256(payload: Any) -> str:
         ensure_ascii=True,
     ).encode("ascii")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def verified_frozen_jsonl_prefix(path: Path, expected_sha256: Any) -> bytes:
+    if not isinstance(expected_sha256, str) or not SHA256_PATTERN.fullmatch(expected_sha256):
+        fail("materialization manifest provisioning rollout SHA256 is invalid")
+    raw = read_regular_bytes_without_following(path, "materialization provisioning rollout")
+    digest = hashlib.sha256()
+    start = 0
+    matches = 0
+    while True:
+        newline = raw.find(b"\n", start)
+        if newline < 0:
+            break
+        boundary = newline + 1
+        digest.update(raw[start:boundary])
+        if digest.hexdigest() == expected_sha256:
+            matches += 1
+        start = boundary
+    if start != len(raw):
+        fail("materialization manifest provisioning rollout has an incomplete trailing JSONL record")
+    if matches != 1:
+        fail("materialization manifest frozen provisioning rollout prefix is missing or ambiguous")
+    return raw
 
 
 def validated_campaign(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -216,10 +245,10 @@ def calibration_profile_record(
         provisioning_rollout.resolve(strict=True).relative_to((normal_home / "sessions").resolve(strict=True))
     except (OSError, ValueError):
         fail("materialization manifest provisioning rollout is outside the normal Codex home")
-    if hashlib.sha256(provisioning_rollout.read_bytes()).hexdigest() != host_identity.get(
-        "provisioning_rollout_sha256"
-    ):
-        fail("materialization manifest provisioning rollout drifted")
+    rollout_raw = verified_frozen_jsonl_prefix(
+        provisioning_rollout,
+        host_identity.get("provisioning_rollout_sha256"),
+    )
     provisioning_id = manifest.get("provisioning_task_id")
     if (
         not isinstance(provisioning_id, str)
@@ -230,20 +259,23 @@ def calibration_profile_record(
     session_ids: list[str] = []
     turn_contexts = 0
     try:
-        for line in provisioning_rollout.read_text(encoding="utf-8").splitlines():
+        for line in rollout_raw.decode("utf-8").splitlines():
             item = json.loads(line)
-            if item.get("type") == "session_meta" and isinstance(item.get("payload"), dict):
-                session_ids.append(item["payload"].get("id"))
+            if item.get("type") == "session_meta":
+                payload = item.get("payload")
+                if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
+                    fail("materialization manifest provisioning session_meta is incomplete")
+                session_ids.append(payload["id"])
             elif item.get("type") == "turn_context" and isinstance(item.get("payload"), dict):
                 turn_contexts += 1
-    except (OSError, UnicodeError, json.JSONDecodeError):
+    except (UnicodeError, json.JSONDecodeError):
         fail("materialization manifest provisioning rollout is malformed")
-    if session_ids != [provisioning_id] or turn_contexts == 0:
+    if not session_ids or session_ids[0] != provisioning_id or turn_contexts == 0:
         fail("materialization manifest provisioning rollout does not identify preparation")
     if hashlib.sha256(Path(manifest["campaign_path"]).read_bytes()).hexdigest() != manifest["campaign_raw_sha256"]:
         fail("materialization manifest campaign bytes drifted")
     if (
-        manifest.get("schema_version") != 4
+        manifest.get("schema_version") != CALIBRATION_MANIFEST_SCHEMA
         or manifest.get("managed_by") != "subagents-dispatch-calibration"
         or manifest.get("campaign_id") != campaign["campaign_id"]
         or manifest.get("campaign_sha256") != run["campaign_sha256"]
