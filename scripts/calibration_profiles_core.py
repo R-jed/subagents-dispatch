@@ -232,7 +232,7 @@ def _host_home_identity(
                 turn_contexts += 1
     except (UnicodeError, json.JSONDecodeError) as exc:
         fail(f"provisioning rollout evidence is malformed: {exc}")
-    if session_ids != [provisioning_task_id] or turn_contexts == 0:
+    if not session_ids or session_ids[0] != provisioning_task_id or turn_contexts == 0:
         fail("provisioning rollout does not identify the preparation task")
     return {
         "active_codex_home": str(codex_home),
