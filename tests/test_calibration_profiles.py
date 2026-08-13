@@ -40,6 +40,21 @@ def test_windows_lock_uses_binary_mode(monkeypatch: pytest.MonkeyPatch):
     assert profiles._lock_open_flags(platform="nt") & 0x8000
 
 
+def test_lock_marker_read_uses_portable_seek_and_read(tmp_path: Path):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import calibration_profiles as profiles
+    finally:
+        sys.path.pop(0)
+    path = tmp_path / "lock"
+    path.write_bytes(profiles.LOCK_MARKER)
+    fd = profiles.os.open(path, profiles.os.O_RDONLY)
+    try:
+        assert profiles._read_lock_marker(fd) == profiles.LOCK_MARKER
+    finally:
+        profiles.os.close(fd)
+
+
 def init(evidence: Path) -> None:
     evidence.mkdir()
     result = subprocess.run(

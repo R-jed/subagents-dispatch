@@ -424,6 +424,11 @@ def _lock_open_flags(*, platform: str = os.name) -> int:
     return os.O_RDWR | getattr(os, "O_BINARY", 0) if platform == "nt" else os.O_RDWR
 
 
+def _read_lock_marker(fd: int) -> bytes:
+    os.lseek(fd, 0, os.SEEK_SET)
+    return os.read(fd, len(LOCK_MARKER))
+
+
 def _rename_no_replace(source: Path, destination: Path) -> None:
     if destination.exists() or destination.is_symlink():
         fail(f"owned cleanup quarantine already exists: {destination}")
@@ -454,6 +459,7 @@ def _lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
     flags = _lock_open_flags() | (0 if check_only else os.O_CREAT)
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
+    locked = False
     try:
         fd = os.open(path, flags, 0o600)
     except OSError as exc:
@@ -466,7 +472,7 @@ def _lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
                 fail(f"calibration lock has no ownership marker: {path}")
             os.write(fd, LOCK_MARKER)
             os.fsync(fd)
-        if os.pread(fd, len(LOCK_MARKER), 0) != LOCK_MARKER:
+        if _read_lock_marker(fd) != LOCK_MARKER:
             fail(f"calibration lock ownership marker drifted: {path}")
         if os.name == "nt":
             import msvcrt
@@ -477,6 +483,7 @@ def _lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
             import fcntl
 
             fcntl.flock(fd, fcntl.LOCK_EX)
+        locked = True
         try:
             opened = os.fstat(fd)
             linked = os.stat(path, follow_symlinks=False)
@@ -486,12 +493,12 @@ def _lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
             fail(f"calibration lock path changed while acquiring ownership: {path}")
         yield path
     finally:
-        if os.name == "nt":
+        if locked and os.name == "nt":
             import msvcrt
 
             os.lseek(fd, 0, os.SEEK_SET)
             msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-        else:
+        elif locked:
             import fcntl
 
             fcntl.flock(fd, fcntl.LOCK_UN)
