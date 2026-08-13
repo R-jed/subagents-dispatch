@@ -25,10 +25,19 @@ def test_directory_fsync_is_not_attempted_on_windows(monkeypatch: pytest.MonkeyP
         nonlocal opened
         opened = True
 
-    monkeypatch.setattr(profiles.os, "name", "nt")
     monkeypatch.setattr(profiles.os, "open", unexpected_open)
-    profiles._fsync_directory(Path("unused"))
+    profiles._fsync_directory(Path("unused"), platform="nt")
     assert opened is False
+
+
+def test_windows_lock_uses_binary_mode(monkeypatch: pytest.MonkeyPatch):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import calibration_profiles as profiles
+    finally:
+        sys.path.pop(0)
+    monkeypatch.setattr(profiles.os, "O_BINARY", 0x8000, raising=False)
+    assert profiles._lock_open_flags(platform="nt") & 0x8000
 
 
 def init(evidence: Path) -> None:

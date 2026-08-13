@@ -410,14 +410,18 @@ def _atomic_write(path: Path, data: bytes) -> None:
         staged.unlink(missing_ok=True)
 
 
-def _fsync_directory(path: Path) -> None:
-    if os.name == "nt":
+def _fsync_directory(path: Path, *, platform: str = os.name) -> None:
+    if platform == "nt":
         return
     fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(fd)
     finally:
         os.close(fd)
+
+
+def _lock_open_flags(*, platform: str = os.name) -> int:
+    return os.O_RDWR | getattr(os, "O_BINARY", 0) if platform == "nt" else os.O_RDWR
 
 
 def _rename_no_replace(source: Path, destination: Path) -> None:
@@ -447,7 +451,7 @@ def _lock(codex_home: Path, *, check_only: bool) -> Iterator[Path]:
         fail(f"refusing symlinked calibration lock: {path}")
     if check_only and not path.exists():
         fail(f"missing calibration lock: {path}")
-    flags = os.O_RDWR | (0 if check_only else os.O_CREAT)
+    flags = _lock_open_flags() | (0 if check_only else os.O_CREAT)
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     try:
