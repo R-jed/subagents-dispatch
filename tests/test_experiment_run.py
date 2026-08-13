@@ -43,9 +43,11 @@ VALIDATOR = load_run_validator()
 
 @pytest.fixture(autouse=True)
 def normal_home_is_test_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(
-        VALIDATOR.pwd, "getpwuid", lambda _: type("Account", (), {"pw_dir": str(tmp_path)})()
-    )
+    monkeypatch.setattr(VALIDATOR.Path, "home", lambda: tmp_path)
+
+
+def test_validator_imports_without_unix_pwd_module():
+    assert "pwd" not in VALIDATOR.__dict__
 
 
 def head_sha() -> str:

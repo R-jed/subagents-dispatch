@@ -14,16 +14,48 @@ import calibration_config_transaction as tx  # noqa: E402
 sys.path.pop(0)
 
 CANDIDATE = "d" * 40
+SOURCE = Path("/exact/source")
+requires_atomic_exchange = pytest.mark.skipif(
+    not tx.atomic_exchange_supported(),
+    reason="platform lacks the atomic path exchange required by shared-config mutation",
+)
 
 
 def record(tmp_path: Path) -> tuple[Path, dict]:
     config = tmp_path / "config.toml"
     config.write_text('model="keep"\n[features]\nkeep=true\n')
     return config, tx.new_record(
-        config, ["marketplaces", "temporary"], Path("/exact/source"), "campaign", CANDIDATE
+        config, ["marketplaces", "temporary"], SOURCE, "campaign", CANDIDATE
     )
 
 
+def test_unsupported_atomic_exchange_refuses_before_shared_config_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config, item = record(tmp_path)
+    original = config.read_bytes()
+    persisted = False
+    monkeypatch.setattr(tx.sys, "platform", "win32")
+    assert tx.atomic_exchange_supported() is False
+
+    def persist() -> None:
+        nonlocal persisted
+        persisted = True
+
+    with pytest.raises(SystemExit, match="lacks atomic path exchange"):
+        tx.apply(item, persist)
+    with pytest.raises(SystemExit, match="lacks atomic path exchange"):
+        tx.cleanup(item, persist)
+
+    assert config.read_bytes() == original
+    assert persisted is False
+    assert item["status"] == "PREPARED"
+    assert "exchange_identity" not in item
+    assert not Path(item["exchange_path"]).exists()
+    assert not Path(item["cleanup_exchange_path"]).exists()
+
+
+@requires_atomic_exchange
 def test_shared_config_transaction_preserves_unrelated_changes_and_never_owns_whole_file(tmp_path: Path):
     config, item = record(tmp_path)
     persisted: list[str] = []
@@ -37,20 +69,22 @@ def test_shared_config_transaction_preserves_unrelated_changes_and_never_owns_wh
     assert parsed["features"]["keep"] is True
     assert parsed["user"]["keep"] is True
     assert "marketplaces" not in parsed
-    assert item["rollback_operation"] == "remove_exact_semantic_table"
-    assert not any("file" in key and "sha256" not in key for key in item)
 
 
+@requires_atomic_exchange
 def test_shared_config_conflict_and_symlink_fail_closed(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
     tx.commit(item, lambda: None)
-    config.write_text(config.read_text().replace("/exact/source", "/external"))
+    config.write_text(config.read_text().replace(str(SOURCE), "/external"))
     with pytest.raises(SystemExit, match="externally modified"):
         tx.cleanup(item, lambda: None)
+
+
+def test_symlinked_shared_config_fails_closed_without_exchange(tmp_path: Path):
+    config = tmp_path / "config.toml"
     target = tmp_path / "target.toml"
     target.write_text('model="keep"\n')
-    config.unlink()
     config.symlink_to(target)
     with pytest.raises(SystemExit, match="symlinked shared config"):
         tx._read_config(config)
@@ -60,12 +94,15 @@ def test_prepared_intent_binds_exact_semantics_and_candidate(tmp_path: Path):
     config, item = record(tmp_path)
     assert item["status"] == "PREPARED"
     assert item["pre_state"] == {"exists": False}
-    assert item["expected_applied_state"] == {"source": "/exact/source"}
+    assert item["expected_applied_state"] == {"source": str(SOURCE)}
     assert item["semantic_path"] == ["marketplaces", "temporary"]
     assert item["config_sha256_before"] == hashlib.sha256(config.read_bytes()).hexdigest()
+    assert item["rollback_operation"] == "remove_exact_semantic_table"
+    assert not any("file" in key and "sha256" not in key for key in item)
     tx.validate_record(item, "campaign", CANDIDATE)
 
 
+@requires_atomic_exchange
 def test_cleanup_rejects_atomic_target_substitution_even_with_identical_semantics(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -76,10 +113,11 @@ def test_cleanup_rejects_atomic_target_substitution_even_with_identical_semantic
     with pytest.raises(SystemExit, match="identity changed"):
         tx.cleanup(item, lambda: None)
     assert tomllib.loads(config.read_text())["marketplaces"]["temporary"] == {
-        "source": "/exact/source"
+        "source": str(SOURCE)
     }
 
 
+@requires_atomic_exchange
 def test_prepared_external_identical_write_is_preserved_as_conflict(tmp_path: Path):
     config, item = record(tmp_path)
     config.write_bytes(tx._add_table(config.read_bytes(), item["semantic_path"], item["expected_applied_state"]))
@@ -99,6 +137,7 @@ def test_malformed_duplicate_and_unrelated_marketplace_changes_fail_or_preserve(
         tx.new_record(config, ["marketplaces", "temporary"], Path("/exact/source"), "campaign", CANDIDATE)
 
 
+@requires_atomic_exchange
 def test_cleanup_preserves_provider_and_unrelated_marketplaces(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -110,6 +149,7 @@ def test_cleanup_preserves_provider_and_unrelated_marketplaces(tmp_path: Path):
     assert parsed["marketplaces"]["keep"] == {"source": "/keep"}
 
 
+@requires_atomic_exchange
 def test_true_write_before_applied_persistence_remains_unresolved_and_preserved(tmp_path: Path):
     config, item = record(tmp_path)
     durable: dict = {}
@@ -125,6 +165,7 @@ def test_true_write_before_applied_persistence_remains_unresolved_and_preserved(
     assert tomllib.loads(config.read_text())["marketplaces"]["temporary"] == item["expected_applied_state"]
 
 
+@requires_atomic_exchange
 def test_prepared_stage_persisted_before_exchange_resumes_exact_write(tmp_path: Path):
     config, item = record(tmp_path)
     durable: dict = {}
@@ -145,6 +186,7 @@ def test_prepared_stage_persisted_before_exchange_resumes_exact_write(tmp_path: 
     ]
 
 
+@requires_atomic_exchange
 def test_applied_commit_cleanup_and_repeated_cleanup_are_idempotent(tmp_path: Path):
     config, item = record(tmp_path)
     statuses: list[str] = []
@@ -162,6 +204,7 @@ def test_applied_commit_cleanup_and_repeated_cleanup_are_idempotent(tmp_path: Pa
     assert "marketplaces" not in tomllib.loads(config.read_text())
 
 
+@requires_atomic_exchange
 def test_owned_table_already_removed_is_recorded_without_touching_unrelated_state(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -179,6 +222,7 @@ def test_owned_table_already_removed_is_recorded_without_touching_unrelated_stat
     assert tomllib.loads(config.read_text())["user"]["keep"] is True
 
 
+@requires_atomic_exchange
 def test_cleanup_interruption_after_pending_recovers_exactly(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -197,6 +241,7 @@ def test_cleanup_interruption_after_pending_recovers_exactly(tmp_path: Path):
     assert "marketplaces" not in tomllib.loads(config.read_text())
 
 
+@requires_atomic_exchange
 def test_apply_toctou_substitution_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     config, item = record(tmp_path)
     original = tx._atomic_replace
@@ -221,6 +266,7 @@ def test_apply_toctou_substitution_fails_closed(tmp_path: Path, monkeypatch: pyt
         tx.apply(item, lambda: None)
 
 
+@requires_atomic_exchange
 def test_atomic_exchange_detects_change_after_final_validation_and_preserves_both_states(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -243,6 +289,7 @@ def test_atomic_exchange_detects_change_after_final_validation_and_preserves_bot
     assert Path(item["exchange_path"]).read_bytes() == changed
 
 
+@requires_atomic_exchange
 def test_atomic_exchange_detects_live_path_substitution_without_deleting_external_state(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -262,6 +309,7 @@ def test_atomic_exchange_detects_live_path_substitution_without_deleting_externa
     assert Path(item["exchange_path"]).read_bytes() == b'model="keep"\n[features]\nkeep=true\n'
 
 
+@requires_atomic_exchange
 def test_post_exchange_live_substitution_is_never_claimed_owned(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -285,6 +333,7 @@ def test_post_exchange_live_substitution_is_never_claimed_owned(
     }
 
 
+@requires_atomic_exchange
 def test_missing_retained_exchange_evidence_blocks_cleanup(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -297,6 +346,7 @@ def test_missing_retained_exchange_evidence_blocks_cleanup(tmp_path: Path):
     ]
 
 
+@requires_atomic_exchange
 def test_in_place_retained_evidence_change_blocks_cleanup(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -310,6 +360,7 @@ def test_in_place_retained_evidence_change_blocks_cleanup(tmp_path: Path):
     ]
 
 
+@requires_atomic_exchange
 def test_short_stage_write_is_completed_before_exchange(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -332,6 +383,7 @@ def test_short_stage_write_is_completed_before_exchange(
     ]
 
 
+@requires_atomic_exchange
 def test_late_retained_evidence_substitution_blocks_cleanup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -350,7 +402,7 @@ def test_late_retained_evidence_substitution_blocks_cleanup(
         return result
 
     monkeypatch.setattr(tx, "_read_raw", substitute_after_validation)
-    with pytest.raises(SystemExit, match="exchange evidence changed"):
+    with pytest.raises(SystemExit, match="exchange evidence .*changed|exchange evidence changed"):
         tx.cleanup(item, lambda: None)
     assert exchange.read_bytes() == external
     assert tomllib.loads(config.read_text())["marketplaces"]["temporary"] == item[
@@ -358,6 +410,7 @@ def test_late_retained_evidence_substitution_blocks_cleanup(
     ]
 
 
+@requires_atomic_exchange
 def test_live_path_pre_exchange_substitution_is_preserved_and_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -379,6 +432,7 @@ def test_live_path_pre_exchange_substitution_is_preserved_and_fails_closed(
     ]
 
 
+@requires_atomic_exchange
 def test_success_cleanup_never_path_unlinks_external_exchange_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -401,6 +455,7 @@ def test_success_cleanup_never_path_unlinks_external_exchange_replacement(
     assert Path(item["exchange_path"]).read_bytes() == external
 
 
+@requires_atomic_exchange
 def test_failed_exchange_preserves_durable_stage_for_remediation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -417,6 +472,7 @@ def test_failed_exchange_preserves_durable_stage_for_remediation(
         tx.apply(item, lambda: None)
 
 
+@requires_atomic_exchange
 def test_pre_exchange_crash_discards_staged_candidate_without_touching_original(tmp_path: Path):
     config, item = record(tmp_path)
     original = config.read_bytes()
@@ -428,6 +484,7 @@ def test_pre_exchange_crash_discards_staged_candidate_without_touching_original(
     assert exchange.exists()
 
 
+@requires_atomic_exchange
 def test_pre_exchange_crash_preserves_externally_replaced_exchange_path(tmp_path: Path):
     config, item = record(tmp_path)
     original = config.read_bytes()
@@ -439,6 +496,7 @@ def test_pre_exchange_crash_preserves_externally_replaced_exchange_path(tmp_path
     assert exchange.read_bytes() == b"external replacement"
 
 
+@requires_atomic_exchange
 def test_pre_exchange_recovery_toctou_preserves_external_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -474,6 +532,7 @@ def test_tampered_exchange_authority_cannot_delete_unrelated_file(tmp_path: Path
     assert unrelated.read_bytes() == b"keep"
 
 
+@requires_atomic_exchange
 def test_cleanup_pre_exchange_crash_discards_valid_cleaned_stage_and_retries(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -493,6 +552,7 @@ def test_cleanup_pre_exchange_crash_discards_valid_cleaned_stage_and_retries(tmp
     assert cleanup_exchange.read_bytes() == cleaned
 
 
+@requires_atomic_exchange
 def test_cleanup_stage_identity_persisted_before_write_resumes(tmp_path: Path):
     config, item = record(tmp_path)
     tx.apply(item, lambda: None)
@@ -513,6 +573,7 @@ def test_cleanup_stage_identity_persisted_before_write_resumes(tmp_path: Path):
     assert "marketplaces" not in tomllib.loads(config.read_text())
 
 
+@requires_atomic_exchange
 def test_cleanup_crash_after_mutation_recovers_to_cleaned(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -539,6 +600,7 @@ def test_cleanup_crash_after_mutation_recovers_to_cleaned(
     assert "marketplaces" not in tomllib.loads(config.read_text())
 
 
+@requires_atomic_exchange
 def test_cleanup_recovery_detects_live_replacement_after_evidence_validation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

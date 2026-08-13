@@ -339,8 +339,9 @@ def test_profile_publication_rejects_staging_substitution_after_close(
     }
     real_link = profiles.os.link
     def substitute(source, destination, **kwargs):
-        Path(source).unlink()
-        Path(source).write_bytes(b"profile")
+        replacement = tmp_path / "replacement"
+        replacement.write_bytes(b"profile")
+        replacement.replace(source)
         return real_link(source, destination, **kwargs)
     monkeypatch.setattr(profiles.os, "link", substitute)
     with pytest.raises(SystemExit, match="published calibration profile identity is unsafe"):

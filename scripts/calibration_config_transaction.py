@@ -30,6 +30,20 @@ def _fail(message: str) -> NoReturn:
     raise SystemExit(f"ERROR: {message}")
 
 
+def atomic_exchange_supported() -> bool:
+    if sys.platform == "win32":
+        return False
+    libc = ctypes.CDLL(None, use_errno=True)
+    return (sys.platform == "darwin" and hasattr(libc, "renamex_np")) or hasattr(
+        libc, "renameat2"
+    )
+
+
+def _require_atomic_exchange() -> None:
+    if not atomic_exchange_supported():
+        _fail("platform lacks atomic path exchange required for safe shared-config mutation")
+
+
 def _semantic_value(data: dict[str, Any], semantic_path: list[str]) -> Any:
     return data.get(semantic_path[0], {}).get(semantic_path[1])
 
@@ -83,6 +97,7 @@ def _atomic_replace(
     persist_exchange_identity: Callable[[tuple[int, int]], None],
     validate_external_evidence: Callable[[], None] | None = None,
 ) -> tuple[int, int]:
+    _require_atomic_exchange()
     if path.is_symlink():
         _fail(f"refusing symlinked shared config: {path}")
     current = os.stat(path, follow_symlinks=False)
@@ -167,14 +182,15 @@ def _atomic_replace(
 
 
 def _atomic_exchange(first: Path, second: Path) -> None:
+    _require_atomic_exchange()
     libc = ctypes.CDLL(None, use_errno=True)
     first_bytes, second_bytes = os.fsencode(first), os.fsencode(second)
     if sys.platform == "darwin" and hasattr(libc, "renamex_np"):
         result = libc.renamex_np(first_bytes, second_bytes, 0x00000002)
     elif hasattr(libc, "renameat2"):
         result = libc.renameat2(-2, first_bytes, -2, second_bytes, 0x00000002)
-    else:
-        _fail("platform lacks atomic path exchange required for safe shared-config mutation")
+    else:  # pragma: no cover - guarded by _require_atomic_exchange
+        raise AssertionError("atomic exchange capability changed during mutation")
     if result != 0:
         error = ctypes.get_errno()
         _fail(f"atomic shared-config exchange failed: {os.strerror(error)}")
@@ -349,6 +365,7 @@ def _validate_exchange_evidence(
 
 
 def apply(record: dict[str, Any], persist: Callable[[], None]) -> None:
+    _require_atomic_exchange()
     target, raw, current, identity = _state(record)
     expected_identity = record["target_identity"]
     staged = record.get("exchange_identity")
@@ -426,6 +443,7 @@ def commit(record: dict[str, Any], persist: Callable[[], None]) -> None:
 
 
 def cleanup(record: dict[str, Any], persist: Callable[[], None]) -> None:
+    _require_atomic_exchange()
     _validate_exchange_evidence(
         record, "exchange_path", "exchange_identity", "config_sha256_before"
     )

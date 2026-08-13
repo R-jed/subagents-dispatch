@@ -15,7 +15,6 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import pwd
 from typing import Any, NoReturn
 
 import jsonschema
@@ -206,7 +205,7 @@ def calibration_profile_record(
         fail("materialization manifest owner paths are invalid")
     if Path(manifest["evaluator_root"]).resolve() != evaluator_root:
         fail("materialization manifest evaluator root is invalid")
-    normal_home = (Path(pwd.getpwuid(os.getuid()).pw_dir) / ".codex").resolve()
+    normal_home = (Path.home() / ".codex").resolve()
     host_identity = manifest.get("host_home_identity")
     if codex_home != normal_home or not isinstance(host_identity, dict) or (
         host_identity.get("active_codex_home") != str(normal_home)
