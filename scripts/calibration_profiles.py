@@ -2,7 +2,7 @@
 """Materialize one-role, two-arm calibration Agent profiles.
 
 The hardened profile transaction implementation lives in
-``calibration_profiles_core``.  This adapter generalizes only the campaign and
+``calibration_profiles_core``. This adapter generalizes only campaign and
 canonical-role binding so every production semantic role can use the same
 profile-only materialization path without duplicating transaction logic.
 """
@@ -21,15 +21,8 @@ import tomllib
 from typing import Any
 
 import calibration_profiles_core as _core
-from calibration_profile_contract import (
-    PRODUCTION_AGENT_TYPES,
-    materialized_agent_type,
-    role_contract_digest,
-)
+from calibration_profile_contract import PRODUCTION_AGENT_TYPES, materialized_agent_type, role_contract_digest
 
-
-# Preserve the already-tested transaction surface for callers and tests that
-# import helpers from this public module.
 for _name in dir(_core):
     if not _name.startswith("__"):
         globals()[_name] = getattr(_core, _name)
@@ -38,7 +31,6 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "contracts" / "policy.json"
 CAMPAIGN_VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 SUPPORTED_ROLES = ("reader", "worker", "solver", "investigator", "advisor")
-
 _legacy_profile_records = _core._profile_records
 
 
@@ -54,9 +46,7 @@ def _load_policy() -> dict[str, Any]:
         required = {"profile_file", "agent_type", "model", "effort", "mutation_authority"}
         if not required <= set(spec):
             _core.fail(f"policy role {role!r} is incomplete")
-        expected_file = f"subagents-dispatch-{role}.toml"
-        expected_type = f"subagents_dispatch_{role}"
-        if spec["profile_file"] != expected_file or spec["agent_type"] != expected_type:
+        if spec["profile_file"] != f"subagents-dispatch-{role}.toml" or spec["agent_type"] != f"subagents_dispatch_{role}":
             _core.fail(f"policy role {role!r} does not use its canonical production identity")
         _load_role_template(role, policy)
     return policy
@@ -89,12 +79,7 @@ def _load_role_template(role: str, policy: dict[str, Any]) -> tuple[Path, dict[s
 
 def _render_role_profile(template_path: Path, agent_type: str, model: str, effort: str) -> bytes:
     text = template_path.read_text(encoding="utf-8")
-    replacements = {
-        "name": agent_type,
-        "model": model,
-        "model_reasoning_effort": effort,
-    }
-    for key, value in replacements.items():
+    for key, value in {"name": agent_type, "model": model, "model_reasoning_effort": effort}.items():
         pattern = rf"(?m)^{re.escape(key)}\s*=\s*\"[^\"]*\"\s*$"
         text, count = re.subn(pattern, f'{key} = "{value}"', text, count=1)
         if count != 1:
@@ -122,11 +107,7 @@ def _validated_campaign(path: Path) -> tuple[dict[str, Any], dict[str, Any], str
             os.fsync(handle.fileno())
         result = subprocess.run(
             [sys.executable, str(CAMPAIGN_VALIDATOR), str(frozen_path), "--json"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
         )
     finally:
         frozen_path.unlink(missing_ok=True)
@@ -152,74 +133,49 @@ def _validated_campaign(path: Path) -> tuple[dict[str, Any], dict[str, Any], str
     return campaign, summary, raw_sha256
 
 
-def _profile_records(
-    campaign: dict[str, Any], policy: dict[str, Any]
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _profile_records(campaign: dict[str, Any], policy: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     role = _single_role(campaign)
     if role == "reader":
-        # Preserve the exact Reader bytes and behavior already covered by the
-        # original adversarial transaction suite.
         return _legacy_profile_records(campaign, policy)
-
     template_path, template = _load_role_template(role, policy)
     spec = campaign["experiment"]["roles"][0]
-    control, challengers = spec["control"], spec["challengers"]
     description = str(template["description"])
     instructions = str(template["developer_instructions"])
-    digest = role_contract_digest(
-        role,
-        description,
-        instructions,
-        policy["roles"][role]["mutation_authority"],
-    )
-    routes = [control, *challengers]
+    digest = role_contract_digest(role, description, instructions, policy["roles"][role]["mutation_authority"])
     records: list[dict[str, Any]] = []
     seen_types: set[str] = set()
-    for route in routes:
+    for route in [spec["control"], *spec["challengers"]]:
         route_id = str(route["id"])
         agent_type = materialized_agent_type(campaign["campaign_id"], role, route_id)
         if agent_type in PRODUCTION_AGENT_TYPES or agent_type in seen_types:
             _core.fail(f"calibration Agent identity collides: {agent_type}")
         seen_types.add(agent_type)
-        profile_bytes = _render_role_profile(
-            template_path, agent_type, route["model"], route["effort"]
-        )
+        profile_bytes = _render_role_profile(template_path, agent_type, route["model"], route["effort"])
         try:
-            parsed_profile = tomllib.loads(profile_bytes.decode("utf-8"))
+            parsed = tomllib.loads(profile_bytes.decode("utf-8"))
         except (UnicodeError, tomllib.TOMLDecodeError) as exc:
             _core.fail(f"generated calibration profile is invalid: {exc}")
-        if parsed_profile.get("name") != agent_type:
+        if parsed.get("name") != agent_type:
             _core.fail("generated calibration profile name does not match materialized_agent_type")
-        if (
-            parsed_profile.get("description") != description
-            or parsed_profile.get("developer_instructions") != instructions
-        ):
+        if parsed.get("description") != description or parsed.get("developer_instructions") != instructions:
             _core.fail("generated calibration profile changed the canonical role contract")
-        records.append(
-            {
-                "campaign_id": campaign["campaign_id"],
-                "candidate_sha": campaign["plugin_candidate_sha"],
-                "route": route,
-                "route_id": route_id,
-                "semantic_role": role,
-                "materialized_agent_type": agent_type,
-                "role_contract_digest": digest,
-                "configured_model": route["model"],
-                "configured_effort": route["effort"],
-                "profile_bytes": profile_bytes,
-            }
-        )
-    return records, {
-        "description": description,
-        "developer_instructions": instructions,
-        "digest": digest,
-    }
+        records.append({
+            "campaign_id": campaign["campaign_id"],
+            "candidate_sha": campaign["plugin_candidate_sha"],
+            "route": route,
+            "route_id": route_id,
+            "semantic_role": role,
+            "materialized_agent_type": agent_type,
+            "role_contract_digest": digest,
+            "configured_model": route["model"],
+            "configured_effort": route["effort"],
+            "profile_bytes": profile_bytes,
+        })
+    return records, {"description": description, "developer_instructions": instructions, "digest": digest}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Create/check/cleanup one-role profile-only calibration Agents."
-    )
+    parser = argparse.ArgumentParser(description="Create/check/cleanup one-role profile-only calibration Agents.")
     parser.add_argument("command", choices=("init", "create", "check", "cleanup", "recover"))
     parser.add_argument("--evaluator-root", required=True, type=Path)
     parser.add_argument("--codex-home", type=Path)
@@ -231,9 +187,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# The core create/check/cleanup/recover functions resolve these names from the
-# core module's globals.  Patch only the role-binding seam; transaction code is
-# untouched.
 _core._load_policy = _load_policy
 _core._validated_campaign = _validated_campaign
 _core._profile_records = _profile_records
@@ -241,6 +194,9 @@ _core.parse_args = parse_args
 
 
 def main() -> None:
+    # Preserve the public module's injectable Host-home resolver used by the
+    # deterministic test harness and evaluator-side callers.
+    _core._normal_codex_home = globals()["_normal_codex_home"]
     _core.main()
 
 
