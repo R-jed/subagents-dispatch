@@ -40,6 +40,19 @@ _legacy_profile_records = _core._profile_records
 _legacy_host_home_identity = _core._host_home_identity
 ACTIVE_TASK_NONCE_ENV = "SUBAGENTS_DISPATCH_ACTIVE_TASK_NONCE"
 ACTIVE_TASK_NONCE_RECEIPT_ROOT: Path | None = None
+WINDOWS_REPARSE_POINT = 0x400
+
+def _require_real_directory(path: Path, label: str) -> os.stat_result:
+    try:
+        identity = os.lstat(path)
+    except OSError as exc:
+        _core.fail(f"could not stat {label}: {exc}")
+    if (
+        not stat.S_ISDIR(identity.st_mode)
+        or getattr(identity, "st_file_attributes", 0) & WINDOWS_REPARSE_POINT
+    ):
+        _core.fail(f"{label} must be a real directory")
+    return identity
 
 def _open_windows_directory_handle(path: Path) -> tuple[Any, int]:
     kernel32 = ctypes.windll.kernel32
@@ -102,12 +115,7 @@ def _read_regular_bytes_without_following(path: Path, label: str) -> bytes:
 def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
     parent = receipt_root.parent
     account_home = parent.parent
-    try:
-        account_identity = os.lstat(account_home)
-    except OSError as exc:
-        _core.fail(f"could not stat account home for nonce receipts: {exc}")
-    if not stat.S_ISDIR(account_identity.st_mode):
-        _core.fail("account home for nonce receipts must be a real directory")
+    _require_real_directory(account_home, "account home for nonce receipts")
     for path, label in ((parent, "nonce receipt parent"), (receipt_root, "nonce receipt root")):
         try:
             path.mkdir(mode=0o700)
@@ -115,12 +123,7 @@ def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
             pass
         except OSError as exc:
             _core.fail(f"could not prepare {label}: {exc}")
-        try:
-            identity = os.lstat(path)
-        except OSError as exc:
-            _core.fail(f"could not stat {label}: {exc}")
-        if not stat.S_ISDIR(identity.st_mode):
-            _core.fail(f"{label} must be a real directory")
+        _require_real_directory(path, label)
     receipt_name = hashlib.sha256(nonce.encode()).hexdigest()
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     if os.name == "nt":
@@ -134,7 +137,7 @@ def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
             _core.fail(f"could not open nonce receipt root: {exc}")
     try:
         opened = os.lstat(receipt_root) if directory_fd is None else os.fstat(directory_fd)
-        current = os.lstat(receipt_root)
+        current = _require_real_directory(receipt_root, "nonce receipt root")
         if (
             not stat.S_ISDIR(opened.st_mode)
             or (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino)
@@ -151,7 +154,7 @@ def _consume_active_task_nonce(receipt_root: Path, nonce: str) -> None:
             _core.fail(f"could not consume active-task nonce: {exc}")
         else:
             os.close(fd)
-        current = os.lstat(receipt_root)
+        current = _require_real_directory(receipt_root, "nonce receipt root")
         if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
             _core.fail("nonce receipt root changed while consuming active-task nonce")
     finally:

@@ -300,6 +300,31 @@ def test_windows_directory_lock_rejects_invalid_handle(
         profiles._open_windows_directory_handle(tmp_path)
 
 
+def test_windows_reparse_point_directory_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    path = tmp_path / "junction"
+    path.mkdir()
+    real_lstat = profiles.os.lstat
+
+    def reparse_lstat(candidate):
+        identity = real_lstat(candidate)
+        if Path(candidate) != path:
+            return identity
+        return type(
+            "ReparseDirectory",
+            (),
+            {
+                "st_mode": identity.st_mode,
+                "st_file_attributes": profiles.WINDOWS_REPARSE_POINT,
+            },
+        )()
+
+    monkeypatch.setattr(profiles.os, "lstat", reparse_lstat)
+    with pytest.raises(SystemExit, match="real directory"):
+        profiles._require_real_directory(path, "nonce receipt root")
+
+
 def test_nonce_fallback_rejects_evidence_switch_after_scan(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
