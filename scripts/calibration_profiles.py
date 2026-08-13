@@ -37,6 +37,7 @@ MANIFEST_SCHEMA = 5
 _legacy_profile_records = _core._profile_records
 _legacy_host_home_identity = _core._host_home_identity
 ACTIVE_TASK_NONCE_ENV = "SUBAGENTS_DISPATCH_ACTIVE_TASK_NONCE"
+ACTIVE_TASK_NONCE_RECEIPT_ROOT = Path.home() / ".subagents-dispatch-evals" / ".active-task-nonces"
 
 def _read_regular_bytes_without_following(path: Path, label: str) -> bytes:
     try:
@@ -132,7 +133,11 @@ def _host_home_identity(
         or validated.get("provisioning_rollout_sha256") != hashlib.sha256(raw).hexdigest()
     ):
         _core.fail("active-task nonce and hardened Host-home evidence do not identify the same rollout")
-    receipt = evidence_path.parent / f".active-task-nonce-{hashlib.sha256(nonce.encode()).hexdigest()}"
+    try:
+        ACTIVE_TASK_NONCE_RECEIPT_ROOT.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        _core.fail(f"could not prepare active-task nonce receipts: {exc}")
+    receipt = ACTIVE_TASK_NONCE_RECEIPT_ROOT / hashlib.sha256(nonce.encode()).hexdigest()
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     try:
         fd = os.open(receipt, flags, 0o600)

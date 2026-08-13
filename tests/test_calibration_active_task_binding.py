@@ -12,6 +12,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import calibration_profiles as profiles  # noqa: E402
 sys.path.pop(0)
 
+@pytest.fixture(autouse=True)
+def isolated_nonce_receipts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setattr(
+        profiles, "ACTIVE_TASK_NONCE_RECEIPT_ROOT", tmp_path / "nonce-receipts"
+    )
+
 
 def test_exposed_matching_thread_id_uses_hardened_validator(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -182,6 +188,39 @@ def test_nonce_fallback_is_one_time(
     with pytest.raises(SystemExit, match="already been used"):
         profiles._host_home_identity(
             tmp_path, evidence, "task-1", require_active_task=True
+        )
+
+
+def test_nonce_cannot_be_replayed_from_another_evidence_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    nonce = "2" * 64
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.setenv(profiles.ACTIVE_TASK_NONCE_ENV, nonce)
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    first_evidence = _evidence(
+        first, [{"command": f"{nonce} calibration_profiles.py create"}]
+    )
+    second_evidence = second / "evidence.json"
+    second_evidence.write_bytes(first_evidence.read_bytes())
+    rollout = Path(json.loads(first_evidence.read_text())["provisioning_rollout_path"])
+    validated = {
+        "provisioning_rollout_path": str(rollout.resolve()),
+        "provisioning_rollout_sha256": hashlib.sha256(rollout.read_bytes()).hexdigest(),
+    }
+    monkeypatch.setattr(
+        profiles, "_legacy_host_home_identity", lambda *args, **kwargs: validated
+    )
+
+    profiles._host_home_identity(
+        tmp_path, first_evidence, "task-1", require_active_task=True
+    )
+    with pytest.raises(SystemExit, match="already been used"):
+        profiles._host_home_identity(
+            tmp_path, second_evidence, "task-1", require_active_task=True
         )
 
 
