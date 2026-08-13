@@ -28,9 +28,7 @@ Investigator  -> current configured route
 Advisor       -> current configured route
 ```
 
-Do not describe a current route as optimal, faster, cheaper, or higher quality merely because it is configured or because another project uses a similar route.
-
-External/community configurations are useful sources of challenger hypotheses. They are not evidence about this plugin's role contracts, workload distribution, Host runtime, or user experience.
+Do not describe a current route as optimal, faster, cheaper, or higher quality merely because it is configured. Challenger routes are frozen experiment inputs; they do not become evidence until they pass this project's actual Host, workload, and oracle gates.
 
 ## 2. One campaign format, two experiment specs
 
@@ -46,9 +44,9 @@ External/community configurations are useful sources of challenger hypotheses. T
 }
 ```
 
-A role-calibration workload names exactly one `calibration_role`. The campaign declares the current-policy control route and one or more model/effort challengers for that same role. Every role declared in `experiment.roles` must be backed by at least one workload in the same frozen campaign; unused route arms are invalid campaign input.
+A role-calibration workload names exactly one `calibration_role`. The campaign declares the current-policy control route and one model/effort challenger for that same role. Profile-only materialization handles exactly one semantic role per campaign and supports all five production roles: Reader, Worker, Solver, Investigator, and Advisor. The two Host-visible temporary profiles are the current-policy control and the frozen challenger. Every materialized route carries the same canonical role contract and mutation authority; only model/effort may differ.
 
-For `claim_kind=model_effort`, the campaign freezes top-level `materialization_mode=profile_only` and `model_provider_control`; both participate in the canonical campaign hash. The helper supports one Reader control and one exact Terra XHigh challenger. Run `scripts/calibration_profiles.py init` on an empty evaluator-owned evidence root, freeze the campaign, then create the profiles only after read-only evidence confirms that the requested path is the active normal `~/.codex`. That evidence binds the provisioning task to a SHA-256-frozen Host rollout under the requested home's `sessions/` tree; an ordinary JSON assertion is insufficient. `create|check|cleanup|recover` never edit the campaign or `config.toml` and reject Marketplace, Plugin, shared-config, or alternate-home preparation.
+For `claim_kind=model_effort`, the campaign freezes top-level `materialization_mode=profile_only` and `model_provider_control`; both participate in the canonical campaign hash. Run `scripts/calibration_profiles.py init` on an empty evaluator-owned evidence root, freeze the campaign, then create the profiles only after read-only evidence confirms that the requested path is the active normal `~/.codex`. That evidence binds the provisioning task to a SHA-256-frozen Host rollout under the requested home's `sessions/` tree; an ordinary JSON assertion is insufficient. `create|check|cleanup|recover` never edit the campaign or `config.toml` and reject Marketplace, Plugin, shared-config, or alternate-home preparation.
 
 Profile intent and ownership remain durable in the evaluator root. Each profile is staged in the destination `agents/` directory under a unique non-`.toml` filename, then published with no-clobber same-filesystem semantics. After preparation, execution occurs in a distinct fresh task with `fork_turns=none`; no full App restart evidence is required. Before cleanup, formal run evidence must bind the Host-observed canonical `agent_path` to the exact committed manifest path and current SHA-256, and bind the Host-observed `model_provider` to the frozen provider control. Missing origin or provider evidence is `UNKNOWN` and claim-ineligible; mismatch fails closed.
 
@@ -377,7 +375,7 @@ accepted aggregate/report
 -> descriptive comparison over the accepted run set, with exclusions and UNKNOWN states visible
 ```
 
-This mirrors mature software-agent evaluation harnesses that keep reproducible task/run identity, per-instance logs/reports, and final evaluation output separate. subagents-dispatch deliberately does not copy full agent trajectories into its evidence model because raw transcript/thought/action histories conflict with the project's narrower context/privacy boundary.
+Keep reproducible task/run identity, per-instance evidence, and accepted aggregate output separate. subagents-dispatch deliberately does not copy full agent trajectories into its evidence model because raw transcript/thought/action histories conflict with the project's narrower context/privacy boundary.
 
 Use `contracts/evidence-artifact.md` to bind complete accepted per-run provenance by reference, for example:
 
@@ -449,7 +447,7 @@ actual Host route evidence
 accepted formal benchmark results with Host/repository/task/repeat scope
 ```
 
-Do not publish community recommendations, configured routes, synthetic fixtures, exploratory one-offs, missing telemetry estimates, campaign intentions, or excluded/UNKNOWN route runs as measured product superiority.
+Do not publish configured routes, synthetic fixtures, exploratory one-offs, missing telemetry estimates, campaign intentions, or excluded/UNKNOWN route runs as measured product superiority.
 
 A benchmark statement must carry enough scope to interpret it: exact product/candidate generation, Host/runtime version, repositories/task strata, repeat counts, acceptance/oracle, and the relevant distribution/tradeoff rather than a decontextualized headline number.
 
