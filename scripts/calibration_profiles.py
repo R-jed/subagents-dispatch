@@ -35,6 +35,114 @@ CAMPAIGN_VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 SUPPORTED_ROLES = ("reader", "worker", "solver", "investigator", "advisor")
 MANIFEST_SCHEMA = 5
 _legacy_profile_records = _core._profile_records
+_legacy_host_home_identity = _core._host_home_identity
+ACTIVE_TASK_NONCE_ENV = "SUBAGENTS_DISPATCH_ACTIVE_TASK_NONCE"
+
+def _read_regular_bytes_without_following(path: Path, label: str) -> bytes:
+    try:
+        identity = os.lstat(path)
+    except OSError as exc:
+        _core.fail(f"could not stat {label}: {exc}")
+    if not stat.S_ISREG(identity.st_mode):
+        _core.fail(f"{label} must be a regular file")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        _core.fail(f"could not open {label}: {exc}")
+    try:
+        opened = os.fstat(fd)
+        current = os.lstat(path)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino) != (identity.st_dev, identity.st_ino)
+            or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+        ):
+            _core.fail(f"{label} identity drifted while opening")
+        raw = bytearray()
+        while chunk := os.read(fd, 1024 * 1024):
+            raw.extend(chunk)
+        closed = os.fstat(fd)
+        current = os.lstat(path)
+        if (
+            (closed.st_dev, closed.st_ino) != (opened.st_dev, opened.st_ino)
+            or closed.st_size != opened.st_size
+            or closed.st_mtime_ns != opened.st_mtime_ns
+            or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+        ):
+            _core.fail(f"{label} changed while being read")
+        return bytes(raw)
+    finally:
+        os.close(fd)
+
+
+def _host_home_identity(
+    codex_home: Path,
+    evidence_path: Path,
+    provisioning_task_id: str,
+    *,
+    require_active_task: bool,
+) -> dict[str, str]:
+    active_task = os.environ.get("CODEX_THREAD_ID")
+    if active_task is not None:
+        if active_task != provisioning_task_id:
+            _core.fail("provisioning task identity does not match the active Codex task")
+        return _legacy_host_home_identity(
+            codex_home,
+            evidence_path,
+            provisioning_task_id,
+            require_active_task=False,
+        )
+    if not require_active_task:
+        return _legacy_host_home_identity(
+            codex_home,
+            evidence_path,
+            provisioning_task_id,
+            require_active_task=False,
+        )
+    nonce = os.environ.get(ACTIVE_TASK_NONCE_ENV)
+    if nonce is None or re.fullmatch(r"[0-9a-f]{64}", nonce) is None:
+        _core.fail("active-task nonce must be exactly 64 lowercase hexadecimal characters")
+    try:
+        evidence_raw = _read_regular_bytes_without_following(
+            evidence_path, "Host-home evidence for active-task nonce"
+        )
+        evidence = json.loads(evidence_raw)
+        rollout = Path(evidence["provisioning_rollout_path"])
+    except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        _core.fail(f"could not resolve provisioning rollout for active-task nonce: {exc}")
+    raw = _read_regular_bytes_without_following(
+        rollout, "provisioning rollout for active-task nonce"
+    )
+    markers = (nonce.encode(), b"calibration_profiles.py", b"create")
+    if not any(all(marker in line for marker in markers) for line in raw.splitlines()):
+        _core.fail("active-task nonce is not bound to this calibration profile create")
+    validated = _legacy_host_home_identity(
+        codex_home,
+        evidence_path,
+        provisioning_task_id,
+        require_active_task=False,
+    )
+    if (
+        _read_regular_bytes_without_following(
+            evidence_path, "Host-home evidence for active-task nonce"
+        )
+        != evidence_raw
+        or validated.get("provisioning_rollout_path") != str(rollout.resolve())
+        or validated.get("provisioning_rollout_sha256") != hashlib.sha256(raw).hexdigest()
+    ):
+        _core.fail("active-task nonce and hardened Host-home evidence do not identify the same rollout")
+    receipt = evidence_path.parent / f".active-task-nonce-{hashlib.sha256(nonce.encode()).hexdigest()}"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    try:
+        fd = os.open(receipt, flags, 0o600)
+    except FileExistsError:
+        _core.fail("active-task nonce has already been used")
+    except OSError as exc:
+        _core.fail(f"could not consume active-task nonce: {exc}")
+    else:
+        os.close(fd)
+    return validated
 
 
 def _inventory_file_sha256(path: Path, identity: os.stat_result) -> str:
@@ -265,6 +373,7 @@ _core._path_inventory = _path_inventory
 _core._load_policy = _load_policy
 _core._validated_campaign = _validated_campaign
 _core._profile_records = _profile_records
+_core._host_home_identity = _host_home_identity
 _core.parse_args = parse_args
 
 
