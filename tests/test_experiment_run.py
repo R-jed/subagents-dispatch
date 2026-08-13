@@ -429,7 +429,7 @@ def validate(tmp_path: Path, campaign: dict, run: dict) -> dict:
         campaign_path = evaluator_root / "campaign.json"
         campaign_path.write_text(json.dumps(campaign))
         manifest = {
-            "schema_version": 4,
+            "schema_version": VALIDATOR.CALIBRATION_MANIFEST_SCHEMA,
             "managed_by": "subagents-dispatch-calibration",
             "campaign_id": campaign["campaign_id"],
             "campaign_sha256": canonical_hash(campaign),
