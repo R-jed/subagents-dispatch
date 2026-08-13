@@ -2,7 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "subagents-dispatch experiment campaign",
   "type": "object",
-  "required": ["schema_version", "campaign_id", "stage", "materialization_mode", "plugin_candidate_sha", "host_target", "repeat_policy", "assurance_requirements", "experiment", "workloads"],
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "stage",
+    "materialization_mode",
+    "plugin_candidate_sha",
+    "host_target",
+    "repeat_policy",
+    "assurance_requirements",
+    "experiment",
+    "workloads"
+  ],
   "properties": {
     "schema_version": {"const": "2.0"},
     "campaign_id": {"type": "string", "minLength": 1},
@@ -10,26 +21,304 @@
     "materialization_mode": {"enum": ["profile_only", "shared_config"]},
     "model_provider_control": {"type": "string", "minLength": 1},
     "plugin_candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "host_target": {"type": "object", "required": ["product", "version", "platform"], "properties": {"product": {"const": "Codex"}, "version": {"type": "string", "minLength": 1}, "platform": {"type": "string", "minLength": 1}}, "additionalProperties": false},
-    "repeat_policy": {"type": "object", "required": ["minimum_completed_per_arm", "ordering"], "properties": {"minimum_completed_per_arm": {"type": "integer", "minimum": 1}, "ordering": {"enum": ["randomized", "interleaved", "fixed_with_reason"]}, "fixed_order_reason": {"type": ["string", "null"]}}, "additionalProperties": false},
-    "assurance_requirements": {"type": "object", "required": ["claim_kind", "required", "allow_unknown"], "properties": {"claim_kind": {"enum": ["model_effort", "product_behavior", "host_permission_provenance"]}, "required": {"type": "array", "items": {"enum": ["route", "permission_state", "permission_provenance"]}, "uniqueItems": true}, "allow_unknown": {"type": "array", "items": {"enum": ["route", "permission_state", "permission_provenance"]}, "uniqueItems": true}}, "additionalProperties": false},
-    "experiment": {"oneOf": [{"$ref": "#/$defs/role_calibration_experiment"}, {"$ref": "#/$defs/product_benchmark_experiment"}]},
-    "workloads": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/workload"}}
+    "host_target": {
+      "type": "object",
+      "required": ["product", "version", "platform"],
+      "properties": {
+        "product": {"const": "Codex"},
+        "version": {"type": "string", "minLength": 1},
+        "platform": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "repeat_policy": {
+      "type": "object",
+      "required": ["minimum_completed_per_arm", "ordering"],
+      "properties": {
+        "minimum_completed_per_arm": {"type": "integer", "minimum": 1},
+        "ordering": {"enum": ["randomized", "interleaved", "fixed_with_reason"]},
+        "fixed_order_reason": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "assurance_requirements": {
+      "type": "object",
+      "required": ["claim_kind", "required", "allow_unknown"],
+      "properties": {
+        "claim_kind": {
+          "enum": ["model_effort", "product_behavior", "host_permission_provenance"]
+        },
+        "required": {
+          "type": "array",
+          "items": {"enum": ["route", "permission_state", "permission_provenance"]},
+          "uniqueItems": true
+        },
+        "allow_unknown": {
+          "type": "array",
+          "items": {"enum": ["route", "permission_state", "permission_provenance"]},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "experiment": {
+      "oneOf": [
+        {"$ref": "#/$defs/role_calibration_experiment"},
+        {"$ref": "#/$defs/product_benchmark_experiment"}
+      ]
+    },
+    "workloads": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/workload"}
+    }
   },
   "allOf": [
-    {"if": {"properties": {"stage": {"const": "formal"}}, "required": ["stage"]}, "then": {"properties": {"repeat_policy": {"properties": {"minimum_completed_per_arm": {"minimum": 3}}}}}},
-    {"if": {"properties": {"repeat_policy": {"properties": {"ordering": {"const": "fixed_with_reason"}}, "required": ["ordering"]}}}, "then": {"properties": {"repeat_policy": {"required": ["fixed_order_reason"], "properties": {"fixed_order_reason": {"type": "string", "minLength": 1}}}}}},
-    {"if": {"properties": {"experiment": {"properties": {"type": {"const": "role_calibration"}}, "required": ["type"]}}}, "then": {"required": ["model_provider_control"], "properties": {"workloads": {"items": {"allOf": [{"$ref": "#/$defs/workload"}, {"required": ["calibration_role", "responsibility_packet_sha256", "responsibility_packet_ref"]}]}}}}},
-    {"if": {"properties": {"experiment": {"properties": {"type": {"const": "product_benchmark"}}, "required": ["type"]}}}, "then": {"properties": {"workloads": {"items": {"allOf": [{"$ref": "#/$defs/workload"}, {"required": ["benchmark_stratum"]}]}}}}}
+    {
+      "if": {
+        "properties": {"stage": {"const": "formal"}},
+        "required": ["stage"]
+      },
+      "then": {
+        "properties": {
+          "repeat_policy": {
+            "properties": {
+              "minimum_completed_per_arm": {"minimum": 3}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "repeat_policy": {
+            "properties": {"ordering": {"const": "fixed_with_reason"}},
+            "required": ["ordering"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "repeat_policy": {
+            "required": ["fixed_order_reason"],
+            "properties": {
+              "fixed_order_reason": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "experiment": {
+            "properties": {"type": {"const": "role_calibration"}},
+            "required": ["type"]
+          }
+        }
+      },
+      "then": {
+        "required": ["model_provider_control"],
+        "properties": {
+          "workloads": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/workload"},
+                {"required": ["calibration_role", "responsibility_packet_sha256", "responsibility_packet_ref"]}
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "experiment": {
+            "properties": {"type": {"const": "product_benchmark"}},
+            "required": ["type"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "workloads": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/workload"},
+                {"required": ["benchmark_stratum"]}
+              ]
+            }
+          }
+        }
+      }
+    }
   ],
   "$defs": {
-    "route": {"type": "object", "required": ["id", "model", "effort", "mutation_authority"], "properties": {"id": {"type": "string", "minLength": 1}, "semantic_role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]}, "model": {"type": "string", "minLength": 1}, "effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]}, "configured_model": {"type": "string", "minLength": 1}, "configured_effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]}, "materialized_agent_type": {"type": "string", "minLength": 1}, "role_contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "mutation_authority": {"enum": ["none", "bounded-source-write"]}}, "additionalProperties": false},
-    "role_spec": {"type": "object", "required": ["role", "contract_ref", "control", "challengers"], "properties": {"role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]}, "contract_ref": {"type": "string", "minLength": 1}, "control": {"$ref": "#/$defs/route"}, "challengers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/route"}}}, "additionalProperties": false},
-    "role_calibration_experiment": {"type": "object", "required": ["type", "policy_promotion", "roles"], "properties": {"type": {"const": "role_calibration"}, "policy_promotion": {"type": "boolean"}, "promotion_criteria_ref": {"type": ["string", "null"]}, "roles": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/calibration_role_item"}}}, "allOf": [{"if": {"properties": {"policy_promotion": {"const": true}}, "required": ["policy_promotion"]}, "then": {"required": ["promotion_criteria_ref"], "properties": {"promotion_criteria_ref": {"type": "string", "minLength": 1}}}}], "additionalProperties": false},
-    "calibration_route": {"allOf": [{"$ref": "#/$defs/route"}, {"required": ["semantic_role", "configured_model", "configured_effort", "materialized_agent_type", "role_contract_digest"]}]},
-    "calibration_role_item": {"allOf": [{"$ref": "#/$defs/role_spec"}, {"properties": {"control": {"$ref": "#/$defs/calibration_route"}, "challengers": {"items": {"$ref": "#/$defs/calibration_route"}}}}]},
-    "product_benchmark_experiment": {"type": "object", "required": ["type", "baseline_mode", "candidate_mode"], "properties": {"type": {"const": "product_benchmark"}, "baseline_mode": {"const": "single_agent"}, "candidate_mode": {"const": "dispatch"}}, "additionalProperties": false},
-    "workload": {"type": "object", "required": ["id", "repository_url", "base_revision", "task_text", "task_sha256", "reset_procedure", "acceptance", "controls"], "properties": {"id": {"type": "string", "minLength": 1}, "calibration_role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]}, "responsibility_packet_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "responsibility_packet_ref": {"type": "string", "minLength": 1}, "benchmark_stratum": {"enum": ["small_bounded", "bounded_read_write", "read_heavy_investigation", "judgment_coupled_implementation", "independent_final_review", "composite"]}, "repository_url": {"type": "string", "minLength": 1}, "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "source_task_ref": {"type": ["string", "null"]}, "task_text": {"type": "string", "minLength": 1}, "task_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "reset_procedure": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "acceptance": {"type": "object", "required": ["rubric_id", "oracle_kind", "verification"], "properties": {"rubric_id": {"type": "string", "minLength": 1}, "oracle_kind": {"enum": ["deterministic", "mixed", "blinded_review"]}, "verification": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}, "controls": {"type": "object", "required": ["main_session_route_fingerprint", "permissions_fingerprint", "tool_surface_fingerprint", "project_rule_refs"], "properties": {"main_session_route_fingerprint": {"type": "string", "minLength": 1}, "permissions_fingerprint": {"type": "string", "minLength": 1}, "tool_surface_fingerprint": {"type": "string", "minLength": 1}, "project_rule_refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}}, "additionalProperties": false}}, "additionalProperties": false}
+    "route": {
+      "type": "object",
+      "required": ["id", "model", "effort", "mutation_authority"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "semantic_role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
+        "model": {"type": "string", "minLength": 1},
+        "effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]},
+        "configured_model": {"type": "string", "minLength": 1},
+        "configured_effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]},
+        "materialized_agent_type": {"type": "string", "minLength": 1},
+        "role_contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "mutation_authority": {"enum": ["none", "bounded-source-write"]}
+      },
+      "additionalProperties": false
+    },
+    "role_spec": {
+      "type": "object",
+      "required": ["role", "contract_ref", "control", "challengers"],
+      "properties": {
+        "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
+        "contract_ref": {"type": "string", "minLength": 1},
+        "control": {"$ref": "#/$defs/route"},
+        "challengers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/route"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "role_calibration_experiment": {
+      "type": "object",
+      "required": ["type", "policy_promotion", "roles"],
+      "properties": {
+        "type": {"const": "role_calibration"},
+        "policy_promotion": {"type": "boolean"},
+        "promotion_criteria_ref": {"type": ["string", "null"]},
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/calibration_role_item"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"policy_promotion": {"const": true}},
+            "required": ["policy_promotion"]
+          },
+          "then": {
+            "required": ["promotion_criteria_ref"],
+            "properties": {
+              "promotion_criteria_ref": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "calibration_route": {
+      "allOf": [
+        {"$ref": "#/$defs/route"},
+        {"required": ["semantic_role", "configured_model", "configured_effort", "materialized_agent_type", "role_contract_digest"]}
+      ]
+    },
+    "calibration_role_item": {
+      "allOf": [
+        {"$ref": "#/$defs/role_spec"},
+        {
+          "properties": {
+            "control": {"$ref": "#/$defs/calibration_route"},
+            "challengers": {"items": {"$ref": "#/$defs/calibration_route"}}
+          }
+        }
+      ]
+    },
+    "product_benchmark_experiment": {
+      "type": "object",
+      "required": ["type", "baseline_mode", "candidate_mode"],
+      "properties": {
+        "type": {"const": "product_benchmark"},
+        "baseline_mode": {"const": "single_agent"},
+        "candidate_mode": {"const": "dispatch"}
+      },
+      "additionalProperties": false
+    },
+    "workload": {
+      "type": "object",
+      "required": [
+        "id",
+        "repository_url",
+        "base_revision",
+        "task_text",
+        "task_sha256",
+        "reset_procedure",
+        "acceptance",
+        "controls"
+      ],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "calibration_role": {
+          "enum": ["reader", "worker", "solver", "investigator", "advisor"]
+        },
+        "responsibility_packet_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "responsibility_packet_ref": {"type": "string", "minLength": 1},
+        "benchmark_stratum": {
+          "enum": [
+            "small_bounded",
+            "bounded_read_write",
+            "read_heavy_investigation",
+            "judgment_coupled_implementation",
+            "independent_final_review",
+            "composite"
+          ]
+        },
+        "repository_url": {"type": "string", "minLength": 1},
+        "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_task_ref": {"type": ["string", "null"]},
+        "task_text": {"type": "string", "minLength": 1},
+        "task_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "reset_procedure": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "acceptance": {
+          "type": "object",
+          "required": ["rubric_id", "oracle_kind", "verification"],
+          "properties": {
+            "rubric_id": {"type": "string", "minLength": 1},
+            "oracle_kind": {"enum": ["deterministic", "mixed", "blinded_review"]},
+            "verification": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1}
+            }
+          },
+          "additionalProperties": false
+        },
+        "controls": {
+          "type": "object",
+          "required": [
+            "main_session_route_fingerprint",
+            "permissions_fingerprint",
+            "tool_surface_fingerprint",
+            "project_rule_refs"
+          ],
+          "properties": {
+            "main_session_route_fingerprint": {"type": "string", "minLength": 1},
+            "permissions_fingerprint": {"type": "string", "minLength": 1},
+            "tool_surface_fingerprint": {"type": "string", "minLength": 1},
+            "project_rule_refs": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1},
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }
