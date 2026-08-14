@@ -1,11 +1,11 @@
 ---
 name: doctor
-description: Diagnose subagents-dispatch Plugin, Skill, managed-Agent, dispatch-state, Codex Host, and runtime-route health; mutate only on explicit supported repair intent.
+description: Diagnose subagents-dispatch Plugin, Skill, managed-Agent, dispatch-state, Codex Host, and runtime-route health; mutate only on explicit supported lifecycle intent.
 ---
 
 # Doctor
 
-Use this Skill for subagents-dispatch installation and runtime health. Diagnosis is read-only by default. Repair, cleanup, migration, or live route smoke requires explicit user intent.
+Use this Skill for subagents-dispatch installation and runtime health. Diagnosis is read-only by default. Repair, uninstall, cleanup, migration, or live route smoke requires explicit user intent.
 
 The deterministic report has eight layers, in this order:
 
@@ -29,7 +29,8 @@ Use deterministic owners instead of reproducing their logic:
 - `../../contracts/guardrails.md`: mutation, trust, and user-authority boundaries
 - `../../docs/python-runtime.md`: Python 3.11+ helper-runtime resolution and prerequisite failure semantics
 - `../../scripts/doctor.py`: package diagnostics
-- `../../scripts/install-agents.py`: managed-profile verification and lifecycle
+- `../../scripts/install-agents.py`: managed-profile install/check lifecycle
+- `../../scripts/uninstall-agents.py`: ownership-aware managed-profile removal
 - `../../scripts/inspect-agent-runtime.py`: exact Codex child-rollout allowlist inspection for explicit live attestation
 - `../../scripts/runtime-evidence.py`: configured/requested, accepted, and observed route normalization
 
@@ -38,6 +39,14 @@ Before invoking a bundled Python helper, resolve one Python 3.11+ interpreter fr
 Report Plugin, Skills, managed Agent profiles, dispatch state, Codex Host, runtime route, effective permission state, and permission-source provenance separately as `OK`, `WARN`, `FAIL`, or `UNKNOWN`. Configuration is not runtime observation. A child saying which model it believes it is running is also not runtime evidence. Do not edit Codex config files directly, simulate missing Host controls, or delete ambiguous state. Do not invent App slash syntax or claim App-visible labels without direct observation.
 
 Use `scripts/doctor.py --check` for the deterministic report. Its dispatch-state layer scans existing temporary capsules even without a current thread identity and reports forbidden repository-local `team-plan-*`, `ledger-*`, `receipt-*`, `recovery-*`, and dispatch `active.json` state. Use `--runtime-evidence <file>` only when route evidence is explicitly required; it delegates normalization to `scripts/runtime-evidence.py` and keeps configured/requested, accepted, and observed layers separate. `--live-route` is claim-sensitive: it requires `subject=child`, exact child/parent identities, `runtime_observation_required=true`, and `requires_permission_observation=true`. Add `requires_permission_provenance=true` only for Host source or selection claims. `UNKNOWN` blocks only a dimension declared required by `--live-route --check`. `--repair`, `--migrate-legacy`, and `--cleanup-stale` are explicit mutation intents. Preserve unresolved writers, planned work, pending takeover, and corrupt capsules for review.
+
+For explicit managed-profile uninstall intent, run the bundled ownership-aware helper while the Plugin is still installed:
+
+```text
+<python-3.11+> ../../scripts/uninstall-agents.py --codex-home <active-codex-home>
+```
+
+Do not replace an uninstall refusal with manual `rm`, wildcard deletion, or edits to the ownership manifest. The helper removes only existing profile paths whose current SHA-256 matches the existing subagents-dispatch ownership manifest, removes that manifest after the owned profile set is reconciled, and leaves the installer lock plus unrelated Codex state untouched. After that succeeds, the user may remove the Plugin registration and Marketplace source using `../../docs/plugin-installation.md`.
 
 ## Explicit live route workflow
 
