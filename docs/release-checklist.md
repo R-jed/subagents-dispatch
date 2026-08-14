@@ -11,23 +11,7 @@ hard release gate
 
 If a proposed gate cannot name that protected claim, keep it out of the release path.
 
-## 1. Release scope
-
-The v3.0.0 release path includes:
-
-```text
-repository/package integrity
-managed Agent profile lifecycle
-Codex App Skill discovery
-first-use provisioning
-five production Agent routes
-runtime attestation required by release claims
-Preview / Dispatch / Status / Steer / Takeover behavior
-single-writer takeover safety
-Doctor safety
-update and uninstall safety
-immutable tagged Marketplace distribution
-```
+The v3.0.0 release path includes repository/package integrity, managed Agent profile lifecycle, Codex App Skill discovery, first-use provisioning, five production Agent routes, runtime attestation required by release claims, Preview / Dispatch / Status / Steer / Takeover behavior, single-writer takeover safety, Doctor safety, update/uninstall safety, and immutable tagged Marketplace distribution.
 
 The following remain valid development/research capabilities but are not v3.0.0 hard release blockers:
 
@@ -40,11 +24,9 @@ experiment campaign/run provenance
 performance claims that are not published in the release
 ```
 
-Runtime attestation remains part of the release path where the release claims what actually ran. Configured values, Host acceptance, and observed runtime facts stay separate.
+Runtime attestation remains part of the release path where the release claims what actually ran. Configured values, Host acceptance, and observed runtime facts stay separate. A small real-task product canary may be run before release to catch obvious correctness, safety, scope, writer, or correction-burden regressions. It does not require the formal Experiment Plane unless its result will support a published performance claim.
 
-A small real-task product canary may be run before release to catch obvious correctness, safety, scope, writer, or correction-burden regressions. It does not require the formal Experiment Plane unless its result will support a published performance claim.
-
-## 2. Candidate identity
+## 1. Candidate identity
 
 Before validation, record:
 
@@ -64,7 +46,7 @@ For a formal versioned release, `.agents/plugins/marketplace.json` must bind the
 
 Do not create a release tag until the exact candidate commit has passed every applicable pre-tag product gate below.
 
-## 3. Evidence ownership
+### Evidence ownership
 
 Use the strongest evidence source available for each claim.
 
@@ -87,7 +69,7 @@ Direct human Codex App observation
    duplicate/conflicting entries, post-selection presentation, selected Plugin/Skill
 
 Model self-report
--> explanatory only; it cannot close an App/UI gate or prove the model's own runtime route
+-> explanatory only; it cannot by itself close a Host/UI gate or prove the model's own runtime route
 ```
 
 For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the local runtime-evidence source.
@@ -105,9 +87,9 @@ the post-selection UI form is recorded
 full App restart refreshes the visible registry when Skill metadata changed
 ```
 
-Record screenshots or equivalent direct UI notes for those gates. Do not invent literal slash-command syntax when the App presents a Skill chip or another selection form.
+Record screenshots or equivalent direct UI notes. During the Human App gate, record the exact rendered entry labels, visible namespace, and post-selection presentation. Do not invent literal slash-command syntax when the App presents a Skill chip or another selection form.
 
-## 4. Repository gate
+## 2. Repository gates
 
 The exact candidate must pass the canonical GitHub Actions workflow on all configured platforms:
 
@@ -170,7 +152,7 @@ This deterministic repository gate does not materialize calibration profiles, mu
 
 The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; use that exact pin for the release candidate.
 
-## 5. Real Codex Host product gate
+## 3. Real Codex Host gates
 
 Run these checks against the same candidate that will be tagged.
 
@@ -193,7 +175,7 @@ Human App gate:
 1. fully restart the Codex App when the candidate changes installed Skill metadata;
 2. type `/` to open the App Skill menu;
 3. confirm all six entries are visible;
-4. record exact rendered labels, visible namespace, and post-selection presentation;
+4. record the exact rendered entry labels, any visible namespace, and the post-selection presentation;
 5. confirm there is no ambiguity with unrelated Skills using generic labels;
 6. select each entry once and retain raw Host/rollout evidence when available to confirm the expected installed Plugin Skill was selected.
 
@@ -303,7 +285,7 @@ Run the documented update flow, open a fresh task, and confirm the exact managed
 
 Run the documented uninstall flow and confirm unrelated Agent profiles and Codex configuration remain untouched.
 
-## 6. Optional real-task product canary
+### Optional real-task product canary
 
 Before final documentation freeze, run a small paired canary on real repository tasks when practical:
 
@@ -317,7 +299,7 @@ Use independently reset workspaces and the same task, Main route, tools, permiss
 
 Do not turn this canary into a performance claim. Formal repeat counts, exact telemetry, statistical summaries, route calibration, and public superiority claims belong to `docs/experiment-protocol.md`.
 
-## 7. Hard release blockers
+## 4. Hard release blockers
 
 Do not release if any of these are observed on the supported candidate:
 
@@ -346,13 +328,13 @@ Role-calibration incompleteness, an unfinished formal product benchmark, or miss
 
 Keep Host limitations separate from project defects in the validation report.
 
-## 8. Repository governance before tagging
+## 5. Repository governance before tagging
 
 Before a formal tag, inspect current repository administration state directly. At minimum verify that unsafe history rewriting is prevented for `main` and record active deletion protection, pull-request requirements, and required status checks exactly as configured at that time.
 
 For the current single-maintainer workflow, PR and pre-merge status-check requirements are optional. Code must not silently change repository protection settings.
 
-## 9. Tag, distribution smoke, and GitHub Release
+## 6. Tag, distribution smoke, and GitHub Release
 
 Only after the exact merged candidate passes repository, Host, human App UI, governance, and immutable Marketplace-source gates:
 
@@ -360,7 +342,7 @@ Only after the exact merged candidate passes repository, Host, human App UI, gov
 2. confirm tag, Plugin version, Marketplace tag ref, README version, and CHANGELOG version are consistent;
 3. create the immutable semantic-version tag on that exact SHA;
 4. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
-5. confirm the installed Plugin reports the same version and the Marketplace source resolves from the same tag;
+5. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
 6. fully restart the Codex App when required for registry refresh;
 7. human-check the `/` menu again and confirm the same six namespaced Skill entries select the expected tagged payload;
 8. run one bounded tagged-distribution Dispatch smoke with at least one real production child;
