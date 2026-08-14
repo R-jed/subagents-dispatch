@@ -55,5 +55,5 @@ def test_active_surfaces_keep_explicit_skill_identity_and_human_ui_gate():
     assert "cannot by itself close a Host/UI gate" in release
     assert "record the exact rendered entry labels" in release
     assert "post-selection presentation" in release
-    assert "If the App does not render a literal slash-command string after selection" in release
+    assert "Do not invent literal slash-command syntax" in release
     assert "Do not invent a Codex App slash-command string" in ai_reference
