@@ -14,7 +14,10 @@ def test_architecture_document_matches_v3_control_and_receipt_contracts():
         "INTERRUPTED",
         "## Dispatch Receipt",
         "scripts/dispatch_state.py",
-        "Doctor has exactly six diagnostic layers",
+        "Doctor has exactly eight diagnostic layers",
+        "Effective permission state",
+        "Permission-source provenance",
+        "scripts/uninstall-agents.py",
         "selected project lane bound to materialized work",
         "Explicit Dispatch that routes everything to Main still returns the minimal zero-child Receipt",
     ]:
@@ -28,6 +31,7 @@ def test_architecture_document_matches_v3_control_and_receipt_contracts():
         "Zero children is normal",
         "preview <task>",
         "steer <unit_id>: <guidance>",
+        "Doctor has exactly six diagnostic layers",
         "Zero-child tasks, Preview, Status-only requests, and `RESTART_REQUIRED` first-use setup do not add a receipt",
     ]:
         assert obsolete not in text
