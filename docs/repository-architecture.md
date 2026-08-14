@@ -296,7 +296,7 @@ One common campaign envelope contains one typed experiment spec.
 
 Role calibration holds responsibility semantics and sandbox/isolation fixed while changing model/effort. The current `policy.json` route is the control. A challenger cannot silently widen sandbox authority.
 
-Shared `config.toml` remains user-owned. Formal `model_effort` role calibration receives no authority over it and requires `shared_config_mutations=[]`. The semantic shared-config transaction module remains isolated infrastructure only for a future claim or workflow that explicitly requires and records exact shared-config authority; it is not reachable from formal model/effort preparation. Filesystem ownership remains exact-path and wildcard-free.
+Shared `config.toml` remains user-owned. Formal model/effort calibration has no shared `config.toml` mutation path. It requires `shared_config_mutations=[]`, and profile-only preparation rejects Marketplace, Plugin, shared-config, or alternate-home setup. If a future workflow genuinely requires shared-config mutation, design and validate that capability when the requirement exists instead of carrying an unreleased transaction shell. Filesystem ownership remains exact-path and wildcard-free.
 
 Actual model/effort conclusions require runtime-attested runs. `UNKNOWN` cannot support a claim that a specific route produced a measured outcome.
 
