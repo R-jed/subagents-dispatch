@@ -111,6 +111,11 @@ managed Agent install
 installer --check
 Doctor --check
 idempotent reinstall
+ownership-aware managed Agent uninstall
+post-uninstall installer --check fails as Not installed
+reinstall after uninstall
+final installer --check
+tag/version parity when the workflow runs from a release tag
 ```
 
 For the current single-maintainer phase, use this integration workflow:
@@ -146,11 +151,15 @@ Deterministic local gate after `<python-3.11+>` has been resolved:
 <python-3.11+> scripts/doctor.py --codex-home <isolated-test-home> --check --thread-id release-doctor
 <python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home>
 <python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check
+<python-3.11+> scripts/uninstall-agents.py --codex-home <isolated-test-home>
+<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check   # expected non-zero: Not installed
+<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home>
+<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check
 ```
 
-This deterministic repository gate does not materialize calibration profiles, mutate the user's normal Codex home, or run a formal experiment campaign.
+The expected post-uninstall `--check` failure is part of the lifecycle assertion; it must not be treated as an overall gate failure when it reports the clean `Not installed` state. This deterministic repository gate does not materialize calibration profiles, mutate the user's normal Codex home, or run a formal experiment campaign.
 
-The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; use that exact pin for the release candidate.
+The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; use that exact pin for the release candidate. On a tag push, the same workflow also requires the tag name to equal `v<plugin version>` before the tagged source can pass.
 
 ## 3. Real Codex Host gates
 
@@ -283,7 +292,9 @@ Run static Doctor without spawning Agents. Separately run explicit live-route Do
 
 Run the documented update flow, open a fresh task, and confirm the exact managed profiles and at least one custom Agent spawn still work.
 
-Run the documented uninstall flow and confirm unrelated Agent profiles and Codex configuration remain untouched.
+For uninstall, keep the Plugin installed while the managed profiles are removed. Through the human-verified Doctor entry, explicitly request managed-profile uninstall and require the bundled ownership-aware helper to remove only profiles still proven by the existing ownership manifest. Exercise exact-owned, already-missing-owned, modified-owned, and unowned/conflicting cases. Modified or unowned state must fail closed without deleting other Agent configuration. Only after managed-profile cleanup succeeds should the Plugin registration and Marketplace source be removed.
+
+Confirm config.toml, credentials, unrelated Agent profiles, repositories, and other Plugin-unrelated Codex state remain untouched throughout uninstall.
 
 ### Optional real-task product canary
 
@@ -316,6 +327,7 @@ required runtime route evidence is UNKNOWN or mismatched for a claim that depend
 required effective permission-state evidence is UNKNOWN or mismatched for a claim that depends on it
 Main writes before a previous writer is proven settled during takeover
 modified or unowned Agent configuration is overwritten automatically
+managed-profile uninstall deletes a modified, unowned, symlinked, or unrelated Agent configuration
 subagents-dispatch implicitly activates on an unrelated ordinary task
 update or uninstall mutates unrelated Codex state
 ```
@@ -341,12 +353,13 @@ Only after the exact merged candidate passes repository, Host, human App UI, gov
 1. confirm `main` still points to the validated candidate SHA;
 2. confirm tag, Plugin version, Marketplace tag ref, README version, and CHANGELOG version are consistent;
 3. create the immutable semantic-version tag on that exact SHA;
-4. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
-5. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
-6. fully restart the Codex App when required for registry refresh;
-7. human-check the `/` menu again and confirm the same six namespaced Skill entries select the expected tagged payload;
-8. run one bounded tagged-distribution Dispatch smoke with at least one real production child;
-9. use raw Host/rollout evidence for any runtime claim that cannot be established from UI alone;
-10. create the GitHub Release only after the tagged distribution smoke passes.
+4. require the tag-triggered canonical CI run to pass, including `GITHUB_REF_NAME == v<plugin version>` and the full repository/managed-profile lifecycle on the tagged source;
+5. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
+6. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
+7. fully restart the Codex App when required for registry refresh;
+8. human-check the `/` menu again and confirm the same six namespaced Skill entries select the expected tagged payload;
+9. run one bounded tagged-distribution Dispatch smoke with at least one real production child;
+10. use raw Host/rollout evidence for any runtime claim that cannot be established from UI alone;
+11. create the GitHub Release only after the tagged distribution smoke passes.
 
 The GitHub Release must describe only capabilities and performance claims supported by the evidence completed for that exact tagged candidate.
