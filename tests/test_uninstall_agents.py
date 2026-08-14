@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "scripts" / "install-agents.py"
 UNINSTALLER = ROOT / "scripts" / "uninstall-agents.py"
@@ -75,6 +77,26 @@ def test_reserved_paths_without_manifest_are_not_claimed_or_deleted(tmp_path: Pa
     assert result.returncode != 0
     assert "ownership metadata is missing" in result.stderr
     assert target.read_bytes() == before
+    assert not (home / MANIFEST).exists()
+
+
+def test_symlinked_agents_directory_is_rejected_without_touching_target(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    external = tmp_path / "external-agents"
+    external.mkdir()
+    marker = external / PROFILE_FILES[0]
+    marker.write_text('name = "outside"\n', encoding="utf-8")
+    try:
+        (home / "agents").symlink_to(external, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"symlink creation is unavailable on this runner: {exc}")
+
+    result = run(UNINSTALLER, home)
+
+    assert result.returncode != 0
+    assert "Refusing symlinked agents directory" in result.stderr
+    assert marker.read_text(encoding="utf-8") == 'name = "outside"\n'
     assert not (home / MANIFEST).exists()
 
 
