@@ -286,7 +286,7 @@ Configured, accepted, and observed route facts are different evidence levels. `s
 
 Ordinary bounded Dispatch remains lightweight. Missing telemetry may remain missing.
 
-Doctor has exactly six diagnostic layers:
+Doctor has exactly eight diagnostic layers:
 
 ```text
 Plugin
@@ -294,7 +294,9 @@ Skills
 Managed Agent profiles
 Dispatch state
 Codex Host
-Runtime route evidence
+Runtime route
+Effective permission state
+Permission-source provenance
 ```
 
 Static Doctor is read-only and never spawns native Agents. Missing Host/live-route evidence is `UNKNOWN`, not a fabricated PASS and not automatically an unhealthy installation.
@@ -319,10 +321,13 @@ scripts/dispatch_state.py
 -> compact state/lock, spawn binding, Host reconciliation, target resolution, cleanup, Receipt accounting/formatting
 
 scripts/doctor.py
--> deterministic six-layer diagnostics
+-> deterministic eight-layer diagnostics
 
 scripts/install-agents.py
--> managed custom-Agent profile lifecycle
+-> managed custom-Agent profile install/check lifecycle
+
+scripts/uninstall-agents.py
+-> ownership-aware managed custom-Agent profile removal
 
 scripts/runtime-evidence.py
 -> requested/accepted/observed route normalization
