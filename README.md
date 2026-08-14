@@ -211,12 +211,16 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 ## 卸载
 
+如果已经创建过 managed Agent profiles，请先保持插件已安装，选择 **Doctor** 并明确要求卸载 subagents-dispatch 的 managed profiles。Doctor 会走带 ownership 校验的清理流程，只删除仍与本插件 ownership manifest 精确匹配的配置；无法证明所有权时会停止。详细规则见 [安装说明](docs/plugin-installation.md)。
+
+managed profiles 安全清理完成后，再移除 Plugin 和 Marketplace：
+
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-如果已经创建过 managed Agent profiles，请按 [安装说明](docs/plugin-installation.md) 中带 ownership 检查的清理流程处理。不要删除无法证明属于本插件的 Agent 配置。
+不要用 `rm`、通配符或手工删除来绕过 ownership 冲突。
 
 ## 隐私
 
