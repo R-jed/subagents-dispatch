@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills" / "dispatch" / "SKILL.md"
+POLICY = ROOT / "contracts" / "policy.json"
 GUARDRAILS = ROOT / "contracts" / "guardrails.md"
 RECOVERY = ROOT / "contracts" / "recovery.md"
 INTERACTION = ROOT / "contracts" / "interaction.md"
@@ -36,6 +37,31 @@ def test_project_child_spawn_requires_explicit_fresh_context_before_tool_call():
         "full_history_allowed": False,
         "omitted_fork_turns_allowed": False,
     }
+
+
+def test_dispatch_spawn_binds_exact_policy_agent_type_and_forbids_substitution():
+    skill = SKILL.read_text(encoding="utf-8")
+    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+
+    for phrase in [
+        "roles.<semantic-role>.agent_type",
+        "Host-discovered role names",
+        "built-in roles",
+        "unrelated installed custom Agents",
+        "legacy aliases",
+        "model-equivalent profiles",
+        "are never substitutions",
+        "A successful spawn of any different role is a routing failure",
+    ]:
+        assert phrase in skill
+
+    agent_types = [spec["agent_type"] for spec in policy["roles"].values()]
+    assert len(agent_types) == 5
+    assert len(set(agent_types)) == 5
+    assert all(agent_type.startswith("subagents_dispatch_") for agent_type in agent_types)
+
+    expected = by_id(WORKLOADS, "workloads")["dispatch-custom-role-fresh-context-spawn"]["expected"]
+    assert expected["first_spawn_agent_type"] == policy["roles"]["reader"]["agent_type"]
 
 
 def test_pre_child_spawn_rejection_does_not_create_attempt_or_receipt_retry():
