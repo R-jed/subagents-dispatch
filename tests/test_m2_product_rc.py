@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL_DOC = ROOT / "docs" / "plugin-installation.md"
+RELEASE = ROOT / "docs" / "release-checklist.md"
+ARCHITECTURE = ROOT / "docs" / "architecture.md"
 DOCTOR_SKILL = ROOT / "skills" / "doctor" / "SKILL.md"
 README_CN = ROOT / "README.md"
 README_EN = ROOT / "README_EN.md"
@@ -14,6 +16,16 @@ UNINSTALLER = ROOT / "scripts" / "uninstall-agents.py"
 
 PLUGIN_REMOVE = "codex plugin remove subagents-dispatch@subagents-dispatch"
 MARKETPLACE_REMOVE = "codex plugin marketplace remove subagents-dispatch"
+DOCTOR_LAYERS = [
+    "Plugin",
+    "Skills",
+    "Managed Agent profiles",
+    "Dispatch state",
+    "Codex Host",
+    "Runtime route",
+    "Effective permission state",
+    "Permission-source provenance",
+]
 
 
 def test_product_rc_has_one_ownership_aware_managed_profile_uninstaller():
@@ -22,13 +34,15 @@ def test_product_rc_has_one_ownership_aware_managed_profile_uninstaller():
     doctor = DOCTOR_SKILL.read_text(encoding="utf-8")
     ai = README_AI.read_text(encoding="utf-8")
     architecture = REPO_ARCH.read_text(encoding="utf-8")
+    release = RELEASE.read_text(encoding="utf-8")
 
-    for text in (install, doctor, ai, architecture):
+    for text in (install, doctor, ai, architecture, release):
         assert "scripts/uninstall-agents.py" in text or "../../scripts/uninstall-agents.py" in text
     assert "ownership-aware" in install
     assert "ownership-aware" in doctor
     assert "managed Agent profile removal" in ai
     assert "managed Agent profile removal" in architecture
+    assert "ownership-aware managed Agent uninstall" in release
 
 
 def test_public_uninstall_flow_removes_managed_profiles_before_plugin_registration():
@@ -58,6 +72,15 @@ def test_public_uninstall_flow_does_not_publish_manual_managed_profile_rm():
         text = path.read_text(encoding="utf-8")
         for command in forbidden:
             assert command not in text
+
+
+def test_doctor_product_docs_match_the_eight_layer_contract():
+    for path in (INSTALL_DOC, ARCHITECTURE, REPO_ARCH):
+        text = path.read_text(encoding="utf-8")
+        assert "exactly eight" in text
+        assert "exactly six" not in text
+        for layer in DOCTOR_LAYERS:
+            assert layer in text
 
 
 def test_ci_runs_uninstall_reinstall_lifecycle_and_tag_parity_gate():
