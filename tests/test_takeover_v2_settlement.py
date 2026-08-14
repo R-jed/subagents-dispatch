@@ -34,7 +34,7 @@ def test_settlement_resume_reuses_existing_recovery_lifecycle_without_new_work_a
     assert "Resuming keeps the same unit, task, attempt, Agent, role, responsibility, and authority" in recovery
     assert "It creates no child, retry, focused follow-up, work pass, or semantic rework" in recovery
 
-    assert "resuming an `INTERRUPTED` child in the same attempt" in receipt
+    assert "resuming an INTERRUPTED child in the same attempt" in receipt
 
 
 def test_takeover_still_fails_closed_when_terminal_settlement_cannot_be_proven():
