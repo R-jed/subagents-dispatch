@@ -197,7 +197,7 @@ scripts/dispatch_state.py
 -> compact thread-scoped state, locking, reconciliation, control targeting, cleanup, receipt primitives
 
 scripts/doctor.py
--> deterministic six-layer diagnostics
+-> deterministic eight-layer diagnostics
 
 scripts/install-agents.py
 -> managed Agent profile install/check lifecycle
@@ -361,7 +361,7 @@ Evidence Artifacts, when needed, are a separate on-demand temporary namespace go
 
 ## Doctor architecture
 
-Doctor covers exactly six layers:
+Doctor covers exactly eight layers:
 
 ```text
 Plugin
@@ -369,7 +369,9 @@ Skills
 Managed Agent profiles
 Dispatch state
 Codex Host
-Runtime route evidence
+Runtime route
+Effective permission state
+Permission-source provenance
 ```
 
 Diagnosis is read-only by default. Live route smoke, repair, managed-profile uninstall, cleanup, migration, and other expensive/mutating diagnostics require explicit intent. Static configuration health is separate from runtime observation.
