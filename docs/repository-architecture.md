@@ -61,6 +61,7 @@ subagents-dispatch/
 │   ├── doctor.py
 │   ├── inspect-agent-runtime.py
 │   ├── install-agents.py
+│   ├── uninstall-agents.py
 │   ├── legacy_migration.py
 │   ├── policy.py
 │   ├── review-artifact.py
@@ -138,7 +139,7 @@ Each Skill owns only its user intent, minimal entry/completion contract, App met
 
 Each Skill has `SKILL.md` plus `agents/openai.yaml`, with implicit invocation disabled. The App-visible namespace and literal slash presentation are Host/UI facts and are published only from direct observation.
 
-`preview`, `status`, `steer`, and `takeover` stay thin over the interaction/state contracts. `doctor` stays thin over deterministic diagnostics. `dispatch` leads orchestration but does not keep private copies of shared runtime policy.
+`preview`, `status`, `steer`, and `takeover` stay thin over the interaction/state contracts. `doctor` stays thin over deterministic diagnostics and explicit managed-profile lifecycle helpers. `dispatch` leads orchestration but does not keep private copies of shared runtime policy.
 
 Dispatch loads `composition.md` when Host/project-rule/external-Skill/hook composition matters. It loads `evidence-artifact.md` only when complete accepted provenance should remain outside inline conversational context.
 
@@ -199,7 +200,10 @@ scripts/doctor.py
 -> deterministic six-layer diagnostics
 
 scripts/install-agents.py
--> managed Agent profile lifecycle
+-> managed Agent profile install/check lifecycle
+
+scripts/uninstall-agents.py
+-> ownership-aware managed Agent profile removal using the install manifest and installer lock
 
 scripts/inspect-agent-runtime.py
 -> explicit exact-child rollout inspection with allowlisted route/identity/permission output
@@ -368,7 +372,7 @@ Codex Host
 Runtime route evidence
 ```
 
-Diagnosis is read-only by default. Live route smoke, repair, cleanup, migration, and other expensive/mutating diagnostics require explicit intent. Static configuration health is separate from runtime observation.
+Diagnosis is read-only by default. Live route smoke, repair, managed-profile uninstall, cleanup, migration, and other expensive/mutating diagnostics require explicit intent. Static configuration health is separate from runtime observation.
 
 ## Documentation boundary
 
