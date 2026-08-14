@@ -59,7 +59,7 @@ Runtime route evidence
 
 `OK`, `WARN`, `FAIL`, and `UNKNOWN` are reported separately. A configured profile is configured truth only; it is not observed runtime route proof. Missing Host capability is `UNKNOWN` with the supported limitation recorded; an externally captured capability record may be supplied with `--host-evidence <file>`. Runtime route integrity is not run during normal diagnosis; pass explicit evidence to `scripts/doctor.py --runtime-evidence <file>` when that claim matters. Doctor never spawns a child, edits `config.toml`, credentials, MCP configuration, repositories, or unrelated profiles.
 
-Stale, corrupt, ambiguous, or unresolved-writer temporary state is reported and preserved. Repair, migration, and stale cleanup require explicit Doctor intent (`--repair`, `--migrate-legacy`, or `--cleanup-stale`).
+Stale, corrupt, ambiguous, or unresolved-writer temporary state is reported and preserved. Repair, migration, stale cleanup, and managed-profile uninstall require explicit intent.
 
 ## Update
 
@@ -74,22 +74,21 @@ Doctor can run the supported managed-profile repair or legacy migration only whe
 
 ## Uninstall
 
-Remove the Plugin registration and the Marketplace source:
+If delegated work provisioned the five managed Agent profiles, remove those profiles **before** removing the Plugin package. While the Plugin is still installed, choose **Doctor** and explicitly ask it to uninstall the subagents-dispatch managed Agent profiles. Doctor must use the bundled ownership-aware helper:
+
+```text
+scripts/uninstall-agents.py
+```
+
+The helper reads the existing subagents-dispatch ownership manifest, verifies every existing managed profile against the exact recorded SHA-256, rejects symlinks and modified or unowned files, removes only the exact proven-owned profile paths, then removes the ownership manifest. A profile already missing from an otherwise valid owned set does not authorize deletion of anything else. The installer lock is retained as a harmless local coordination file.
+
+If ownership metadata is missing, invalid, or no longer matches an existing managed profile, uninstall fails closed. Do not replace that failure with `rm`, wildcard deletion, or manual removal of ambiguous Agent configuration.
+
+After the managed profiles are safely removed, remove the Plugin registration and Marketplace source:
 
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-If delegated work previously provisioned the managed Agent profiles, remove those exact files and the install manifest as well:
-
-```bash
-rm ~/.codex/agents/subagents-dispatch-reader.toml
-rm ~/.codex/agents/subagents-dispatch-worker.toml
-rm ~/.codex/agents/subagents-dispatch-solver.toml
-rm ~/.codex/agents/subagents-dispatch-investigator.toml
-rm ~/.codex/agents/subagents-dispatch-advisor.toml
-rm ~/.codex/.subagents-dispatch-agents.json
-```
-
-The installer lock is a local coordination file and may remain. Do not delete unrelated Agent profiles or Codex configuration.
+Uninstall does not edit `config.toml`, credentials, MCP configuration, repositories, Plugin-unrelated Agent profiles, or other Codex state.
