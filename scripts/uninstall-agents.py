@@ -31,6 +31,7 @@ def load_installer() -> dict[str, Any]:
         "load_manifest",
         "manifest_hashes",
         "managed_lock",
+        "preflight_agents_dir",
     }
     missing = sorted(required - set(namespace))
     if missing:
@@ -125,6 +126,8 @@ def uninstall(codex_home_arg: Path) -> None:
     if not codex_home.is_dir():
         fail(f"Codex home is not a directory: {codex_home}")
     codex_home = codex_home.resolve()
+    agents_dir = codex_home / "agents"
+    lifecycle["preflight_agents_dir"](agents_dir, check_only=False)
 
     # Avoid creating a coordination lock in an unrelated existing Codex home
     # when neither the ownership manifest nor any reserved managed path exists.
