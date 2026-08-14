@@ -211,12 +211,16 @@ You can also choose **Doctor** to inspect the installation and managed-profile s
 
 ## Uninstall
 
+If managed Agent profiles were provisioned, keep the Plugin installed first, choose **Doctor**, and explicitly ask it to uninstall the subagents-dispatch managed profiles. Doctor uses the ownership-aware cleanup path and removes only configuration that still matches the plugin's ownership manifest exactly. If ownership cannot be proven, it stops. See [Installation](docs/plugin-installation.md) for the full rules.
+
+After the managed profiles are safely removed, remove the Plugin and Marketplace registration:
+
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-If managed Agent profiles were provisioned, follow the ownership-aware cleanup steps in [Installation](docs/plugin-installation.md). Do not remove Agent configuration unless it has been proven to belong to this plugin.
+Do not bypass an ownership conflict with `rm`, wildcards, or manual deletion.
 
 ## Privacy
 
