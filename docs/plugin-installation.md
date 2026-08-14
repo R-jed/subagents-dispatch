@@ -59,7 +59,7 @@ Effective permission state
 Permission-source provenance
 ```
 
-`OK`, `WARN`, `FAIL`, and `UNKNOWN` are reported separately. A configured profile is configured truth only; it is not observed runtime route proof. Missing Host capability is `UNKNOWN` with the supported limitation recorded; an externally captured capability record may be supplied with `--host-evidence <file>`. Runtime route integrity is not run during normal diagnosis; pass explicit evidence to `scripts/doctor.py --runtime-evidence <file>` when that claim matters. Doctor never spawns a child, edits `config.toml`, credentials, MCP configuration, repositories, or unrelated profiles.
+`OK`, `WARN`, `FAIL`, and `UNKNOWN` are reported separately. A configured profile is configured truth only; it is not observed runtime route proof. Missing Host capability is `UNKNOWN` with the supported limitation recorded; an externally captured capability record may be supplied with `--host-evidence <file>`. Runtime route integrity is not run during normal diagnosis; pass explicit evidence to `scripts/doctor.py --runtime-evidence <file>` when that claim matters. The deterministic `scripts/doctor.py` report never spawns a child. The Doctor Skill's explicit live-route workflow may create bounded smoke children only when the user explicitly requests live route verification. Neither path edits `config.toml`, credentials, MCP configuration, repositories, or unrelated profiles.
 
 Stale, corrupt, ambiguous, or unresolved-writer temporary state is reported and preserved. Repair, migration, stale cleanup, and managed-profile uninstall require explicit intent.
 
