@@ -46,7 +46,7 @@ For normal development work, choose **Dispatch** from the App's Skill menu and e
 
 ## Doctor diagnostics
 
-Doctor is deterministic and read-only by default. It reports exactly six layers:
+Doctor is deterministic and read-only by default. It reports exactly eight layers:
 
 ```text
 Plugin
@@ -54,7 +54,9 @@ Skills
 Managed Agent profiles
 Dispatch state
 Codex Host
-Runtime route evidence
+Runtime route
+Effective permission state
+Permission-source provenance
 ```
 
 `OK`, `WARN`, `FAIL`, and `UNKNOWN` are reported separately. A configured profile is configured truth only; it is not observed runtime route proof. Missing Host capability is `UNKNOWN` with the supported limitation recorded; an externally captured capability record may be supplied with `--host-evidence <file>`. Runtime route integrity is not run during normal diagnosis; pass explicit evidence to `scripts/doctor.py --runtime-evidence <file>` when that claim matters. Doctor never spawns a child, edits `config.toml`, credentials, MCP configuration, repositories, or unrelated profiles.
