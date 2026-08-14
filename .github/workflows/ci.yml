@@ -36,6 +36,12 @@ jobs:
         run: |
           python -m json.tool .codex-plugin/plugin.json >/dev/null
           python -m json.tool .agents/plugins/marketplace.json >/dev/null
+      - name: Verify tag and packaged version match
+        if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest' && matrix.python == '3.11' }}
+        shell: bash
+        run: |
+          version="$(python -c 'import json; print(json.load(open(".codex-plugin/plugin.json", encoding="utf-8"))["version"])')"
+          test "$GITHUB_REF_NAME" = "v$version"
       - name: Validate Plugin with pinned official OpenAI validator
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.python == '3.11' }}
         shell: bash
@@ -56,6 +62,13 @@ jobs:
           python scripts/install-agents.py --codex-home "$target"
           python scripts/install-agents.py --codex-home "$target" --check
           python scripts/doctor.py --codex-home "$target" --check --thread-id ci-doctor
+          python scripts/install-agents.py --codex-home "$target"
+          python scripts/install-agents.py --codex-home "$target" --check
+          python scripts/uninstall-agents.py --codex-home "$target"
+          if python scripts/install-agents.py --codex-home "$target" --check; then
+            echo "managed Agent check unexpectedly passed after uninstall" >&2
+            exit 1
+          fi
           python scripts/install-agents.py --codex-home "$target"
           python scripts/install-agents.py --codex-home "$target" --check
 
