@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = ROOT / "docs" / "release-checklist.md"
 AI_REFERENCE = ROOT / "README_AI.md"
+REPOSITORY_ARCHITECTURE = ROOT / "docs" / "repository-architecture.md"
 
 
 def test_v3_release_path_excludes_formal_experiment_materialization():
@@ -42,3 +43,12 @@ def test_ai_owner_map_marks_experiments_as_research_not_default_release_work():
         "small real-task product canary",
     ]:
         assert phrase in text
+
+
+def test_unreleased_shared_config_transaction_shell_is_removed():
+    assert not (ROOT / "scripts" / "calibration_config_transaction.py").exists()
+    assert not (ROOT / "tests" / "test_calibration_config_transaction.py").exists()
+
+    architecture = REPOSITORY_ARCHITECTURE.read_text(encoding="utf-8")
+    assert "semantic shared-config transaction module remains isolated infrastructure" not in architecture
+    assert "Formal model/effort calibration has no shared `config.toml` mutation path." in architecture
