@@ -79,6 +79,9 @@ scripts/policy.py
 scripts/install-agents.py
 -> managed Agent profile install/check lifecycle
 
+scripts/uninstall-agents.py
+-> ownership-aware managed Agent profile removal using the existing install manifest and lock
+
 scripts/validate_team_plan.py
 -> TeamPlan structural validation
 
