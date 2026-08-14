@@ -294,8 +294,6 @@ def _safe_child(parent: Path, child: str, label: str) -> Path:
 
 
 def _render_profile(template: dict[str, Any], agent_type: str, model: str, effort: str) -> bytes:
-    # Replace only the route identity fields in the canonical file.  Contract
-    # prose remains byte-for-byte sourced from the shipped Reader template.
     text = READER_TEMPLATE.read_text(encoding="utf-8")
     replacements = {
         "name": agent_type,
@@ -751,6 +749,25 @@ def _verify_environment_baseline(
         fail("production or unrelated Agent profile inventory changed")
 
 
+def _cleanup_transaction_baseline(
+    codex_home: Path, manifest: dict[str, Any]
+) -> dict[str, Any]:
+    baseline = _environment_baseline(codex_home)
+    owned_profiles = {item["filename"] for item in manifest["profiles"]}
+    if len(owned_profiles) != len(manifest["profiles"]):
+        fail("calibration manifest contains duplicate owned profile filenames")
+    current_profiles = baseline["profile_hashes"]
+    unexpected = {
+        name for name in current_profiles
+        if name.startswith("subagents_dispatch_calibration_") and name not in owned_profiles
+    }
+    if unexpected:
+        fail("unexpected third calibration profile blocks cleanup")
+    for filename in owned_profiles:
+        current_profiles.pop(filename, None)
+    return baseline
+
+
 def _guard_staging_file(path: Path) -> None:
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
@@ -1083,12 +1100,18 @@ def cleanup(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: P
         _require_exact_manifest_profiles(manifest, records)
         if summary["campaign_sha256"] != manifest["campaign_sha256"] or campaign_raw_sha256 != manifest["campaign_raw_sha256"]:
             fail("refusing cleanup after campaign drift")
+        statuses = {record["status"] for record in records}
+        if statuses == {"COMMITTED"}:
+            _verify_manifest_files(codex_home, manifest)
+        elif statuses != {"CLEANED"}:
+            fail("unresolved profile transaction; run recover")
+        cleanup_baseline = _cleanup_transaction_baseline(codex_home, manifest)
         def persist() -> None:
             manifest["profiles"] = _manifest_profiles(records)
             _persist_manifest(evaluator_root, manifest)
         for record in reversed(records):
             _cleanup_profile(record, persist)
-        _verify_environment_baseline(codex_home, manifest["environment_baseline"], set())
+        _verify_environment_baseline(codex_home, cleanup_baseline, set())
     print("CLEANUP COMPLETE: exact owned profiles removed; journal and lock retained")
 
 
@@ -1104,12 +1127,13 @@ def recover(evaluator_root_arg: Path, codex_home_arg: Path, campaign_path_arg: P
         for record, item in zip(records, manifest["profiles"], strict=True):
             record.update(item)
         _require_exact_manifest_profiles(manifest, records)
+        cleanup_baseline = _cleanup_transaction_baseline(codex_home, manifest)
         def persist() -> None:
             manifest["profiles"] = _manifest_profiles(records)
             _persist_manifest(evaluator_root, manifest)
         for record in reversed(records):
             _cleanup_profile(record, persist)
-        _verify_environment_baseline(codex_home, manifest["environment_baseline"], set())
+        _verify_environment_baseline(codex_home, cleanup_baseline, set())
     print("RECOVERY COMPLETE: exact profile transactions reconciled")
 
 
