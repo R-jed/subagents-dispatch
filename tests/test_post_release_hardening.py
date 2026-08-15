@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -124,9 +125,75 @@ def test_rollout_reader_detects_in_place_mutation_after_fd_read(
     monkeypatch.setattr(module.os, "lstat", racing_lstat)
 
     with pytest.raises(SystemExit, match="changed while being read"):
-        module.read_stable_rollout_text(rollout)
+        list(module.iter_stable_rollout_lines(rollout))
 
     assert rollout_lstat_calls == 2
+
+
+def test_rollout_reader_yields_lines_before_reaching_eof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write("ignored-record\n" * 10_000)
+
+    monkeypatch.setattr(module, "READ_CHUNK_BYTES", 128)
+    original_read = module.os.read
+    bytes_read = 0
+
+    def counting_read(fd: int, size: int) -> bytes:
+        nonlocal bytes_read
+        chunk = original_read(fd, size)
+        bytes_read += len(chunk)
+        return chunk
+
+    monkeypatch.setattr(module.os, "read", counting_read)
+    lines = module.iter_stable_rollout_lines(rollout)
+    try:
+        first_line = next(lines)
+        assert '"type": "session_meta"' in first_line
+        assert bytes_read < rollout.stat().st_size
+    finally:
+        lines.close()
+
+
+def test_rollout_reader_rejects_oversized_rollout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    monkeypatch.setattr(module, "MAX_ROLLOUT_BYTES", 256, raising=False)
+
+    with pytest.raises(SystemExit, match="maximum rollout size"):
+        module.inspect_rollout(
+            rollout,
+            thread_id=THREAD,
+            expected_parent_thread_id=PARENT,
+            expected_agent_role=ROLE,
+        )
+
+
+def test_rollout_reader_rejects_oversized_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write("x" * 1024 + "\n")
+    monkeypatch.setattr(module, "MAX_ROLLOUT_BYTES", 8192, raising=False)
+    monkeypatch.setattr(module, "MAX_ROLLOUT_LINE_BYTES", 512, raising=False)
+
+    with pytest.raises(SystemExit, match="maximum rollout line size"):
+        module.inspect_rollout(
+            rollout,
+            thread_id=THREAD,
+            expected_parent_thread_id=PARENT,
+            expected_agent_role=ROLE,
+        )
 
 
 def test_calibration_adapter_import_order_is_process_isolated_and_equivalent():
@@ -175,6 +242,18 @@ print(json.dumps({
         outputs.append(payload)
 
     assert outputs[0] == outputs[1]
+
+
+def test_calibration_core_private_hooks_are_not_imported_by_value_in_production():
+    offenders: list[str] = []
+    for path in sorted((ROOT / "scripts").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "calibration_profiles_core":
+                names = ", ".join(alias.name for alias in node.names)
+                offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}: {names}")
+
+    assert offenders == []
 
 
 def test_dev_dependency_closure_is_exactly_pinned_for_ci_replay():
