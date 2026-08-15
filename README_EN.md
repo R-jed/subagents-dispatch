@@ -151,6 +151,7 @@ See the [Composition Contract](contracts/composition.md).
 
 ## Safety boundaries
 
+- **Exact role binding**: every semantic role must resolve to its `subagents_dispatch_*` `agent_type` in `contracts/policy.json`; built-in roles, legacy aliases, custom Agents from other plugins, and model-equivalent profiles are never substitutes
 - **Single writer**: one active writer per orchestration in the canonical workspace. Main cannot start a conflicting write until the Host proves the previous writer is stopped or terminal
 - **One delegation layer**: Main owns project-level delegation; project children do not create more project children
 - **`UNKNOWN` stays unknown**: uncertainty does not authorize replacement, hidden retry, or semantic reroute
