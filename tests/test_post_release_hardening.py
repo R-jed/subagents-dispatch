@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -12,6 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 INSPECTOR = ROOT / "scripts" / "inspect-agent-runtime.py"
+DOCTOR_SKILL = ROOT / "skills" / "doctor" / "SKILL.md"
 RELEASE_CHECKLIST = ROOT / "docs" / "release-checklist.md"
 REQUIREMENTS = ROOT / "requirements-dev.txt"
 THREAD = "11111111-1111-7111-8111-111111111111"
@@ -61,6 +63,14 @@ def test_release_checklist_does_not_claim_platform_enforced_tag_immutability():
     assert "create the immutable semantic-version tag" not in text
     assert "versioned semantic-version tag" in text
     assert "does not by itself prove platform-enforced tag immutability" in text
+
+
+def test_doctor_describes_bounded_rollout_streaming():
+    text = DOCTOR_SKILL.read_text(encoding="utf-8")
+
+    assert "streams exactly one rollout" in text
+    assert "bounded total-rollout and per-line input limits" in text
+    assert "Oversized rollout input fails closed" in text
 
 
 def test_rollout_reader_detects_path_replacement_between_lstat_and_open(
@@ -124,9 +134,75 @@ def test_rollout_reader_detects_in_place_mutation_after_fd_read(
     monkeypatch.setattr(module.os, "lstat", racing_lstat)
 
     with pytest.raises(SystemExit, match="changed while being read"):
-        module.read_stable_rollout_text(rollout)
+        list(module.iter_stable_rollout_lines(rollout))
 
     assert rollout_lstat_calls == 2
+
+
+def test_rollout_reader_yields_lines_before_reaching_eof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write("ignored-record\n" * 10_000)
+
+    monkeypatch.setattr(module, "READ_CHUNK_BYTES", 128)
+    original_read = module.os.read
+    bytes_read = 0
+
+    def counting_read(fd: int, size: int) -> bytes:
+        nonlocal bytes_read
+        chunk = original_read(fd, size)
+        bytes_read += len(chunk)
+        return chunk
+
+    monkeypatch.setattr(module.os, "read", counting_read)
+    lines = module.iter_stable_rollout_lines(rollout)
+    try:
+        first_line = next(lines)
+        assert '"type": "session_meta"' in first_line
+        assert bytes_read < rollout.stat().st_size
+    finally:
+        lines.close()
+
+
+def test_rollout_reader_rejects_oversized_rollout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    monkeypatch.setattr(module, "MAX_ROLLOUT_BYTES", 256, raising=False)
+
+    with pytest.raises(SystemExit, match="maximum rollout size"):
+        module.inspect_rollout(
+            rollout,
+            thread_id=THREAD,
+            expected_parent_thread_id=PARENT,
+            expected_agent_role=ROLE,
+        )
+
+
+def test_rollout_reader_rejects_oversized_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write("x" * 1024 + "\n")
+    monkeypatch.setattr(module, "MAX_ROLLOUT_BYTES", 8192, raising=False)
+    monkeypatch.setattr(module, "MAX_ROLLOUT_LINE_BYTES", 512, raising=False)
+
+    with pytest.raises(SystemExit, match="maximum rollout line size"):
+        module.inspect_rollout(
+            rollout,
+            thread_id=THREAD,
+            expected_parent_thread_id=PARENT,
+            expected_agent_role=ROLE,
+        )
 
 
 def test_calibration_adapter_import_order_is_process_isolated_and_equivalent():
@@ -175,6 +251,30 @@ print(json.dumps({
         outputs.append(payload)
 
     assert outputs[0] == outputs[1]
+
+
+def test_calibration_core_mutable_hooks_are_not_imported_by_value_in_production():
+    mutable_hooks = {
+        "_path_inventory",
+        "_load_policy",
+        "_validated_campaign",
+        "_profile_records",
+        "_host_home_identity",
+        "parse_args",
+    }
+    offenders: list[str] = []
+    for path in sorted((ROOT / "scripts").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom) or node.module != "calibration_profiles_core":
+                continue
+            bound_hooks = sorted(alias.name for alias in node.names if alias.name in mutable_hooks)
+            if bound_hooks:
+                offenders.append(
+                    f"{path.relative_to(ROOT)}:{node.lineno}: {', '.join(bound_hooks)}"
+                )
+
+    assert offenders == []
 
 
 def test_dev_dependency_closure_is_exactly_pinned_for_ci_replay():

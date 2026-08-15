@@ -16,11 +16,14 @@ from pathlib import Path
 import re
 import stat
 import sys
-from typing import Any, NoReturn
+from typing import Any, Iterator, NoReturn
 from uuid import UUID
 
 
 TARGET_LINE = re.compile(r'"type"\s*:\s*"(?:session_meta|turn_context)"')
+READ_CHUNK_BYTES = 1024 * 1024
+MAX_ROLLOUT_BYTES = 64 * 1024 * 1024
+MAX_ROLLOUT_LINE_BYTES = 4 * 1024 * 1024
 
 
 def fail(message: str) -> NoReturn:
@@ -119,7 +122,7 @@ def find_exact_rollout(sessions_dir: Path, thread_id: str) -> Path:
     return matches[0]
 
 
-def read_stable_rollout_text(path: Path) -> str:
+def iter_stable_rollout_lines(path: Path) -> Iterator[str]:
     try:
         expected = os.lstat(path)
     except OSError as exc:
@@ -140,13 +143,69 @@ def read_stable_rollout_text(path: Path) -> str:
             or (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino)
         ):
             fail("matched rollout identity drifted while opening")
+        if opened.st_size > MAX_ROLLOUT_BYTES:
+            fail(
+                f"matched rollout exceeds maximum rollout size of {MAX_ROLLOUT_BYTES} bytes"
+            )
 
-        raw = bytearray()
+        total_bytes = 0
+        pending = bytearray()
+        read_size = max(
+            1,
+            min(
+                READ_CHUNK_BYTES,
+                MAX_ROLLOUT_BYTES + 1,
+                MAX_ROLLOUT_LINE_BYTES + 1,
+            ),
+        )
+
         while True:
-            chunk = os.read(fd, 1024 * 1024)
+            chunk = os.read(fd, read_size)
             if not chunk:
                 break
-            raw.extend(chunk)
+            total_bytes += len(chunk)
+            if total_bytes > MAX_ROLLOUT_BYTES:
+                fail(
+                    f"matched rollout exceeds maximum rollout size of {MAX_ROLLOUT_BYTES} bytes"
+                )
+            pending.extend(chunk)
+
+            start = 0
+            while True:
+                newline = pending.find(b"\n", start)
+                if newline < 0:
+                    if start:
+                        del pending[:start]
+                    if len(pending) > MAX_ROLLOUT_LINE_BYTES:
+                        fail(
+                            "matched rollout line exceeds maximum rollout line size of "
+                            f"{MAX_ROLLOUT_LINE_BYTES} bytes"
+                        )
+                    break
+
+                end = newline + 1
+                if end - start > MAX_ROLLOUT_LINE_BYTES:
+                    fail(
+                        "matched rollout line exceeds maximum rollout line size of "
+                        f"{MAX_ROLLOUT_LINE_BYTES} bytes"
+                    )
+                raw_line = bytes(pending[start:end])
+                try:
+                    yield raw_line.decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    fail(f"could not decode matched rollout as UTF-8: {exc}")
+                start = end
+
+        if pending:
+            if len(pending) > MAX_ROLLOUT_LINE_BYTES:
+                fail(
+                    "matched rollout line exceeds maximum rollout line size of "
+                    f"{MAX_ROLLOUT_LINE_BYTES} bytes"
+                )
+            try:
+                yield bytes(pending).decode("utf-8")
+            except UnicodeDecodeError as exc:
+                fail(f"could not decode matched rollout as UTF-8: {exc}")
 
         closed = os.fstat(fd)
         try:
@@ -163,10 +222,6 @@ def read_stable_rollout_text(path: Path) -> str:
             or current.st_mtime_ns != closed.st_mtime_ns
         ):
             fail("matched rollout changed while being read")
-        try:
-            return bytes(raw).decode("utf-8")
-        except UnicodeDecodeError as exc:
-            fail(f"could not decode matched rollout as UTF-8: {exc}")
     finally:
         os.close(fd)
 
@@ -208,8 +263,7 @@ def inspect_rollout(
 ) -> dict[str, str | None]:
     session_meta: list[dict[str, Any]] = []
     turn_contexts: list[dict[str, Any]] = []
-    text = read_stable_rollout_text(path)
-    for line_number, line in enumerate(text.splitlines(), start=1):
+    for line_number, line in enumerate(iter_stable_rollout_lines(path), start=1):
         if not TARGET_LINE.search(line):
             continue
         try:
