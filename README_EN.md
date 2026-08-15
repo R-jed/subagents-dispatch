@@ -181,8 +181,10 @@ codex plugin marketplace remove subagents-dispatch
 
 Do not bypass an ownership conflict with `rm`, wildcards, or manual deletion. See [Plugin Installation](docs/plugin-installation.md) for the complete procedure.
 
+## Repository layout
+
 <details>
-<summary><strong>Repository layout</strong></summary>
+<summary><strong>Expand tree</strong></summary>
 
 ```text
 .
