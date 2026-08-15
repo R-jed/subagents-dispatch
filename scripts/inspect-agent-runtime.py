@@ -173,12 +173,21 @@ def validate_stable_rollout(path: Path, fd: int, opened: os.stat_result) -> None
 
 
 def decode_rollout_line(raw: bytearray, line_number: int) -> str:
-    if raw.endswith(b"\r"):
-        del raw[-1]
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         fail(f"could not decode matched rollout as UTF-8 at line {line_number}: {exc}")
+
+
+def next_newline(chunk: bytes, start: int) -> tuple[int, int] | None:
+    lf = chunk.find(b"\n", start)
+    cr = chunk.find(b"\r", start)
+    if lf < 0 and cr < 0:
+        return None
+    if cr >= 0 and (lf < 0 or cr < lf):
+        width = 2 if cr + 1 < len(chunk) and chunk[cr + 1] == 0x0A else 1
+        return cr, width
+    return lf, 1
 
 
 def scan_stable_rollout(
@@ -189,6 +198,7 @@ def scan_stable_rollout(
     pending = bytearray()
     line_number = 0
     scanned = 0
+    skip_leading_lf = False
     try:
         while True:
             chunk = os.read(fd, READ_CHUNK_BYTES)
@@ -199,14 +209,20 @@ def scan_stable_rollout(
                 fail("rollout exceeds maximum scan size")
 
             start = 0
-            while True:
-                newline = chunk.find(b"\n", start)
-                if newline < 0:
+            if skip_leading_lf:
+                if chunk.startswith(b"\n"):
+                    start = 1
+                skip_leading_lf = False
+
+            while start < len(chunk):
+                boundary = next_newline(chunk, start)
+                if boundary is None:
                     pending.extend(chunk[start:])
                     if len(pending) > MAX_LINE_BYTES:
                         fail("rollout line exceeds maximum size")
                     break
 
+                newline, width = boundary
                 segment = chunk[start:newline]
                 if len(pending) + len(segment) > MAX_LINE_BYTES:
                     fail("rollout line exceeds maximum size")
@@ -214,7 +230,9 @@ def scan_stable_rollout(
                 line_number += 1
                 consume_line(line_number, decode_rollout_line(pending, line_number))
                 pending.clear()
-                start = newline + 1
+                if chunk[newline] == 0x0D and newline + 1 == len(chunk):
+                    skip_leading_lf = True
+                start = newline + width
 
         if pending:
             if len(pending) > MAX_LINE_BYTES:
