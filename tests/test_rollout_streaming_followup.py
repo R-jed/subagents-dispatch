@@ -74,6 +74,23 @@ def test_cr_only_rollout_preserves_text_iterator_newline_compatibility(
     assert result["effort"] == "max"
 
 
+def test_crlf_split_across_read_chunks_is_one_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    first = json.dumps(session_meta()).encode("utf-8")
+    second = json.dumps(turn_context()).encode("utf-8")
+    rollout.write_bytes(first + b"\r\n" + second + b"\r\n")
+    monkeypatch.setattr(module, "READ_CHUNK_BYTES", len(first) + 1)
+
+    result = inspect(module, rollout)
+
+    assert result["thread_id"] == THREAD
+    assert result["model"] == "gpt-5.6-luna"
+    assert result["effort"] == "max"
+
+
 def test_turn_context_payloads_are_aggregated_without_accumulating_all_records(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
