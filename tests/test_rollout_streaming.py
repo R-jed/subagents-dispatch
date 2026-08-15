@@ -140,3 +140,18 @@ def test_final_target_record_without_trailing_newline_is_parsed(tmp_path: Path):
 
     assert result["model"] == "gpt-5.6-luna"
     assert result["effort"] == "max"
+
+
+def test_cr_only_newlines_preserve_universal_newline_compatibility(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    lines = [json.dumps(record) for record in rollout_records()]
+    rollout.write_bytes("\r".join(lines).encode("utf-8") + b"\r")
+    monkeypatch.setattr(module, "READ_CHUNK_BYTES", 19)
+
+    result = inspect(module, rollout)
+
+    assert result["thread_id"] == THREAD
+    assert result["model"] == "gpt-5.6-luna"
