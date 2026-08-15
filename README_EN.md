@@ -4,7 +4,7 @@
 
 <h1 align="center">subagents-dispatch</h1>
 
-<p align="center"><em>Let Codex delegate when the split is worth it, while Main keeps control of scope, authority, and the final result.</em></p>
+<p align="center"><em>Give Codex a small team when the job actually deserves one.</em></p>
 
 <p align="center">
   <a href="README.md">中文</a> · <a href="docs/plugin-installation.md">Install</a> · <a href="docs/architecture.md">Architecture</a>
@@ -18,9 +18,52 @@
 
 > **If you are an AI Agent, jump to [README_AI.md](README_AI.md) and follow the instructions strictly.**
 
-subagents-dispatch is an orchestration plugin built on Codex Native Subagents. Main keeps ownership of the user goal, authorized scope, technical integration, and final acceptance. The plugin delegates only responsibilities that are worth isolating, and each child receives only the context it actually needs for that responsibility.
+You give Codex a change that touches an API, tests, docs, and a few call sites. Main starts reading everything, then implementing, then checking its own work, all inside the same context.
 
-Codex remains the only Agent runtime. This project does not add a daemon, task database, event bus, or separate scheduler.
+It can get the job done. The trouble is that reading, investigation, editing, judgment, and review all compete for the same attention.
+
+subagents-dispatch gives Main a temporary team. One child can focus on reading the code. Another can investigate a wider area. Another can take a bounded implementation once the direction is clear. Main decides whether any split is worth it, controls write authority, verifies child findings, and owns the final result.
+
+Sometimes the right team size is zero. `0 child` is a completely valid outcome.
+
+## A quick example
+
+A normal request can be this simple:
+
+```text
+Choose Dispatch
+Add pagination to /api/users, add tests, and check whether frontend callers are affected
+```
+
+One possible split might look like this:
+
+```text
+Main
+├─ Luna Max Read       → map the API, tests, and call chain
+├─ Terra XHigh Research → inspect cross-file impact and hidden dependencies
+├─ Luna Max Execute    → implement and test once the boundary is clear
+└─ Sol High Review     → independently check a higher-impact change
+```
+
+Main takes the evidence back, decides what is trustworthy, and integrates the final change.
+
+Main may also look at the task and do the whole thing itself. Dispatch has no minimum child count, and adding more Agents is never the goal on its own.
+
+## How it works
+
+The basic loop is small:
+
+```text
+1. Decide whether this step is worth isolating
+2. Give each child only the context its responsibility needs
+3. Parallelize independent reading when useful
+4. Keep one active writer in the canonical workspace
+5. Let Main verify, integrate, and own the final result
+```
+
+New project children start with fresh context by default. Main passes the objective, scope, constraints, acceptance conditions, and accepted facts that matter for that responsibility instead of copying the entire conversation.
+
+The point is to reduce repeated discovery and context mixing without creating coordination work for its own sake.
 
 ## Install
 
@@ -33,82 +76,53 @@ Start a new Codex session after installation, then choose **Dispatch** from the 
 
 On the first run that genuinely needs a child, the plugin checks its five managed Agent profiles. If those profiles need to be created, the current task returns `RESTART_REQUIRED`. Start a fresh Codex task/session and choose Dispatch again.
 
-Profile provisioning, Doctor helpers, and Runtime Attestation helpers require an available Python 3.11+ interpreter. See [Plugin Installation](docs/plugin-installation.md) for the complete install, update, and uninstall lifecycle.
+Profile provisioning, Doctor helpers, and Runtime Attestation helpers require Python 3.11+. See [Plugin Installation](docs/plugin-installation.md) for the complete lifecycle.
 
-## What it is for
+## The six Skills you will actually use
 
-Larger development tasks often accumulate code reading, investigation, implementation, technical judgment, and review in the same Main context. As the task grows, repeated discovery, context pressure, and mixed responsibilities become more likely.
-
-subagents-dispatch keeps Main in the technical lead role:
-
-```text
-user task
-  ↓
-Main
-  ├─ decides whether delegation adds value
-  ├─ defines responsibility, authority, and acceptance
-  ├─ opens independent reads or investigations in parallel
-  ├─ keeps one writer in the canonical workspace
-  ├─ verifies and integrates child output
-  └─ owns the final result
-```
-
-There is no minimum child count. Small tasks can stay entirely in Main, and `0 child` is a valid result. Larger tasks create only the children that add value at the current stage.
-
-A normal request can be as simple as:
-
-```text
-Choose Dispatch
-Add pagination to /api/users, with tests
-```
-
-Main first decides which parts of the API, test structure, implementation, and review deserve their own responsibility before spawning anything.
-
-## Six explicit Skills
-
-Installing the plugin does not make it take over normal Codex work. All six entry points are explicit.
-
-| Skill | Purpose |
+| Skill | What it does |
 |---|---|
-| **Dispatch** | start or resume useful orchestration |
-| **Preview** | show likely delegation without spawning or writing active state |
-| **Status** | take one observation of the current orchestration |
-| **Steer** | add guidance to the same unit, attempt, and child |
-| **Takeover** | return responsibility to Main after the old writer is safely settled |
-| **Doctor** | inspect Plugin, Skills, profiles, state, and runtime evidence |
+| **Dispatch** | start or continue an orchestration |
+| **Preview** | see the likely split without creating a child |
+| **Status** | take one look at the current state |
+| **Steer** | add guidance to the same child already doing the work |
+| **Takeover** | safely settle the old writer, then return responsibility to Main |
+| **Doctor** | inspect installation, profiles, state, and runtime evidence |
 
-`Status` performs one observation and does not background poll. `Steer` keeps the same child. `Takeover` does not release conflicting write authority while the old writer is `RUNNING`, `INTERRUPTED`, or `UNKNOWN`.
+`Status` performs one observation and does not background poll. `Steer` keeps the same child. `Takeover` checks that the old writer is safely settled before conflicting write authority can move.
 
-## Dispatch rules
+If you are unsure whether a task is worth splitting, start with **Preview**.
 
-The current production policy has five responsibility roles:
+## How work is routed today
 
-| Role | Current lane | Write authority | Typical responsibility |
-|---|---|---|---|
-| Reader | Luna Max | none | narrow code reading, call tracing, inspectable fact collection |
-| Worker | Luna Max | bounded | implementation and tests after behavior is already decided |
-| Investigator | Terra XHigh | none | broad read-only investigation and cross-file evidence synthesis |
-| Solver | Sol High | bounded | implementation where material technical judgment is inseparable from the edit |
-| Advisor | Sol High | none | technical decision or independent Final Review |
+The current production policy uses five responsibility lanes:
 
-These lanes are the current runtime policy in `contracts/policy.json`. They are not presented as a universally proven optimal model mix.
+| Current model / effort | User-facing activity | Typical use |
+|---|---|---|
+| Luna Max | Read | narrow code reading, call tracing, inspectable fact collection |
+| Luna Max | Execute | bounded implementation and tests after the behavior is clear |
+| Terra XHigh | Research | broad read-only investigation and cross-file evidence synthesis |
+| Sol High | Execute | implementation that still requires material technical judgment |
+| Sol High | Decide / Review | technical decisions or independent Final Review |
 
-A few boundaries stay hard:
+This is the current runtime policy in `contracts/policy.json`. The project does not currently have evidence that this model mix is optimal for every task.
+
+## A few rules stay strict
+
+Delegation can be flexible. These boundaries stay conservative:
 
 * Main owns project-level delegation. Project children do not create more project children.
 * One orchestration keeps one active writer in the canonical workspace.
-* Every responsibility binds to its exact `subagents_dispatch_*` Agent type. Built-in roles, aliases, and model-equivalent profiles are not substitutes.
+* Every responsibility uses the exact `subagents_dispatch_*` Agent type specified by `contracts/policy.json`.
 * `UNKNOWN` stays unknown. It cannot authorize replacement, rerouting, ownership transfer, or conflicting mutation.
 * Child output becomes task truth only after Main verifies and accepts it.
-* Final Review is consequence-driven rather than a fixed extra reviewer on every task.
+* Final Review is driven by the consequence of the change instead of a fixed extra reviewer on every task.
 
-See [Architecture](docs/architecture.md), [Routing](contracts/routing.md), [Guardrails](contracts/guardrails.md), and the [Composition Contract](contracts/composition.md) for the complete contracts.
+See [Architecture](docs/architecture.md), [Routing](contracts/routing.md), [Guardrails](contracts/guardrails.md), and the [Composition Contract](contracts/composition.md) for the complete rules.
 
-## Context, evidence, and runtime facts
+## Configuration is not runtime proof
 
-New project children use fresh context by default. Main sends the objective, scope, constraints, acceptance conditions, and accepted evidence needed for the current responsibility. When later work would otherwise repeat expensive discovery, a compact Handoff Capsule can carry accepted facts, evidence refs, and open questions without copying the full transcript or large source blocks into the next child.
-
-For runtime claims such as model, reasoning effort, and permission, the project keeps four layers separate:
+Model, reasoning effort, and permission facts are tracked in four layers:
 
 ```text
 Configured
@@ -117,9 +131,9 @@ Configured
 → Observed
 ```
 
-Configuration proves configuration intent. Observed fields require actual Host runtime evidence. Doctor's explicit live-route workflow can verify an exact child when that proof matters. Ordinary Dispatch does not scan local Codex rollouts.
+A configuration file proves configuration intent. Only Host runtime evidence can support an Observed claim. Doctor's explicit live-route workflow can check an exact child when that proof matters. Ordinary Dispatch does not scan local Codex rollouts.
 
-A Receipt reports orchestration and review facts independently, for example:
+At the end of a run, a Receipt reports orchestration and review facts independently, for example:
 
 ```text
 Dispatch: Luna Max Read · Luna Max Execute · Sol High Review
@@ -127,29 +141,17 @@ Control: Status×1
 Review: 1 round · passed
 ```
 
-See [Runtime Attestation](docs/runtime-attestation.md), [Handoff Contract](contracts/handoff.md), and [Privacy](PRIVACY.md).
+When later work needs accepted findings from an earlier responsibility, a Handoff Capsule can carry accepted facts, evidence refs, and open questions without moving the full transcript into the next child.
 
-## When to use it
+See [Runtime Attestation](docs/runtime-attestation.md), [Handoff Contract](contracts/handoff.md), and [Privacy](PRIVACY.md) for the details.
 
-Dispatch is a good fit when a task has:
+## When Dispatch is useful
 
-* independent repository areas that can be read in parallel
-* broad read-only investigation that is worth isolating from Main's implementation context
-* a clear evidence-gathering stage before implementation
-* a high-impact change that benefits from independent acceptance
-* several bounded responsibilities with clear dependencies
+Dispatch tends to make sense when repository investigation can run in parallel, a large read-only investigation is worth isolating, implementation needs a clear evidence-gathering stage first, a higher-impact change benefits from independent review, or a long task naturally contains several bounded responsibilities.
 
-Main is usually simpler when:
+Main is usually simpler for a small local task, strongly serial work, or a task where the relevant context is already in hand. It should also stay conservative when the user's authority boundary is unclear or a required Host capability is still `UNKNOWN`.
 
-* the task is small and local, with the relevant context already present
-* the work is strongly serial and each step depends on the previous result
-* the user's authority boundary is still unclear
-* correctness depends on a Host control capability that is currently `UNKNOWN`
-* the only reason to split the work is to make the run look multi-Agent
-
-Choose **Preview** first when you want to inspect the likely plan without executing it.
-
-## Performance claims
+## About performance
 
 The repository includes an experiment protocol, campaign schema, and validator for comparing single-agent Codex with explicit Dispatch across correctness, safety, rework, wall-clock time, Main and child tokens, aggregate tokens, context pressure, and Host route evidence.
 
@@ -179,7 +181,8 @@ codex plugin marketplace remove subagents-dispatch
 
 Do not bypass an ownership conflict with `rm`, wildcards, or manual deletion. See [Plugin Installation](docs/plugin-installation.md) for the complete procedure.
 
-## Repository layout
+<details>
+<summary><strong>Repository layout</strong></summary>
 
 ```text
 .
@@ -199,6 +202,8 @@ Do not bypass an ownership conflict with `rm`, wildcards, or manual deletion. Se
 ├── evals/                            # behavioral and experiment fixtures
 └── tests/                            # regression and adversarial tests
 ```
+
+</details>
 
 Main docs:
 
