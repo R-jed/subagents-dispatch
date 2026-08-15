@@ -16,7 +16,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
 
-> AI Agent 请先阅读 [README_AI.md](README_AI.md)。
+> **如果你是 AI Agent，请跳转到 [README_AI.md](README_AI.md) 并严格按照说明操作。**
 
 subagents-dispatch 是一个基于 Codex Native Subagents 的调度插件。Main 继续负责用户目标、授权范围、技术整合和最终验收。插件只把值得独立处理的职责交给专门的 Subagent，并尽量让每个 child 只拿到完成当前职责真正需要的上下文。
 
@@ -39,7 +39,7 @@ Profile provisioning、Doctor helpers 和 Runtime Attestation helpers 需要可�
 
 复杂开发任务经常把读代码、调查、实现、技术判断和复核全部堆进 Main 的同一段上下文。任务越长，重复发现、上下文污染和职责混杂越容易出现。
 
-subagents-dispatch 把 Main 变成技术负责人：
+subagents-dispatch 把 Main 放在技术负责人的位置：
 
 ```text
 用户任务
@@ -53,7 +53,7 @@ Main
   └─ 对最终结果负责
 ```
 
-委派没有最低数量。小任务可以由 Main 直接完成，复杂任务也只创建当前阶段真正有价值的 children。
+委派没有最低数量。小任务可以由 Main 直接完成，`0 child` 是完全有效的结果。复杂任务也只创建当前阶段真正有价值的 children。
 
 一个典型请求可以直接写成：
 
@@ -81,15 +81,15 @@ Main 会先判断现有接口、测试结构、实现和复核中哪些职责值
 
 ## 调度规则
 
-当前 production policy 有五个职责角色：
+当前 production policy 使用五条职责通道：
 
-| Role | 当前 lane | 写权限 | 典型职责 |
-|---|---|---|---|
-| Reader | Luna Max | 无 | 窄范围读代码、追调用链、收集可核对事实 |
-| Worker | Luna Max | 有界 | 做法已明确后的实现和测试 |
-| Investigator | Terra XHigh | 无 | 大范围只读调查和跨文件证据整理 |
-| Solver | Sol High | 有界 | 实现与实质技术判断无法拆开的工作 |
-| Advisor | Sol High | 无 | 技术决策或独立 Final Review |
+| 当前模型 / 思考强度 | 对外活动 | 典型职责 |
+|---|---|---|
+| Luna Max | 读取 | 窄范围读代码、追调用链、收集可核对事实 |
+| Luna Max | 执行 | 做法已明确后的有界实现和测试 |
+| Terra XHigh | 调研 | 大范围只读调查和跨文件证据整理 |
+| Sol High | 执行 | 实现与实质技术判断无法拆开的工作 |
+| Sol High | 决策 / 验收 | 技术决策或独立 Final Review |
 
 这些 lane 是当前 `contracts/policy.json` 的运行策略，不代表已经证明为所有任务的最优组合。
 
@@ -97,12 +97,12 @@ Main 会先判断现有接口、测试结构、实现和复核中哪些职责值
 
 * Main 负责项目级委派，project child 不继续创建 project children。
 * 同一次编排的 canonical workspace 保持一个 active writer。
-* 每个职责精确绑定自己的 `subagents_dispatch_*` Agent type，其他 built-in role、alias 或 model-equivalent profile 不能替代。
+* 每个职责精确绑定 `contracts/policy.json` 指定的 `subagents_dispatch_*` Agent type，其他 built-in role、alias 或 model-equivalent profile 不能替代。
 * `UNKNOWN` 保持未知。它不能自动授权 replacement、reroute、ownership transfer 或冲突写入。
 * child 输出需要经过 Main 接受和整合，最终完成状态仍由 Main 判断。
 * Final Review 按变更后果触发，不为了形式固定增加一个 reviewer。
 
-详细规则见 [Architecture](docs/architecture.md)、[Routing](contracts/routing.md) 和 [Guardrails](contracts/guardrails.md)。
+详细规则见 [Architecture](docs/architecture.md)、[Routing](contracts/routing.md)、[Guardrails](contracts/guardrails.md) 和 [Composition Contract](contracts/composition.md)。
 
 ## 上下文、证据和运行时事实
 
@@ -118,6 +118,14 @@ Configured
 ```
 
 配置文件只能证明配置意图。Observed 需要 Host 真正暴露的运行时证据。Doctor 的显式 live-route 流程可以在需要时核对 exact child；普通 Dispatch 不扫描本地 Codex rollouts。
+
+Receipt 只汇报编排和验收事实，例如：
+
+```text
+编排: Luna Max 读取 · Luna Max 执行 · Sol High 验收
+控制: Status×1
+验收: 1轮 · 通过
+```
 
 更多细节见 [Runtime Attestation](docs/runtime-attestation.md)、[Handoff Contract](contracts/handoff.md) 和 [Privacy](PRIVACY.md)。
 
@@ -143,9 +151,9 @@ Dispatch 比较适合这些任务：
 
 ## 性能结论
 
-项目包含 single-agent Codex 与 explicit Dispatch 的实验协议、campaign schema 和 validator，用于比较正确性、安全、返工、wall-clock、Main/child token、总 token、上下文压力和 Host route evidence。
+项目包含 single-agent Codex 与 explicit Dispatch 的实验协议、campaign schema 和 validator，用于比较正确性、安全、返工、wall-clock、Main / child token、总 token、上下文压力和 Host route evidence。
 
-目前 README 不声称 Dispatch 已被证明更快、更省总 Token，也不声称当前五个 model/effort routes 已被证明最优。正式结论需要来自可重复的真实任务实验。
+**在重复真实任务数据完成前，本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token，或者当前五个 model / effort 是最优配置。**
 
 方法见 [Experiment Protocol](docs/experiment-protocol.md) 和 [Evaluations](evals/README.md)。
 
@@ -160,7 +168,7 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 更新后启动新的 Codex session。
 
-如果已经 provision 过 managed Agent profiles，卸载时先保持 Plugin 已安装，通过 **Doctor** 显式卸载 subagents-dispatch 管理的 profiles。Doctor 会校验 ownership manifest 和文件 SHA-256，只删除能够证明属于本插件的配置。
+如果已经创建过 managed Agent profiles，请先保持插件已安装，选择 **Doctor** 并明确要求卸载 subagents-dispatch 的 managed profiles。Doctor 会校验 ownership manifest 和文件 SHA-256，只删除能够证明属于本插件的配置。
 
 然后移除 Plugin 和 Marketplace：
 
@@ -171,24 +179,30 @@ codex plugin marketplace remove subagents-dispatch
 
 遇到 ownership 冲突时不要用 `rm`、通配符或手工删除绕过检查。完整流程见 [Plugin Installation](docs/plugin-installation.md)。
 
-## Repository
+## 项目结构
 
 ```text
 .
-├── .agents/plugins/      # Marketplace registration
-├── .codex-plugin/        # Plugin manifest
-├── agent-profiles/       # five managed Agent profiles
-├── contracts/            # routing, state, safety and evidence contracts
-├── skills/               # Dispatch, Preview, Status, Steer, Takeover, Doctor
-├── scripts/              # provisioning, validation and runtime helpers
-├── docs/                 # architecture, runtime, experiment and release docs
-├── evals/                # behavioral and experiment fixtures
-└── tests/                # regression and adversarial tests
+├── .agents/plugins/                  # Marketplace registration
+├── .codex-plugin/                    # Plugin manifest
+├── agent-profiles/                   # five managed Agent profiles
+├── contracts/                        # routing, state, safety and evidence contracts
+├── scripts/                          # provisioning, validation and runtime helpers
+├── skills/
+│   ├── dispatch/                     # start or resume orchestration
+│   ├── preview/                      # predict without execution
+│   ├── status/                       # one-shot status observation
+│   ├── steer/                        # guide an existing delegation
+│   ├── takeover/                     # safely return responsibility to Main
+│   └── doctor/                       # installation and runtime diagnostics
+├── docs/                             # architecture, runtime, experiment and release docs
+├── evals/                            # behavioral and experiment fixtures
+└── tests/                            # regression and adversarial tests
 ```
 
 主要文档：
 
-[安装](docs/plugin-installation.md) · [架构](docs/architecture.md) · [Native Subagent Runtime](docs/native-subagent-runtime.md) · [Runtime Attestation](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Composition](contracts/composition.md) · [CHANGELOG](CHANGELOG.md) · [Privacy](PRIVACY.md)
+[安装](docs/plugin-installation.md) · [架构](docs/architecture.md) · [Native Subagent Runtime](docs/native-subagent-runtime.md) · [Runtime Attestation](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Composition Contract](contracts/composition.md) · [CHANGELOG](CHANGELOG.md) · [Privacy](PRIVACY.md)
 
 ## License
 
