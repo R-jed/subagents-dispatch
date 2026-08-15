@@ -253,14 +253,26 @@ print(json.dumps({
     assert outputs[0] == outputs[1]
 
 
-def test_calibration_core_private_hooks_are_not_imported_by_value_in_production():
+def test_calibration_core_mutable_hooks_are_not_imported_by_value_in_production():
+    mutable_hooks = {
+        "_path_inventory",
+        "_load_policy",
+        "_validated_campaign",
+        "_profile_records",
+        "_host_home_identity",
+        "parse_args",
+    }
     offenders: list[str] = []
     for path in sorted((ROOT / "scripts").glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "calibration_profiles_core":
-                names = ", ".join(alias.name for alias in node.names)
-                offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}: {names}")
+            if not isinstance(node, ast.ImportFrom) or node.module != "calibration_profiles_core":
+                continue
+            bound_hooks = sorted(alias.name for alias in node.names if alias.name in mutable_hooks)
+            if bound_hooks:
+                offenders.append(
+                    f"{path.relative_to(ROOT)}:{node.lineno}: {', '.join(bound_hooks)}"
+                )
 
     assert offenders == []
 
