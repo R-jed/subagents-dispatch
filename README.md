@@ -181,8 +181,10 @@ codex plugin marketplace remove subagents-dispatch
 
 遇到 ownership 冲突时不要用 `rm`、通配符或手工删除绕过检查。完整流程见 [Plugin Installation](docs/plugin-installation.md)。
 
+## 项目结构
+
 <details>
-<summary><strong>项目结构</strong></summary>
+<summary><strong>展开目录</strong></summary>
 
 ```text
 .
