@@ -2,18 +2,33 @@
 
 本文件记录 subagents-dispatch 的重要变更。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
-## [3.0.0] - 2026-08-12
+## [3.0.0] - 2026-08-15
 
 ### Added
 
-- **声明敏感的运行保证**：运行证据、Doctor 与 Experiment Plane 分别报告 Runtime Route、Effective Permission State 和 Permission Provenance；每个实验 campaign 明确声明当前结论需要哪些保证维度
-- **权限来源证据绑定**：来源身份、来源权限和选择证据只能从对应的 Host `native` / `local` 证据层进入；配置值、分离对象和相同权限值不能生成来源证明
+- **六个显式 Skill 入口**：`Dispatch`、`Preview`、`Status`、`Steer`、`Takeover`、`Doctor` 作为独立、可区分的 Plugin Skills；全部关闭 implicit invocation
+- **五条生产 Agent 路由**：Reader、Worker、Solver、Investigator、Advisor 分别绑定唯一的 `subagents_dispatch_*` custom `agent_type`，新 project child 使用 fresh context，Main 保留项目级编排 authority
+- **运行中控制面**：Preview 只预测不执行；Status 单次观察；Steer 保持同一职责、attempt 与 child；Takeover 在旧 writer 安全 settlement 后才把职责交回 Main
+- **八层 Doctor 诊断**：分别报告 Plugin、Skills、Managed Agent profiles、Dispatch state、Codex Host、Runtime route、Effective permission state、Permission-source provenance；静态 Doctor 不 spawn child
+- **声明敏感的 Runtime Attestation**：Configured、Requested、Accepted、Observed 分层；public Host metadata 优先，必要时只读检查 exact child rollout，并把 Runtime Route、Effective Permission State、Permission Provenance 分开判定
+- **Experiment Plane**：保留 role calibration 与 single-agent-versus-Dispatch 实验协议、campaign/run provenance 和离线评分工具，作为开发研究能力而非普通用户运行路径
 
 ### Changed
 
-- **权限来源策略**：`selected_environment` 与 `parent_turn` 仅保留为候选来源词汇，不再被描述为项目已观察到的 Host precedence
-- **发布门与校准门**：已观察的实际 sandbox/profile 不再因来源 provenance 不可见而丢失；只有依赖来源或选择结论的声明才要求 provenance。所有只读、单写入者、takeover 与冲突关闭边界保持不变
-- **发行身份**：Plugin 版本与 Marketplace source ref 同步迁移到 `3.0.0`；本次不创建 `v3.0.0` tag
+- **原生运行架构**：Codex Native Subagents 继续作为唯一 Agent runtime；项目不新增 daemon、scheduler、event bus、routing proxy、后台 telemetry collector 或第二套 Host lifecycle
+- **价值驱动委派**：不设最低 child 数；简单任务允许 `0 child`，并行和更强模型通道只有在职责隔离确实增加价值时才使用
+- **首次使用 provisioning**：当显式 Dispatch 真正需要委派且五个 managed profiles 干净缺失时，只自动创建插件自有 profiles、ownership manifest 与 installer lock；当前 stale task 返回 `RESTART_REQUIRED`，fresh task 后再 spawn
+- **精确角色绑定**：每次 project-child spawn 前都从 `contracts/policy.json` 解析唯一 production `agent_type`；built-in role、legacy alias、其他插件 custom Agent、记忆中的 role 名和 model-equivalent profile 都不能作为替代
+- **单写入者与失败关闭**：同一 canonical workspace 保持一个 active writer；`UNKNOWN`、`INTERRUPTED`、身份不确定或 ownership 不可证明时不自动替换、不冲突写入、不扩大 authority
+- **权限来源策略**：`selected_environment` 与 `parent_turn` 仅作为候选来源词汇；实际 sandbox/profile 可以独立验证，来源身份和 Host 选择 provenance 只有在对应 Host 证据存在时才成立
+- **安装、更新与卸载生命周期**：managed profiles 由确定性 installer 与 ownership manifest 管理；卸载先在 Plugin 仍安装时运行 ownership-aware helper，modified、unowned、symlinked 或冲突状态一律 fail closed，之后才移除 Plugin / Marketplace
+- **发布与声明边界**：Marketplace source 固定到不可变 `v3.0.0` release ref；role calibration、formal benchmark 和 Product Canary 不作为 3.0.0 硬门，除非公开声明明确依赖它们。3.0.0 不声称已证明更快、更省总 Token，或当前 model / effort 组合是最优配置
+
+### Fixed
+
+- **MultiAgent V2 Takeover settlement**：当 native stop 只能把写入 child 置为 `INTERRUPTED` 时，Main 保持只读，并允许同一 child 做一次 bounded settlement-only resume；只有 exact child 被证明 terminal / non-active 后才转移 writer ownership，不创建 replacement、retry、reroute 或新的工作 pass
+- **跨插件 role substitution**：Dispatch 不再把 Host 中名称或用途相似的 unrelated custom Agent 当成生产角色；exact `subagents_dispatch_*` role 不可用时直接走 readiness / fail-closed 路径
+- **运行证据归因**：配置值、Host acceptance、child 自报、相同 permission 值和分离的来源对象都不能被升级成 Observed runtime 或 permission provenance
 
 ## [2.1.2] - 2026-08-09
 
