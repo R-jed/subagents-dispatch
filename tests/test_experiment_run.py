@@ -706,24 +706,32 @@ def test_evidence_source_none_cannot_carry_observed_route_values(tmp_path: Path)
         validate(tmp_path, campaign, run)
 
 
-def test_observed_route_mismatch_cannot_be_marked_verified(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("target_path", "value", "message"),
+    [
+        (("observed", "model"), "gpt-5.6-sol", "mismatch requires verdict=failed"),
+        (
+            ("permission_provenance", "sandbox_policy_type"),
+            "read-only",
+            "permission provenance verdict must be 'failed'",
+        ),
+    ],
+    ids=["route-model", "permission-provenance-sandbox"],
+)
+def test_verified_child_route_rejects_observed_mismatch(
+    tmp_path: Path, target_path: tuple[str, ...], value: str, message: str
+):
     campaign = product_campaign()
     run = base_run(campaign, mode="dispatch")
     route = child_route()
-    route["observed"]["model"] = "gpt-5.6-sol"
+    target = route
+    for key in target_path[:-1]:
+        target = target[key]
+    target[target_path[-1]] = value
     add_one_child(run, route)
-    with pytest.raises(SystemExit, match="mismatch requires verdict=failed"):
+    with pytest.raises(SystemExit, match=message):
         validate(tmp_path, campaign, run)
 
-
-def test_permission_provenance_mismatch_cannot_be_marked_verified(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    route = child_route()
-    route["permission_provenance"]["sandbox_policy_type"] = "read-only"
-    add_one_child(run, route)
-    with pytest.raises(SystemExit, match="permission provenance verdict must be 'failed'"):
-        validate(tmp_path, campaign, run)
 
 
 def test_unknown_permission_provenance_does_not_erase_verified_route_or_state(tmp_path: Path):

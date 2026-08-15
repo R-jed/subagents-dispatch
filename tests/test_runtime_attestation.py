@@ -351,62 +351,37 @@ def test_expected_parent_and_role_bind_the_observation(tmp_path: Path):
     assert "agent_role does not match" in wrong_role.stderr
 
 
-def test_model_drift_across_turns_is_rejected(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("field", "first_value", "second_value"),
+    [
+        ("model", "gpt-5.6-luna", "gpt-5.6-terra"),
+        ("effort", "high", "max"),
+    ],
+    ids=["model", "effort"],
+)
+def test_route_drift_across_turns_is_rejected(
+    tmp_path: Path, field: str, first_value: str, second_value: str
+):
     sessions = tmp_path / "sessions"
+    first = {
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "sandbox_policy": {"type": "workspace-write"},
+        "permission_profile": {"type": "default"},
+    }
+    second = dict(first)
+    first[field] = first_value
+    second[field] = second_value
     turns = [
-        {
-            "type": "turn_context",
-            "payload": {
-                "model": "gpt-5.6-luna",
-                "effort": "max",
-                "sandbox_policy": {"type": "workspace-write"},
-                "permission_profile": {"type": "default"},
-            },
-        },
-        {
-            "type": "turn_context",
-            "payload": {
-                "model": "gpt-5.6-terra",
-                "effort": "max",
-                "sandbox_policy": {"type": "workspace-write"},
-                "permission_profile": {"type": "default"},
-            },
-        },
+        {"type": "turn_context", "payload": first},
+        {"type": "turn_context", "payload": second},
     ]
     write_rollout(sessions, turns=turns)
 
     result = run_inspector(sessions)
     assert result.returncode != 0
-    assert "conflicting model values" in result.stderr
+    assert f"conflicting {field} values" in result.stderr
 
-
-def test_effort_drift_across_turns_is_rejected(tmp_path: Path):
-    sessions = tmp_path / "sessions"
-    turns = [
-        {
-            "type": "turn_context",
-            "payload": {
-                "model": "gpt-5.6-luna",
-                "effort": "high",
-                "sandbox_policy": {"type": "workspace-write"},
-                "permission_profile": {"type": "default"},
-            },
-        },
-        {
-            "type": "turn_context",
-            "payload": {
-                "model": "gpt-5.6-luna",
-                "effort": "max",
-                "sandbox_policy": {"type": "workspace-write"},
-                "permission_profile": {"type": "default"},
-            },
-        },
-    ]
-    write_rollout(sessions, turns=turns)
-
-    result = run_inspector(sessions)
-    assert result.returncode != 0
-    assert "conflicting effort values" in result.stderr
 
 
 def test_missing_field_in_any_turn_stays_unobserved_instead_of_being_inferred(tmp_path: Path):

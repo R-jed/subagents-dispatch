@@ -7,6 +7,8 @@ import subprocess
 import sys
 import tomllib
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = ROOT / "scripts" / "validate-experiment-campaign.py"
 POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
@@ -331,20 +333,23 @@ def test_placeholder_task_text_cannot_be_frozen_even_with_matching_hash(tmp_path
     assert "task_text must be a concrete non-placeholder value" in result.stderr
 
 
-def test_unresolved_control_fingerprints_cannot_be_frozen(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("tool_surface_fingerprint", "TBD", "unresolved tool_surface_fingerprint"),
+        ("permissions_fingerprint", "   ", "unresolved permissions_fingerprint"),
+    ],
+    ids=["tool-surface-placeholder", "permissions-whitespace"],
+)
+def test_unresolved_control_fingerprints_cannot_be_frozen(
+    tmp_path: Path, field: str, value: str, message: str
+):
     payload = role_campaign()
-    payload["workloads"][0]["controls"]["tool_surface_fingerprint"] = "TBD"
+    payload["workloads"][0]["controls"][field] = value
     result = run_validator(tmp_path, payload)
     assert result.returncode != 0
-    assert "unresolved tool_surface_fingerprint" in result.stderr
+    assert message in result.stderr
 
-
-def test_whitespace_control_fingerprints_cannot_be_frozen(tmp_path: Path):
-    payload = role_campaign()
-    payload["workloads"][0]["controls"]["permissions_fingerprint"] = "   "
-    result = run_validator(tmp_path, payload)
-    assert result.returncode != 0
-    assert "unresolved permissions_fingerprint" in result.stderr
 
 
 def test_campaign_candidate_must_equal_current_head(tmp_path: Path):
@@ -374,8 +379,9 @@ def test_duplicate_route_shape_is_rejected(tmp_path: Path):
     assert "must be exactly Terra XHigh" in result.stderr
 
 
-def test_reader_calibration_rejects_contract_identity_and_configured_route_drift(tmp_path: Path):
-    cases = [
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
         ("role_contract_digest", "0" * 64, "role_contract_digest does not match"),
         (
             "materialized_agent_type",
@@ -384,13 +390,18 @@ def test_reader_calibration_rejects_contract_identity_and_configured_route_drift
         ),
         ("configured_model", "gpt-5.6-sol", "configured route must match model/effort"),
         ("configured_effort", "low", "configured route must match model/effort"),
-    ]
-    for field, value, message in cases:
-        payload = role_campaign()
-        payload["experiment"]["roles"][0]["challengers"][0][field] = value
-        result = run_validator(tmp_path, payload)
-        assert result.returncode != 0
-        assert message in result.stderr
+    ],
+    ids=["contract-digest", "materialized-agent-type", "configured-model", "configured-effort"],
+)
+def test_reader_calibration_rejects_contract_identity_and_configured_route_drift(
+    tmp_path: Path, field: str, value: str, message: str
+):
+    payload = role_campaign()
+    payload["experiment"]["roles"][0]["challengers"][0][field] = value
+    result = run_validator(tmp_path, payload)
+    assert result.returncode != 0
+    assert message in result.stderr
+
 
 
 def test_reader_calibration_rejects_duplicate_materialized_identity(tmp_path: Path):
