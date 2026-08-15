@@ -97,7 +97,7 @@ def test_rollout_total_scan_limit_fails_closed(tmp_path: Path, monkeypatch: pyte
     module = load_inspector()
     rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
     write_rollout(rollout, trailing_lines=["padding" * 64])
-    monkeypatch.setattr(module, "MAX_ROLLOUT_BYTES", rollout.stat().st_size - 1, raising=False)
+    monkeypatch.setattr(module, "MAX_ROLLOUT_BYTES", rollout.stat().st_size - 1)
 
     with pytest.raises(SystemExit, match="rollout exceeds maximum scan size"):
         inspect(module, rollout)
@@ -110,7 +110,33 @@ def test_rollout_line_limit_fails_closed(tmp_path: Path, monkeypatch: pytest.Mon
     target_max = max(len(line.encode("utf-8")) for line in target_lines)
     limit = target_max + 32
     write_rollout(rollout, trailing_lines=["z" * (limit + 1)])
-    monkeypatch.setattr(module, "MAX_LINE_BYTES", limit, raising=False)
+    monkeypatch.setattr(module, "MAX_LINE_BYTES", limit)
 
     with pytest.raises(SystemExit, match="rollout line exceeds maximum size"):
         inspect(module, rollout)
+
+
+def test_target_records_can_span_many_read_chunks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+    monkeypatch.setattr(module, "READ_CHUNK_BYTES", 17)
+
+    result = inspect(module, rollout)
+
+    assert result["thread_id"] == THREAD
+    assert result["agent_role"] == ROLE
+    assert result["model"] == "gpt-5.6-luna"
+    assert result["effort"] == "max"
+
+
+def test_final_target_record_without_trailing_newline_is_parsed(tmp_path: Path):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    lines = [json.dumps(record) for record in rollout_records()]
+    rollout.write_text("\n".join(lines), encoding="utf-8")
+
+    result = inspect(module, rollout)
+
+    assert result["model"] == "gpt-5.6-luna"
+    assert result["effort"] == "max"
