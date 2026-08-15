@@ -22,6 +22,7 @@ from uuid import UUID
 
 
 TARGET_LINE = re.compile(r'"type"\s*:\s*"(?:session_meta|turn_context)"')
+NEWLINE_BOUNDARY = re.compile(br"\r\n|\r|\n")
 READ_CHUNK_BYTES = 64 * 1024
 MAX_LINE_BYTES = 8 * 1024 * 1024
 MAX_ROLLOUT_BYTES = 128 * 1024 * 1024
@@ -180,14 +181,10 @@ def decode_rollout_line(raw: bytearray, line_number: int) -> str:
 
 
 def next_newline(chunk: bytes, start: int) -> tuple[int, int] | None:
-    lf = chunk.find(b"\n", start)
-    cr = chunk.find(b"\r", start)
-    if lf < 0 and cr < 0:
+    match = NEWLINE_BOUNDARY.search(chunk, start)
+    if match is None:
         return None
-    if cr >= 0 and (lf < 0 or cr < lf):
-        width = 2 if cr + 1 < len(chunk) and chunk[cr + 1] == 0x0A else 1
-        return cr, width
-    return lf, 1
+    return match.start(), match.end() - match.start()
 
 
 def scan_stable_rollout(
