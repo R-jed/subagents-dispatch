@@ -78,7 +78,7 @@ def test_work_section_63_adversarial_cases_are_registered_once():
     assert len(ids) == len(set(ids))
 
 
-def test_ci_and_release_docs_keep_host_app_evidence_pending_and_local_gates_deterministic():
+def test_ci_and_release_docs_keep_host_app_evidence_external_and_local_gates_deterministic():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     release = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
     assert "OPENAI_CODEX_PLUGIN_VALIDATOR_REF" in workflow
@@ -96,7 +96,9 @@ def test_ci_and_release_docs_keep_host_app_evidence_pending_and_local_gates_dete
     assert "A green branch run does not replace the pull-request merge-result run" not in release
     ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     assert "App labels require direct human observation" in ai_reference
-    assert "Host route/control evidence remains pending" in ai_reference
+    assert "Host route/control claims require raw Host/rollout evidence from the exact candidate under validation" in ai_reference
+    assert "Evidence status belongs to the release validation record, not this reference file" in ai_reference
+    assert "never treat repository text or model self-report as proof that a Host/UI gate passed" in ai_reference
     assert "short-lived feature branch" in ai_reference
 
 
