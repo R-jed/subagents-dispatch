@@ -21,6 +21,7 @@ from uuid import UUID
 
 
 TARGET_LINE = re.compile(r'"type"\s*:\s*"(?:session_meta|turn_context)"')
+NEWLINE_BOUNDARY = re.compile(br"\r\n|\r|\n")
 READ_CHUNK_BYTES = 1024 * 1024
 MAX_ROLLOUT_BYTES = 64 * 1024 * 1024
 MAX_ROLLOUT_LINE_BYTES = 4 * 1024 * 1024
@@ -122,6 +123,39 @@ def find_exact_rollout(sessions_dir: Path, thread_id: str) -> Path:
     return matches[0]
 
 
+def _decode_rollout_line(raw_line: bytes) -> str:
+    try:
+        return raw_line.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        fail(f"could not decode matched rollout as UTF-8: {exc}")
+
+
+def _drain_complete_lines(pending: bytearray, *, eof: bool) -> Iterator[str]:
+    start = 0
+    while True:
+        match = NEWLINE_BOUNDARY.search(pending, start)
+        if match is None:
+            break
+        if not eof and match.group() == b"\r" and match.end() == len(pending):
+            break
+        end = match.end()
+        if end - start > MAX_ROLLOUT_LINE_BYTES:
+            fail(
+                "matched rollout line exceeds maximum rollout line size of "
+                f"{MAX_ROLLOUT_LINE_BYTES} bytes"
+            )
+        yield _decode_rollout_line(bytes(pending[start:end]))
+        start = end
+
+    if start:
+        del pending[:start]
+    if len(pending) > MAX_ROLLOUT_LINE_BYTES:
+        fail(
+            "matched rollout line exceeds maximum rollout line size of "
+            f"{MAX_ROLLOUT_LINE_BYTES} bytes"
+        )
+
+
 def iter_stable_rollout_lines(path: Path) -> Iterator[str]:
     try:
         expected = os.lstat(path)
@@ -169,43 +203,12 @@ def iter_stable_rollout_lines(path: Path) -> Iterator[str]:
                     f"matched rollout exceeds maximum rollout size of {MAX_ROLLOUT_BYTES} bytes"
                 )
             pending.extend(chunk)
+            yield from _drain_complete_lines(pending, eof=False)
 
-            start = 0
-            while True:
-                newline = pending.find(b"\n", start)
-                if newline < 0:
-                    if start:
-                        del pending[:start]
-                    if len(pending) > MAX_ROLLOUT_LINE_BYTES:
-                        fail(
-                            "matched rollout line exceeds maximum rollout line size of "
-                            f"{MAX_ROLLOUT_LINE_BYTES} bytes"
-                        )
-                    break
-
-                end = newline + 1
-                if end - start > MAX_ROLLOUT_LINE_BYTES:
-                    fail(
-                        "matched rollout line exceeds maximum rollout line size of "
-                        f"{MAX_ROLLOUT_LINE_BYTES} bytes"
-                    )
-                raw_line = bytes(pending[start:end])
-                try:
-                    yield raw_line.decode("utf-8")
-                except UnicodeDecodeError as exc:
-                    fail(f"could not decode matched rollout as UTF-8: {exc}")
-                start = end
-
+        yield from _drain_complete_lines(pending, eof=True)
         if pending:
-            if len(pending) > MAX_ROLLOUT_LINE_BYTES:
-                fail(
-                    "matched rollout line exceeds maximum rollout line size of "
-                    f"{MAX_ROLLOUT_LINE_BYTES} bytes"
-                )
-            try:
-                yield bytes(pending).decode("utf-8")
-            except UnicodeDecodeError as exc:
-                fail(f"could not decode matched rollout as UTF-8: {exc}")
+            yield _decode_rollout_line(bytes(pending))
+            pending.clear()
 
         closed = os.fstat(fd)
         try:
@@ -245,13 +248,30 @@ def nested_type(value: Any) -> str | None:
     return None
 
 
-def stable_field(values: list[str | None], label: str) -> str | None:
-    non_null = [value for value in values if value is not None]
-    if len(set(non_null)) > 1:
+def observe_stable_field(
+    state: dict[str, tuple[str | None, bool, bool]],
+    key: str,
+    value: str | None,
+) -> None:
+    current, complete, conflict = state[key]
+    if value is None:
+        complete = False
+    elif current is None:
+        current = value
+    elif current != value:
+        conflict = True
+    state[key] = (current, complete, conflict)
+
+
+def resolved_stable_field(
+    state: dict[str, tuple[str | None, bool, bool]],
+    key: str,
+    label: str,
+) -> str | None:
+    value, complete, conflict = state[key]
+    if conflict:
         fail(f"conflicting {label} values across turn_context records")
-    if not values or len(non_null) != len(values):
-        return None
-    return non_null[0] if non_null else None
+    return value if complete else None
 
 
 def inspect_rollout(
@@ -261,8 +281,17 @@ def inspect_rollout(
     expected_parent_thread_id: str | None,
     expected_agent_role: str | None,
 ) -> dict[str, str | None]:
-    session_meta: list[dict[str, Any]] = []
-    turn_contexts: list[dict[str, Any]] = []
+    session_meta_count = 0
+    session: dict[str, Any] | None = None
+    turn_count = 0
+    stable: dict[str, tuple[str | None, bool, bool]] = {
+        "model": (None, True, False),
+        "effort": (None, True, False),
+        "cwd": (None, True, False),
+        "sandbox": (None, True, False),
+        "permission": (None, True, False),
+    }
+
     for line_number, line in enumerate(iter_stable_rollout_lines(path), start=1):
         if not TARGET_LINE.search(line):
             continue
@@ -274,16 +303,28 @@ def inspect_rollout(
             fail(f"target rollout record at line {line_number} is not an object")
         record_type = record.get("type")
         if record_type == "session_meta":
-            session_meta.append(payload_object(record, line_number))
+            payload = payload_object(record, line_number)
+            session_meta_count += 1
+            if session is None:
+                session = payload
         elif record_type == "turn_context":
-            turn_contexts.append(payload_object(record, line_number))
+            payload = payload_object(record, line_number)
+            turn_count += 1
+            observe_stable_field(stable, "model", optional_text(payload.get("model")))
+            observe_stable_field(stable, "effort", optional_text(payload.get("effort")))
+            observe_stable_field(stable, "cwd", optional_text(payload.get("cwd")))
+            observe_stable_field(stable, "sandbox", nested_type(payload.get("sandbox_policy")))
+            observe_stable_field(
+                stable,
+                "permission",
+                nested_type(payload.get("permission_profile")),
+            )
 
-    if len(session_meta) != 1:
+    if session_meta_count != 1 or session is None:
         fail("rollout must contain exactly one session_meta record")
-    if not turn_contexts:
+    if turn_count == 0:
         fail("rollout contains no turn_context records")
 
-    session = session_meta[0]
     observed_thread = optional_text(session.get("id"))
     if observed_thread is None:
         fail("session_meta does not expose thread id")
@@ -308,25 +349,19 @@ def inspect_rollout(
     if expected_agent_role is not None and agent_role != expected_agent_role:
         fail("session_meta agent_role does not match the expected managed role")
 
-    models = [optional_text(item.get("model")) for item in turn_contexts]
-    efforts = [optional_text(item.get("effort")) for item in turn_contexts]
-    cwd_values = [optional_text(item.get("cwd")) for item in turn_contexts]
-    sandboxes = [nested_type(item.get("sandbox_policy")) for item in turn_contexts]
-    permission_profiles = [nested_type(item.get("permission_profile")) for item in turn_contexts]
-
     result: dict[str, str | None] = {
         "thread_id": thread_id,
         "parent_thread_id": parent,
         "agent_role": agent_role,
         "agent_path": optional_text(session.get("agent_path")),
         "model_provider": optional_text(session.get("model_provider")),
-        "model": stable_field(models, "model"),
-        "effort": stable_field(efforts, "effort"),
-        "sandbox_policy_type": stable_field(sandboxes, "sandbox policy"),
-        "permission_profile_type": stable_field(
-            permission_profiles, "permission profile"
+        "model": resolved_stable_field(stable, "model", "model"),
+        "effort": resolved_stable_field(stable, "effort", "effort"),
+        "sandbox_policy_type": resolved_stable_field(stable, "sandbox", "sandbox policy"),
+        "permission_profile_type": resolved_stable_field(
+            stable, "permission", "permission profile"
         ),
-        "cwd": stable_field(cwd_values, "cwd"),
+        "cwd": resolved_stable_field(stable, "cwd", "cwd"),
         "runtime_version": optional_text(session.get("cli_version")),
     }
     return result
