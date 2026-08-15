@@ -10,7 +10,7 @@ Repository:          R-jed/subagents-dispatch
 Repo marketplace id: subagents-dispatch
 Plugin id:           subagents-dispatch
 Plugin directory:    .
-Current version:     3.0.0
+Current version:     3.0.1
 Distribution:        Codex Plugin
 License:             MIT
 ```

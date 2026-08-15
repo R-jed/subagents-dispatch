@@ -1,6 +1,6 @@
 {
   "name": "subagents-dispatch",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Let the main Codex session lead a specialist Subagent team with adaptive delegation, preview, live control, and evidence-bound handoffs.",
   "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",
