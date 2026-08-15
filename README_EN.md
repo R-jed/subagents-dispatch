@@ -16,7 +16,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
 
-> AI Agents should read [README_AI.md](README_AI.md) first.
+> **If you are an AI Agent, jump to [README_AI.md](README_AI.md) and follow the instructions strictly.**
 
 subagents-dispatch is an orchestration plugin built on Codex Native Subagents. Main keeps ownership of the user goal, authorized scope, technical integration, and final acceptance. The plugin delegates only responsibilities that are worth isolating, and each child receives only the context it actually needs for that responsibility.
 
@@ -53,7 +53,7 @@ Main
   └─ owns the final result
 ```
 
-There is no minimum child count. Small tasks can stay entirely in Main, and larger tasks create only the children that add value at the current stage.
+There is no minimum child count. Small tasks can stay entirely in Main, and `0 child` is a valid result. Larger tasks create only the children that add value at the current stage.
 
 A normal request can be as simple as:
 
@@ -102,7 +102,7 @@ A few boundaries stay hard:
 * Child output becomes task truth only after Main verifies and accepts it.
 * Final Review is consequence-driven rather than a fixed extra reviewer on every task.
 
-See [Architecture](docs/architecture.md), [Routing](contracts/routing.md), and [Guardrails](contracts/guardrails.md) for the complete contracts.
+See [Architecture](docs/architecture.md), [Routing](contracts/routing.md), [Guardrails](contracts/guardrails.md), and the [Composition Contract](contracts/composition.md) for the complete contracts.
 
 ## Context, evidence, and runtime facts
 
@@ -118,6 +118,14 @@ Configured
 ```
 
 Configuration proves configuration intent. Observed fields require actual Host runtime evidence. Doctor's explicit live-route workflow can verify an exact child when that proof matters. Ordinary Dispatch does not scan local Codex rollouts.
+
+A Receipt reports orchestration and review facts independently, for example:
+
+```text
+Dispatch: Luna Max Read · Luna Max Execute · Sol High Review
+Control: Status×1
+Review: 1 round · passed
+```
 
 See [Runtime Attestation](docs/runtime-attestation.md), [Handoff Contract](contracts/handoff.md), and [Privacy](PRIVACY.md).
 
@@ -145,7 +153,7 @@ Choose **Preview** first when you want to inspect the likely plan without execut
 
 The repository includes an experiment protocol, campaign schema, and validator for comparing single-agent Codex with explicit Dispatch across correctness, safety, rework, wall-clock time, Main and child tokens, aggregate tokens, context pressure, and Host route evidence.
 
-This README does not claim that Dispatch is already proven faster or cheaper in total tokens, and it does not claim that the current five model and effort routes are proven optimal. Those conclusions require repeatable evidence from real tasks.
+**Until repeated real-task evidence exists, this README does not claim that subagents-dispatch is proven faster, uses fewer total tokens, or that the current five model/effort routes are optimal.**
 
 See the [Experiment Protocol](docs/experiment-protocol.md) and [Evaluations](evals/README.md).
 
@@ -160,7 +168,7 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 Start a fresh Codex session after updating.
 
-If managed Agent profiles have been provisioned, keep the Plugin installed first and use **Doctor** to explicitly uninstall the profiles owned by subagents-dispatch. Doctor verifies the ownership manifest and file SHA-256 values and removes only configuration it can prove belongs to this plugin.
+If managed Agent profiles were provisioned, keep the Plugin installed first, choose **Doctor**, and explicitly ask it to uninstall the subagents-dispatch managed profiles. Doctor verifies the ownership manifest and file SHA-256 values and removes only configuration it can prove belongs to this plugin.
 
 Then remove the Plugin and Marketplace registration:
 
@@ -171,24 +179,30 @@ codex plugin marketplace remove subagents-dispatch
 
 Do not bypass an ownership conflict with `rm`, wildcards, or manual deletion. See [Plugin Installation](docs/plugin-installation.md) for the complete procedure.
 
-## Repository
+## Repository layout
 
 ```text
 .
-├── .agents/plugins/      # Marketplace registration
-├── .codex-plugin/        # Plugin manifest
-├── agent-profiles/       # five managed Agent profiles
-├── contracts/            # routing, state, safety, and evidence contracts
-├── skills/               # Dispatch, Preview, Status, Steer, Takeover, Doctor
-├── scripts/              # provisioning, validation, and runtime helpers
-├── docs/                 # architecture, runtime, experiment, and release docs
-├── evals/                # behavioral and experiment fixtures
-└── tests/                # regression and adversarial tests
+├── .agents/plugins/                  # Marketplace registration
+├── .codex-plugin/                    # Plugin manifest
+├── agent-profiles/                   # five managed Agent profiles
+├── contracts/                        # routing, state, safety, and evidence contracts
+├── scripts/                          # provisioning, validation, and runtime helpers
+├── skills/
+│   ├── dispatch/                     # start or resume orchestration
+│   ├── preview/                      # predict without execution
+│   ├── status/                       # one-shot status observation
+│   ├── steer/                        # guide an existing delegation
+│   ├── takeover/                     # safely return responsibility to Main
+│   └── doctor/                       # installation and runtime diagnostics
+├── docs/                             # architecture, runtime, experiment, and release docs
+├── evals/                            # behavioral and experiment fixtures
+└── tests/                            # regression and adversarial tests
 ```
 
 Main docs:
 
-[Installation](docs/plugin-installation.md) · [Architecture](docs/architecture.md) · [Native Subagent Runtime](docs/native-subagent-runtime.md) · [Runtime Attestation](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Composition](contracts/composition.md) · [CHANGELOG](CHANGELOG.md) · [Privacy](PRIVACY.md)
+[Installation](docs/plugin-installation.md) · [Architecture](docs/architecture.md) · [Native Subagent Runtime](docs/native-subagent-runtime.md) · [Runtime Attestation](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Composition Contract](contracts/composition.md) · [CHANGELOG](CHANGELOG.md) · [Privacy](PRIVACY.md)
 
 ## License
 
