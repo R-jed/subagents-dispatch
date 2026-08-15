@@ -93,4 +93,4 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-Uninstall does not edit `config.toml`, credentials, MCP configuration, repositories, Plugin-unrelated Agent profiles, or other Codex state.
+The managed-profile uninstall helper does not edit `config.toml`, credentials, MCP configuration, repositories, or Plugin-unrelated Agent profiles. The supported `codex plugin remove` and `codex plugin marketplace remove` commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration; unrelated configuration semantics and other Codex state must remain unchanged.
