@@ -159,6 +159,8 @@ def read_stable_rollout_text(path: Path) -> str:
             or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
             or closed.st_size != opened.st_size
             or closed.st_mtime_ns != opened.st_mtime_ns
+            or current.st_size != closed.st_size
+            or current.st_mtime_ns != closed.st_mtime_ns
         ):
             fail("matched rollout changed while being read")
         try:
