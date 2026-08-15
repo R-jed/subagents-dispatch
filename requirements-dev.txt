@@ -1,4 +1,17 @@
+# Direct development dependencies
 jsonschema==4.26.0
 PyYAML==6.0.3
 pytest==9.1.1
 ruff==0.12.12
+
+# Transitive closure observed on the canonical CI matrix for reproducible replay
+attrs==26.1.0
+jsonschema-specifications==2025.9.1
+referencing==0.37.0
+rpds-py==2026.6.3
+iniconfig==2.3.0
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.20.0
+typing-extensions==4.16.0
+colorama==0.4.6; platform_system == "Windows"
