@@ -99,6 +99,36 @@ def test_rollout_reader_detects_path_replacement_between_lstat_and_open(
     assert swapped is True
 
 
+def test_rollout_reader_detects_in_place_mutation_after_fd_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_inspector()
+    rollout = tmp_path / f"rollout-test-{THREAD}.jsonl"
+    write_rollout(rollout)
+
+    original_lstat = module.os.lstat
+    rollout_lstat_calls = 0
+
+    def racing_lstat(path, *args, **kwargs):
+        nonlocal rollout_lstat_calls
+        candidate = Path(path)
+        if candidate == rollout:
+            rollout_lstat_calls += 1
+            if rollout_lstat_calls == 2:
+                with rollout.open("ab") as handle:
+                    handle.write(b"\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+        return original_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(module.os, "lstat", racing_lstat)
+
+    with pytest.raises(SystemExit, match="changed while being read"):
+        module.read_stable_rollout_text(rollout)
+
+    assert rollout_lstat_calls == 2
+
+
 def test_calibration_adapter_import_order_is_process_isolated_and_equivalent():
     script = r'''
 import hashlib
