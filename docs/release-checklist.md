@@ -294,7 +294,7 @@ Run the documented update flow, open a fresh task, and confirm the exact managed
 
 For uninstall, keep the Plugin installed while the managed profiles are removed. Through the human-verified Doctor entry, explicitly request managed-profile uninstall and require the bundled ownership-aware helper to remove only profiles still proven by the existing ownership manifest. Exercise exact-owned, already-missing-owned, modified-owned, and unowned/conflicting cases. Modified or unowned state must fail closed without deleting other Agent configuration. Only after managed-profile cleanup succeeds should the Plugin registration and Marketplace source be removed.
 
-Confirm config.toml, credentials, unrelated Agent profiles, repositories, and other Plugin-unrelated Codex state remain untouched throughout uninstall.
+Confirm credentials, unrelated Agent profiles, repositories, and other Plugin-unrelated Codex state remain untouched throughout uninstall. For `config.toml`, allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; all unrelated configuration semantics must remain unchanged.
 
 ### Optional real-task product canary
 
