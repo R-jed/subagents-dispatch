@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import sys
 from typing import Any, NoReturn
 from uuid import UUID
@@ -118,6 +119,58 @@ def find_exact_rollout(sessions_dir: Path, thread_id: str) -> Path:
     return matches[0]
 
 
+def read_stable_rollout_text(path: Path) -> str:
+    try:
+        expected = os.lstat(path)
+    except OSError as exc:
+        fail(f"matched rollout is unavailable before opening: {exc}")
+    if not stat.S_ISREG(expected.st_mode):
+        fail("matched rollout is not a regular file before opening")
+
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        fail(f"could not open matched rollout without following links: {exc}")
+
+    try:
+        opened = os.fstat(fd)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino)
+        ):
+            fail("matched rollout identity drifted while opening")
+
+        raw = bytearray()
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            raw.extend(chunk)
+
+        closed = os.fstat(fd)
+        try:
+            current = os.lstat(path)
+        except OSError as exc:
+            fail(f"matched rollout changed while being read: {exc}")
+        if (
+            not stat.S_ISREG(current.st_mode)
+            or (closed.st_dev, closed.st_ino) != (opened.st_dev, opened.st_ino)
+            or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+            or closed.st_size != opened.st_size
+            or closed.st_mtime_ns != opened.st_mtime_ns
+            or current.st_size != closed.st_size
+            or current.st_mtime_ns != closed.st_mtime_ns
+        ):
+            fail("matched rollout changed while being read")
+        try:
+            return bytes(raw).decode("utf-8")
+        except UnicodeDecodeError as exc:
+            fail(f"could not decode matched rollout as UTF-8: {exc}")
+    finally:
+        os.close(fd)
+
+
 def payload_object(record: dict[str, Any], line_number: int) -> dict[str, Any]:
     payload = record.get("payload")
     if not isinstance(payload, dict):
@@ -155,24 +208,21 @@ def inspect_rollout(
 ) -> dict[str, str | None]:
     session_meta: list[dict[str, Any]] = []
     turn_contexts: list[dict[str, Any]] = []
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                if not TARGET_LINE.search(line):
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError as exc:
-                    fail(f"invalid target rollout JSON at line {line_number}: {exc}")
-                if not isinstance(record, dict):
-                    fail(f"target rollout record at line {line_number} is not an object")
-                record_type = record.get("type")
-                if record_type == "session_meta":
-                    session_meta.append(payload_object(record, line_number))
-                elif record_type == "turn_context":
-                    turn_contexts.append(payload_object(record, line_number))
-    except (OSError, UnicodeError) as exc:
-        fail(f"could not read matched rollout: {exc}")
+    text = read_stable_rollout_text(path)
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not TARGET_LINE.search(line):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            fail(f"invalid target rollout JSON at line {line_number}: {exc}")
+        if not isinstance(record, dict):
+            fail(f"target rollout record at line {line_number} is not an object")
+        record_type = record.get("type")
+        if record_type == "session_meta":
+            session_meta.append(payload_object(record, line_number))
+        elif record_type == "turn_context":
+            turn_contexts.append(payload_object(record, line_number))
 
     if len(session_meta) != 1:
         fail("rollout must contain exactly one session_meta record")

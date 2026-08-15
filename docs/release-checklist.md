@@ -11,7 +11,7 @@ hard release gate
 
 If a proposed gate cannot name that protected claim, keep it out of the release path.
 
-The v3.0.0 release path includes repository/package integrity, managed Agent profile lifecycle, Codex App Skill discovery, first-use provisioning, five production Agent routes, runtime attestation required by release claims, Preview / Dispatch / Status / Steer / Takeover behavior, single-writer takeover safety, Doctor safety, update/uninstall safety, and immutable tagged Marketplace distribution.
+The v3.0.0 release path includes repository/package integrity, managed Agent profile lifecycle, Codex App Skill discovery, first-use provisioning, five production Agent routes, runtime attestation required by release claims, Preview / Dispatch / Status / Steer / Takeover behavior, single-writer takeover safety, Doctor safety, update/uninstall safety, and versioned tagged Marketplace distribution.
 
 The following remain valid development/research capabilities but are not v3.0.0 hard release blockers:
 
@@ -42,7 +42,7 @@ Python version
 
 The version in `.codex-plugin/plugin.json` must match the public README badges, `README_AI.md`, and newest `CHANGELOG.md` entry.
 
-For a formal versioned release, `.agents/plugins/marketplace.json` must bind the Plugin Git source to the matching immutable semantic-version tag (`v<version>`), not a mutable branch such as `main`.
+For a formal versioned release, `.agents/plugins/marketplace.json` must bind the Plugin Git source to the matching versioned semantic-version tag (`v<version>`), not a mutable branch such as `main`. A versioned tag pins the source ref used for the release identity; it does not by itself prove platform-enforced tag immutability.
 
 Do not create a release tag until the exact candidate commit has passed every applicable pre-tag product gate below.
 
@@ -348,11 +348,11 @@ For the current single-maintainer workflow, PR and pre-merge status-check requir
 
 ## 6. Tag, distribution smoke, and GitHub Release
 
-Only after the exact merged candidate passes repository, Host, human App UI, governance, and immutable Marketplace-source gates:
+Only after the exact merged candidate passes repository, Host, human App UI, governance, and versioned Marketplace-source gates:
 
 1. confirm `main` still points to the validated candidate SHA;
 2. confirm tag, Plugin version, Marketplace tag ref, README version, and CHANGELOG version are consistent;
-3. create the immutable semantic-version tag on that exact SHA;
+3. create the versioned semantic-version tag on that exact SHA;
 4. require the tag-triggered canonical CI run to pass, including `GITHUB_REF_NAME == v<plugin version>` and the full repository/managed-profile lifecycle on the tagged source;
 5. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
 6. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
