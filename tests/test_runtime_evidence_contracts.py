@@ -10,17 +10,17 @@ PLUGIN = ROOT
 GUARDRAILS = PLUGIN / 'contracts' / 'guardrails.md'
 RUNTIME_DOC = ROOT / 'docs' / 'native-subagent-runtime.md'
 ATTESTATION_DOC = ROOT / 'docs' / 'runtime-attestation.md'
-_runtime_assurance__RUNTIME_VERIFIER = PLUGIN / 'scripts' / 'runtime-evidence.py'
+RUNTIME_VERIFIER = PLUGIN / 'scripts' / 'runtime-evidence.py'
 RUNTIME_INSPECTOR = PLUGIN / 'scripts' / 'inspect-agent-runtime.py'
 RUNTIME_CASES = ROOT / 'evals' / 'runtime-assurance-cases.json'
 
-def _runtime_assurance__run_runtime_evidence(payload: dict) -> dict:
-    result = subprocess.run([sys.executable, str(_runtime_assurance__RUNTIME_VERIFIER)], cwd=ROOT, input=json.dumps(payload), text=True, capture_output=True, check=False)
+def run_runtime_evidence(payload: dict) -> dict:
+    result = subprocess.run([sys.executable, str(RUNTIME_VERIFIER)], cwd=ROOT, input=json.dumps(payload), text=True, capture_output=True, check=False)
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
 
 def test_runtime_assurance_uses_explicit_inspector_and_normalized_verifier():
-    assert _runtime_assurance__RUNTIME_VERIFIER.is_file()
+    assert RUNTIME_VERIFIER.is_file()
     assert RUNTIME_INSPECTOR.is_file()
     assert ATTESTATION_DOC.is_file()
     guardrails = GUARDRAILS.read_text(encoding='utf-8').lower()
@@ -77,7 +77,7 @@ def test_hard_read_only_requires_actual_host_runtime_evidence():
 
 def test_runtime_evidence_keeps_route_ancestry_and_permission_typed():
     runtime = RUNTIME_DOC.read_text(encoding='utf-8')
-    verifier = _runtime_assurance__RUNTIME_VERIFIER.read_text(encoding='utf-8')
+    verifier = RUNTIME_VERIFIER.read_text(encoding='utf-8')
     for field in ['route_assurance', 'permission_state_assurance', 'permission_provenance_assurance']:
         assert field in runtime
         assert field in verifier
@@ -88,12 +88,12 @@ def test_runtime_observation_required_accepts_exact_local_identity_and_ancestry(
     expected = {'agent_role': 'subagents_dispatch_reader', 'model': 'gpt-5.6-luna', 'effort': 'max', 'thread_id': 'child-1', 'parent_thread_id': 'main-1', 'runtime_observation_required': True, 'requires_enforced_read_only': False}
     route = {'agent_role': 'subagents_dispatch_reader', 'model': 'gpt-5.6-luna', 'effort': 'max'}
     local = {**route, 'thread_id': 'child-1', 'parent_thread_id': 'main-1'}
-    local_identity_fallback = _runtime_assurance__run_runtime_evidence({'subject': 'child', 'expected': expected, 'native': route, 'local': local})
+    local_identity_fallback = run_runtime_evidence({'subject': 'child', 'expected': expected, 'native': route, 'local': local})
     assert local_identity_fallback['status'] == 'matched'
     assert local_identity_fallback['decision'] == 'continue'
     assert local_identity_fallback['runtime_observation_complete'] is True
     assert local_identity_fallback['ancestry_evidence'] == {'status': 'matched', 'source': 'local'}
-    native_identity = _runtime_assurance__run_runtime_evidence({'subject': 'child', 'expected': expected, 'native': local, 'local': local})
+    native_identity = run_runtime_evidence({'subject': 'child', 'expected': expected, 'native': local, 'local': local})
     assert native_identity['status'] == 'matched'
     assert native_identity['decision'] == 'continue'
     assert native_identity['ancestry_evidence'] == {'status': 'matched', 'source': 'both'}
@@ -104,11 +104,9 @@ def test_runtime_assurance_fixture_uses_current_return_target():
     decisions = {case['expected'].get('decision') for case in payload['cases'] if 'decision' in case['expected']}
     assert 'return_to_main_session' in decisions
     assert 'return_to_root' not in decisions
-ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT
 SKILL = PLUGIN / 'skills' / 'dispatch'
 CONTRACTS = PLUGIN / 'contracts'
-_runtime_truth_policy__POLICY = PLUGIN / 'contracts' / 'policy.json'
+POLICY = PLUGIN / 'contracts' / 'policy.json'
 
 def test_runtime_evidence_is_diagnostic_not_default_hot_path():
     guardrails = (CONTRACTS / 'guardrails.md').read_text(encoding='utf-8')
@@ -120,7 +118,7 @@ def test_runtime_evidence_is_diagnostic_not_default_hot_path():
 
 def test_runtime_verifier_supports_main_and_child_subjects_and_policy_reference():
     verifier = (PLUGIN / 'scripts' / 'runtime-evidence.py').read_text(encoding='utf-8')
-    policy = json.loads(_runtime_truth_policy__POLICY.read_text(encoding='utf-8'))
+    policy = json.loads(POLICY.read_text(encoding='utf-8'))
     assert 'subject == "main_session"' in verifier
     assert 'subject == "child"' in verifier
     assert 'load_main_coverage_policy' in verifier
@@ -129,7 +127,7 @@ def test_runtime_verifier_supports_main_and_child_subjects_and_policy_reference(
     assert 'quarantine_main_route_claim' in verifier
 
 def test_exact_project_roles_have_no_cross_role_fallback():
-    policy = json.loads(_runtime_truth_policy__POLICY.read_text(encoding='utf-8'))
+    policy = json.loads(POLICY.read_text(encoding='utf-8'))
     guardrails = (CONTRACTS / 'guardrails.md').read_text(encoding='utf-8')
     assert 'Host/configuration limitation and fail closed' in guardrails
     assert 'Do not substitute another role' in guardrails
@@ -159,7 +157,7 @@ def test_first_use_readiness_occurs_before_delegated_execution():
     assert 'no child attempt has been created yet' in guardrails
 
 def test_profile_lifecycle_comes_from_policy_and_installer_not_user_docs():
-    policy = json.loads(_runtime_truth_policy__POLICY.read_text(encoding='utf-8'))
+    policy = json.loads(POLICY.read_text(encoding='utf-8'))
     profiles = PLUGIN / 'agent-profiles'
     installer = (PLUGIN / 'scripts' / 'install-agents.py').read_text(encoding='utf-8')
     policy_loader = (PLUGIN / 'scripts' / 'policy.py').read_text(encoding='utf-8')
@@ -180,18 +178,10 @@ def test_behavioral_evals_remain_measurement_not_runtime_policy():
     docs = (ROOT / 'docs' / 'behavioral-evals.md').read_text(encoding='utf-8').lower()
     for phrase in ['controlled paired workloads', 'measurement surface', 'experiment labels only']:
         assert phrase in docs
-ROOT = Path(__file__).resolve().parents[1]
-_v3_permission_route_integrity__RUNTIME_VERIFIER = ROOT / 'scripts' / 'runtime-evidence.py'
 DOCTOR = ROOT / 'scripts' / 'doctor.py'
-_v3_permission_route_integrity__POLICY = ROOT / 'contracts' / 'policy.json'
-RUNTIME_CASES = ROOT / 'evals' / 'runtime-assurance-cases.json'
 THREAD = '11111111-1111-7111-8111-111111111111'
 PARENT = '00000000-0000-7000-8000-000000000000'
 
-def _v3_permission_route_integrity__run_runtime_evidence(payload: dict) -> dict:
-    result = subprocess.run([sys.executable, str(_v3_permission_route_integrity__RUNTIME_VERIFIER)], cwd=ROOT, input=json.dumps(payload), text=True, capture_output=True, check=False)
-    assert result.returncode == 0, result.stderr
-    return json.loads(result.stdout)
 
 def load_doctor_module():
     scripts = str(ROOT / 'scripts')
@@ -206,7 +196,7 @@ def load_doctor_module():
         sys.path.remove(scripts)
 
 def managed_routes() -> list[dict]:
-    payload = json.loads(_v3_permission_route_integrity__POLICY.read_text(encoding='utf-8'))
+    payload = json.loads(POLICY.read_text(encoding='utf-8'))
     return list(payload['roles'].values())
 
 def expected_for(route: dict) -> dict:
@@ -221,7 +211,7 @@ def host_permission_source(*, source_kind: str='parent_turn', source_id: str | N
 
 @pytest.mark.parametrize('route', managed_routes(), ids=lambda route: route['agent_type'])
 def test_live_route_permission_matches_host_observed_source_for_all_managed_roles(route: dict):
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': host_permission_source()})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': host_permission_source()})
     assert data['status'] == 'matched'
     assert data['decision'] == 'continue'
     assert data['permission_state_assurance']['status'] == 'verified'
@@ -232,7 +222,7 @@ def test_live_route_permission_matches_host_observed_source_for_all_managed_role
 
 @pytest.mark.parametrize('route', managed_routes(), ids=lambda route: route['agent_type'])
 def test_read_only_environment_source_is_host_observed_for_all_managed_roles(route: dict):
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route, sandbox='read-only', profile='default'), 'native_permission_source': host_permission_source(source_kind='selected_environment', sandbox='read-only', profile='default')})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route, sandbox='read-only', profile='default'), 'native_permission_source': host_permission_source(source_kind='selected_environment', sandbox='read-only', profile='default')})
     assert data['permission_state_assurance']['status'] == 'verified'
     assert data['permission_provenance_assurance']['status'] == 'verified'
     assert data['permission_provenance_assurance']['source_id'] == 'environment:test'
@@ -240,7 +230,7 @@ def test_read_only_environment_source_is_host_observed_for_all_managed_roles(rou
 
 def test_permission_profile_mismatch_quarantines_even_when_sandbox_matches():
     route = managed_routes()[0]
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': host_permission_source(profile='default')})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': host_permission_source(profile='default')})
     assert data['permission_state_assurance']['status'] == 'verified'
     assert data['permission_provenance_assurance']['status'] == 'failed'
     assert data['decision'] == 'quarantine'
@@ -254,7 +244,7 @@ def test_incomplete_host_permission_source_remains_unknown(missing_field: str):
     route = managed_routes()[0]
     source = host_permission_source()
     del source[missing_field]
-    data = _v3_permission_route_integrity__run_runtime_evidence(
+    data = run_runtime_evidence(
         {
             "subject": "child",
             "expected": expected_for(route),
@@ -269,7 +259,7 @@ def test_incomplete_host_permission_source_remains_unknown(missing_field: str):
 
 def test_parent_permission_source_identity_mismatch_quarantines():
     route = managed_routes()[0]
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': host_permission_source(source_id='22222222-2222-7222-8222-222222222222')})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': host_permission_source(source_id='22222222-2222-7222-8222-222222222222')})
     assert data['permission_state_assurance']['status'] == 'verified'
     assert data['permission_provenance_assurance']['status'] == 'failed'
     assert data['decision'] == 'quarantine'
@@ -278,7 +268,7 @@ def test_parent_permission_source_identity_mismatch_quarantines():
 @pytest.mark.parametrize(('agent_type', 'wrong_sandbox'), [('subagents_dispatch_reader', 'read-only'), ('subagents_dispatch_worker', 'read-only')])
 def test_routes_quarantine_observed_provenance_state_mismatch(agent_type: str, wrong_sandbox: str):
     route = next((item for item in managed_routes() if item['agent_type'] == agent_type))
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route, sandbox=wrong_sandbox), 'native_permission_source': host_permission_source()})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route, sandbox=wrong_sandbox), 'native_permission_source': host_permission_source()})
     assert data['route_evidence']['status'] == 'matched'
     assert data['permission_state_assurance']['status'] == 'verified'
     assert data['permission_state_assurance']['observed_sandbox'] == wrong_sandbox
@@ -291,7 +281,7 @@ def test_routes_quarantine_observed_provenance_state_mismatch(agent_type: str, w
 
 def test_observed_permission_state_stays_verified_when_provenance_is_absent():
     route = next((item for item in managed_routes() if item['agent_type'] == 'subagents_dispatch_worker'))
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route)})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route)})
     assert data['route_evidence']['status'] == 'matched'
     assert data['permission_state_assurance']['status'] == 'verified'
     assert data['permission_provenance_assurance']['status'] == 'unknown'
@@ -321,7 +311,7 @@ def test_accepted_permission_override_is_non_blocking_and_does_not_relabel_route
     route = next((item for item in managed_routes() if item['agent_type'] == 'subagents_dispatch_worker'))
     accepted = native_for(route, sandbox='read-only')
     native = native_for(route)
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'accepted': accepted, 'native': native, 'native_permission_source': host_permission_source()})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'accepted': accepted, 'native': native, 'native_permission_source': host_permission_source()})
     assert data['route_evidence']['status'] == 'matched'
     assert data['truth_layers']['accepted']['status'] == 'matched'
     assert data['truth_layers']['observed']['status'] == 'matched'
@@ -334,7 +324,7 @@ def test_permission_observation_requires_both_child_permission_fields():
     route = next((item for item in managed_routes() if item['agent_type'] == 'subagents_dispatch_worker'))
     native = native_for(route)
     del native['permission_profile_type']
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native, 'native_permission_source': host_permission_source()})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native, 'native_permission_source': host_permission_source()})
     assert data['route_evidence']['status'] == 'matched'
     assert data['permission_state_assurance']['status'] == 'unknown'
     assert data['permission_provenance_assurance']['status'] == 'unknown'
@@ -345,7 +335,7 @@ def test_enforced_read_only_remains_an_independent_security_gate():
     route = next((item for item in managed_routes() if item['agent_type'] == 'subagents_dispatch_reader'))
     expected = expected_for(route)
     expected['requires_enforced_read_only'] = True
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected, 'native': native_for(route), 'native_permission_source': host_permission_source()})
+    data = run_runtime_evidence({'subject': 'child', 'expected': expected, 'native': native_for(route), 'native_permission_source': host_permission_source()})
     assert data['permission_state_assurance']['status'] == 'failed'
     assert data['permission_provenance_assurance']['status'] == 'verified'
     assert data['status'] == 'mismatch'

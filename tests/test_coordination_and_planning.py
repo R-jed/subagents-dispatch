@@ -10,7 +10,7 @@ import jsonschema
 import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
-_capability_dedup__POLICY = PLUGIN / 'contracts' / 'policy.json'
+POLICY = PLUGIN / 'contracts' / 'policy.json'
 VERIFIER = PLUGIN / 'scripts' / 'runtime-evidence.py'
 
 def run_main(model: str | None=None, effort: str | None=None) -> dict:
@@ -25,7 +25,7 @@ def run_main(model: str | None=None, effort: str | None=None) -> dict:
     return json.loads(result.stdout)
 
 def test_policy_owns_capability_dedup_reference_route_and_aliases():
-    policy = json.loads(_capability_dedup__POLICY.read_text())
+    policy = json.loads(POLICY.read_text())
     dedup = policy['capability_dedup']
     role = dedup['reference_role']
     reference = policy['roles'][role]
@@ -55,16 +55,13 @@ def test_unknown_effort_on_matching_model_does_not_suppress_sol_uplift():
 
 def test_partial_main_route_remains_unknown():
     assert run_main('gpt-5.6-sol', None)['main_judgment_coverage'] == 'unknown'
-ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT
 CONTRACTS = PLUGIN / 'contracts'
 ROUTER = CONTRACTS / 'routing.md'
-_concurrency_policy__GUARDRAILS = CONTRACTS / 'guardrails.md'
-_concurrency_policy__POLICY = PLUGIN / 'contracts' / 'policy.json'
+GUARDRAILS = CONTRACTS / 'guardrails.md'
 ROUTING_CASES = ROOT / 'evals' / 'routing-cases.json'
 
 def policy() -> dict:
-    return json.loads(_concurrency_policy__POLICY.read_text())
+    return json.loads(POLICY.read_text())
 
 def routing_cases() -> dict[str, dict]:
     payload = json.loads(ROUTING_CASES.read_text())
@@ -87,7 +84,7 @@ def test_static_cases_cover_adaptive_fanout_and_material_compute_consent():
 
 def test_router_and_guardrails_own_adaptive_scheduling_and_writer_safety():
     router = ROUTER.read_text().lower()
-    guardrails = _concurrency_policy__GUARDRAILS.read_text().lower()
+    guardrails = GUARDRAILS.read_text().lower()
     for concept in ['ready frontier', 'progressive fan-out', 'native codex capacity']:
         assert concept in router
     for concept in ['one writer per canonical checkout', 'filesystem isolation', 'semantic independence', 'child count by itself is not a consent trigger', 'delegation depth is one']:
@@ -100,11 +97,6 @@ def test_installer_lock_is_a_local_profile_lifecycle_mechanism():
     assert 'def installation_locks(' in installer
     assert 'def installer_lock(' not in installer
     assert 'lock_file(fd)' in installer
-ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT
-CONTRACTS = PLUGIN / 'contracts'
-ROUTER = CONTRACTS / 'routing.md'
-_coordination_policy__GUARDRAILS = CONTRACTS / 'guardrails.md'
 TEAM_PLAN = CONTRACTS / 'team-plan.md'
 COORDINATION_CASES = ROOT / 'evals' / 'coordination-cases.json'
 
@@ -160,7 +152,7 @@ def test_downstream_review_waits_for_actual_integrated_deliverable():
 
 def test_phase_transition_recompiles_responsibility_authority_and_trust():
     router = ROUTER.read_text().lower()
-    guardrails = _coordination_policy__GUARDRAILS.read_text().lower()
+    guardrails = GUARDRAILS.read_text().lower()
     team_plan = TEAM_PLAN.read_text().lower()
     assert 'recompile at material phase or authority transitions' in router
     assert 'phase readiness does not grant later authority' in guardrails
@@ -173,7 +165,7 @@ def test_phase_transition_recompiles_responsibility_authority_and_trust():
 
 def test_parallel_writers_require_semantic_independence():
     router = ROUTER.read_text().lower()
-    guardrails = _coordination_policy__GUARDRAILS.read_text().lower()
+    guardrails = GUARDRAILS.read_text().lower()
     team_plan = TEAM_PLAN.read_text().lower()
     assert 'semantic independence' in router
     assert 'semantic independence' in guardrails
@@ -183,7 +175,7 @@ def test_parallel_writers_require_semantic_independence():
 
 def test_intent_and_mutation_authority_stay_separate():
     router = ROUTER.read_text().lower()
-    guardrails = _coordination_policy__GUARDRAILS.read_text().lower()
+    guardrails = GUARDRAILS.read_text().lower()
     assert 'intent: inspect | implement | verify | review' in router
     assert 'mutation authority: none | declared-output-only | bounded-source-write' in router
     assert 'filesystem permission is capability, not authorization' in guardrails
@@ -210,15 +202,12 @@ def test_execution_dependency_and_integration_order_are_distinct():
     assert blocked['reason'] == 'semantic_truth_not_ready'
 
 def test_requested_accepted_and_observed_truth_layers_are_distinct():
-    guardrails = _coordination_policy__GUARDRAILS.read_text().lower()
+    guardrails = GUARDRAILS.read_text().lower()
     for concept in ['requested', 'accepted', 'observed']:
         assert concept in guardrails
     expected = cases()['accepted-route-is-not-runtime-observation']['expected']
     assert expected == {'requested_status': 'declared', 'accepted_status': 'matched', 'observed_status': 'not_observed', 'may_claim_observed_route': False}
-ROOT = Path(__file__).resolve().parents[1]
-_spawn_contract__SKILL = ROOT / 'skills' / 'dispatch' / 'SKILL.md'
-_spawn_contract__POLICY = ROOT / 'contracts' / 'policy.json'
-_spawn_contract__GUARDRAILS = ROOT / 'contracts' / 'guardrails.md'
+DISPATCH_SKILL = ROOT / 'skills' / 'dispatch' / 'SKILL.md'
 RECOVERY = ROOT / 'contracts' / 'recovery.md'
 INTERACTION = ROOT / 'contracts' / 'interaction.md'
 RECEIPT = ROOT / 'contracts' / 'receipt.md'
@@ -230,8 +219,8 @@ def by_id(path: Path, key: str) -> dict[str, dict]:
     return {item['id']: item for item in payload[key]}
 
 def test_project_child_spawn_requires_explicit_fresh_context_before_tool_call():
-    skill = _spawn_contract__SKILL.read_text(encoding='utf-8')
-    guardrails = _spawn_contract__GUARDRAILS.read_text(encoding='utf-8')
+    skill = DISPATCH_SKILL.read_text(encoding='utf-8')
+    guardrails = GUARDRAILS.read_text(encoding='utf-8')
     assert '../../contracts/guardrails.md' in skill
     for phrase in ['new project child + exact project agent_type -> fork_turns: none', 'Full-history (`all`) and omitted `fork_turns` are forbidden for project children', 'correct it before invoking the Host']:
         assert phrase in guardrails
@@ -239,8 +228,8 @@ def test_project_child_spawn_requires_explicit_fresh_context_before_tool_call():
     assert expected == {'spawn_call_valid': False, 'required_fork_turns': 'none', 'full_history_allowed': False, 'omitted_fork_turns_allowed': False}
 
 def test_dispatch_spawn_binds_exact_policy_agent_type_and_forbids_substitution():
-    skill = _spawn_contract__SKILL.read_text(encoding='utf-8')
-    policy = json.loads(_spawn_contract__POLICY.read_text(encoding='utf-8'))
+    skill = DISPATCH_SKILL.read_text(encoding='utf-8')
+    policy = json.loads(POLICY.read_text(encoding='utf-8'))
     for phrase in ['roles.<semantic-role>.agent_type', 'Host-discovered role names', 'built-in roles', 'unrelated installed custom Agents', 'legacy aliases', 'model-equivalent profiles', 'are never substitutions', 'A successful spawn of any different role is a routing failure']:
         assert phrase in skill
     agent_types = [spec['agent_type'] for spec in policy['roles'].values()]
@@ -253,7 +242,7 @@ def test_dispatch_spawn_binds_exact_policy_agent_type_and_forbids_substitution()
 def test_pre_child_spawn_rejection_does_not_create_attempt_or_receipt_retry():
     recovery = RECOVERY.read_text(encoding='utf-8')
     receipt = RECEIPT.read_text(encoding='utf-8')
-    guardrails = _spawn_contract__GUARDRAILS.read_text(encoding='utf-8')
+    guardrails = GUARDRAILS.read_text(encoding='utf-8')
     for phrase in ['an Agent attempt begins only after the Host accepts the spawn and returns an inspectable child identity', 'no attempt-budget consumption', 'no receipt retry increment', 'A pre-attempt spawn rejection is not `same_role_retry`']:
         assert phrase in recovery
     assert 'pre-attempt spawn rejection' in guardrails
@@ -273,10 +262,7 @@ def test_live_host_workload_freezes_the_real_spawn_regression():
     assert expected['omitted_fork_turns_calls'] == 0
     assert expected['pre_child_rejections_count_as_agent_attempt'] is False
     assert expected['pre_child_rejections_increment_receipt_retry'] is False
-ROOT = Path(__file__).resolve().parents[1]
 TAKEOVER = ROOT / 'skills' / 'takeover' / 'SKILL.md'
-RECOVERY = ROOT / 'contracts' / 'recovery.md'
-RECEIPT = ROOT / 'contracts' / 'receipt.md'
 
 def test_takeover_maps_interrupted_v2_writer_to_bounded_same_child_settlement():
     text = TAKEOVER.read_text(encoding='utf-8')
@@ -298,24 +284,21 @@ def test_takeover_still_fails_closed_when_terminal_settlement_cannot_be_proven()
     text = TAKEOVER.read_text(encoding='utf-8')
     assert 'transfer ownership only if the exact expected child is proven non-active' in text
     assert 'keep takeover pending and report the capability limitation instead of simulating success' in text
-ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT
-_team_plan__SCRIPTS = PLUGIN / 'scripts'
-SCRIPT = _team_plan__SCRIPTS / 'validate_team_plan.py'
-_team_plan__POLICY = PLUGIN / 'contracts' / 'policy.json'
+SCRIPTS = PLUGIN / 'scripts'
+SCRIPT = SCRIPTS / 'validate_team_plan.py'
 
-def _team_plan__load_validator():
-    scripts_dir = str(_team_plan__SCRIPTS)
+def load_team_plan_validator(module_name: str):
+    scripts_dir = str(SCRIPTS)
     sys.path.insert(0, scripts_dir)
     try:
-        spec = importlib.util.spec_from_file_location('subagents_dispatch_team_plan', SCRIPT)
+        spec = importlib.util.spec_from_file_location(module_name, SCRIPT)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
     finally:
         sys.path.remove(scripts_dir)
-VALIDATOR = _team_plan__load_validator()
+VALIDATOR = load_team_plan_validator('subagents_dispatch_team_plan')
 
 def plan():
     return {'schema_version': '1.0', 'revision': 1, 'supersedes_revision': None, 'planning_source': 'ad_hoc', 'source_refs': [], 'root_goal': 'deliver the verified requested result', 'units': [{'unit_id': 'U1', 'role': 'reader', 'goal': 'trace contract', 'output': 'evidence', 'depends_on': [], 'ownership': {'write': [], 'forbidden': []}, 'done_when': 'contract evidenced'}, {'unit_id': 'U2', 'role': 'worker', 'goal': 'implement change', 'output': 'source change', 'depends_on': ['U1'], 'ownership': {'write': ['src/example.py'], 'forbidden': []}, 'done_when': 'acceptance passes'}], 'integration_owner': 'main', 'integration_order': ['U1', 'U2'], 'final_verification': 'Main verifies the combined artifact', 'revision_reason': 'initial'}
@@ -324,7 +307,7 @@ def validate(payload):
     return VALIDATOR.validate_team_plan_payload(payload)
 
 def test_validator_derives_role_and_read_only_sets_from_policy_contract():
-    policy = json.loads(_team_plan__POLICY.read_text())
+    policy = json.loads(POLICY.read_text())
     assert VALIDATOR.ROLES == set(policy['roles'])
     assert VALIDATOR.READ_ONLY_ROLES == {role for role, spec in policy['roles'].items() if spec['mutation_authority'] == 'none'}
 
@@ -426,53 +409,35 @@ def test_role_vocabulary_rejects_unknown_role():
     payload = plan()
     payload['units'][0]['role'] = 'researcher'
     assert 'U1 has unsupported role' in validate(payload)['errors']
-ROOT = Path(__file__).resolve().parents[1]
-_team_plan_takeover__SCRIPTS = ROOT / 'scripts'
-SCRIPT = _team_plan_takeover__SCRIPTS / 'validate_team_plan.py'
 
-def _team_plan_takeover__load_validator():
-    scripts_dir = str(_team_plan_takeover__SCRIPTS)
-    sys.path.insert(0, scripts_dir)
-    try:
-        spec = importlib.util.spec_from_file_location('subagents_dispatch_team_plan_takeover', SCRIPT)
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    finally:
-        sys.path.remove(scripts_dir)
-VALIDATOR = _team_plan_takeover__load_validator()
+VALIDATOR = load_team_plan_validator('subagents_dispatch_team_plan_takeover')
 
 def test_teamplan_role_main_is_rejected_because_takeover_is_recovery_state():
     payload = {'schema_version': '1.0', 'revision': 1, 'supersedes_revision': None, 'planning_source': 'ad_hoc', 'source_refs': [], 'root_goal': 'deliver the verified requested result', 'units': [{'unit_id': 'U1', 'role': 'reader', 'goal': 'trace contract', 'output': 'evidence', 'depends_on': [], 'ownership': {'write': [], 'forbidden': []}, 'done_when': 'contract evidenced'}, {'unit_id': 'U2', 'role': 'main', 'goal': 'implement change', 'output': 'source change', 'depends_on': ['U1'], 'ownership': {'write': ['src/example.py'], 'forbidden': []}, 'done_when': 'acceptance passes'}], 'integration_owner': 'main', 'integration_order': ['U1', 'U2'], 'final_verification': 'Main verifies the combined artifact', 'revision_reason': 'initial'}
     result = VALIDATOR.validate_team_plan_payload(payload)
     assert result['team_plan_valid'] is False
     assert 'U2 has unsupported role' in result['errors']
-ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT
-_policy__SKILL = PLUGIN / 'skills' / 'dispatch'
-CONTRACTS = PLUGIN / 'contracts'
+DISPATCH_SKILL_DIR = PLUGIN / 'skills' / 'dispatch'
 PROFILES = PLUGIN / 'agent-profiles'
-_policy__POLICY = CONTRACTS / 'policy.json'
 MANIFEST = PLUGIN / '.codex-plugin' / 'plugin.json'
 CANONICAL_BLOCKERS = {'contract', 'judgment', 'investigation', 'stalled'}
 RUNTIME_OWNERS = {'policy.json', 'routing.md', 'composition.md', 'interaction.md', 'state.md', 'receipt.md', 'team-plan.md', 'recovery.md', 'guardrails.md', 'handoff.md', 'evidence-artifact.md', 'final-review.md'}
 DISPATCH_DIRECT_OWNERS = {'policy.json', 'routing.md', 'state.md', 'receipt.md', 'team-plan.md', 'recovery.md', 'guardrails.md', 'handoff.md', 'final-review.md'}
 
 def contract() -> dict:
-    return json.loads(_policy__POLICY.read_text(encoding='utf-8'))
+    return json.loads(POLICY.read_text(encoding='utf-8'))
 
 def current_version() -> str:
     return json.loads(MANIFEST.read_text(encoding='utf-8'))['version']
 
 def test_dispatch_skill_and_openai_metadata_keep_explicit_identity():
-    skill = (_policy__SKILL / 'SKILL.md').read_text(encoding='utf-8')
+    skill = (DISPATCH_SKILL_DIR / 'SKILL.md').read_text(encoding='utf-8')
     match = re.match('^---\\n(.*?)\\n---\\n', skill, re.S)
     assert match
     frontmatter = yaml.safe_load(match.group(1))
     assert frontmatter['name'] == 'dispatch'
     assert frontmatter['description'].strip()
-    openai = yaml.safe_load((_policy__SKILL / 'agents' / 'openai.yaml').read_text(encoding='utf-8'))
+    openai = yaml.safe_load((DISPATCH_SKILL_DIR / 'agents' / 'openai.yaml').read_text(encoding='utf-8'))
     assert openai['interface']['display_name'] == 'Subagents Dispatch: Dispatch'
     assert 'Dispatch' in openai['interface']['default_prompt']
     assert openai['policy']['allow_implicit_invocation'] is False
@@ -509,7 +474,7 @@ def test_agent_profiles_do_not_invent_semantic_blockers():
 
 def test_runtime_policy_has_focused_owners():
     assert {path.name for path in CONTRACTS.iterdir() if path.is_file()} == RUNTIME_OWNERS
-    skill = (_policy__SKILL / 'SKILL.md').read_text(encoding='utf-8')
+    skill = (DISPATCH_SKILL_DIR / 'SKILL.md').read_text(encoding='utf-8')
     for name in DISPATCH_DIRECT_OWNERS:
         assert f'../../contracts/{name}' in skill
 
@@ -592,9 +557,6 @@ def test_readme_ai_distinguishes_skill_ids_from_host_rendered_commands():
     assert 'Do not invent a Codex App slash-command string' in ai
     assert 'Plugin directory:    .' in ai
     assert 'plugins/subagents-dispatch' not in ai
-ROOT = Path(__file__).resolve().parents[1]
-INTERACTION = ROOT / 'contracts' / 'interaction.md'
-CASES = ROOT / 'evals' / 'interaction-cases.json'
 
 def test_missing_current_dispatch_and_missing_target_never_create_fake_control_state():
     text = INTERACTION.read_text(encoding='utf-8')
@@ -612,18 +574,13 @@ def test_missing_current_dispatch_and_missing_target_never_create_fake_control_s
     assert missing['ownership_transferred'] is False
     assert missing['invent_agent_id'] is False
     assert missing['search_other_sessions'] is False
-ROOT = Path(__file__).resolve().parents[1]
-INTERACTION = ROOT / 'contracts' / 'interaction.md'
-RECEIPT = ROOT / 'contracts' / 'receipt.md'
-_interaction_terminal_receipt__SKILL = ROOT / 'skills' / 'dispatch' / 'SKILL.md'
-CASES = ROOT / 'evals' / 'interaction-cases.json'
 
 def test_blocked_delegated_terminal_response_keeps_compact_receipt():
     interaction = INTERACTION.read_text(encoding='utf-8')
     receipt = RECEIPT.read_text(encoding='utf-8')
     assert 'whether the requested work completed successfully or ended blocked/partial' in interaction
     assert 'Main owns the task-facing final response' in receipt
-    assert '../../contracts/receipt.md' in _interaction_terminal_receipt__SKILL.read_text(encoding='utf-8')
+    assert '../../contracts/receipt.md' in DISPATCH_SKILL.read_text(encoding='utf-8')
     payload = json.loads(CASES.read_text(encoding='utf-8'))
     by_id = {case['id']: case for case in payload['cases']}
     expected = by_id['blocked-delegated-outcome-still-has-receipt']['expected']
