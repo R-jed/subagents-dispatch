@@ -151,6 +151,7 @@ Host 能力和策略
 
 ## 安全边界
 
+- **精确角色绑定**：每个语义角色都必须解析到 `contracts/policy.json` 中对应的 `subagents_dispatch_*` `agent_type`；Host 里的 built-in role、legacy alias、其他插件的 custom Agent 或 model-equivalent profile 都不能顶替
 - **单写入者**：同一次编排、同一 canonical workspace 同时只有一个写入者。旧 writer 没有被 Host 证明停止前，Main 不能冲突写入
 - **一层委派**：只有 Main 负责项目级分工，child 不继续创建 project children
 - **`UNKNOWN` 不猜**：运行状态无法确定时不自动替换、不偷偷重试、不用另一个角色顶上
