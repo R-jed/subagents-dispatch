@@ -4,7 +4,7 @@
 
 <h1 align="center">subagents-dispatch</h1>
 
-<p align="center"><em>让 Codex 在值得分工时分工，让 Main 始终掌控目标、权限和最终结果。</em></p>
+<p align="center"><em>给 Codex 一支临时小队。该分工时分工，该自己做时自己做。</em></p>
 
 <p align="center">
   <a href="README_EN.md">English</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a>
@@ -18,9 +18,52 @@
 
 > **如果你是 AI Agent，请跳转到 [README_AI.md](README_AI.md) 并严格按照说明操作。**
 
-subagents-dispatch 是一个基于 Codex Native Subagents 的调度插件。Main 继续负责用户目标、授权范围、技术整合和最终验收。插件只把值得独立处理的职责交给专门的 Subagent，并尽量让每个 child 只拿到完成当前职责真正需要的上下文。
+你给 Codex 一个稍大的任务。它先翻 API，再追调用链，接着改代码、补测试、查文档，最后还要回头 review 自己刚刚做的东西。
 
-Codex 仍然是唯一的 Agent runtime。这个项目不额外运行 daemon、任务数据库、事件总线或独立 scheduler。
+它能做完。问题是，读、查、改、判断和复核全挤在 Main 的同一个上下文里。
+
+subagents-dispatch 给 Main 一支按需组建的小队。有人专心读代码，有人做大范围调查，有人处理边界明确的实现。Main 决定要不要分工，控制谁能写，验证 child 的结论，最后自己整合结果。
+
+很多任务根本不需要 child。`0 child` 是完全有效的结果。
+
+## 一个例子
+
+你可以直接对 Codex 说：
+
+```text
+选择 Dispatch
+给 /api/users 加分页，补测试，再检查前端调用有没有受影响
+```
+
+一个可能的分工会像这样：
+
+```text
+Main
+├─ Luna Max 读取      → 先把 API、测试和调用链摸清
+├─ Terra XHigh 调研   → 查跨文件影响和容易漏掉的依赖
+├─ Luna Max 执行      → 边界明确后实现并补测试
+└─ Sol High 验收      → 变更影响较大时做独立复核
+```
+
+Main 拿回证据，决定哪些内容可信，再完成最终整合。
+
+也可能 Main 看完任务后直接自己做。Dispatch 没有最低 child 数量，多开 Agent 本身没有价值。
+
+## 它怎么工作
+
+核心思路很简单：
+
+```text
+1. 先判断这一步值不值得独立出去
+2. child 只拿完成自己职责需要的上下文
+3. 能并行读取的并行读取
+4. canonical workspace 同时只保留一个 active writer
+5. child 给出证据，Main 验证、整合并负责最终结果
+```
+
+新的 project child 默认拿 fresh context。Main 会把目标、范围、约束、验收条件和已经接受的事实传过去，而不是把整段主对话复制一遍。
+
+这也是项目的取舍。它希望减少重复调查和上下文混杂，同时避免为了“多 Agent”而制造更多协调工作。
 
 ## 安装
 
@@ -31,84 +74,55 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 安装后启动一个新的 Codex session，然后从 Skill 菜单选择 **Dispatch**。
 
-第一次真正需要创建 child 时，插件会检查自己管理的五个 Agent profiles。如果 profiles 需要首次创建，当前任务会返回 `RESTART_REQUIRED`。重新开一个 Codex task/session，再次选择 Dispatch 即可。
+第一次真正需要 child 时，插件会检查自己管理的五个 Agent profiles。如果需要首次创建，当前任务会返回 `RESTART_REQUIRED`。重新开一个 Codex task/session，再次选择 Dispatch 即可。
 
-Profile provisioning、Doctor helpers 和 Runtime Attestation helpers 需要可用的 Python 3.11+。完整安装、更新和卸载流程见 [Plugin Installation](docs/plugin-installation.md)。
+Profile provisioning、Doctor helpers 和 Runtime Attestation helpers 需要 Python 3.11+。完整流程见 [Plugin Installation](docs/plugin-installation.md)。
 
-## 它解决什么问题
+## 你会用到的六个 Skill
 
-复杂开发任务经常把读代码、调查、实现、技术判断和复核全部堆进 Main 的同一段上下文。任务越长，重复发现、上下文污染和职责混杂越容易出现。
-
-subagents-dispatch 把 Main 放在技术负责人的位置：
-
-```text
-用户任务
-  ↓
-Main
-  ├─ 判断是否值得委派
-  ├─ 划分职责、权限和验收条件
-  ├─ 并行展开独立读取或调查
-  ├─ 保持 canonical workspace 单写入者
-  ├─ 验证并整合 child 输出
-  └─ 对最终结果负责
-```
-
-委派没有最低数量。小任务可以由 Main 直接完成，`0 child` 是完全有效的结果。复杂任务也只创建当前阶段真正有价值的 children。
-
-一个典型请求可以直接写成：
-
-```text
-选择 Dispatch
-给 /api/users 加分页参数，补上测试
-```
-
-Main 会先判断现有接口、测试结构、实现和复核中哪些职责值得独立展开，再决定是否创建 child。
-
-## 六个显式 Skill
-
-安装插件不会自动接管普通 Codex 任务。六个入口都需要显式选择。
-
-| Skill | 作用 |
+| Skill | 做什么 |
 |---|---|
-| **Dispatch** | 开始或继续一次有价值的编排 |
-| **Preview** | 只看预计分工，不创建 child，不写 active state |
-| **Status** | 对当前编排做一次状态观察 |
-| **Steer** | 给同一个 unit、attempt 和 child 追加指导 |
-| **Takeover** | 在旧 writer 已安全结束后，把职责交回 Main |
-| **Doctor** | 检查 Plugin、Skills、profiles、state 和 runtime evidence |
+| **Dispatch** | 开始或继续一次编排 |
+| **Preview** | 先看看会怎么分工，不创建 child |
+| **Status** | 看一次当前状态 |
+| **Steer** | 给正在工作的同一个 child 追加指导 |
+| **Takeover** | 安全结束旧 writer 后，把职责交回 Main |
+| **Doctor** | 检查安装、profiles、state 和 runtime evidence |
 
-`Status` 只观察一次，不做后台轮询。`Steer` 保持同一个 child。`Takeover` 在旧 writer 仍为 `RUNNING`、`INTERRUPTED` 或 `UNKNOWN` 时不会释放冲突写权限。
+`Status` 只观察一次，不做后台轮询。`Steer` 继续使用同一个 child。`Takeover` 会先确认旧 writer 已经安全结束。
 
-## 调度规则
+不确定任务值不值得拆时，先用 **Preview**。
 
-当前 production policy 使用五条职责通道：
+## 目前怎么分工
 
-| 当前模型 / 思考强度 | 对外活动 | 典型职责 |
+当前 production policy 使用下面五条职责通道：
+
+| 当前模型 / 思考强度 | 对外活动 | 常见用途 |
 |---|---|---|
-| Luna Max | 读取 | 窄范围读代码、追调用链、收集可核对事实 |
-| Luna Max | 执行 | 做法已明确后的有界实现和测试 |
+| Luna Max | 读取 | 窄范围读代码、追调用链、整理可核对事实 |
+| Luna Max | 执行 | 做法已经明确后的有界实现和测试 |
 | Terra XHigh | 调研 | 大范围只读调查和跨文件证据整理 |
-| Sol High | 执行 | 实现与实质技术判断无法拆开的工作 |
+| Sol High | 执行 | 实现过程中需要实质技术判断的工作 |
 | Sol High | 决策 / 验收 | 技术决策或独立 Final Review |
 
-这些 lane 是当前 `contracts/policy.json` 的运行策略，不代表已经证明为所有任务的最优组合。
+这是当前 `contracts/policy.json` 的运行策略。项目目前没有证据证明这套模型组合对所有任务都最优。
 
-项目有几条硬边界：
+## 几条不会放松的规则
+
+分工可以灵活，下面这些边界保持保守：
 
 * Main 负责项目级委派，project child 不继续创建 project children。
 * 同一次编排的 canonical workspace 保持一个 active writer。
-* 每个职责精确绑定 `contracts/policy.json` 指定的 `subagents_dispatch_*` Agent type，其他 built-in role、alias 或 model-equivalent profile 不能替代。
-* `UNKNOWN` 保持未知。它不能自动授权 replacement、reroute、ownership transfer 或冲突写入。
-* child 输出需要经过 Main 接受和整合，最终完成状态仍由 Main 判断。
-* Final Review 按变更后果触发，不为了形式固定增加一个 reviewer。
+* 每个职责使用 `contracts/policy.json` 指定的 exact `subagents_dispatch_*` Agent type。
+* `UNKNOWN` 就保持未知。它不会自动授权 replacement、reroute、ownership transfer 或冲突写入。
+* child 的输出需要 Main 验证和接受，最终完成状态仍由 Main 判断。
+* Final Review 看变更后果决定是否需要，不固定多开一个 reviewer。
 
-详细规则见 [Architecture](docs/architecture.md)、[Routing](contracts/routing.md)、[Guardrails](contracts/guardrails.md) 和 [Composition Contract](contracts/composition.md)。
+完整规则见 [Architecture](docs/architecture.md)、[Routing](contracts/routing.md)、[Guardrails](contracts/guardrails.md) 和 [Composition Contract](contracts/composition.md)。
 
-## 上下文、证据和运行时事实
+## 配置不等于运行时证据
 
-新的 project child 默认使用 fresh context。Main 只传当前职责需要的目标、范围、约束、验收条件和已经接受的证据。需要跨职责复用调查结果时，可以用紧凑的 Handoff Capsule 传 accepted facts、evidence refs 和 open questions，避免把完整 transcript 或大段源码重复塞给下一个 child。
-
-对于模型、reasoning effort 和 permission 等运行时事实，项目明确区分：
+模型、reasoning effort 和 permission 这类信息分成四层：
 
 ```text
 Configured
@@ -117,9 +131,9 @@ Configured
 → Observed
 ```
 
-配置文件只能证明配置意图。Observed 需要 Host 真正暴露的运行时证据。Doctor 的显式 live-route 流程可以在需要时核对 exact child；普通 Dispatch 不扫描本地 Codex rollouts。
+写在配置里只能说明配置意图。只有 Host 真正暴露的运行时证据才能支持 Observed。Doctor 的显式 live-route 流程可以在需要时核对 exact child。普通 Dispatch 不扫描本地 Codex rollouts。
 
-Receipt 只汇报编排和验收事实，例如：
+任务结束时，Receipt 只汇报实际发生的编排和验收事实，例如：
 
 ```text
 编排: Luna Max 读取 · Luna Max 执行 · Sol High 验收
@@ -127,31 +141,19 @@ Receipt 只汇报编排和验收事实，例如：
 验收: 1轮 · 通过
 ```
 
+跨职责需要复用已经接受的调查结果时，可以通过 Handoff Capsule 传 accepted facts、evidence refs 和 open questions，不需要搬运完整 transcript。
+
 更多细节见 [Runtime Attestation](docs/runtime-attestation.md)、[Handoff Contract](contracts/handoff.md) 和 [Privacy](PRIVACY.md)。
 
-## 什么时候值得用
+## 什么时候适合用
 
-Dispatch 比较适合这些任务：
+Dispatch 通常在这些任务里更有意义：代码库调查可以并行，某一部分调查很大但只读，实现前需要先收集证据，变更影响较大需要独立复核，或者一个长任务天然包含几块边界清楚的职责。
 
-* 可以并行读取多个独立区域的代码库调查
-* 需要把大范围只读调查和 Main 的实现上下文隔离
-* 实现前有明确的证据收集阶段
-* 存在可独立验收的高影响变更
-* 一个长任务中有多个边界清楚、依赖关系明确的职责
+如果任务很小、强串行、上下文已经齐全，Main 直接完成通常更简单。用户授权范围还不清楚，或者关键 Host 能力仍是 `UNKNOWN` 时，也不应该为了分工强行继续。
 
-这些情况通常让 Main 直接完成更简单：
+## 关于性能
 
-* 很小、很局部，而且相关上下文已经齐全
-* 强串行任务，每一步都依赖上一步结果
-* 用户授权范围仍不明确
-* 正确性依赖某个 Host 控制能力，但该能力当前还是 `UNKNOWN`
-* 唯一目的只是让任务看起来使用了多个 Agent
-
-不确定是否值得拆分时，可以先选择 **Preview**。
-
-## 性能结论
-
-项目包含 single-agent Codex 与 explicit Dispatch 的实验协议、campaign schema 和 validator，用于比较正确性、安全、返工、wall-clock、Main / child token、总 token、上下文压力和 Host route evidence。
+项目已经有 single-agent Codex 与 explicit Dispatch 的实验协议、campaign schema 和 validator，可以比较正确性、安全、返工、wall-clock、Main / child token、总 token、上下文压力和 Host route evidence。
 
 **在重复真实任务数据完成前，本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token，或者当前五个 model / effort 是最优配置。**
 
@@ -181,6 +183,9 @@ codex plugin marketplace remove subagents-dispatch
 
 ## 项目结构
 
+<details>
+<summary><strong>展开目录</strong></summary>
+
 ```text
 .
 ├── .agents/plugins/                  # Marketplace registration
@@ -199,6 +204,8 @@ codex plugin marketplace remove subagents-dispatch
 ├── evals/                            # behavioral and experiment fixtures
 └── tests/                            # regression and adversarial tests
 ```
+
+</details>
 
 主要文档：
 
