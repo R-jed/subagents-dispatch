@@ -2,6 +2,21 @@
 
 本文件记录 subagents-dispatch 的重要变更。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [3.0.1] - 2026-08-16
+
+### Fixed
+
+- **Runtime rollout inspection**：恢复真正的 bounded incremental JSONL streaming，兼容 LF、CRLF 与 CR 行边界，限制总 rollout 与单行大小，并在读取前后验证文件身份、大小与修改时间，避免 whole-file buffering、路径替换和读取期间 mutation 被误当成可信 runtime evidence
+- **Runtime evidence memory boundary**：按字段增量聚合 `turn_context` 的 model、effort、cwd、sandbox 与 permission 状态，不再保留全部 parsed turn payload，同时保留 exact child、parent 与 managed role 绑定和 fail-closed conflict handling
+- **发布审计表述**：修正 release audit 对 tag 安全性的措辞，只记录 GitHub/API 已验证的 tag identity，不把当前仓库状态描述成平台强制的 tag immutability
+
+### Changed
+
+- **可重放开发依赖**：固定 canonical CI 使用的 Python 直接依赖与 transitive package-resolution closure，降低后续 CI 因依赖解析漂移产生的差异
+- **测试结构收敛**：将历史 bug、PR 与 release 驱动的测试文件合并到稳定 product-domain suites，并进一步参数化等价变体与去重内部 setup；最终保持 548 个 pytest cases 和既有行为覆盖
+- **README 入口重构**：中英文 README 调整为更直接的产品使用路径，先解释典型任务、安装和六个 Skills，再展开 routing、安全、runtime evidence 与研究边界；没有改变 production policy 或 Host contract
+- **卸载流程说明**：继续要求在 Plugin 仍安装时先通过 ownership-aware helper 清理 proven-owned managed profiles，再移除 Plugin 与 Marketplace registration
+
 ## [3.0.0] - 2026-08-15
 
 ### Added
