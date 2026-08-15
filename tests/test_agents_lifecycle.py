@@ -304,23 +304,29 @@ _installer_safety__INSTALLER = ROOT / 'scripts' / 'install-agents.py'
 def _installer_safety__run_installer(target: Path, *extra: str):
     return subprocess.run([sys.executable, str(_installer_safety__INSTALLER), '--codex-home', str(target), *extra], capture_output=True, text=True)
 
-def test_installer_refuses_different_same_filename_profile(tmp_path):
-    target = tmp_path / 'codex-home'
-    agents = target / 'agents'
+@pytest.mark.parametrize(
+    ("filename", "expected_message"),
+    [
+        ("subagents-dispatch-worker.toml", "Refusing to overwrite"),
+        ("my-custom-worker.toml", "reserved current role name"),
+    ],
+    ids=["same-filename", "reserved-role-name"],
+)
+def test_installer_refuses_conflicting_reserved_profile(
+    tmp_path: Path, filename: str, expected_message: str
+):
+    target = tmp_path / "codex-home"
+    agents = target / "agents"
     agents.mkdir(parents=True)
-    (agents / 'subagents-dispatch-worker.toml').write_text('name = "subagents_dispatch_worker"\nmodel = "gpt-5.6-terra"\ndeveloper_instructions = "custom"\n')
+    (agents / filename).write_text(
+        'name = "subagents_dispatch_worker"\n'
+        'model = "gpt-5.6-terra"\n'
+        'developer_instructions = "custom"\n'
+    )
     result = _installer_safety__run_installer(target)
     assert result.returncode != 0
-    assert 'Refusing to overwrite' in result.stdout + result.stderr
+    assert expected_message in result.stdout + result.stderr
 
-def test_installer_refuses_same_current_reserved_role_name_in_different_file(tmp_path):
-    target = tmp_path / 'codex-home'
-    agents = target / 'agents'
-    agents.mkdir(parents=True)
-    (agents / 'my-custom-worker.toml').write_text('name = "subagents_dispatch_worker"\nmodel = "gpt-5.6-terra"\ndeveloper_instructions = "custom"\n')
-    result = _installer_safety__run_installer(target)
-    assert result.returncode != 0
-    assert 'reserved current role name' in result.stdout + result.stderr
 
 def test_installer_refuses_symlinked_lock(tmp_path):
     target = tmp_path / 'codex-home'

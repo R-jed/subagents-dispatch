@@ -245,23 +245,27 @@ def test_permission_profile_mismatch_quarantines_even_when_sandbox_matches():
     assert data['permission_provenance_assurance']['status'] == 'failed'
     assert data['decision'] == 'quarantine'
 
-def test_incomplete_host_permission_source_remains_unknown():
+@pytest.mark.parametrize(
+    "missing_field",
+    ["permission_profile_type", "evidence_ref"],
+    ids=["permission-profile-type", "evidence-ref"],
+)
+def test_incomplete_host_permission_source_remains_unknown(missing_field: str):
     route = managed_routes()[0]
     source = host_permission_source()
-    del source['permission_profile_type']
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': source})
-    assert data['permission_state_assurance']['status'] == 'verified'
-    assert data['permission_provenance_assurance']['status'] == 'unknown'
-    assert data['decision'] == 'continue'
+    del source[missing_field]
+    data = _v3_permission_route_integrity__run_runtime_evidence(
+        {
+            "subject": "child",
+            "expected": expected_for(route),
+            "native": native_for(route),
+            "native_permission_source": source,
+        }
+    )
+    assert data["permission_state_assurance"]["status"] == "verified"
+    assert data["permission_provenance_assurance"]["status"] == "unknown"
+    assert data["decision"] == "continue"
 
-def test_permission_source_without_provenance_cannot_close_a_provenance_gate():
-    route = managed_routes()[0]
-    source = host_permission_source()
-    del source['evidence_ref']
-    data = _v3_permission_route_integrity__run_runtime_evidence({'subject': 'child', 'expected': expected_for(route), 'native': native_for(route), 'native_permission_source': source})
-    assert data['permission_state_assurance']['status'] == 'verified'
-    assert data['permission_provenance_assurance']['status'] == 'unknown'
-    assert data['decision'] == 'continue'
 
 def test_parent_permission_source_identity_mismatch_quarantines():
     route = managed_routes()[0]
