@@ -13,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 INSPECTOR = ROOT / "scripts" / "inspect-agent-runtime.py"
 RELEASE_CHECKLIST = ROOT / "docs" / "release-checklist.md"
+REQUIREMENTS = ROOT / "requirements-dev.txt"
 THREAD = "11111111-1111-7111-8111-111111111111"
 PARENT = "00000000-0000-7000-8000-000000000000"
 ROLE = "subagents_dispatch_worker"
@@ -144,3 +145,28 @@ print(json.dumps({
         outputs.append(payload)
 
     assert outputs[0] == outputs[1]
+
+
+def test_dev_dependency_closure_is_exactly_pinned_for_ci_replay():
+    lines = {
+        line.strip()
+        for line in REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    required = {
+        "jsonschema==4.26.0",
+        "PyYAML==6.0.3",
+        "pytest==9.1.1",
+        "ruff==0.12.12",
+        "attrs==26.1.0",
+        "jsonschema-specifications==2025.9.1",
+        "referencing==0.37.0",
+        "rpds-py==2026.6.3",
+        "iniconfig==2.3.0",
+        "packaging==26.3",
+        "pluggy==1.6.0",
+        "Pygments==2.20.0",
+        "typing-extensions==4.16.0",
+        'colorama==0.4.6; platform_system == "Windows"',
+    }
+    assert lines == required
