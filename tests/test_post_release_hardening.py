@@ -124,7 +124,12 @@ def test_rollout_reader_detects_in_place_mutation_after_fd_read(
     monkeypatch.setattr(module.os, "lstat", racing_lstat)
 
     with pytest.raises(SystemExit, match="changed while being read"):
-        module.read_stable_rollout_text(rollout)
+        module.inspect_rollout(
+            rollout,
+            thread_id=THREAD,
+            expected_parent_thread_id=PARENT,
+            expected_agent_role=ROLE,
+        )
 
     assert rollout_lstat_calls == 2
 
