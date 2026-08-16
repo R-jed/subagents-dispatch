@@ -113,7 +113,7 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
         "fork_turns": "none",
     }
 
-    with pytest.raises(control.ControlError, match="PREPARED"):
+    with pytest.raises(guard.control.ControlError, match="PREPARED"):
         guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path)
 
     control.prepare_control(
@@ -132,7 +132,7 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
 
     second = pre_payload(tool_input)
     second["tool_use_id"] = "tool-2"
-    with pytest.raises(control.ControlError, match="PREPARED"):
+    with pytest.raises(guard.control.ControlError, match="PREPARED"):
         guard.evaluate_pre_tool_use(second, temp_root=tmp_path)
 
 
