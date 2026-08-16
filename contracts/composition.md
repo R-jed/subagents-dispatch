@@ -135,7 +135,7 @@ A Skill name is not an Agent type. A Host must expose the exact invocation/Agent
 
 ## 4. Hooks
 
-Hooks are optional Host-side accelerators, observers, or guards. They are not orchestration truth and are never required for ordinary Dispatch correctness.
+Hooks are optional Host-side accelerators, observers, or guards. They are not orchestration truth and are never required for ordinary Dispatch correctness. A Hook does not create a second MCP control plane or a second Agent runtime.
 
 subagents-dispatch therefore follows these rules:
 

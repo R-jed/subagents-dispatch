@@ -1,7 +1,8 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "delegation": {
-    "max_depth": 1
+    "max_depth": 1,
+    "fork_turns": "none"
   },
   "write_coordination": {
     "mode": "single_writer",

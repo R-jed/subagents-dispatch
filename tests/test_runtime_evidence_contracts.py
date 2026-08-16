@@ -178,16 +178,16 @@ def test_behavioral_evals_remain_measurement_not_runtime_policy():
     docs = (ROOT / 'docs' / 'behavioral-evals.md').read_text(encoding='utf-8').lower()
     for phrase in ['controlled paired workloads', 'measurement surface', 'experiment labels only']:
         assert phrase in docs
-DOCTOR = ROOT / 'scripts' / 'doctor.py'
+DOCTOR_CORE = ROOT / 'scripts' / 'doctor_core.py'
 THREAD = '11111111-1111-7111-8111-111111111111'
 PARENT = '00000000-0000-7000-8000-000000000000'
 
 
-def load_doctor_module():
+def load_doctor_core_module():
     scripts = str(ROOT / 'scripts')
     sys.path.insert(0, scripts)
     try:
-        spec = importlib.util.spec_from_file_location('doctor_permission_under_test', DOCTOR)
+        spec = importlib.util.spec_from_file_location('doctor_permission_under_test', DOCTOR_CORE)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -287,9 +287,14 @@ def test_observed_permission_state_stays_verified_when_provenance_is_absent():
     assert data['permission_provenance_assurance']['status'] == 'unknown'
     assert data['decision'] == 'continue'
     assert data['violations'] == []
-    doctor = load_doctor_module()
-    status, _ = doctor._runtime_status(data)
-    assert status == 'OK'
+    doctor_core = load_doctor_core_module()
+    permission_layer = doctor_core._assurance_layer(
+        'Effective permission state',
+        data['permission_state_assurance'],
+        required=True,
+        live_route=True,
+    )
+    assert permission_layer['status'] == 'OK'
 
 def test_doctor_live_route_contract_keeps_permission_state_and_provenance_separate():
     skill = (ROOT / 'skills' / 'doctor' / 'SKILL.md').read_text(encoding='utf-8')

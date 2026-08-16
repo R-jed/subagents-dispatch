@@ -41,6 +41,9 @@ contracts/handoff.md
 
 contracts/final-review.md
 -> consequence-driven exact-candidate independent review
+
+hooks/hooks.json + scripts/spawn_guard.py
+-> optional Host action-boundary enforcement for prepared managed spawn_agent calls
 ```
 
 README files explain the product. `README_AI.md` is an owner map, not a second policy manual. `evals/` and `tests/` verify the contracts; they are not routing sources.
@@ -84,8 +87,10 @@ understand current task truth + acceptance
 -> choose the smallest useful ready responsibilities
 -> ensure exact native Agent role readiness before a spawn
 -> create compact thread state before the first real child spawn
+-> persist exact SPAWN_PENDING attempt
+-> optionally enforce the proposed managed spawn through the trusted Plugin PreToolUse guard
 -> materialize children only for ready, non-duplicative responsibilities
--> reconcile current Host truth at control boundaries
+-> bind exact native child identity and reconcile current Host truth
 -> verify child claims against actual artifacts/evidence
 -> integrate accepted outputs in dependency-respecting order
 -> close semantic coverage against the combined candidate
@@ -144,17 +149,27 @@ Normal Preview and explicit zero-child Dispatch create no active capsule. Normal
 
 State mutation uses short cross-platform locks, bounded payloads, symlink/path checks, temporary writes, flush/fsync where supported, and atomic replace. Locks are never held while waiting for long-running Agent work.
 
-## Crash-safe spawn and reconciliation
+## Crash-safe spawn and action-boundary guard
 
 A new child attempt follows this order:
 
 ```text
 choose unit/task/attempt + deterministic non-sensitive native task name
 -> persist SPAWN_PENDING
+-> construct native spawn_agent request with exact policy role + fork_turns=none
+-> trusted Plugin PreToolUse guard may compare the proposed call with prepared state
 -> call native spawn
 -> Host returns an inspectable child identity
 -> atomically bind that identity and persist RUNNING
 ```
+
+The packaged guard lives at the Host's default Plugin discovery path `hooks/hooks.json`. It matches only `spawn_agent` and calls the local read-only `scripts/spawn_guard.py` through small Unix/Windows Python launchers.
+
+For a reserved `subagents_dispatch_*` target the guard checks the already-prepared `SPAWN_PENDING` attempt, exact policy `agent_type`, `native_task_name`, explicit `fork_turns=none`, delegation depth one, and unresolved takeover state. Unrelated Agent calls pass through.
+
+The Hook does not write Dispatch state, choose a route, bind child identity, settle a writer, or create a retry. Its role is defense in depth at the proposed-action boundary. If the Host does not support, trust, enable, or successfully execute the Hook, the Dispatch Skill and canonical contracts remain the correctness path.
+
+The Hook also does not eliminate the narrow time-of-check/time-of-use interval between its read and the native call. `bind_spawn_identity` and later Host reconciliation remain authoritative.
 
 `bind_spawn_identity` re-reads the authoritative capsule under the state lock before committing the returned identity. A stale caller payload cannot overwrite concurrent receipt/control metadata.
 
@@ -207,7 +222,7 @@ Guidance preserves the same unit, task, attempt, child, role, responsibility, au
 
 Takeover uses the same exact-target rules. Main may request native stop/close, but a writing responsibility transfers only after current Host evidence proves the previous writer is no longer active.
 
-RUNNING, INTERRUPTED, or UNKNOWN writer state does not release conflicting write authority. Missing/notFound Host evidence is uncertainty, not settlement.
+RUNNING, INTERRUPTED, or UNKNOWN writer state does not release conflicting write authority. Missing/notFound Host evidence is uncertainty, not settlement. Hook lifecycle events do not replace this settlement proof.
 
 ## Writer coordination
 
@@ -224,7 +239,7 @@ Future isolated parallel writing is outside the current behavior. A numeric writ
 
 ## Recovery
 
-Recovery distinguishes execution failure from unresolved task need. UNKNOWN is not failure. A pre-child Host rejection creates no Agent attempt and consumes no retry budget.
+Recovery distinguishes execution failure from unresolved task need. UNKNOWN is not failure. A pre-child Host or Hook rejection creates no Agent attempt and consumes no retry budget.
 
 One unchanged responsibility may use at most two materialized Agent attempts and one bounded focused follow-up. Retry is a replacement after a confirmed failed materialized attempt. Rework is separate: it exists only when a candidate/result exists, a concrete acceptance gap is identified, and a correction pass actually begins.
 
@@ -286,22 +301,26 @@ Configured, accepted, and observed route facts are different evidence levels. `s
 
 Ordinary bounded Dispatch remains lightweight. Missing telemetry may remain missing.
 
-Doctor has exactly eight diagnostic layers:
+Doctor has exactly ten diagnostic layers:
 
 ```text
 Plugin
 Skills
+Spawn guard package
 Managed Agent profiles
 Dispatch state
 Codex Host
+Spawn guard runtime
 Runtime route
 Effective permission state
 Permission-source provenance
 ```
 
-Static Doctor is read-only and never spawns native Agents. Missing Host/live-route evidence is `UNKNOWN`, not a fabricated PASS and not automatically an unhealthy installation.
+Static Doctor is read-only and never spawns native Agents. `Spawn guard package` is packaged-file truth. `Spawn guard runtime` requires explicit Host discovery/trust/enablement evidence. Missing Host/live-route evidence is `UNKNOWN`, not a fabricated PASS and not automatically an unhealthy installation.
 
 Live five-role route integrity is an explicit Doctor Skill workflow. It creates controlled children only on explicit request, keeps configured values separate from observed values, and reports UNKNOWN when the supported Host surface does not expose model/reasoning/permission evidence strongly enough.
+
+Calibration readiness belongs to the Experiment Plane. Legacy Doctor calibration CLI flags are compatibility adapters and appear outside the ten production layers.
 
 ## Final Review
 
@@ -320,8 +339,14 @@ scripts/policy.py
 scripts/dispatch_state.py
 -> compact state/lock, spawn binding, Host reconciliation, target resolution, cleanup, Receipt accounting/formatting
 
+scripts/spawn_guard.py
+-> read-only validation of proposed reserved managed spawn_agent calls
+
+scripts/doctor_core.py
+-> deterministic ten-layer production diagnostics and rendering
+
 scripts/doctor.py
--> deterministic eight-layer diagnostics
+-> Doctor CLI, explicit lifecycle actions, and Experiment Plane compatibility adapter
 
 scripts/install-agents.py
 -> managed custom-Agent profile install/check lifecycle
@@ -346,6 +371,8 @@ These helpers enforce deterministic facts. They do not become a second scheduler
 
 ## Evaluation boundary
 
-Static routing, coordination, interaction, runtime, and recovery fixtures catch contract regressions. Behavioral workloads are measurement scaffolding for real Codex runs.
+Static routing, coordination, interaction, runtime, recovery, Hook, and Doctor fixtures catch contract regressions. Behavioral workloads are measurement scaffolding for real Codex runs.
+
+The Experiment Plane is development/research infrastructure. It stays separate from ordinary Doctor product health and never changes runtime policy automatically.
 
 No model-quality, cost, latency, token-saving, or benchmark-superiority claim is valid without current measured evidence on named workloads and runtime versions.

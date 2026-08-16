@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist for a formal subagents-dispatch release candidate. It covers the product that users install and run. Role-calibration campaigns and formal product-benchmark campaigns belong to the development/research Experiment Plane and do not gate v3.0.0 unless a public release claim explicitly depends on their result.
+Use this checklist for a formal subagents-dispatch release candidate. It covers the product users install and run. Role-calibration campaigns and formal product-benchmark campaigns remain development/research infrastructure.
 
 The rule for adding a hard release gate is simple:
 
@@ -11,20 +11,9 @@ hard release gate
 
 If a proposed gate cannot name that protected claim, keep it out of the release path.
 
-The v3.0.0 release path includes repository/package integrity, managed Agent profile lifecycle, Codex App Skill discovery, first-use provisioning, five production Agent routes, runtime attestation required by release claims, Preview / Dispatch / Status / Steer / Takeover behavior, single-writer takeover safety, Doctor safety, update/uninstall safety, and versioned tagged Marketplace distribution.
+The historical v3.0.0 release path established the repository/package, managed-profile, App Skill, native route, runtime-attestation, control-surface, Doctor, update/uninstall, and tagged Marketplace gates. Formal role calibration, formal model/effort comparison campaigns, formal single-agent versus Dispatch product benchmark campaigns, and calibration profile materialization are valid research capabilities but are not v3.0.0 hard release blockers. Runtime attestation remains part of the release path when a release claim says what actually ran.
 
-The following remain valid development/research capabilities but are not v3.0.0 hard release blockers:
-
-```text
-role calibration
-formal model/effort comparison campaigns
-formal single-agent versus Dispatch product benchmark campaigns
-calibration profile materialization
-experiment campaign/run provenance
-performance claims that are not published in the release
-```
-
-Runtime attestation remains part of the release path where the release claims what actually ran. Configured values, Host acceptance, and observed runtime facts stay separate. A small real-task product canary may be run before release to catch obvious correctness, safety, scope, writer, or correction-burden regressions. It does not require the formal Experiment Plane unless its result will support a published performance claim.
+A release that changes the packaged spawn guard additionally validates the exact Hook package, Host trust/discovery state, one legal managed spawn, and representative illegal managed spawn calls. It does not rerun unrelated Host behavior merely because a patch version or later release exists. Release gates follow the actual release delta.
 
 ## 1. Candidate identity
 
@@ -33,6 +22,7 @@ Before validation, record:
 ```text
 version
 candidate commit SHA
+candidate tree SHA
 Codex App / CLI version used for Host smoke
 operating system used for Host smoke
 resolved Python helper invocation
@@ -40,11 +30,9 @@ sys.executable
 Python version
 ```
 
-The version in `.codex-plugin/plugin.json` must match the public README badges, `README_AI.md`, and newest `CHANGELOG.md` entry.
+The version in `.codex-plugin/plugin.json` must match the public README badges, `README_AI.md`, and newest `CHANGELOG.md` entry for a release-prep candidate. `.agents/plugins/marketplace.json` must bind the formal release to `v<version>`, not a mutable branch.
 
-For a formal versioned release, `.agents/plugins/marketplace.json` must bind the Plugin Git source to the matching versioned semantic-version tag (`v<version>`), not a mutable branch such as `main`. A versioned tag pins the source ref used for the release identity; it does not by itself prove platform-enforced tag immutability.
-
-Do not create a release tag until the exact candidate commit has passed every applicable pre-tag product gate below.
+Do not create a release tag until the exact candidate commit has passed every applicable pre-tag product gate.
 
 ### Evidence ownership
 
@@ -55,39 +43,39 @@ Repository/API/CI evidence
 -> version, SHA, tree contents, branch/ruleset state, CI, tag peel, Release state
 
 Public Host runtime evidence
--> spawn/details metadata the Host actually reports for the exact child
+-> spawn/details metadata and Hook state the Host actually reports
 
 Exact Host-produced rollout evidence
 -> allowlisted child route/identity/permission metadata from scripts/inspect-agent-runtime.py
 
 Raw Host/rollout evidence
 -> public runtime metadata, exact inspected rollout metadata, spawn_agent arguments,
-   child identity, lifecycle events, retry accounting, implicit activation
+   child identity, lifecycle events, Hook allow/block output, retry accounting, implicit activation
 
 Direct human Codex App observation
--> what appears in the `/` Skill menu, exact rendered entry names, namespace/prefix,
-   duplicate/conflicting entries, post-selection presentation, selected Plugin/Skill
+-> what appears in the Skill menu, exact rendered entry names, namespace/prefix,
+   Hook trust/review presentation when surfaced, post-selection presentation
 
 Model self-report
--> explanatory only; it cannot by itself close a Host/UI gate or prove the model's own runtime route
+-> explanatory only; it cannot by itself close a Host/UI gate or prove runtime route or Hook trust
 ```
 
 For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the local runtime-evidence source.
 
-Configured profile values, accepted role values, manually copied JSON, and child prose cannot be substituted for Observed fields. Public and exact-rollout evidence must agree wherever both expose the same field. Route, effective permission state, and permission-source provenance close separate claims. Provenance is required only when the release claim names source identity or Host selection.
+Configured profile values, accepted role values, manually copied JSON, and child prose cannot be substituted for Observed fields. Public and exact-rollout evidence must agree wherever both expose the same field. Route, effective permission state, and permission-source provenance close separate claims.
 
 The following App facts require direct human observation:
 
 ```text
-all six Plugin Skills are visible in the App `/` menu
+all six Plugin Skills are visible in the App Skill menu
 their exact user-visible names are namespaced and distinguishable from generic skills
-an unrelated generic entry such as `doctor` is not mistaken for this Plugin's Doctor
+an unrelated generic entry such as doctor is not mistaken for this Plugin's Doctor
 selecting each entry binds to the expected subagents-dispatch Plugin Skill
-the post-selection UI form is recorded
-full App restart refreshes the visible registry when Skill metadata changed
+the post-selection presentation is recorded
+Hook review/trust UI is recorded when this release changes the packaged Hook
 ```
 
-Record screenshots or equivalent direct UI notes. During the Human App gate, record the exact rendered entry labels, visible namespace, and post-selection presentation. Do not invent literal slash-command syntax when the App presents a Skill chip or another selection form.
+A model or repository file cannot by itself close a Host/UI gate. During the Human App gate, record the exact rendered entry labels and post-selection presentation. Do not invent literal slash-command syntax when the App presents a Skill chip or another selection form.
 
 ## 2. Repository gates
 
@@ -100,12 +88,14 @@ macOS / Python 3.11
 Windows / Python 3.11
 ```
 
-Required repository checks are:
+Required deterministic checks are:
 
 ```text
-plugin and marketplace JSON validation
+plugin JSON validation
+Marketplace JSON validation
+hooks/hooks.json JSON validation
 pinned official OpenAI Plugin validator
-Ruff Python lint
+Ruff
 full pytest suite
 managed Agent install
 installer --check
@@ -115,23 +105,41 @@ ownership-aware managed Agent uninstall
 post-uninstall installer --check fails as Not installed
 reinstall after uninstall
 final installer --check
-tag/version parity when the workflow runs from a release tag
+tag/version parity when running from a release tag
+```
+
+The official OpenAI Plugin validator remains pinned by `.github/workflows/ci.yml`. The Plugin manifest intentionally relies on the Host's default `hooks/hooks.json` discovery path so the exact public manifest continues to pass that official validator. Do not generate a validator-only manifest or delete fields only for CI.
+
+The spawn guard tests must prove at minimum:
+
+```text
+valid prepared managed spawn -> allow
+fork_turns omitted -> block
+fork_turns=all -> block
+partial-history fork -> block
+wrong managed agent_type -> block
+wrong native task name -> block
+reserved managed spawn without prepared state -> block
+corrupt/unsafe matching state -> block
+managed child nested spawn -> block
+pending takeover -> block
+unrelated non-Dispatch spawn -> pass through
+raw message/tool input is not emitted or persisted by the guard
 ```
 
 For the current single-maintainer phase, use this integration workflow:
 
 ```text
 short-lived feature branch
--> local full validation
+-> local full validation where available
 -> adversarial/deep review
 -> repair on the same branch
--> local full revalidation
--> direct merge to main
--> push main
+-> full revalidation
+-> direct merge to main or reviewed pull request
 -> GitHub Actions cross-platform confirmation
 ```
 
-A pull request is optional. Feature-branch CI is useful cross-platform evidence for the branch candidate; after direct integration, the final `main` push run confirms the merged candidate.
+A pull request is optional. When a PR is used, validate the merge result before merge. In either path, the final `main` push run confirms the integrated candidate.
 
 Before a local or real-Host gate invokes a bundled Python helper, resolve one Python 3.11+ interpreter from the actual environment according to `docs/python-runtime.md`. Record the resolved invocation, `sys.executable`, and Python version and keep that interpreter fixed for the operation.
 
@@ -144,71 +152,90 @@ Deterministic local gate after `<python-3.11+>` has been resolved:
 ```text
 <python-3.11+> -m json.tool .codex-plugin/plugin.json
 <python-3.11+> -m json.tool .agents/plugins/marketplace.json
+<python-3.11+> -m json.tool hooks/hooks.json
 <python-3.11+> -m ruff check scripts tests --ignore E402
 <python-3.11+> -m pytest -q
 <python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home>
 <python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check
 <python-3.11+> scripts/doctor.py --codex-home <isolated-test-home> --check --thread-id release-doctor
-<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home>
-<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check
 <python-3.11+> scripts/uninstall-agents.py --codex-home <isolated-test-home>
-<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check   # expected non-zero: Not installed
-<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home>
-<python-3.11+> scripts/install-agents.py --codex-home <isolated-test-home> --check
 ```
-
-The expected post-uninstall `--check` failure is part of the lifecycle assertion; it must not be treated as an overall gate failure when it reports the clean `Not installed` state. This deterministic repository gate does not materialize calibration profiles, mutate the user's normal Codex home, or run a formal experiment campaign.
-
-The official OpenAI Plugin validator is pinned by `.github/workflows/ci.yml`; use that exact pin for the release candidate. On a tag push, the same workflow also requires the tag name to equal `v<plugin version>` before the tagged source can pass.
 
 ## 3. Real Codex Host gates
 
-Run these checks against the same candidate that will be tagged.
+Run only applicable Host checks against the same candidate that will be tagged. Reuse prior release evidence for unchanged Host behavior where the release delta does not affect that behavior.
 
 ### Plugin and App Skill discovery
 
-Package identity must be:
+Package identity remains:
 
 ```text
-Plugin:        subagents-dispatch
-Skill:         dispatch  -> intended label Dispatch
-Skill:         preview   -> intended label Preview
-Skill:         status    -> intended label Status
-Skill:         steer     -> intended label Steer
-Skill:         takeover  -> intended label Takeover
-Skill:         doctor    -> intended label Doctor
+Plugin: subagents-dispatch
+Skill: dispatch
+Skill: preview
+Skill: status
+Skill: steer
+Skill: takeover
+Skill: doctor
 ```
 
 Human App gate:
 
-1. fully restart the Codex App when the candidate changes installed Skill metadata;
-2. type `/` to open the App Skill menu;
-3. confirm all six entries are visible;
-4. record the exact rendered entry labels, any visible namespace, and the post-selection presentation;
-5. confirm there is no ambiguity with unrelated Skills using generic labels;
-6. select each entry once and retain raw Host/rollout evidence when available to confirm the expected installed Plugin Skill was selected.
-
-Separately run an unrelated ordinary task and use raw Host evidence to confirm subagents-dispatch does not implicitly activate.
+1. restart the Codex App when installed Plugin metadata or Hook package changed;
+2. open the App Skill menu;
+3. confirm all six Plugin Skills;
+4. record the exact rendered entry labels, visible namespace, and post-selection presentation;
+5. confirm selection binds to the expected Plugin Skill;
+6. run one unrelated ordinary task and confirm subagents-dispatch does not implicitly activate.
 
 ### First-use readiness
 
-Start from a clean state where the five managed subagents-dispatch Agent profiles are absent. Through the human-verified Dispatch App entry, run a real task that genuinely needs delegation and confirm:
+When this lifecycle changed in the release delta, start from a clean state where the five managed profiles are absent and confirm:
 
 ```text
-Python 3.11+ helper prerequisite resolves from the actual task environment
-clean absence -> bounded automatic provisioning
+Python 3.11+ helper prerequisite resolves
+a bounded automatic provisioning operation creates only the five owned profiles plus ownership metadata
 installer --check passes
 RESTART_REQUIRED is returned
 0 child spawns occur before restart
-no extra routine provisioning confirmation is requested
-no unrelated Codex state is modified
+unrelated Codex state remains unchanged
 ```
 
-Open a fresh task after provisioning before testing project-child discovery.
+### Spawn guard Hook
+
+When `hooks/hooks.json`, the launchers, `scripts/spawn_guard.py`, `contracts/policy.json` delegation invariants, or related Host composition changed, run the Hook gate.
+
+Record the Host-observed Hook state separately from packaged configuration:
+
+```text
+source = Plugin
+PreToolUse matcher = spawn_agent
+handler type = command
+execution mode = sync
+trust = Trusted or Managed for a full PASS
+enabled = true for a full PASS
+```
+
+`Untrusted` or disabled is an environment/user-control state and must not be rewritten by Doctor. `Modified`, duplicate, wrong-source, or wrong-mode evidence is a failure for the Hook-runtime claim. Missing Hook evidence remains `UNKNOWN`.
+
+Run one real legal Dispatch spawn prepared through the normal state machine. Confirm the Hook allows it and the native Host still owns returned child identity and lifecycle.
+
+Then test representative invalid proposed managed calls without creating a child:
+
+```text
+omit fork_turns
+set fork_turns=all
+use a wrong policy role or wrong native task name
+attempt nested spawn from a managed child when practical
+```
+
+Each must be blocked before Host child materialization. Confirm a separate unrelated non-Dispatch `spawn_agent` call is not captured by the Plugin guard.
+
+A generic non-blocking Hook command failure is a Hook failure, not a Spawn Guard block and not a Host role rejection. The Host may continue the proposed `spawn_agent` call after such a failure, so the actual native spawn result determines whether a child materializes and whether an Agent attempt begins. Existing Skill/contract checks remain the correctness fallback. Do not record the Hook failure itself as either a successful guard block or a child attempt.
 
 ### Five production routes
 
-For the v3 formal Host route gate, prove controlled real Host spawn for all five exact production roles:
+When route/profile/runtime behavior changed in the release delta, prove controlled real Host spawn for all applicable exact production roles:
 
 ```text
 subagents_dispatch_reader
@@ -218,15 +245,13 @@ subagents_dispatch_investigator
 subagents_dispatch_advisor
 ```
 
-Use one bounded smoke child per role with `fork_turns = none`, no broader behavioral authority than the route check requires, and settle every child before returning.
+Use one bounded smoke child per role with `fork_turns = none` and settle every child before returning.
 
-For each role record separately:
+For each role record Configured, Requested, Accepted, Observed route, effective permission state, and permission provenance separately. An accepted exact `agent_type` proves role acceptance only. It does not establish observed model, effort, or permission. Missing source provenance makes only that dimension `UNKNOWN`. Observed mismatches and public/local conflicts fail closed.
 
-| Configured model | Configured reasoning | Behavioral authority | Runtime route | Effective permission state | Permission provenance |
-| --- | --- | --- | --- | --- | --- |
-| policy value | policy value | none or assigned bounded-source-write | VERIFIED / UNKNOWN / FAIL | VERIFIED / UNKNOWN / FAIL | VERIFIED / UNKNOWN / FAIL |
+If a current test account lacks entitlement for a configured model, record that affected route as entitlement-limited / not tested for that environment. Do not silently substitute a fallback model or rewrite the production route merely to make a smoke test green. Existing verified evidence for unchanged route behavior may be inherited according to the release-delta rule.
 
-Follow `docs/runtime-attestation.md`. Inspect public Host/spawn/details metadata first. If a required runtime field is omitted and the exact local child rollout exists, run:
+When exact local inspection is required:
 
 ```text
 <python-3.11+> scripts/inspect-agent-runtime.py <child-thread-id> \
@@ -234,132 +259,97 @@ Follow `docs/runtime-attestation.md`. Inspect public Host/spawn/details metadata
   --expected-agent-role <exact-agent-type>
 ```
 
-Place public Host runtime fields in `native`, only the inspector's allowlisted object in `local`, and normalize through `scripts/runtime-evidence.py`.
-
-An accepted exact `agent_type` proves role acceptance only. It does not prove observed model, reasoning effort, or permission. Missing source provenance makes only that dimension `UNKNOWN`. Observed mismatches and public/local conflicts fail closed.
-
-If the release does not claim Host permission-source identity or selection, permission provenance may remain `UNKNOWN` while verified route and effective permission state remain independently usable evidence.
-
-For Reader, Investigator, and Advisor, record a narrow project-file mutation baseline before the smoke responsibility and confirm that project-file state is unchanged after the child settles. This proves behavioral read-only compliance only; it does not substitute for Host sandbox evidence.
-
-For every new project child confirm:
-
-```text
-exact required agent_type
-fork_turns is present
-fork_turns = none
-0 full-history (`all`) custom-role spawn calls
-0 omitted-fork_turns project-child spawn calls
-```
-
-A Host/tool rejection before any child identity is returned is a pre-attempt spawn rejection. It must not consume an Agent retry or Dispatch Receipt retry count.
-
 ### Control Surface integrated scenario
 
-Run one real orchestration that exercises the public control surface:
+When Dispatch/Status/Steer/Takeover/state ownership changed, run one real orchestration that exercises the changed control surface. Confirm current Host truth is reconciled before writer ownership transfer and `UNKNOWN` never releases a writer.
+
+### Doctor
+
+Static Doctor must remain read-only. Verify exactly ten production layers:
 
 ```text
-Preview
--> predicts without child spawn or active-state creation
-
-Dispatch
--> creates only responsibilities that add distinct value
-
-Status
--> performs one observation and preserves UNKNOWN when current Host truth is unavailable
-
-Steer
--> keeps the same unit, task, attempt, role, authority, and native child
-
-Takeover
--> does not release a writing responsibility until Host evidence settles the old writer
-
-Completion
--> verifies the actual result and emits the applicable Dispatch Receipt
+Plugin
+Skills
+Spawn guard package
+Managed Agent profiles
+Dispatch state
+Codex Host
+Spawn guard runtime
+Runtime route
+Effective permission state
+Permission-source provenance
 ```
 
-If live steering is unavailable on the supported Host, report the limitation instead of simulating a replacement child.
+Without explicit Host/runtime evidence, supported dimensions remain `UNKNOWN`. A local package cannot promote Hook trust or runtime route to PASS. The user-facing output uses stable `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` status lines and provides an exact action for actionable warnings/failures.
 
-During writer takeover, Main remains read-only until the previous writer is proven stopped, terminal, or closed. `RUNNING`, `INTERRUPTED`, and `UNKNOWN` do not authorize conflicting mutation.
-
-### Doctor safety
-
-Through the human-verified Doctor App entry, exercise exact, modified-managed, and unowned/conflicting profile states. Modified or unowned state must fail closed and must not overwrite unrelated files.
-
-Run static Doctor without spawning Agents. Separately run explicit live-route Doctor once when release route evidence is required. Route, effective permission state, and provenance remain separate assurance dimensions. Do not require provenance for a release claim that does not name permission-source identity or Host selection.
+Explicit live-route smoke is a separate user-requested workflow and never becomes an automatic side effect of static Doctor.
 
 ### Update and uninstall
 
-Run the documented update flow, open a fresh task, and confirm the exact managed profiles and at least one custom Agent spawn still work.
+For a release that changes lifecycle files, test update from the previous public release. Confirm only owned profiles are reconciled. A changed Hook follows Codex's Host trust/review behavior; Doctor does not silently trust it.
 
-For uninstall, keep the Plugin installed while the managed profiles are removed. Through the human-verified Doctor entry, explicitly request managed-profile uninstall and require the bundled ownership-aware helper to remove only profiles still proven by the existing ownership manifest. Exercise exact-owned, already-missing-owned, modified-owned, and unowned/conflicting cases. Modified or unowned state must fail closed without deleting other Agent configuration. Only after managed-profile cleanup succeeds should the Plugin registration and Marketplace source be removed.
-
-Confirm credentials, unrelated Agent profiles, repositories, and other Plugin-unrelated Codex state remain untouched throughout uninstall. For `config.toml`, allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; all unrelated configuration semantics must remain unchanged.
-
-### Optional real-task product canary
-
-Before final documentation freeze, run a small paired canary on real repository tasks when practical:
+Uninstall order remains:
 
 ```text
-ordinary single-agent baseline
-vs
-explicit Dispatch
+ownership-aware managed Agent uninstall while Plugin files are still available
+-> remove Plugin registration
+-> remove Marketplace source
 ```
 
-Use independently reset workspaces and the same task, Main route, tools, permissions, project rules, and acceptance oracle. Treat material correctness, safety, authority, scope, writer, or correction-burden regression as a release concern.
+The supported Plugin and Marketplace removal commands may update user configuration only for those registrations. During uninstall, allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; all unrelated configuration semantics must remain unchanged.
 
-Do not turn this canary into a performance claim. Formal repeat counts, exact telemetry, statistical summaries, route calibration, and public superiority claims belong to `docs/experiment-protocol.md`.
+The default-discovered Hook disappears with the Plugin package and does not require a user-global Hook entry cleanup path.
 
 ## 4. Hard release blockers
 
-Do not release if any of these are observed on the supported candidate:
+Stop release for any applicable gate with:
 
 ```text
-repository CI or required package validation fails
-Codex App `/` menu does not expose all six namespaced Plugin Skills
-an App-visible entry is ambiguous with an unrelated Skill or selects the wrong Plugin/Skill
-fresh task cannot resolve the exact required custom Agent role
-any of the five configured production roles cannot be spawned as its exact agent_type
-first-use stale task attempts a child spawn after provisioning
-normal project-child spawn uses fork_turns other than none or omits fork_turns
-pre-child spawn rejection is counted as an Agent retry or Receipt retry
-required runtime route evidence is UNKNOWN or mismatched for a claim that depends on it
-required effective permission-state evidence is UNKNOWN or mismatched for a claim that depends on it
-Main writes before a previous writer is proven settled during takeover
-modified or unowned Agent configuration is overwritten automatically
-managed-profile uninstall deletes a modified, unowned, symlinked, or unrelated Agent configuration
-subagents-dispatch implicitly activates on an unrelated ordinary task
-update or uninstall mutates unrelated Codex state
+candidate/main drift before tag
+required CI failure
+Plugin validator failure
+package/version/ref mismatch
+unsafe managed-profile ownership state
+spawn guard allows a managed full-history/omitted-history fork when that guard is in release scope
+spawn guard blocks unrelated Agent traffic
+Hook package differs from the reviewed candidate
+required Host route mismatch
+required runtime evidence conflict
+writer ownership can transfer while previous writer is active or UNKNOWN
+App Skill identity ambiguity after a changed Skill surface
+update/uninstall modifies unowned state
 ```
 
-Permission-source provenance `UNKNOWN` is not a blocker unless the release explicitly claims the source identity or Host selection decision.
-
-Role-calibration incompleteness, an unfinished formal product benchmark, or missing experiment telemetry is not a v3.0.0 blocker when the release makes no claim that depends on it.
-
-`PYTHON_PREREQUISITE_UNMET` blocks the Python-backed gate that could not execute. It is not evidence of Host route rejection, inspector regression, or permission mismatch.
-
-Keep Host limitations separate from project defects in the validation report.
+An unavailable non-required observation is recorded as `UNKNOWN` or `NOT TESTED`; it is not converted into a fabricated PASS.
 
 ## 5. Repository governance before tagging
 
-Before a formal tag, inspect current repository administration state directly. At minimum verify that unsafe history rewriting is prevented for `main` and record active deletion protection, pull-request requirements, and required status checks exactly as configured at that time.
+Immediately before the tag write:
 
-For the current single-maintainer workflow, PR and pre-merge status-check requirements are optional. Code must not silently change repository protection settings.
+1. re-fetch `main`;
+2. confirm its exact SHA/tree match the validated candidate;
+3. confirm no conflicting release tag exists;
+4. confirm open change state is understood;
+5. record the current ruleset/tag-governance residuals.
+
+Do not move or overwrite an existing public release tag to repair a changed candidate.
 
 ## 6. Tag, distribution smoke, and GitHub Release
 
-Only after the exact merged candidate passes repository, Host, human App UI, governance, and versioned Marketplace-source gates:
+Create an annotated versioned semantic-version tag `v<version>` on the exact validated commit. Verify:
 
-1. confirm `main` still points to the validated candidate SHA;
-2. confirm tag, Plugin version, Marketplace tag ref, README version, and CHANGELOG version are consistent;
-3. create the versioned semantic-version tag on that exact SHA;
-4. require the tag-triggered canonical CI run to pass, including `GITHUB_REF_NAME == v<plugin version>` and the full repository/managed-profile lifecycle on the tagged source;
-5. from a clean environment, add the Marketplace from that exact tag and install the Plugin;
-6. confirm the installed Plugin reports the same version and the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch;
-7. fully restart the Codex App when required for registry refresh;
-8. human-check the `/` menu again and confirm the same six namespaced Skill entries select the expected tagged payload;
-9. run one bounded tagged-distribution Dispatch smoke with at least one real production child;
-10. use raw Host/rollout evidence for any runtime claim that cannot be established from UI alone;
-11. create the GitHub Release only after the tagged distribution smoke passes.
+```text
+tag ref
+-> annotated tag object
+-> exact candidate commit
+```
 
-The GitHub Release must describe only capabilities and performance claims supported by the evidence completed for that exact tagged candidate.
+The ref/object/commit peel proves release identity; it does not by itself prove platform-enforced tag immutability. Record tag signature/verification status accurately. Do not describe a tag as platform-enforced immutable without a tag ruleset or equivalent platform evidence.
+
+Require tag-triggered canonical CI on all four configured platforms and tag/version parity.
+
+Then install from a clean Marketplace environment and verify that the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch. Confirm the installed package version, six Skills, five managed profiles, and default-discovered `hooks/hooks.json` identity.
+
+If App-visible Skill or Hook trust UI changed, do the direct human App observation on the tagged distribution. If it did not change and the release-delta rule allows inherited evidence, record the inherited evidence rather than mechanically repeating every historical Host test.
+
+Create the GitHub Release only after the applicable tagged-distribution gates pass. The release record should include the exact release commit, tag object/peel, canonical CI run, distribution identity, applicable Host/UI evidence, and remaining residual risks.

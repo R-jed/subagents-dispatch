@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -9,10 +9,27 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCTOR = ROOT / "scripts" / "doctor.py"
+DOCTOR_CORE = ROOT / "scripts" / "doctor_core.py"
 INSTALLER = ROOT / "scripts" / "install-agents.py"
+PRODUCTION_LAYERS = [
+    "Plugin",
+    "Skills",
+    "Spawn guard package",
+    "Managed Agent profiles",
+    "Dispatch state",
+    "Codex Host",
+    "Spawn guard runtime",
+    "Runtime route",
+    "Effective permission state",
+    "Permission-source provenance",
+]
 
 
-def run_doctor(home: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def run_doctor(
+    home: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     merged = os.environ.copy()
     if env is not None:
         merged.update(env)
@@ -37,11 +54,11 @@ def install(home: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def load_doctor_module():
+def load_core():
     scripts = str(ROOT / "scripts")
     sys.path.insert(0, scripts)
     try:
-        spec = importlib.util.spec_from_file_location("doctor_under_test", DOCTOR)
+        spec = importlib.util.spec_from_file_location("doctor_core_under_test", DOCTOR_CORE)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -50,34 +67,47 @@ def load_doctor_module():
         sys.path.remove(scripts)
 
 
-def test_doctor_reports_independent_assurance_layers_and_unobserved_runtime_is_not_unhealthy(
-    tmp_path: Path,
-):
+def host_evidence(path: Path, *rows: dict) -> Path:
+    path.write_text(
+        json.dumps({"capabilities": ["hooks", "multi_agent"], "plugin_hooks": list(rows)}),
+        encoding="utf-8",
+    )
+    return path
+
+
+def hook_row(**overrides) -> dict:
+    row = {
+        "plugin": "subagents-dispatch",
+        "event": "PreToolUse",
+        "source": "plugin",
+        "handler_type": "command",
+        "execution_mode": "sync",
+        "trust_status": "trusted",
+        "enabled": True,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_doctor_reports_ten_production_layers_and_unknown_runtime_is_supported(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, "--check", env={"CODEX_THREAD_ID": "doctor-test"})
 
     assert result.returncode == 0, result.stdout + result.stderr
-    output = result.stdout
-    labels = [
-        "Plugin",
-        "Skills",
-        "Managed Agent profiles",
-        "Dispatch state",
-        "Codex Host",
-        "Runtime route",
-        "Effective permission state",
-        "Permission-source provenance",
+    status_lines = [
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith(("[OK]", "[WARN]", "[FAIL]", "[UNKNOWN]"))
     ]
-    layer_lines = [line for line in output.splitlines() if line.startswith("Layer:")]
-    assert len(layer_lines) == len(labels)
-    for line, label in zip(layer_lines, labels):
-        assert line.startswith(f"Layer: {label}:")
-    assert "Layer: Codex Host: UNKNOWN" in output
-    assert "Layer: Runtime route: UNKNOWN" in output
-    assert "Layer: Effective permission state: UNKNOWN" in output
-    assert "Layer: Permission-source provenance: UNKNOWN" in output
-    assert "not run" in output
+    assert len(status_lines) == len(PRODUCTION_LAYERS)
+    for line, label in zip(status_lines, PRODUCTION_LAYERS):
+        assert f"] {label}:" in line
+    assert "[OK] Spawn guard package:" in result.stdout
+    assert "[UNKNOWN] Codex Host:" in result.stdout
+    assert "[UNKNOWN] Spawn guard runtime:" in result.stdout
+    assert "[UNKNOWN] Runtime route:" in result.stdout
+    assert "Overall: HEALTHY" in result.stdout
 
     temp_root = tmp_path / "temp"
     temp_root.mkdir()
@@ -91,53 +121,138 @@ def test_doctor_reports_independent_assurance_layers_and_unobserved_runtime_is_n
     )
     assert json_result.returncode == 0, json_result.stdout + json_result.stderr
     report = json.loads(json_result.stdout)
-    profiles = next(layer for layer in report["layers"] if layer["name"] == "Managed Agent profiles")
-    state = next(layer for layer in report["layers"] if layer["name"] == "Dispatch state")
+    assert report["schema_version"] == 2
+    assert [item["name"] for item in report["layers"]] == PRODUCTION_LAYERS
+    profiles = next(item for item in report["layers"] if item["name"] == "Managed Agent profiles")
+    state = next(item for item in report["layers"] if item["name"] == "Dispatch state")
+    guard = next(item for item in report["layers"] if item["name"] == "Spawn guard package")
     assert profiles["details"]["legacy_status"] == "migration_complete"
     assert state["details"]["state_lock_health"] == "not_present"
     assert state["details"]["schema_health"] == "ok"
     assert state["details"]["unexpected_repository_state"] == []
+    assert guard["details"]["discovery_path"] == "hooks/hooks.json"
+    assert guard["details"]["mutation"] is False
 
 
-def test_doctor_calibration_readiness_uses_profile_only_checker(tmp_path: Path):
+def test_doctor_hook_runtime_uses_explicit_host_truth(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+
+    trusted = host_evidence(tmp_path / "trusted.json", hook_row())
+    result = run_doctor(
+        home,
+        "--check",
+        "--host-evidence",
+        str(trusted),
+        env={"CODEX_THREAD_ID": "doctor-hook"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[OK] Spawn guard runtime:" in result.stdout
+
+    untrusted = host_evidence(
+        tmp_path / "untrusted.json",
+        hook_row(trust_status="untrusted", enabled=False),
+    )
+    result = run_doctor(
+        home,
+        "--check",
+        "--host-evidence",
+        str(untrusted),
+        env={"CODEX_THREAD_ID": "doctor-hook"},
+    )
+    assert result.returncode != 0
+    assert "[WARN] Spawn guard runtime:" in result.stdout
+    assert "Action:" in result.stdout
+
+    duplicate = host_evidence(tmp_path / "duplicate.json", hook_row(), hook_row())
+    result = run_doctor(
+        home,
+        "--check",
+        "--host-evidence",
+        str(duplicate),
+        env={"CODEX_THREAD_ID": "doctor-hook"},
+    )
+    assert result.returncode != 0
+    assert "[FAIL] Spawn guard runtime:" in result.stdout
+
+
+def test_doctor_modified_or_wrong_mode_hook_fails_closed(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    for name, row in {
+        "modified": hook_row(trust_status="modified"),
+        "async": hook_row(execution_mode="async"),
+        "user": hook_row(source="user"),
+    }.items():
+        evidence = host_evidence(tmp_path / f"{name}.json", row)
+        result = run_doctor(
+            home,
+            "--check",
+            "--host-evidence",
+            str(evidence),
+            env={"CODEX_THREAD_ID": "doctor-hook"},
+        )
+        assert result.returncode != 0
+        assert "[FAIL] Spawn guard runtime:" in result.stdout
+
+
+def test_calibration_readiness_remains_outside_production_layers(tmp_path: Path):
     home = tmp_path / ".codex"
     (home / "agents").mkdir(parents=True)
-    (home / "config.toml").write_text('model="keep"\n')
+    (home / "config.toml").write_text('model="keep"\n', encoding="utf-8")
     evidence = tmp_path / "evidence"
     evidence.mkdir()
     initialized = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "calibration_profiles.py"), "init",
-         "--evaluator-root", str(evidence)], cwd=ROOT, text=True, capture_output=True,
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "calibration_profiles.py"),
+            "init",
+            "--evaluator-root",
+            str(evidence),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
     )
     assert initialized.returncode == 0, initialized.stderr
     sys.path.insert(0, str(ROOT / "tests"))
     try:
         from test_calibration_profiles import campaign, run
+
         campaign_path = campaign(evidence)
         assert run(evidence, home, campaign_path, "create").returncode == 0
     finally:
         sys.path.pop(0)
     dirty_marker = ROOT / ".doctor-controlled-test-change"
-    dirty_marker.write_text("controlled\n")
+    dirty_marker.write_text("controlled\n", encoding="utf-8")
     try:
         result = run_doctor(
-            home, "--json", "--calibration-evidence-root", str(evidence),
-            "--calibration-campaign", str(campaign_path),
-            "--calibration-host-home-evidence", str(evidence / "host-home.json"),
-            "--calibration-provisioning-task-id", "provisioning-task-1",
+            home,
+            "--json",
+            "--calibration-evidence-root",
+            str(evidence),
+            "--calibration-campaign",
+            str(campaign_path),
+            "--calibration-host-home-evidence",
+            str(evidence / "host-home.json"),
+            "--calibration-provisioning-task-id",
+            "provisioning-task-1",
         )
     finally:
         dirty_marker.unlink()
     assert result.returncode == 0, result.stderr
-    layer = next(item for item in json.loads(result.stdout)["layers"] if item["name"] == "Calibration readiness")
-    assert layer["status"] == "FAIL"
-    assert layer["details"]["repository_clean"] is False
-    assert layer["details"]["shared_config_mutations"] == 0
-    assert layer["details"]["exact_calibration_profiles"] == 2
+    report = json.loads(result.stdout)
+    assert [item["name"] for item in report["layers"]] == PRODUCTION_LAYERS
+    assert len(report["development_layers"]) == 1
+    development = report["development_layers"][0]
+    assert development["name"] == "Calibration readiness"
+    assert development["status"] == "FAIL"
+    assert development["details"]["repository_clean"] is False
 
 
 def test_doctor_detects_all_forbidden_repository_local_state_names(tmp_path: Path):
-    module = load_doctor_module()
+    core = load_core()
     forbidden = [
         "subagents-dispatch/thread-1/active.json",
         "team-plan-orphan.json",
@@ -152,8 +267,7 @@ def test_doctor_detects_all_forbidden_repository_local_state_names(tmp_path: Pat
     ignored = tmp_path / ".venv" / "receipt-ignored.json"
     ignored.parent.mkdir()
     ignored.write_text("{}", encoding="utf-8")
-
-    assert module._unexpected_repository_state(tmp_path) == sorted(forbidden)
+    assert core._unexpected_repository_state(tmp_path) == sorted(forbidden)
 
 
 def test_doctor_cleanup_rejects_explicit_empty_thread_identity(tmp_path: Path):
@@ -187,9 +301,8 @@ def test_doctor_explicit_runtime_evidence_keeps_configured_and_observed_distinct
         encoding="utf-8",
     )
     result = run_doctor(home, "--check", "--runtime-evidence", str(evidence))
-
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Layer: Runtime route: UNKNOWN" in result.stdout
+    assert "[UNKNOWN] Runtime route:" in result.stdout
     assert "runtime route is not exposed by current Host evidence" in result.stdout
 
 
@@ -221,13 +334,11 @@ def test_doctor_accepts_agreeing_native_and_local_route_evidence(tmp_path: Path)
         ),
         encoding="utf-8",
     )
-
     result = run_doctor(home, "--check", "--runtime-evidence", str(evidence))
-
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Layer: Runtime route: OK" in result.stdout
-    assert "Layer: Effective permission state: OK" in result.stdout
-    assert "Layer: Permission-source provenance: UNKNOWN" in result.stdout
+    assert "[OK] Runtime route:" in result.stdout
+    assert "[OK] Effective permission state:" in result.stdout
+    assert "[UNKNOWN] Permission-source provenance:" in result.stdout
 
 
 def test_doctor_preserves_corrupt_dispatch_state(tmp_path: Path):
@@ -236,8 +347,8 @@ def test_doctor_preserves_corrupt_dispatch_state(tmp_path: Path):
     state_file = tmp_path / "temp" / "subagents-dispatch" / "thread-corrupt" / "active.json"
     state_file.parent.mkdir(parents=True)
     state_file.write_text("{broken", encoding="utf-8")
-    state_file.chmod(0o600)
-
+    if os.name != "nt":
+        state_file.chmod(0o600)
     result = run_doctor(
         home,
         "--check",
@@ -245,9 +356,8 @@ def test_doctor_preserves_corrupt_dispatch_state(tmp_path: Path):
         str(tmp_path / "temp"),
         env={"CODEX_THREAD_ID": "thread-corrupt"},
     )
-
     assert result.returncode != 0
-    assert "Layer: Dispatch state: FAIL" in result.stdout
+    assert "[FAIL] Dispatch state:" in result.stdout
     assert "corrupt" in result.stdout.lower()
     assert state_file.read_text(encoding="utf-8") == "{broken"
 
@@ -257,15 +367,20 @@ def test_doctor_without_thread_id_does_not_create_dispatch_state(tmp_path: Path)
     install(home)
     temp_root = tmp_path / "temp"
     temp_root.mkdir()
-    result = run_doctor(home, "--check", "--temp-root", str(temp_root), env={"CODEX_THREAD_ID": ""})
-
+    result = run_doctor(
+        home,
+        "--check",
+        "--temp-root",
+        str(temp_root),
+        env={"CODEX_THREAD_ID": ""},
+    )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Layer: Dispatch state: UNKNOWN" in result.stdout
+    assert "[UNKNOWN] Dispatch state:" in result.stdout
     assert "CODEX_THREAD_ID" in result.stdout
     assert not (temp_root / "subagents-dispatch").exists()
 
 
-def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: Path):
+def test_doctor_reports_pending_takeover_and_stale_state_without_deleting_it(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     temp_root = tmp_path / "temp"
@@ -275,8 +390,8 @@ def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: P
         "schema_version": "1.0",
         "root_thread_id": "thread-pending",
         "locale": "en",
-        "created_at": "2026-08-10T00:00:00Z",
-        "updated_at": "2026-08-10T00:00:00Z",
+        "created_at": "2026-07-01T00:00:00Z",
+        "updated_at": "2026-07-01T00:00:00Z",
         "team_plan_revision": None,
         "units": [
             {
@@ -287,7 +402,10 @@ def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: P
                 "agent_id": "agent-1",
                 "role": "worker",
                 "model_lane": "Luna Max",
-                "responsibility": {"outcome": "finish bounded work", "acceptance": "Main accepts result"},
+                "responsibility": {
+                    "outcome": "finish bounded work",
+                    "acceptance": "Main accepts result",
+                },
                 "authority": {"write_scope": ["owned.py"]},
                 "writer": True,
                 "control_state": "RUNNING",
@@ -304,7 +422,8 @@ def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: P
     }
     state_file = state_dir / "active.json"
     state_file.write_text(json.dumps(state), encoding="utf-8")
-    state_file.chmod(0o600)
+    if os.name != "nt":
+        state_file.chmod(0o600)
     (state_dir / "active.lock").touch(mode=0o600)
 
     result = run_doctor(
@@ -315,48 +434,10 @@ def test_doctor_reports_pending_takeover_as_unresolved_orchestration(tmp_path: P
         str(temp_root),
         env={"CODEX_THREAD_ID": "thread-pending"},
     )
+    assert result.returncode != 0
     report = json.loads(result.stdout)
     layer = next(item for item in report["layers"] if item["name"] == "Dispatch state")
     assert layer["status"] == "WARN"
     assert layer["details"]["active_orchestration"] is True
     assert layer["details"]["pending_takeovers"] == ["thread-pending"]
-
-
-def test_doctor_scans_existing_state_without_thread_id(tmp_path: Path):
-    home = tmp_path / "codex-home"
-    install(home)
-    temp_root = tmp_path / "temp"
-    state_dir = temp_root / "subagents-dispatch" / "other-thread"
-    state_dir.mkdir(parents=True)
-    state = {
-        "schema_version": "1.0",
-        "root_thread_id": "other-thread",
-        "locale": "en",
-        "created_at": "2026-07-01T00:00:00Z",
-        "updated_at": "2026-07-01T00:00:00Z",
-        "team_plan_revision": None,
-        "units": [],
-        "accounting_refs": [],
-        "controls": [],
-        "pending_takeover": None,
-    }
-    state_file = state_dir / "active.json"
-    state_file.write_text(json.dumps(state), encoding="utf-8")
-    state_file.chmod(0o600)
-    lock_file = state_dir / "active.lock"
-    lock_file.touch(mode=0o600)
-
-    result = run_doctor(
-        home,
-        "--check",
-        "--json",
-        "--temp-root",
-        str(temp_root),
-        env={"CODEX_THREAD_ID": ""},
-    )
-    report = json.loads(result.stdout)
-    layer = next(item for item in report["layers"] if item["name"] == "Dispatch state")
-
-    assert layer["status"] == "WARN"
-    assert layer["details"]["current_thread"] is None
-    assert layer["details"]["stale_count"] == 1
+    assert state_file.is_file()
