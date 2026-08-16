@@ -154,10 +154,6 @@ def prepare_control(
         execution = _execution(current, execution_id)
         if execution["native_task_name"] != target:
             raise ControlError("tool target does not match ExecutionBinding native_task_name")
-        if execution["lifecycle"] not in EXPECTED_LIFECYCLE[operation]:
-            raise ControlError(
-                f"execution lifecycle {execution['lifecycle']} is not eligible for {operation}"
-            )
         unresolved = [
             control
             for control in current["pending_controls"]
@@ -166,6 +162,10 @@ def prepare_control(
         ]
         if unresolved:
             raise ControlError("execution already has unresolved PendingControl")
+        if execution["lifecycle"] not in EXPECTED_LIFECYCLE[operation]:
+            raise ControlError(
+                f"execution lifecycle {execution['lifecycle']} is not eligible for {operation}"
+            )
         if any(control["control_id"] == control_id for control in current["pending_controls"]):
             raise ControlError("control_id is already present")
         lease_epoch = _writer_requirements(
