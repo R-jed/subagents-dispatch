@@ -113,9 +113,8 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
         "fork_turns": "none",
     }
 
-    blocked = guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path)
-    assert blocked is not None
-    assert blocked["decision"] == "block"
+    with pytest.raises(control.ControlError, match="PREPARED"):
+        guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path)
 
     control.prepare_control(
         "root-thread",
@@ -133,9 +132,8 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
 
     second = pre_payload(tool_input)
     second["tool_use_id"] = "tool-2"
-    blocked = guard.evaluate_pre_tool_use(second, temp_root=tmp_path)
-    assert blocked is not None
-    assert blocked["decision"] == "block"
+    with pytest.raises(control.ControlError, match="PREPARED"):
+        guard.evaluate_pre_tool_use(second, temp_root=tmp_path)
 
 
 def test_post_tool_use_acknowledges_exact_control(tmp_path: Path):
@@ -252,7 +250,11 @@ def test_cli_post_failure_stops_instead_of_failing_open(monkeypatch, capsys):
     }
     fake_stdin = io.TextIOWrapper(io.BytesIO(json.dumps(payload).encode()), encoding="utf-8")
     monkeypatch.setattr(guard.sys, "stdin", fake_stdin)
-    monkeypatch.setattr(guard, "evaluate_hook", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        guard,
+        "evaluate_hook",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
 
     guard.main()
     captured = capsys.readouterr()
