@@ -343,10 +343,6 @@ def _validate_executions(
             if agent_id in agent_ids:
                 raise StatePayloadError(f"execution {execution_id} duplicates agent_id")
             agent_ids.add(agent_id)
-        if lifecycle == "SPAWN_PENDING" and agent_id is not None:
-            raise StatePayloadError(f"execution {execution_id} cannot bind agent_id before spawn")
-        if lifecycle in {"RUNNING", "INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"} and agent_id is None:
-            raise StatePayloadError(f"execution {execution_id} requires agent_id in {lifecycle}")
         granted = execution["granted_authority"]
         if granted not in MUTATION_AUTHORITIES:
             raise StatePayloadError(f"execution {execution_id} has invalid granted_authority")
@@ -738,15 +734,18 @@ def reconcile_execution_observation(
     failure_origin: str = "tool_failure",
     now: datetime | str | None = None,
 ) -> dict[str, Any]:
-    """Apply one Host snapshot only when its captured orchestration basis is current.
+    """Apply one normalized Host snapshot when its captured basis is current.
 
-    A stale observation is returned unchanged with ``reconcile_status=stale``. The
-    function never releases WriterLease and never marks WorkUnit ACCEPTED.
+    ``native_task_name`` is the required V2 execution identity. ``agent_id`` is
+    optional reinforcing evidence because V2 spawn/list tools do not guarantee a
+    thread id. A stale observation is discarded. Reconciliation never releases
+    WriterLease and never marks WorkUnit ACCEPTED.
     """
     state = copy.deepcopy(dict(payload))
     validate_state_payload(state)
     if not _basis_is_current(state, basis):
         return {"reconcile_status": "stale", "state": state}
+    before = copy.deepcopy(state)
     execution = next(
         item for item in state["executions"] if item["execution_id"] == basis["execution_id"]
     )
@@ -790,8 +789,10 @@ def reconcile_execution_observation(
                 work_unit = next(
                     unit for unit in state["work_units"] if unit["unit_id"] == execution["unit_id"]
                 )
-                if work_unit["state"] not in {"ACCEPTED", "CANCELLED"}:
+                if work_unit["state"] == "EXECUTING":
                     work_unit["state"] = "RESULT_READY"
+    if state == before:
+        return {"reconcile_status": "noop", "state": state}
     state["state_revision"] += 1
     state["updated_at"] = storage._utc_text(now)
     validate_state_payload(state)
