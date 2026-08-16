@@ -26,6 +26,7 @@ EXPECTED_EVENT = "PreToolUse"
 EXPECTED_TOOL = "spawn_agent"
 RESERVED_AGENT_PREFIX = "subagents_dispatch_"
 MAX_STDIN_BYTES = 2 * 1024 * 1024
+BLOCKING_EXIT_CODE = 2
 
 
 class GuardContractError(RuntimeError):
@@ -37,6 +38,11 @@ def _block(code: str, message: str) -> dict[str, Any]:
         "decision": "block",
         "reason": f"subagents-dispatch spawn guard [{code}]: {message}",
     }
+
+
+def _fail_closed(message: str) -> None:
+    print(message, file=sys.stderr)
+    raise SystemExit(BLOCKING_EXIT_CODE)
 
 
 def _policy_shape(path: Path) -> tuple[dict[str, str], str, int]:
@@ -158,25 +164,18 @@ def _runtime_temp_root() -> Path | None:
 def main() -> None:
     raw = sys.stdin.buffer.read(MAX_STDIN_BYTES + 1)
     if len(raw) > MAX_STDIN_BYTES:
-        print("subagents-dispatch spawn guard input exceeded its bounded limit", file=sys.stderr)
-        raise SystemExit(78)
+        _fail_closed("subagents-dispatch spawn guard blocked managed spawn: Hook input exceeded its bounded limit")
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):
-        print("subagents-dispatch spawn guard received invalid Hook JSON", file=sys.stderr)
-        raise SystemExit(78)
+        _fail_closed("subagents-dispatch spawn guard blocked managed spawn: invalid Hook JSON")
     if not isinstance(payload, dict):
-        print("subagents-dispatch spawn guard requires an object Hook payload", file=sys.stderr)
-        raise SystemExit(78)
+        _fail_closed("subagents-dispatch spawn guard blocked managed spawn: Hook payload must be an object")
 
     try:
         result = evaluate_hook(payload, temp_root=_runtime_temp_root())
-    except Exception as exc:
-        print(
-            f"subagents-dispatch spawn guard unavailable: {type(exc).__name__}",
-            file=sys.stderr,
-        )
-        raise SystemExit(78) from None
+    except Exception:
+        _fail_closed("subagents-dispatch spawn guard unavailable; managed spawn blocked")
     if result is not None:
         print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
 
