@@ -20,7 +20,6 @@
     "contracts/routing.md": "5c8e6e8deee7ee9ea903a1f55faa172f937bfda710e76ea01c467775d734efa1",
     "contracts/state.md": "bdd769ec9cbb8bbd9e68861674455e5f2300f3ec5e9c77e2e1efa49ffe23921b",
     "contracts/team-plan.md": "a18c05930f79a33d1205e9a563b39c77ef7e905091448fceac514859098a2153",
-    "contracts/v4-architecture.json": "b893470644fc5dd981ad6271a65eea0c4fe9355932e945766618232110c413d5",
     "docs/python-runtime.md": "be3a55d2e090051de0d7cc33790cd0d9130e28f167a94099bb4c964b1bd32688",
     "hooks/hooks.json": "384c4350a73f0df2356fad501f844f3f4dc8822c2080c56b21089eb06d87c6b2",
     "hooks/run-python.cmd": "966cf6b55dc8ab47046fdc3a35eb573e6220a34e0a874218b3c5ce1f2b54b32a",
