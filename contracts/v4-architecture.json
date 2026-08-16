@@ -1,0 +1,170 @@
+{
+  "delegation": {
+    "fork_turns": "none",
+    "host_capacity_excludes_primary": true,
+    "initial_managed_children_max": 2,
+    "max_depth": 1,
+    "product_managed_children_max": 3
+  },
+  "excluded_from_v4_0_0": [
+    "dynamic_reasoning_effort",
+    "nested_delegation",
+    "automatic_worktree_manager",
+    "parallel_isolated_writers",
+    "peer_delegation",
+    "persistent_scheduler_database",
+    "daemon_scheduler"
+  ],
+  "execution": {
+    "control_epoch_scope": "execution_binding",
+    "fresh_agent_attempt_limit": 2,
+    "same_child_followup_consumes_fresh_attempt": false,
+    "states": [
+      "SPAWN_PENDING",
+      "RUNNING",
+      "INTERRUPTED",
+      "COMPLETED",
+      "FAILED",
+      "UNKNOWN",
+      "CLOSED"
+    ]
+  },
+  "guard": {
+    "host_hook_coverage_is_release_gate": true,
+    "managed_lifecycle_authority_owner": "main",
+    "post_tool_use_acknowledges_control": true,
+    "pre_tool_use_consumes_prepared_control": true,
+    "subagent_stop_forces_no_auto_continue": true
+  },
+  "host_capability_requirements": [
+    "spawn",
+    "observe",
+    "wait_or_wakeup",
+    "followup",
+    "interrupt",
+    "pre_tool_use_guard",
+    "post_tool_use_guard",
+    "subagent_stop_veto"
+  ],
+  "migration": {
+    "silent_live_state_migration": false,
+    "source_family": "V3.x",
+    "unresolved_live_state": "fail_closed"
+  },
+  "pending_control": {
+    "payload_binding": "sha256_canonical_tool_input",
+    "serial_per_execution": true,
+    "single_use_binding": "tool_use_id",
+    "states": [
+      "PREPARED",
+      "IN_FLIGHT",
+      "ACKED",
+      "UNKNOWN",
+      "CANCELLED"
+    ]
+  },
+  "profiles": {
+    "advisor": {
+      "effort": "high",
+      "model": "gpt-5.6-sol",
+      "mutation_authority": "none",
+      "semantic_role": "review"
+    },
+    "investigator": {
+      "effort": "high",
+      "model": "gpt-5.6-terra",
+      "mutation_authority": "none",
+      "semantic_role": "work"
+    },
+    "reader": {
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "mutation_authority": "none",
+      "semantic_role": "work"
+    },
+    "solver": {
+      "effort": "high",
+      "model": "gpt-5.6-sol",
+      "mutation_authority": "bounded-source-write",
+      "semantic_role": "work"
+    },
+    "worker": {
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "mutation_authority": "bounded-source-write",
+      "semantic_role": "work"
+    }
+  },
+  "public_skills": [
+    "orchestrate",
+    "doctor"
+  ],
+  "reconciliation": {
+    "host_completed_maps_to_work_unit": "RESULT_READY",
+    "mode": "wakeup_driven",
+    "observation_basis": [
+      "execution_id",
+      "control_epoch",
+      "lease_epoch"
+    ],
+    "stale_observation_action": "discard"
+  },
+  "review": {
+    "artifact_mutation_invalidates_verdict": true,
+    "exact_artifact_binding": true,
+    "fresh_reviewer": true,
+    "reviewer_profile": "advisor"
+  },
+  "routing": {
+    "dynamic_reasoning_effort": false,
+    "peer_messaging_on_correctness_path": false,
+    "principle": "lowest_eligible_capability_profile"
+  },
+  "schema_version": "4.0.0-freeze-1",
+  "semantic_roles": [
+    "main",
+    "work",
+    "review"
+  ],
+  "state": {
+    "bounded_bytes": 65536,
+    "compact_work_graph": true,
+    "database": false,
+    "raw_prompts_or_transcripts": false,
+    "state_revision": true,
+    "storage": "active.json",
+    "temporary_thread_scoped": true
+  },
+  "work_unit": {
+    "dependency_unlock_state": "ACCEPTED",
+    "host_completed_unlocks_dependency": false,
+    "states": [
+      "BLOCKED",
+      "READY",
+      "EXECUTING",
+      "RESULT_READY",
+      "VERIFYING",
+      "ACCEPTED",
+      "REJECTED",
+      "CANCELLED"
+    ]
+  },
+  "writer_lease": {
+    "blocking_states": [
+      "RESERVED",
+      "HELD",
+      "REVOKING",
+      "UNKNOWN"
+    ],
+    "main_requires_lease_for_managed_write": true,
+    "parallel_isolated_writers_v4": false,
+    "scope": "canonical_workspace",
+    "states": [
+      "RESERVED",
+      "HELD",
+      "REVOKING",
+      "UNKNOWN",
+      "RELEASED"
+    ]
+  }
+}
