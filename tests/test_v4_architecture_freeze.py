@@ -75,3 +75,76 @@ def test_v4_architecture_freeze_has_no_hidden_dynamic_effort_or_parallel_writer_
     assert "automatic_worktree_manager" in excluded
     assert spec["state"]["database"] is False
     assert spec["state"]["temporary_thread_scoped"] is True
+
+
+def test_v4_architecture_freeze_pins_runtime_entity_shapes():
+    spec = load_spec()
+    entities = spec["entities"]
+
+    assert entities["WorkUnit"]["fields"] == [
+        "unit_id",
+        "intent",
+        "goal",
+        "output",
+        "depends_on",
+        "state",
+        "ownership",
+        "authority_ceiling",
+        "write_scope_ceiling",
+        "done_when",
+        "accepted_result_ref",
+        "accepted_execution_id",
+        "accepted_control_epoch",
+    ]
+    assert "control_epoch" in entities["ExecutionBinding"]["fields"]
+    assert "team_plan_revision" in entities["ExecutionBinding"]["fields"]
+    assert entities["WriterLease"]["fields"] == [
+        "lease_id",
+        "lease_epoch",
+        "workspace_id",
+        "unit_id",
+        "owner_kind",
+        "owner_id",
+        "state",
+    ]
+    assert entities["PendingControl"]["operations"] == [
+        "SPAWN",
+        "FOLLOWUP",
+        "CONTINUE",
+        "INTERRUPT",
+    ]
+    assert "payload_digest" in entities["PendingControl"]["fields"]
+    assert "tool_use_id" in entities["PendingControl"]["fields"]
+
+    assert spec["state"]["top_level_fields"] == [
+        "schema_version",
+        "root_session_id",
+        "state_revision",
+        "team_plan_revision",
+        "work_units",
+        "executions",
+        "writer_lease",
+        "pending_controls",
+        "accounting_refs",
+        "created_at",
+        "updated_at",
+        "locale",
+    ]
+
+
+def test_v4_architecture_freeze_pins_concurrency_safety_invariants():
+    spec = load_spec()
+    invariants = spec["invariants"]
+
+    assert set(invariants) == {f"I{index:02d}" for index in range(1, 15)}
+    assert spec["control_semantics"]["INTERRUPT"]["interrupt_ack_releases_writer"] is False
+    assert (
+        spec["control_semantics"]["INTERRUPT"]["requires_fresh_post_control_observation"]
+        is True
+    )
+    assert (
+        spec["control_semantics"]["TAKEOVER"]["requires_writer_settlement_before_main_acquire"]
+        is True
+    )
+    assert spec["control_semantics"]["CONTINUE"]["increments_followup_count"] is False
+    assert spec["control_semantics"]["FOLLOWUP"]["increments_followup_count"] is True
