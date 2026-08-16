@@ -97,8 +97,7 @@ def test_red_pending_control_state_machine_and_prepare_api_exist():
     assert callable(state.prepare_control)
 
 
-@V4_RED
-def test_red_host_capability_adapter_exists():
+def test_host_capability_adapter_exists():
     assert (SCRIPTS / "host_capabilities.py").is_file()
 
 
