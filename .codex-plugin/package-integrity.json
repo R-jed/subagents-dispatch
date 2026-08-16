@@ -28,7 +28,7 @@
     "scripts/calibration_profiles.py": "406bac08aef474876d3f38cb4a32b5cb0e8fb7f25c46d457eb4eb55ba8ef72b5",
     "scripts/calibration_profiles_core.py": "42e46a9243335daad71632af504937088cedaf8c79760ff6b877dfabc22a413a",
     "scripts/check-plugin-update.py": "387f55f52f2b465aa69c098a4a744c0cbb92408952b8a53950d5ddc71f5e7a37",
-    "scripts/dispatch_control_v4.py": "8231b8328dcb423809299408d78e74a1e3c32187c6fb57eb3aa0b1adb96b7507",
+    "scripts/dispatch_control_v4.py": "8231be2c1e15254263aaec6b2b7a4e9a14892119aac0674b1ed38551a064b009",
     "scripts/dispatch_state.py": "8eaefbbd9b713d58c7f9aa4f9bed970669daced578f468f9a24af957639d5052",
     "scripts/dispatch_state_v4.py": "97576db7308a9d661069ec716ca530bcd2436a30969e0f1cf803a8b4730ff70d",
     "scripts/doctor.py": "e4f9032e63f65c89f43a500454ebef88a855452dd8ee5e786fc0f03188fbf51c",
