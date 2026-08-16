@@ -30,6 +30,7 @@ TOOL_CAPABILITY_MAP = {
     "followup": {"followup_task"},
     "interrupt": {"interrupt_agent"},
 }
+SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
 
 
 class HostCapabilityError(RuntimeError):
@@ -47,6 +48,28 @@ def _string_set(value: Any, *, label: str) -> set[str]:
 def _hook_tool_set(hooks: Mapping[str, Any], event: str) -> set[str]:
     value = hooks.get(event, [])
     return _string_set(value, label=f"hooks.{event}")
+
+
+def normalize_agent_status(status: Any) -> dict[str, Any]:
+    """Normalize the public Multi-Agent V2 status union without inventing identity.
+
+    V2 exposes simple states as strings, while completed and errored statuses are
+    single-key objects. The returned detail is transient Host evidence; V4 state
+    persists only normalized lifecycle and bounded failure metadata.
+    """
+    if isinstance(status, str) and status in SIMPLE_AGENT_STATES:
+        return {"state": status, "detail": None}
+    if isinstance(status, Mapping) and set(status) == {"completed"}:
+        detail = status["completed"]
+        if detail is not None and not isinstance(detail, str):
+            raise HostCapabilityError("completed agent status detail must be string or null")
+        return {"state": "completed", "detail": detail}
+    if isinstance(status, Mapping) and set(status) == {"errored"}:
+        detail = status["errored"]
+        if not isinstance(detail, str):
+            raise HostCapabilityError("errored agent status detail must be string")
+        return {"state": "errored", "detail": detail}
+    raise HostCapabilityError("unsupported or malformed agent status")
 
 
 def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
