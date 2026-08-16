@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+import sys
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+MODULE_PATH = SCRIPTS / "host_capabilities.py"
+
+
+def load_module():
+    scripts = str(SCRIPTS)
+    sys.path.insert(0, scripts)
+    try:
+        spec = importlib.util.spec_from_file_location("host_capabilities_under_test", MODULE_PATH)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["host_capabilities_under_test"] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(scripts)
+
+
+def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) -> dict:
+    lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
+    return {
+        "surface": "multi_agent_v2",
+        "tools": [
+            "spawn_agent",
+            "send_message",
+            "followup_task",
+            "wait_agent",
+            "list_agents",
+            "interrupt_agent",
+        ],
+        "hooks": {
+            "PreToolUse": lifecycle,
+            "PostToolUse": lifecycle if post else ["spawn_agent", "interrupt_agent"],
+            "SubagentStop": stop,
+        },
+        "fork_turns_none": True,
+        "max_spawned_threads": capacity,
+    }
+
+
+def test_complete_evidence_normalizes_to_execution_ready_snapshot():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(evidence())
+
+    assert snapshot["execution_ready"] is True
+    assert snapshot["missing"] == []
+    assert all(snapshot["capabilities"].values())
+    assert snapshot["capacity_excludes_primary"] is True
+    assert snapshot["max_spawned_threads"] == 4
+    assert module.effective_managed_child_limit(snapshot, product_limit=3) == 3
+
+
+def test_missing_lifecycle_post_hook_fails_closed():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(evidence(post=False))
+
+    assert snapshot["execution_ready"] is False
+    assert snapshot["capabilities"]["post_tool_use_guard"] is False
+    assert "post_tool_use_guard" in snapshot["missing"]
+
+
+def test_missing_subagent_stop_veto_fails_closed():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(evidence(stop=False))
+
+    assert snapshot["execution_ready"] is False
+    assert "subagent_stop_veto" in snapshot["missing"]
+
+
+def test_fresh_context_capability_is_required_for_execution():
+    module = load_module()
+    payload = evidence()
+    payload["fork_turns_none"] = False
+    snapshot = module.normalize_host_capabilities(payload)
+
+    assert snapshot["execution_ready"] is False
+    assert "fresh_context_spawn" in snapshot["missing"]
+
+
+def test_unknown_host_capacity_stays_unknown_instead_of_inventing_default():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(evidence(capacity=None))
+
+    assert snapshot["execution_ready"] is True
+    assert snapshot["max_spawned_threads"] is None
+    assert module.effective_managed_child_limit(snapshot) is None
+
+
+def test_product_limit_is_capped_by_spawned_thread_capacity_excluding_primary():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(evidence(capacity=2))
+
+    assert snapshot["capacity_excludes_primary"] is True
+    assert module.effective_managed_child_limit(snapshot, product_limit=3) == 2
+
+
+def test_malformed_or_partial_evidence_is_rejected():
+    module = load_module()
+    payload = evidence()
+    del payload["hooks"]
+    with pytest.raises(module.HostCapabilityError, match="missing fields"):
+        module.normalize_host_capabilities(payload)
+
+    payload = evidence()
+    payload["max_spawned_threads"] = 0
+    with pytest.raises(module.HostCapabilityError, match="positive integer"):
+        module.normalize_host_capabilities(payload)
+
+
+def test_required_hook_tool_set_is_exact_lifecycle_surface():
+    module = load_module()
+    assert module.required_lifecycle_hook_tools() == (
+        "spawn_agent",
+        "followup_task",
+        "interrupt_agent",
+    )
