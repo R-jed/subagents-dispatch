@@ -32,6 +32,7 @@ from legacy_migration import (
     format_migration_state,
     legacy_manifest_status,
 )
+from plugin_update import diagnose_installation, package_version as plugin_package_version
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,7 +78,7 @@ def parse_args() -> argparse.Namespace:
         help="Explicit normalized Host capability/Plugin-Hook evidence captured outside Doctor.",
     )
     # Kept as a compatibility adapter. Experiment Plane semantics remain owned
-    # by calibration_profiles.py and are reported outside the ten production layers.
+    # by calibration_profiles.py and are reported outside the production layers.
     parser.add_argument("--calibration-evidence-root", type=Path)
     parser.add_argument("--calibration-campaign", type=Path)
     parser.add_argument("--calibration-host-home-evidence", type=Path)
@@ -97,8 +98,47 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Explicitly remove only stale terminal state; unresolved active state is retained.",
     )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Explicitly refresh the configured Marketplace and update the installed Plugin with post-write verification.",
+    )
     parser.add_argument("--json", action="store_true", help="Print the deterministic report as JSON.")
     return parser.parse_args()
+
+
+def _update_is_exclusive(args: argparse.Namespace) -> bool:
+    incompatible = (
+        args.check,
+        args.legacy,
+        args.repair,
+        args.migrate_legacy,
+        args.cleanup_stale,
+        args.live_route,
+        args.runtime_evidence is not None,
+        args.host_evidence is not None,
+        args.calibration_evidence_root is not None,
+        args.calibration_campaign is not None,
+        args.calibration_host_home_evidence is not None,
+        args.calibration_provisioning_task_id is not None,
+    )
+    return not any(incompatible)
+
+
+def run_update(args: argparse.Namespace, codex_home: Path) -> None:
+    if not _update_is_exclusive(args):
+        fail("--update is an explicit lifecycle operation and cannot be combined with other Doctor checks or mutations")
+    updater = ROOT / "scripts" / "plugin_update.py"
+    command = [sys.executable, str(updater), "--codex-home", str(codex_home)]
+    if args.json:
+        command.append("--json")
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
 
 
 def run_explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
@@ -241,6 +281,10 @@ def main() -> None:
         fail(f"Refusing symlinked Codex home: {codex_home}")
     codex_home = codex_home.resolve()
 
+    if args.update:
+        run_update(args, codex_home)
+        return
+
     if args.legacy:
         show_legacy_diagnostics(codex_home)
         return
@@ -255,6 +299,12 @@ def main() -> None:
         live_route=args.live_route,
         host_evidence=args.host_evidence,
     )
+    installation = diagnose_installation(
+        codex_home=codex_home,
+        package_version_value=plugin_package_version(),
+    )
+    report["layers"].insert(1, installation)
+    report["schema_version"] = 3
     development = development_calibration_layer(args, codex_home)
     development_layers = [development] if development is not None else []
     healthy = calculate_health(report["layers"], live_route=args.live_route)

@@ -24,7 +24,7 @@ The exact slash entry rendered by the App is a Host/UI fact. Release validation 
 
 ## Python helper prerequisite
 
-Managed-profile provisioning, deterministic Doctor helpers, explicit runtime-attestation helpers, and the packaged spawn guard require Python 3.11 or newer in the environment that runs them. Codex itself does not imply that the task shell exposes a command named `python`.
+Managed-profile provisioning, deterministic Doctor helpers, explicit runtime-attestation helpers, Plugin update checks/verification, and the packaged spawn guard require Python 3.11 or newer in the environment that runs them. Codex itself does not imply that the task shell exposes a command named `python`.
 
 Before an interactive bundled helper is needed, resolve one supported Python 3.11+ interpreter according to [Python Helper Runtime](python-runtime.md). `python3`, `python`, or a platform launcher may be used when it resolves to Python 3.11+, and the same resolved interpreter should be used throughout that operation. Resolving an available interpreter command is environment adaptation and does not change Agent, model, permission, or evidence semantics.
 
@@ -60,14 +60,15 @@ If a managed path is symlinked, conflicting, modified without proven ownership, 
 
 Preview, Status, and other non-spawning control operations do not provision missing profiles.
 
-For normal development work, choose **Dispatch** from the App's Skill menu and enter the task. Choose **Preview**, **Status**, **Steer**, or **Takeover** for the corresponding control. Use **Doctor** for installation, configuration, spawn-guard, and managed-profile diagnostics.
+For normal development work, choose **Dispatch** from the App's Skill menu and enter the task. Choose **Preview**, **Status**, **Steer**, or **Takeover** for the corresponding control. Use **Doctor** for installation, installed-version, configuration, spawn-guard, update, and managed-profile diagnostics.
 
 ## Doctor diagnostics
 
-Doctor is deterministic and read-only by default. It reports exactly ten production layers:
+Doctor is deterministic and read-only by default. It reports exactly eleven production layers:
 
 ```text
 Plugin
+Plugin installation
 Skills
 Spawn guard package
 Managed Agent profiles
@@ -79,26 +80,59 @@ Effective permission state
 Permission-source provenance
 ```
 
+`Plugin` checks the package that is executing. `Plugin installation` separately asks the supported machine-readable `codex plugin list --json` surface what Codex currently has installed and enabled. It compares the executing package version, installed cache version, and versioned Marketplace ref. This detects both an update already present in the local Marketplace snapshot and the case where Codex has installed a new package while the current task still executes an older cached package.
+
+Normal Doctor diagnosis does not run `codex plugin marketplace upgrade`, fetch a newer Marketplace revision, reinstall the Plugin, or change any local registration. If the Codex Plugin inventory cannot be observed, `Plugin installation` remains `UNKNOWN` and the limitation is stated explicitly.
+
 `Spawn guard package` verifies the shipped default-discovered Hook config, launchers, guard script, and machine policy. `Spawn guard runtime` is a different fact. Packaged files cannot prove that the current Host discovered, trusted, enabled, or executed the Hook. Without explicit Host Hook evidence, that layer remains `UNKNOWN` and ordinary Doctor may still report a healthy local installation.
 
-Doctor uses stable `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` output. An actionable warning or failure includes an exact next action when one exists. The Doctor Skill displays the deterministic report verbatim rather than reinterpreting its status.
+Doctor uses stable `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` output. An actionable warning or failure includes an exact next action when one exists. The Doctor Skill displays deterministic diagnostic/update-check/update output verbatim rather than reinterpreting its status.
 
 A configured Agent profile is configured truth only; it is not observed runtime route proof. Missing Host capability is `UNKNOWN` with the supported limitation recorded; an externally captured capability record may be supplied with `--host-evidence <file>`. Runtime route integrity is not run during normal diagnosis; pass explicit evidence to `scripts/doctor.py --runtime-evidence <file>` when that claim matters. The deterministic `scripts/doctor.py` report never spawns a child. The Doctor Skill's explicit live-route workflow may create bounded smoke children only when the user explicitly requests live route verification.
 
-Experiment Plane calibration remains separate from the ten production layers. Existing calibration CLI arguments are compatibility adapters to the dedicated calibration checker and appear only under development checks.
+Experiment Plane calibration remains separate from the eleven production layers. Existing calibration CLI arguments are compatibility adapters to the dedicated calibration checker and appear only under development checks.
 
-Stale, corrupt, ambiguous, or unresolved-writer temporary state is reported and preserved. Repair, migration, stale cleanup, and managed-profile uninstall require explicit intent.
+Stale, corrupt, ambiguous, or unresolved-writer temporary state is reported and preserved. Marketplace refresh, update, repair, migration, stale cleanup, and managed-profile uninstall require explicit intent.
+
+## Check for updates
+
+When you want to know whether the configured Marketplace currently offers a newer release without installing it, run the explicit update check:
+
+```text
+<python-3.11+> scripts/check-plugin-update.py --codex-home <active-codex-home>
+```
+
+This operation explicitly allows a network/cache refresh. It invokes only the configured subagents-dispatch Marketplace upgrade command, then rereads the machine-readable installed Plugin inventory:
+
+```bash
+codex plugin marketplace upgrade subagents-dispatch
+codex plugin list --json
+```
+
+The check reports Installed and Available versions plus package/cache skew. It does not run `codex plugin add`, reconcile managed Agent profiles, edit Hook trust, or mutate Dispatch state. If the Marketplace refresh fails, it stops and reports that failure. A request to check for updates never falls through into installing an update.
 
 ## Update
+
+For an explicit Doctor-managed update, resolve the supported Python interpreter and run:
+
+```text
+<python-3.11+> scripts/doctor.py --codex-home <active-codex-home> --update
+```
+
+This operation is deliberately separate from normal diagnosis and the update check. The updater uses Codex's supported machine-readable commands. It first records the installed Plugin identity, refreshes only the configured subagents-dispatch Marketplace, requires the refreshed Plugin source to be pinned to a semantic-version tag, and installs the exact Plugin identity when the refreshed release differs:
 
 ```bash
 codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Start a new Codex session after updating. A changed Hook may require a fresh Host trust review before the mechanical spawn guard becomes active.
+After Codex returns the new installed root and version, the updater verifies that root's Plugin manifest, runs that newly installed package's managed-profile installer and `--check`, rereads `codex plugin list --json`, and runs the newly installed Doctor for package/static post-write verification. Marketplace refresh alone never counts as a successful Plugin update.
 
-Doctor can run the supported managed-profile repair or legacy migration only when explicitly requested. A Plugin upgrade still follows the Marketplace commands above and requires a fresh Codex session afterward. Doctor never silently changes Hook trust or unrelated Codex configuration.
+If the refreshed versioned Marketplace ref already equals the installed version, the updater does not reinstall the same Plugin. If Codex's installed cache is current but the active task is still running an older package, Doctor reports package/cache skew and the corrective action is a fresh session.
+
+A successful package change reports `[RESTART]`. Start a fresh Codex session after updating. A changed Hook may require a fresh Host trust review before the mechanical spawn guard becomes active. The updater never edits Hook trust or unrelated Codex configuration to make verification pass.
+
+Doctor can also run supported managed-profile repair or legacy migration only when explicitly requested. These are separate lifecycle intents and cannot be combined with `--update` in one Doctor invocation.
 
 ## Uninstall
 

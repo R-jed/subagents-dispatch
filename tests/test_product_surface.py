@@ -26,9 +26,11 @@ README_AI = ROOT / "README_AI.md"
 DOCTOR_SKILL = SKILLS / "doctor" / "SKILL.md"
 DISPATCH_SKILL = SKILLS / "dispatch" / "SKILL.md"
 UNINSTALLER = ROOT / "scripts" / "uninstall-agents.py"
+PLUGIN_UPDATER = ROOT / "scripts" / "plugin_update.py"
 SKILL_IDS = {"dispatch", "preview", "status", "steer", "takeover", "doctor"}
 DOCTOR_LAYERS = [
     "Plugin",
+    "Plugin installation",
     "Skills",
     "Spawn guard package",
     "Managed Agent profiles",
@@ -180,6 +182,7 @@ def test_dispatch_and_doctor_delegate_to_canonical_deterministic_owners():
     for phrase in (
         "../../scripts/doctor.py",
         "../../scripts/doctor_core.py",
+        "../../scripts/plugin_update.py",
         "../../scripts/spawn_guard.py",
         "../../scripts/install-agents.py",
         "../../scripts/uninstall-agents.py",
@@ -190,21 +193,22 @@ def test_dispatch_and_doctor_delegate_to_canonical_deterministic_owners():
         assert phrase in doctor
     for layer in DOCTOR_LAYERS:
         assert layer in doctor
+    assert PLUGIN_UPDATER.is_file()
 
 
-def test_doctor_public_docs_match_the_ten_layer_contract_and_experiment_plane_stays_separate():
+def test_doctor_public_docs_match_the_eleven_layer_contract_and_experiment_plane_stays_separate():
     for path in (INSTALL_DOC, ARCHITECTURE, REPO_ARCH):
         text = path.read_text(encoding="utf-8")
-        assert "exactly ten" in text
-        assert "exactly eight" not in text
+        assert "exactly eleven" in text
         for layer in DOCTOR_LAYERS:
             assert layer in text
     doctor = DOCTOR_SKILL.read_text(encoding="utf-8")
+    assert "exactly eleven" in doctor
     assert "Experiment Plane remains separate" in doctor
     assert "development checks" in doctor
 
 
-def test_privacy_and_release_contract_cover_hook_boundary_without_claiming_new_control_plane():
+def test_privacy_release_and_installation_contract_cover_hook_and_update_boundaries():
     privacy = PRIVACY.read_text(encoding="utf-8")
     for phrase in (
         "spawn guard",
@@ -212,6 +216,9 @@ def test_privacy_and_release_contract_cover_hook_boundary_without_claiming_new_c
         "locally",
         "does not persist",
         "no telemetry",
+        "Plugin installation identity and explicit update",
+        "does not refresh the Marketplace",
+        "does not edit Hook trust state",
     ):
         assert phrase in privacy
     release = RELEASE.read_text(encoding="utf-8")
@@ -221,8 +228,21 @@ def test_privacy_and_release_contract_cover_hook_boundary_without_claiming_new_c
         "Hook trust",
         "fork_turns",
         "official OpenAI Plugin validator",
+        "Plugin installation/update",
+        "exactly eleven",
+        "explicit update",
+        "installed Plugin inventory",
     ):
         assert phrase in release
+    install = INSTALL_DOC.read_text(encoding="utf-8")
+    for phrase in (
+        "Plugin installation",
+        "codex plugin list --json",
+        "does not run `codex plugin marketplace upgrade`",
+        "scripts/doctor.py --codex-home <active-codex-home> --update",
+        "post-write",
+    ):
+        assert phrase in install
     composition = (ROOT / "contracts" / "composition.md").read_text(encoding="utf-8")
     assert "second MCP control plane" in composition
 
@@ -250,6 +270,7 @@ def test_public_install_uninstall_update_flow_preserves_ownership_order():
         "five managed custom-Agent profiles",
         "RESTART_REQUIRED",
         UPGRADE,
+        "scripts/doctor.py --codex-home <active-codex-home> --update",
         "scripts/uninstall-agents.py",
         PLUGIN_REMOVE,
         MARKETPLACE_REMOVE,

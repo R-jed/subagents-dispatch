@@ -153,7 +153,7 @@ def test_formal_validation_resolves_python_311_without_bare_python_assumption():
     assert 'python scripts/inspect-agent-runtime.py' not in release
     assert 'python scripts/inspect-agent-runtime.py' not in runtime
     assert 'A missing command named `python` is not a failed prerequisite' in release
-    assert 'downstream Host acceptance, runtime route, inspector, and behavioral gates are `NOT TESTED` or `INVALIDATED`' in release
+    assert 'The downstream affected gates are `NOT TESTED` or `INVALIDATED` as appropriate.' in release
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = ROOT / 'docs' / 'release-checklist.md'
 AI_REFERENCE = ROOT / 'README_AI.md'
@@ -161,7 +161,7 @@ REPOSITORY_ARCHITECTURE = ROOT / 'docs' / 'repository-architecture.md'
 
 def test_v3_release_path_excludes_formal_experiment_materialization():
     release = RELEASE.read_text(encoding='utf-8')
-    for phrase in ['role calibration', 'formal model/effort comparison campaigns', 'formal single-agent versus Dispatch product benchmark campaigns', 'not v3.0.0 hard release blockers', 'Runtime attestation remains part of the release path']:
+    for phrase in ['role calibration', 'formal model/effort comparison campaigns', 'formal single-agent versus Dispatch product benchmark campaigns', 'are valid research capabilities but are not hard release blockers unless a release claim depends on them', 'Runtime attestation remains part of the release path']:
         assert phrase in release
     for obsolete_release_gate in ['scripts/calibration_profiles.py create', 'scripts/calibration_profiles.py check', '--calibration-evidence-root', 'freeze `materialization_mode=profile_only` for the formal model/effort campaign']:
         assert obsolete_release_gate not in release
@@ -187,7 +187,7 @@ ARCHITECTURE = ROOT / 'docs' / 'architecture.md'
 
 def test_architecture_document_matches_v3_control_and_receipt_contracts():
     text = ARCHITECTURE.read_text(encoding='utf-8')
-    for phrase in ['six thin explicit entry points', 'There is no minimum Subagent count', 'INTERRUPTED', '## Dispatch Receipt', 'scripts/dispatch_state.py', 'Doctor has exactly ten diagnostic layers', 'Effective permission state', 'Permission-source provenance', 'scripts/uninstall-agents.py', 'selected project lane bound to materialized work', 'Explicit Dispatch that routes everything to Main still returns the minimal zero-child Receipt']:
+    for phrase in ['six thin explicit entry points', 'There is no minimum Subagent count', 'INTERRUPTED', '## Dispatch Receipt', 'scripts/dispatch_state.py', 'The final Doctor report has exactly eleven production layers', 'Effective permission state', 'Permission-source provenance', 'scripts/uninstall-agents.py', 'selected project lane bound to materialized work', 'Explicit Dispatch that routes everything to Main still returns the minimal zero-child Receipt']:
         assert phrase in text
     for obsolete in ['Version 2.1 adds', '## Execution Receipt', 'Dispatch: Reader → Worker', '· complete · no retry', 'Zero children is normal', 'preview <task>', 'steer <unit_id>: <guidance>', 'Doctor has exactly six diagnostic layers', 'Zero-child tasks, Preview, Status-only requests, and `RESTART_REQUIRED` first-use setup do not add a receipt']:
         assert obsolete not in text
