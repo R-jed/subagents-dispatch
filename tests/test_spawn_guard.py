@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 SPAWN_GUARD = SCRIPTS / "spawn_guard.py"
 DISPATCH_STATE = SCRIPTS / "dispatch_state.py"
+WINDOWS_HOOK_LAUNCHER = ROOT / "hooks" / "run-python.cmd"
 
 
 def load_module(name: str, path: Path):
@@ -191,3 +194,46 @@ def test_non_spawn_tool_passes_through(tmp_path: Path):
     payload = hook_input()
     payload["tool_name"] = "apply_patch"
     assert guard.evaluate_hook(payload, temp_root=tmp_path) is None
+
+
+def test_windows_launcher_falls_back_to_latest_python3_from_py_launcher(tmp_path: Path):
+    if sys.platform != "win32":
+        return
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_py = fake_bin / "py.cmd"
+    fake_py.write_text(
+        "@echo off\r\n"
+        "if \"%~1\"==\"-3.11\" exit /b 1\r\n"
+        "if not \"%~1\"==\"-3\" exit /b 1\r\n"
+        "if \"%~2\"==\"-c\" exit /b 0\r\n"
+        f'\"{sys.executable}\" \"%~2\"\r\n'
+        "exit /b %errorlevel%\r\n",
+        encoding="utf-8",
+    )
+    marker = tmp_path / "hook-ran.txt"
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "from pathlib import Path\n"
+        "import os\n"
+        "Path(os.environ['HOOK_MARKER']).write_text('ok', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    system_root = Path(os.environ["SystemRoot"])
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([str(fake_bin), str(system_root / "System32")])
+    env["PATHEXT"] = ".COM;.EXE;.BAT;.CMD"
+    env["HOOK_MARKER"] = str(marker)
+
+    result = subprocess.run(
+        ["cmd.exe", "/d", "/c", str(WINDOWS_HOOK_LAUNCHER), str(probe)],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert marker.read_text(encoding="utf-8") == "ok"
