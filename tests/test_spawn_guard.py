@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -114,6 +117,16 @@ def reason(result: dict | None) -> str:
     return str(result["reason"])
 
 
+def run_guard_cli(raw: bytes) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        [sys.executable, str(SPAWN_GUARD)],
+        cwd=ROOT,
+        input=raw,
+        capture_output=True,
+        check=False,
+    )
+
+
 def test_valid_prepared_managed_spawn_is_allowed(tmp_path: Path):
     prepare(tmp_path)
     assert guard.evaluate_hook(hook_input(), temp_root=tmp_path) is None
@@ -194,6 +207,44 @@ def test_non_spawn_tool_passes_through(tmp_path: Path):
     payload = hook_input()
     payload["tool_name"] = "apply_patch"
     assert guard.evaluate_hook(payload, temp_root=tmp_path) is None
+
+
+def test_cli_invalid_json_uses_codex_blocking_exit_code():
+    result = run_guard_cli(b"{broken")
+
+    assert result.returncode == guard.BLOCKING_EXIT_CODE == 2
+    assert result.stdout == b""
+    assert b"invalid Hook JSON" in result.stderr
+
+
+def test_cli_oversized_input_uses_codex_blocking_exit_code():
+    result = run_guard_cli(b"x" * (guard.MAX_STDIN_BYTES + 1))
+
+    assert result.returncode == guard.BLOCKING_EXIT_CODE == 2
+    assert result.stdout == b""
+    assert b"exceeded its bounded limit" in result.stderr
+
+
+def test_internal_guard_error_uses_codex_blocking_exit_code_without_leaking_exception(
+    monkeypatch,
+    capsys,
+):
+    payload = json.dumps(hook_input()).encode("utf-8")
+    fake_stdin = io.TextIOWrapper(io.BytesIO(payload), encoding="utf-8")
+    monkeypatch.setattr(guard.sys, "stdin", fake_stdin)
+
+    def crash() -> None:
+        raise RuntimeError("SECRET_INTERNAL_EXCEPTION")
+
+    monkeypatch.setattr(guard, "_runtime_temp_root", crash)
+
+    with pytest.raises(SystemExit) as exc_info:
+        guard.main()
+
+    assert exc_info.value.code == guard.BLOCKING_EXIT_CODE == 2
+    captured = capsys.readouterr()
+    assert "managed spawn blocked" in captured.err
+    assert "SECRET_INTERNAL_EXCEPTION" not in captured.err
 
 
 def test_windows_launcher_falls_back_to_latest_python3_from_py_launcher(tmp_path: Path):
