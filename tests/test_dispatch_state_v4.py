@@ -178,6 +178,16 @@ def test_execution_is_pinned_to_fixed_profile_and_work_unit_authority_ceiling():
         module.validate_state_payload(state)
 
 
+def test_v2_native_task_name_is_sufficient_when_agent_id_is_unavailable():
+    module = load_module("dispatch_state_v4_v2_identity", MODULE_PATH)
+    state = module.new_state(thread_id="thread-1")
+    state["work_units"] = [work_unit()]
+    state["executions"] = [execution(agent_id=None, lifecycle="RUNNING")]
+
+    assert module.validate_state_payload(state) == state
+    assert state["executions"][0]["native_task_name"] == "sd-u1-a1"
+
+
 def test_read_only_profile_cannot_claim_write_authority():
     module = load_module("dispatch_state_v4_readonly", MODULE_PATH)
     state = module.new_state(thread_id="thread-1")
@@ -317,6 +327,47 @@ def test_host_completed_produces_result_ready_without_acceptance_or_writer_relea
     assert reconciled["work_units"][0]["accepted_result_ref"] is None
     assert reconciled["writer_lease"]["state"] == "HELD"
     assert reconciled["state_revision"] == state["state_revision"] + 1
+
+
+def test_duplicate_host_observation_is_idempotent_and_does_not_advance_revision():
+    module = load_module("dispatch_state_v4_duplicate", MODULE_PATH)
+    state = populated_state(module, writer=True)
+    basis = module.observation_basis(state, execution_id="exec-1")
+
+    first = module.reconcile_execution_observation(
+        state,
+        basis=basis,
+        host_state="completed",
+        agent_id="agent-1",
+        now="2026-08-17T00:01:00Z",
+    )
+    second = module.reconcile_execution_observation(
+        first["state"],
+        basis=basis,
+        host_state="completed",
+        agent_id="agent-1",
+        now="2026-08-17T00:02:00Z",
+    )
+
+    assert first["reconcile_status"] == "applied"
+    assert second["reconcile_status"] == "noop"
+    assert second["state"] == first["state"]
+
+
+def test_completed_observation_does_not_regress_work_unit_verification_or_rejection():
+    module = load_module("dispatch_state_v4_nonregression", MODULE_PATH)
+
+    for state_name in ("VERIFYING", "REJECTED"):
+        state = populated_state(module)
+        state["work_units"][0]["state"] = state_name
+        basis = module.observation_basis(state, execution_id="exec-1")
+        result = module.reconcile_execution_observation(
+            state,
+            basis=basis,
+            host_state="completed",
+            agent_id="agent-1",
+        )
+        assert result["state"]["work_units"][0]["state"] == state_name
 
 
 def test_interrupt_observation_never_releases_writer_lease():
