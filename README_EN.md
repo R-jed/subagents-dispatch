@@ -89,7 +89,7 @@ Profile provisioning, Doctor helpers, Runtime Attestation helpers, and the spawn
 | **Status** | take one look at the current state |
 | **Steer** | add guidance to the same child already doing the work |
 | **Takeover** | safely settle the old writer, then return responsibility to Main |
-| **Doctor** | inspect installation, spawn guard, profiles, state, and runtime evidence |
+| **Doctor** | inspect installed version, update state, spawn guard, profiles, state, and runtime evidence |
 
 `Status` performs one observation and does not background poll. `Steer` keeps the same child. `Takeover` checks that the old writer is safely settled before conflicting write authority can move.
 
@@ -164,7 +164,9 @@ See the [Experiment Protocol](docs/experiment-protocol.md) and [Evaluations](eva
 
 ## Update and uninstall
 
-Update:
+If you only want to check whether a newer release exists, choose **Doctor** and explicitly ask it to check for updates. It refreshes this plugin's Marketplace snapshot and reports Installed / Available without installing the Plugin.
+
+When you explicitly ask to update, Doctor refreshes the Marketplace, installs the versioned Plugin, and verifies the new manifest, managed profiles, and new Doctor from the installed root. The underlying lifecycle still uses Codex's supported commands:
 
 ```bash
 codex plugin marketplace upgrade subagents-dispatch

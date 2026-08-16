@@ -13,6 +13,7 @@ DOCTOR_CORE = ROOT / "scripts" / "doctor_core.py"
 INSTALLER = ROOT / "scripts" / "install-agents.py"
 PRODUCTION_LAYERS = [
     "Plugin",
+    "Plugin installation",
     "Skills",
     "Spawn guard package",
     "Managed Agent profiles",
@@ -89,7 +90,7 @@ def hook_row(**overrides) -> dict:
     return row
 
 
-def test_doctor_reports_ten_production_layers_and_unknown_runtime_is_supported(tmp_path: Path):
+def test_doctor_reports_eleven_production_layers_and_unknown_runtime_is_supported(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, "--check", env={"CODEX_THREAD_ID": "doctor-test"})
@@ -103,6 +104,7 @@ def test_doctor_reports_ten_production_layers_and_unknown_runtime_is_supported(t
     assert len(status_lines) == len(PRODUCTION_LAYERS)
     for line, label in zip(status_lines, PRODUCTION_LAYERS):
         assert f"] {label}:" in line
+    assert "[UNKNOWN] Plugin installation:" in result.stdout
     assert "[OK] Spawn guard package:" in result.stdout
     assert "[UNKNOWN] Codex Host:" in result.stdout
     assert "[UNKNOWN] Spawn guard runtime:" in result.stdout
@@ -121,17 +123,20 @@ def test_doctor_reports_ten_production_layers_and_unknown_runtime_is_supported(t
     )
     assert json_result.returncode == 0, json_result.stdout + json_result.stderr
     report = json.loads(json_result.stdout)
-    assert report["schema_version"] == 2
+    assert report["schema_version"] == 3
     assert [item["name"] for item in report["layers"]] == PRODUCTION_LAYERS
     profiles = next(item for item in report["layers"] if item["name"] == "Managed Agent profiles")
     state = next(item for item in report["layers"] if item["name"] == "Dispatch state")
     guard = next(item for item in report["layers"] if item["name"] == "Spawn guard package")
+    installation = next(item for item in report["layers"] if item["name"] == "Plugin installation")
     assert profiles["details"]["legacy_status"] == "migration_complete"
     assert state["details"]["state_lock_health"] == "not_present"
     assert state["details"]["schema_health"] == "ok"
     assert state["details"]["unexpected_repository_state"] == []
     assert guard["details"]["discovery_path"] == "hooks/hooks.json"
     assert guard["details"]["mutation"] is False
+    assert installation["status"] == "UNKNOWN"
+    assert installation["details"]["observed"] is False
 
 
 def test_doctor_hook_runtime_uses_explicit_host_truth(tmp_path: Path):

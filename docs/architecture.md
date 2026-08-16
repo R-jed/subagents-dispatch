@@ -44,6 +44,12 @@ contracts/final-review.md
 
 hooks/hooks.json + scripts/spawn_guard.py
 -> optional Host action-boundary enforcement for prepared managed spawn_agent calls
+
+scripts/plugin_update.py
+-> installed Plugin identity and explicit versioned Marketplace update lifecycle
+
+scripts/check-plugin-update.py
+-> explicit Marketplace refresh and update-availability check without Plugin install
 ```
 
 README files explain the product. `README_AI.md` is an owner map, not a second policy manual. `evals/` and `tests/` verify the contracts; they are not routing sources.
@@ -73,7 +79,7 @@ Preview: task to project without execution
 Status: optional exact unit-id zoom
 Steer: optional exact unit id plus focused guidance
 Takeover: optional exact unit id plus optional guidance for Main after transfer
-Doctor: diagnostic intent plus explicit live/repair/cleanup/migration intent when needed
+Doctor: diagnostic intent plus explicit update-check/update/live/repair/cleanup/migration intent when needed
 ```
 
 ## End-to-end control flow
@@ -301,10 +307,11 @@ Configured, accepted, and observed route facts are different evidence levels. `s
 
 Ordinary bounded Dispatch remains lightweight. Missing telemetry may remain missing.
 
-Doctor has exactly ten diagnostic layers:
+The final Doctor report has exactly eleven production layers:
 
 ```text
 Plugin
+Plugin installation
 Skills
 Spawn guard package
 Managed Agent profiles
@@ -316,11 +323,19 @@ Effective permission state
 Permission-source provenance
 ```
 
-Static Doctor is read-only and never spawns native Agents. `Spawn guard package` is packaged-file truth. `Spawn guard runtime` requires explicit Host discovery/trust/enablement evidence. Missing Host/live-route evidence is `UNKNOWN`, not a fabricated PASS and not automatically an unhealthy installation.
+`scripts/doctor_core.py` owns the ten package, Skill, state, Host-evidence, Hook and runtime-assurance layers that do not depend on Codex's installed Plugin inventory. `scripts/plugin_update.py` owns the separate `Plugin installation` layer and the explicit install/update semantics. `scripts/doctor.py` composes those deterministic owners into the eleven-layer user report.
+
+`Plugin` is the package that is executing. `Plugin installation` is observed through the supported machine-readable `codex plugin list --json` interface and keeps executing package version, installed cache version, versioned Marketplace ref, enablement, update availability and package/cache skew distinct. Ordinary diagnosis never refreshes the Marketplace.
+
+When the user explicitly asks to check for updates, `scripts/check-plugin-update.py` refreshes only the configured subagents-dispatch Marketplace snapshot, reuses the canonical installation-identity semantics, and never runs Plugin install, managed-profile reconciliation, Hook-trust mutation, or Dispatch-state mutation.
+
+Static Doctor is read-only and never spawns native Agents. `Spawn guard package` is packaged-file truth. `Spawn guard runtime` requires explicit Host discovery/trust/enablement evidence. Missing Host/live-route or installed-inventory evidence is `UNKNOWN`, not a fabricated PASS and not automatically an unhealthy installation.
 
 Live five-role route integrity is an explicit Doctor Skill workflow. It creates controlled children only on explicit request, keeps configured values separate from observed values, and reports UNKNOWN when the supported Host surface does not expose model/reasoning/permission evidence strongly enough.
 
-Calibration readiness belongs to the Experiment Plane. Legacy Doctor calibration CLI flags are compatibility adapters and appear outside the ten production layers.
+Explicit update uses the Codex machine-readable Marketplace and Plugin CLI, then verifies the returned installed root, manifest, managed profiles, installed inventory, and the newly installed Doctor before it reports completion. Hook trust is never modified automatically. A changed package requires a fresh session, and changed Hook content may require Host trust review.
+
+Calibration readiness belongs to the Experiment Plane. Legacy Doctor calibration CLI flags are compatibility adapters and appear outside the eleven production layers.
 
 ## Final Review
 
@@ -343,10 +358,16 @@ scripts/spawn_guard.py
 -> read-only validation of proposed reserved managed spawn_agent calls
 
 scripts/doctor_core.py
--> deterministic ten-layer production diagnostics and rendering
+-> deterministic core production diagnostics and rendering
+
+scripts/plugin_update.py
+-> canonical installed Plugin identity plus explicit versioned update and post-write verification
+
+scripts/check-plugin-update.py
+-> explicit Marketplace refresh/update-availability adapter; never installs the Plugin
 
 scripts/doctor.py
--> Doctor CLI, explicit lifecycle actions, and Experiment Plane compatibility adapter
+-> Doctor CLI, eleven-layer report composition, explicit lifecycle actions, and Experiment Plane compatibility adapter
 
 scripts/install-agents.py
 -> managed custom-Agent profile install/check lifecycle
@@ -371,7 +392,7 @@ These helpers enforce deterministic facts. They do not become a second scheduler
 
 ## Evaluation boundary
 
-Static routing, coordination, interaction, runtime, recovery, Hook, and Doctor fixtures catch contract regressions. Behavioral workloads are measurement scaffolding for real Codex runs.
+Static routing, coordination, interaction, runtime, recovery, Hook, installation/update, and Doctor fixtures catch contract regressions. Behavioral workloads are measurement scaffolding for real Codex runs.
 
 The Experiment Plane is development/research infrastructure. It stays separate from ordinary Doctor product health and never changes runtime policy automatically.
 

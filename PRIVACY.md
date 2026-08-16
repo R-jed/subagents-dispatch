@@ -28,6 +28,18 @@ The Hook does not create a second orchestration control plane. It does not spawn
 
 Codex may require user review and trust for a new or changed Hook. subagents-dispatch does not silently change that Host trust state. If the Hook is unsupported, untrusted, disabled, or fails to launch, the Plugin's existing Skill and contract checks remain the correctness fallback and Doctor reports the runtime Hook fact only when supported Host evidence is available.
 
+## Plugin installation identity and explicit update operations
+
+Ordinary Doctor diagnosis may invoke the local Codex CLI command `codex plugin list --json` to inspect the currently installed subagents-dispatch Plugin cache, enablement state, and configured Marketplace source identity. This read-only check does not refresh the Marketplace and does not intentionally send conversation content, repository content, prompts, transcripts, or tool payloads to the project maintainer.
+
+When the user explicitly asks to check for updates, the bundled update-check helper asks Codex to refresh only the configured subagents-dispatch Marketplace snapshot and then rereads the local Plugin inventory. This explicit check may contact the configured Git/Marketplace source through Codex, but it does not install a Plugin, reconcile managed Agent profiles, edit Hook trust, or mutate Dispatch state. A request to check for updates does not authorize installing the update.
+
+When the user explicitly requests a subagents-dispatch update, the bundled updater invokes Codex's supported Plugin lifecycle commands to refresh the configured subagents-dispatch Marketplace and install the selected versioned Plugin release when needed. Those Codex commands may contact the configured Git/Marketplace source as part of the user-requested operation. Network transport and cache management performed by Codex or Git are governed by those tools and services. The subagents-dispatch project does not operate its own update server, telemetry service, account service, or network endpoint.
+
+After installation, the updater reads the new local Plugin manifest, reconciles only the five plugin-owned managed Agent profiles through the newly installed package, rechecks the installed Plugin inventory, and runs the newly installed Doctor for local post-write validation. It does not upload those validation results to the maintainer. It does not read or transmit conversation transcripts or repository source as part of Plugin update verification.
+
+The updater does not edit Hook trust state, credentials, unrelated Plugin registrations, unrelated Marketplaces, unrelated Agent profiles, or project repositories to make an update pass. The update-check helper does not edit those surfaces either. If installed identity or post-write verification does not converge, the relevant operation reports failure rather than silently rewriting unrelated state.
+
 ## Temporary dispatch state
 
 For Status, Steer, Takeover, and Dispatch resume, the plugin may write one compact `active.json` capsule below the operating system's temporary directory:
@@ -50,17 +62,17 @@ The inspector returns only the allowlisted routing/identity metadata to the loca
 
 ## Recipients
 
-The project maintainer does not receive user data through the plugin. Data may be processed by OpenAI Codex or user-enabled tools only as part of the capabilities the user chooses to run and according to those services' own settings and policies.
+The project maintainer does not receive user data through the plugin. Data may be processed by OpenAI Codex, Git hosting, or user-enabled tools only as part of capabilities the user chooses to run and according to those services' own settings and policies.
 
 ## Retention
 
 The project retains no user data collected through the plugin. Managed local configuration remains on the user's device until it is updated or removed by the user or by an authorized plugin lifecycle action. Temporary dispatch state is removed on normal terminal completion; stale terminal state is eligible for explicit cleanup after seven days, while unresolved writer state is preserved for review.
 
-The spawn guard does not create a project-owned history of Hook calls. The explicit runtime-attestation helper does not create or retain a project-owned copy of a Codex rollout. Any source rollout remains part of the user's local Codex session data and follows the retention behavior of Codex itself.
+The spawn guard does not create a project-owned history of Hook calls. The explicit update-check helper and Plugin updater do not create a project-operated update-history service or upload a separate update report. The explicit runtime-attestation helper does not create or retain a project-owned copy of a Codex rollout. Any source rollout remains part of the user's local Codex session data and follows the retention behavior of Codex itself.
 
 ## User controls
 
-Users can disable or uninstall subagents-dispatch and remove the plugin's managed local configuration. Repair, migration, upgrade, broader configuration changes, and resolution of conflicting or unowned state remain explicit user-controlled actions. Live route verification is also explicit; ordinary plugin use does not require local rollout inspection. Hook enablement and trust remain Host/user controls. Because the project does not operate a user account or remote data store, there is no project-held personal data account to delete.
+Users can disable or uninstall subagents-dispatch and remove the plugin's managed local configuration. Update checks, updates, repair, migration, broader configuration changes, and resolution of conflicting or unowned state remain explicit user-controlled actions. Live route verification is also explicit; ordinary plugin use does not require local rollout inspection. Hook enablement and trust remain Host/user controls. Ordinary Doctor diagnosis may inspect local installed Plugin identity without refreshing the Marketplace. Because the project does not operate a user account or remote data store, there is no project-held personal data account to delete.
 
 ## Security and privacy reports
 

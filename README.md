@@ -89,7 +89,7 @@ Profile provisioning、Doctor helpers、Runtime Attestation helpers 和 spawn gu
 | **Status** | 看一次当前状态 |
 | **Steer** | 给正在工作的同一个 child 追加指导 |
 | **Takeover** | 安全结束旧 writer 后，把职责交回 Main |
-| **Doctor** | 检查安装、spawn guard、profiles、state 和 runtime evidence |
+| **Doctor** | 检查安装版本、更新状态、spawn guard、profiles、state 和 runtime evidence |
 
 `Status` 只观察一次，不做后台轮询。`Steer` 继续使用同一个 child。`Takeover` 会先确认旧 writer 已经安全结束。
 
@@ -164,7 +164,9 @@ Dispatch 通常在这些任务里更有意义：代码库调查可以并行，�
 
 ## 更新和卸载
 
-更新：
+只想检查有没有新版本时，选择 **Doctor** 并明确要求检查更新。它会刷新这个插件的 Marketplace snapshot 并报告 Installed / Available，不会安装 Plugin。
+
+明确要求更新时，Doctor 会刷新 Marketplace、安装版本化 Plugin，并在新安装目录里复核 manifest、managed profiles 和新 Doctor。底层仍使用 Codex 支持的命令：
 
 ```bash
 codex plugin marketplace upgrade subagents-dispatch

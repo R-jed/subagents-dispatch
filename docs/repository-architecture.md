@@ -1,6 +1,6 @@
 # Repository Architecture
 
-This document defines the target repository organization for subagents-dispatch. The repository should read like the product architecture: user-facing Skills at the edge, shared orchestration contracts in one place, deterministic helpers in one place, one narrow Host Hook at the action boundary, explicit evidence/experiment tooling outside the ordinary runtime path, and Codex Native Subagents as the only Agent runtime.
+This document defines the target repository organization for subagents-dispatch. The repository should read like the product architecture: user-facing Skills at the edge, shared orchestration contracts in one place, deterministic helpers in one place, one narrow Host Hook at the action boundary, one explicit Plugin installation/update owner, evidence/experiment tooling outside the ordinary runtime path, and Codex Native Subagents as the only Agent runtime.
 
 ## Design principles
 
@@ -11,7 +11,7 @@ This document defines the target repository organization for subagents-dispatch.
 5. Deterministic invariants move into code when code can enforce them more reliably than prose.
 6. Codex Native Subagents remain the runtime. The project does not introduce another scheduler, daemon, event bus, routing proxy, MCP control plane, control server, or telemetry collector.
 7. A Host Hook is added only when its event boundary provides a capability the Skill layer cannot mechanically guarantee at the same point.
-8. Runtime evidence, composition, context/evidence handoff, and experiments are separate planes rather than conditionals scattered through every Skill.
+8. Runtime evidence, installation identity, composition, context/evidence handoff, and experiments are separate planes rather than conditionals scattered through every Skill.
 9. Public docs, AI orientation, runtime contracts, deterministic helpers, tests, and evaluation fixtures stay visibly separate.
 10. Experimental results never mutate runtime policy automatically. Policy changes happen only after accepted evidence.
 
@@ -60,6 +60,8 @@ subagents-dispatch/
 │   ├── dispatch_state.py
 │   ├── doctor.py
 │   ├── doctor_core.py
+│   ├── check-plugin-update.py
+│   ├── plugin_update.py
 │   ├── spawn_guard.py
 │   ├── inspect-agent-runtime.py
 │   ├── install-agents.py
@@ -95,6 +97,12 @@ Runtime Evidence Plane
 -> scripts/inspect-agent-runtime.py
 -> scripts/runtime-evidence.py
 
+Installation Identity Plane
+-> ordinary Doctor observes local installed/cache/source identity without Marketplace refresh
+-> scripts/plugin_update.py
+-> explicit check refreshes only the configured Marketplace through scripts/check-plugin-update.py
+-> explicit update installs only on user update intent
+
 Composition Plane
 -> define how Host capability, current authority, project instructions,
    external Skills/workflows, Hooks, Dispatch guardrails, and role contracts compose
@@ -118,7 +126,7 @@ Action-boundary Guard
 -> reads prepared state and policy; does not become orchestration truth
 ```
 
-The planes meet at explicit boundaries. Runtime Evidence can feed an experiment or release artifact, but ordinary Dispatch does not scan rollouts. Evidence Artifacts do not become active state. Experiments may recommend a role-policy change, but they never rewrite `policy.json` automatically.
+The planes meet at explicit boundaries. Runtime Evidence can feed an experiment or release artifact, but ordinary Dispatch does not scan rollouts. Installation identity does not infer current in-memory package identity from repository files. Evidence Artifacts do not become active state. Experiments may recommend a role-policy change, but they never rewrite `policy.json` automatically.
 
 The spawn guard consumes existing policy plus `SPAWN_PENDING` state. It has no durable state of its own and cannot create, settle, retry, reroute, or adopt a child.
 
@@ -139,7 +147,7 @@ Each Skill owns only its user intent, minimal entry/completion contract, App met
 
 Each Skill has `SKILL.md` plus `agents/openai.yaml`, with implicit invocation disabled. The App-visible namespace and literal slash presentation are Host/UI facts and are published only from direct observation.
 
-`preview`, `status`, `steer`, and `takeover` stay thin over the interaction/state contracts. `doctor` stays thin over deterministic diagnostics and explicit managed-profile lifecycle helpers. `dispatch` leads orchestration but does not keep private copies of shared runtime policy.
+`preview`, `status`, `steer`, and `takeover` stay thin over the interaction/state contracts. `doctor` stays thin over deterministic diagnostics plus explicit update-check/update and managed-profile lifecycle helpers. `dispatch` leads orchestration but does not keep private copies of shared runtime policy.
 
 ## Contract ownership map
 
@@ -196,10 +204,16 @@ scripts/spawn_guard.py
 -> read-only validation of a proposed reserved managed spawn against prepared state
 
 scripts/doctor_core.py
--> deterministic ten-layer production diagnostics and user-facing rendering
+-> deterministic core production diagnostics and user-facing rendering
+
+scripts/plugin_update.py
+-> canonical installed Plugin identity plus explicit versioned Marketplace update and post-write verification semantics
+
+scripts/check-plugin-update.py
+-> thin explicit Marketplace-refresh/update-availability adapter; never installs the Plugin
 
 scripts/doctor.py
--> CLI, explicit lifecycle actions, legacy status, and Experiment Plane compatibility adapter
+-> CLI, eleven-layer report composition, explicit lifecycle actions, legacy status, and Experiment Plane compatibility adapter
 
 scripts/install-agents.py
 -> managed Agent profile install/check lifecycle
@@ -254,6 +268,25 @@ exact Host-produced child rollout, inspected explicitly when required
 ```
 
 When public Host metadata and exact rollout expose the same fact, they must agree. Missing evidence stays UNKNOWN. Configuration never fills an Observed field.
+
+## Installation Identity Plane
+
+Ordinary Doctor observes installed Plugin identity through the supported machine-readable `codex plugin list --json` surface. It keeps these facts separate:
+
+```text
+executing package version
+installed Codex Plugin cache version
+enabled state
+configured Marketplace source ref
+update already visible in the local Marketplace snapshot
+package/cache skew in the current task
+```
+
+Ordinary diagnosis does not refresh the Marketplace. If the Codex Plugin inventory cannot be observed, this layer stays `UNKNOWN`.
+
+An explicit update check may refresh only the configured subagents-dispatch Marketplace snapshot and reread the Plugin inventory. It cannot run `plugin add`, reconcile managed profiles, edit Hook trust, or mutate Dispatch state.
+
+Explicit update is owned by `scripts/plugin_update.py`. It uses the supported machine-readable Marketplace upgrade and Plugin add commands, requires a versioned semantic release ref, verifies the returned installed path and manifest, reconciles managed Agent profiles from the newly installed package, re-reads the installed Plugin inventory, and runs the newly installed Doctor before reporting completion. Hook trust remains a Host/user control.
 
 ## Composition Plane
 
@@ -321,10 +354,11 @@ Evidence Artifacts, when needed, are a separate on-demand temporary namespace go
 
 ## Doctor architecture
 
-Doctor covers exactly ten production layers:
+The final user-facing Doctor report covers exactly eleven production layers:
 
 ```text
 Plugin
+Plugin installation
 Skills
 Spawn guard package
 Managed Agent profiles
@@ -336,11 +370,13 @@ Effective permission state
 Permission-source provenance
 ```
 
-`doctor_core.py` owns these deterministic diagnostic semantics and rendering. `doctor.py` owns CLI parsing and explicit lifecycle actions. Runtime Hook trust/discovery is never inferred from packaged `hooks.json`; without explicit Host evidence it stays `UNKNOWN`.
+`doctor_core.py` owns the ten core package, Skill, Hook-package, managed-profile, state, Host-evidence and runtime-assurance diagnostics. `plugin_update.py` owns the separate installed Plugin identity semantics. `doctor.py` composes both deterministic owners and owns CLI parsing plus explicit lifecycle dispatch. The explicit update-check adapter reuses the same installed-identity semantics after refreshing only the configured Marketplace snapshot.
+
+Runtime Hook trust/discovery is never inferred from packaged `hooks.json`; without explicit Host evidence it stays `UNKNOWN`. Installed Plugin identity is never inferred from the executing package; without the supported Codex inventory it stays `UNKNOWN`.
 
 Calibration readiness remains an Experiment Plane check and appears only under optional development checks.
 
-Diagnosis is read-only by default. Live route smoke, repair, managed-profile uninstall, cleanup, migration, and other expensive/mutating diagnostics require explicit intent.
+Diagnosis is read-only by default. Marketplace refresh/update check, explicit update, live route smoke, repair, managed-profile uninstall, cleanup, migration, and other expensive or mutating diagnostics require explicit intent.
 
 ## Documentation boundary
 

@@ -11,9 +11,9 @@ hard release gate
 
 If a proposed gate cannot name that protected claim, keep it out of the release path.
 
-The historical v3.0.0 release path established the repository/package, managed-profile, App Skill, native route, runtime-attestation, control-surface, Doctor, update/uninstall, and tagged Marketplace gates. Formal role calibration, formal model/effort comparison campaigns, formal single-agent versus Dispatch product benchmark campaigns, and calibration profile materialization are valid research capabilities but are not v3.0.0 hard release blockers. Runtime attestation remains part of the release path when a release claim says what actually ran.
+The historical v3.0.0 release path established the repository/package, managed-profile, App Skill, native route, runtime-attestation, control-surface, Doctor, update/uninstall, and tagged Marketplace gates. Formal role calibration, formal model/effort comparison campaigns, formal single-agent versus Dispatch product benchmark campaigns, and calibration profile materialization are valid research capabilities but are not hard release blockers unless a release claim depends on them. Runtime attestation remains part of the release path when a release claim says what actually ran.
 
-A release that changes the packaged spawn guard additionally validates the exact Hook package, Host trust/discovery state, one legal managed spawn, and representative illegal managed spawn calls. It does not rerun unrelated Host behavior merely because a patch version or later release exists. Release gates follow the actual release delta.
+A release that changes the packaged spawn guard additionally validates the exact Hook package, Host trust/discovery state, one legal managed spawn, and representative illegal managed spawn calls. A release that changes Plugin installation/update diagnostics additionally validates package/cache/source identity and the explicit update transaction. It does not rerun unrelated Host behavior merely because a later release exists. Release gates follow the actual release delta.
 
 ## 1. Candidate identity
 
@@ -42,6 +42,9 @@ Use the strongest evidence source available for each claim.
 Repository/API/CI evidence
 -> version, SHA, tree contents, branch/ruleset state, CI, tag peel, Release state
 
+Codex Plugin inventory evidence
+-> machine-readable installed cache version, enabled state, Marketplace source/ref
+
 Public Host runtime evidence
 -> spawn/details metadata and Hook state the Host actually reports
 
@@ -57,7 +60,7 @@ Direct human Codex App observation
    Hook trust/review presentation when surfaced, post-selection presentation
 
 Model self-report
--> explanatory only; it cannot by itself close a Host/UI gate or prove runtime route or Hook trust
+-> explanatory only; it cannot by itself close a Host/UI gate or prove runtime route, Hook trust, or installed Plugin identity
 ```
 
 For child runtime attestation, follow `docs/runtime-attestation.md`. Public Host metadata is preferred. If a required field is omitted and the exact child rollout is available, use the bundled inspector and place only its allowlisted output in the local runtime-evidence source.
@@ -97,6 +100,8 @@ hooks/hooks.json JSON validation
 pinned official OpenAI Plugin validator
 Ruff
 full pytest suite
+spawn-guard regression and adversarial tests
+Plugin installation/update transaction tests
 managed Agent install
 installer --check
 Doctor --check
@@ -127,6 +132,23 @@ unrelated non-Dispatch spawn -> pass through
 raw message/tool input is not emitted or persisted by the guard
 ```
 
+The Plugin installation/update tests must prove at minimum:
+
+```text
+exact package/cache/versioned source -> OK
+installed cache newer than current task package -> package/cache skew warning
+versioned Marketplace snapshot newer than installed cache -> update available warning
+duplicate installed identity -> fail closed
+unversioned Marketplace source -> UNKNOWN
+Marketplace source older than installed cache -> fail closed
+explicit update refreshes only the configured subagents-dispatch Marketplace
+Marketplace refresh alone does not count as Plugin update success
+returned Plugin identity/version/installedPath must match the selected release
+post-install inventory must converge
+new package manifest, managed profiles, and new Doctor must verify before completion
+already-current release refresh does not reinstall the same Plugin
+```
+
 For the current single-maintainer phase, use this integration workflow:
 
 ```text
@@ -145,7 +167,7 @@ Before a local or real-Host gate invokes a bundled Python helper, resolve one Py
 
 A missing command named `python` is not a failed prerequisite when another supported Python 3.11+ invocation is available. Interpreter command-name resolution is environment adaptation, not role/model/Agent/evidence substitution.
 
-If no Python 3.11+ interpreter can be resolved, record `PYTHON_PREREQUISITE_UNMET` and stop before a Python-backed Host spawn or inspection gate. The downstream Host acceptance, runtime route, inspector, and behavioral gates are `NOT TESTED` or `INVALIDATED` as appropriate. Do not relabel that prerequisite failure as a Host role rejection or route mismatch.
+If no Python 3.11+ interpreter can be resolved, record `PYTHON_PREREQUISITE_UNMET` and stop before a Python-backed Host spawn, update verification, or inspection gate. The downstream affected gates are `NOT TESTED` or `INVALIDATED` as appropriate. Do not relabel that prerequisite failure as a Host role rejection or route mismatch.
 
 Deterministic local gate after `<python-3.11+>` has been resolved:
 
@@ -160,6 +182,8 @@ Deterministic local gate after `<python-3.11+>` has been resolved:
 <python-3.11+> scripts/doctor.py --codex-home <isolated-test-home> --check --thread-id release-doctor
 <python-3.11+> scripts/uninstall-agents.py --codex-home <isolated-test-home>
 ```
+
+The isolated repository gate may not have a Codex CLI/Plugin inventory. In that environment `Plugin installation` is allowed to remain `UNKNOWN`; this does not turn the isolated package/lifecycle check unhealthy.
 
 ## 3. Real Codex Host gates
 
@@ -265,10 +289,11 @@ When Dispatch/Status/Steer/Takeover/state ownership changed, run one real orches
 
 ### Doctor
 
-Static Doctor must remain read-only. Verify exactly ten production layers:
+Static Doctor must remain read-only. Verify exactly eleven production layers:
 
 ```text
 Plugin
+Plugin installation
 Skills
 Spawn guard package
 Managed Agent profiles
@@ -280,13 +305,35 @@ Effective permission state
 Permission-source provenance
 ```
 
-Without explicit Host/runtime evidence, supported dimensions remain `UNKNOWN`. A local package cannot promote Hook trust or runtime route to PASS. The user-facing output uses stable `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` status lines and provides an exact action for actionable warnings/failures.
+`Plugin` proves only the package currently executing. `Plugin installation` uses the machine-readable installed Plugin inventory and must keep installed cache version, versioned Marketplace ref, enablement, update availability, and active package/cache skew distinct. Ordinary Doctor must not refresh the Marketplace merely to check health.
+
+Without available installed inventory, explicit Host Hook state, or runtime evidence, the corresponding supported dimensions remain `UNKNOWN`. A local package cannot promote installed identity, Hook trust, or runtime route to PASS. The user-facing output uses stable `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` status lines and provides an exact action for actionable warnings/failures.
 
 Explicit live-route smoke is a separate user-requested workflow and never becomes an automatic side effect of static Doctor.
 
 ### Update and uninstall
 
-For a release that changes lifecycle files, test update from the previous public release. Confirm only owned profiles are reconciled. A changed Hook follows Codex's Host trust/review behavior; Doctor does not silently trust it.
+For a release that changes Plugin update lifecycle, exercise the explicit update transaction from the previous public release to the new tagged release before creating the GitHub Release.
+
+The tagged-distribution update smoke must confirm:
+
+```text
+previous public release is the installed starting identity
+Doctor sees that installed identity before update
+explicit update refreshes the configured subagents-dispatch Marketplace
+refreshed source resolves to v<new-version>
+Codex installs the exact subagents-dispatch Plugin identity
+returned installed version and installed root match the tagged release
+new installed manifest matches the returned version
+new package reconciles and verifies the five owned managed Agent profiles
+post-update Plugin inventory converges
+new installed Doctor verifies package/static production surfaces
+update reports RESTART for a changed package
+fresh session loads the new package identity
+changed Hook trust remains a Host/user review decision
+```
+
+If the versioned Marketplace ref already equals the installed version, explicit update may be a no-op after the user-requested refresh and must not reinstall the same Plugin merely to produce activity.
 
 Uninstall order remains:
 
@@ -309,6 +356,9 @@ candidate/main drift before tag
 required CI failure
 Plugin validator failure
 package/version/ref mismatch
+ambiguous or contradictory installed Plugin identity
+explicit update reports completion without installed version/path/inventory convergence
+explicit update modifies unowned managed state
 unsafe managed-profile ownership state
 spawn guard allows a managed full-history/omitted-history fork when that guard is in release scope
 spawn guard blocks unrelated Agent traffic
@@ -350,6 +400,8 @@ Require tag-triggered canonical CI on all four configured platforms and tag/vers
 
 Then install from a clean Marketplace environment and verify that the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch. Confirm the installed package version, six Skills, five managed profiles, and default-discovered `hooks/hooks.json` identity.
 
+When the update lifecycle changed, also perform the tagged-distribution update smoke described above from the previous public release. A source defect discovered after the public tag must not be repaired by moving that tag; create a new version strategy instead.
+
 If App-visible Skill or Hook trust UI changed, do the direct human App observation on the tagged distribution. If it did not change and the release-delta rule allows inherited evidence, record the inherited evidence rather than mechanically repeating every historical Host test.
 
-Create the GitHub Release only after the applicable tagged-distribution gates pass. The release record should include the exact release commit, tag object/peel, canonical CI run, distribution identity, applicable Host/UI evidence, and remaining residual risks.
+Create the GitHub Release only after the applicable tagged-distribution gates pass. The release record should include the exact release commit, tag object/peel, canonical CI run, distribution identity, applicable Host/UI/update evidence, and remaining residual risks.
