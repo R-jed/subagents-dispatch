@@ -402,11 +402,20 @@ def _verify_new_package(
     codex_bin: str,
     expected_version: str,
 ) -> None:
+    integrity = root / "scripts" / "package_integrity.py"
     installer = root / "scripts" / "install-agents.py"
     doctor = root / "scripts" / "doctor.py"
-    for path in (installer, doctor):
+    for path in (integrity, installer, doctor):
         if not path.is_file() or path.is_symlink():
             raise UpdateError(f"updated Plugin is missing a safe {path.name}")
+
+    integrity_result = _run_python(
+        sys.executable,
+        integrity,
+        ["--root", str(root)],
+    )
+    if integrity_result.returncode != 0:
+        raise UpdateError("updated Plugin package integrity verification failed")
 
     install_result = _run_python(
         sys.executable,
