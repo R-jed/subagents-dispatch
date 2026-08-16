@@ -8,10 +8,12 @@ set "SCRIPT=%~1"
 
 where py >nul 2>&1
 if not errorlevel 1 (
-  py -3.11 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
-  if not errorlevel 1 (
-    py -3.11 "%SCRIPT%"
-    exit /b
+  for %%V in (-3.11 -3) do (
+    py %%V -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+    if not errorlevel 1 (
+      py %%V "%SCRIPT%"
+      exit /b
+    )
   )
 )
 
