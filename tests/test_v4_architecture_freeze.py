@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = ROOT / "contracts" / "v4-architecture.json"
+SPEC = ROOT / "docs" / "v4" / "architecture.json"
 
 
 def load_spec() -> dict:
