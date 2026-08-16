@@ -36,6 +36,7 @@ jobs:
         run: |
           python -m json.tool .codex-plugin/plugin.json >/dev/null
           python -m json.tool .agents/plugins/marketplace.json >/dev/null
+          python -m json.tool hooks/hooks.json >/dev/null
       - name: Verify tag and packaged version match
         if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest' && matrix.python == '3.11' }}
         shell: bash

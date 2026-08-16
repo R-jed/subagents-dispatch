@@ -37,10 +37,10 @@ def test_doctor_accepts_complete_exact_rollout_attestation_without_public_route_
     evidence.write_text(json.dumps(formal_evidence()), encoding='utf-8')
     result = run_doctor(home, evidence)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert 'Layer: Runtime route: OK' in result.stdout
-    assert 'Layer: Effective permission state: OK' in result.stdout
-    assert 'Layer: Permission-source provenance: OK' in result.stdout
-    assert 'Overall: OK' in result.stdout
+    assert '[OK] Runtime route:' in result.stdout
+    assert '[OK] Effective permission state:' in result.stdout
+    assert '[OK] Permission-source provenance:' in result.stdout
+    assert 'Overall: HEALTHY' in result.stdout
 
 def test_doctor_live_route_rejects_missing_formal_requirement_flags(tmp_path: Path):
     home = tmp_path / 'codex-home'
@@ -51,7 +51,7 @@ def test_doctor_live_route_rejects_missing_formal_requirement_flags(tmp_path: Pa
     evidence.write_text(json.dumps(payload), encoding='utf-8')
     result = run_doctor(home, evidence)
     assert result.returncode == 1
-    assert 'Layer: Runtime route: FAIL' in result.stdout
+    assert '[FAIL] Runtime route:' in result.stdout
     assert 'requires expected.requires_permission_observation=true' in result.stdout
     assert 'Overall: UNHEALTHY' in result.stdout
 
@@ -62,10 +62,10 @@ def test_doctor_live_route_keeps_verified_state_separate_from_unknown_provenance
     evidence.write_text(json.dumps(formal_evidence(include_permission_provenance=False)), encoding='utf-8')
     result = run_doctor(home, evidence)
     assert result.returncode == 0
-    assert 'Layer: Runtime route: OK' in result.stdout
-    assert 'Layer: Effective permission state: OK' in result.stdout
-    assert 'Layer: Permission-source provenance: UNKNOWN' in result.stdout
-    assert 'Overall: OK' in result.stdout
+    assert '[OK] Runtime route:' in result.stdout
+    assert '[OK] Effective permission state:' in result.stdout
+    assert '[UNKNOWN] Permission-source provenance:' in result.stdout
+    assert 'Overall: HEALTHY' in result.stdout
 
 def test_doctor_live_route_blocks_when_the_claim_requires_unknown_provenance(tmp_path: Path):
     home = tmp_path / 'codex-home'
@@ -74,10 +74,10 @@ def test_doctor_live_route_blocks_when_the_claim_requires_unknown_provenance(tmp
     evidence.write_text(json.dumps(formal_evidence(include_permission_provenance=False, require_permission_provenance=True)), encoding='utf-8')
     result = run_doctor(home, evidence)
     assert result.returncode == 1
-    assert 'Layer: Runtime route: OK' in result.stdout
-    assert 'Layer: Effective permission state: OK' in result.stdout
-    assert 'Layer: Permission-source provenance: UNKNOWN' in result.stdout
-    assert 'Overall: UNHEALTHY' in result.stdout
+    assert '[OK] Runtime route:' in result.stdout
+    assert '[OK] Effective permission state:' in result.stdout
+    assert '[UNKNOWN] Permission-source provenance:' in result.stdout
+    assert 'Overall: ATTENTION' in result.stdout
 
 def test_non_live_doctor_keeps_unknown_runtime_evidence_nonfatal(tmp_path: Path):
     home = tmp_path / 'codex-home'
@@ -86,10 +86,10 @@ def test_non_live_doctor_keeps_unknown_runtime_evidence_nonfatal(tmp_path: Path)
     evidence.write_text(json.dumps(formal_evidence(include_permission_provenance=False)), encoding='utf-8')
     result = run_doctor(home, evidence, live_route=False)
     assert result.returncode == 0
-    assert 'Layer: Runtime route: OK' in result.stdout
-    assert 'Layer: Effective permission state: OK' in result.stdout
-    assert 'Layer: Permission-source provenance: UNKNOWN' in result.stdout
-    assert 'Overall: OK' in result.stdout
+    assert '[OK] Runtime route:' in result.stdout
+    assert '[OK] Effective permission state:' in result.stdout
+    assert '[UNKNOWN] Permission-source provenance:' in result.stdout
+    assert 'Overall: HEALTHY' in result.stdout
 ROOT = Path(__file__).resolve().parents[1]
 NORMALIZER = ROOT / 'scripts' / 'runtime-evidence.py'
 POLICY = json.loads((ROOT / 'contracts' / 'policy.json').read_text(encoding='utf-8'))

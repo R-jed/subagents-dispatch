@@ -39,10 +39,10 @@ One possible split might look like this:
 
 ```text
 Main
-├─ Luna Max Read       → map the API, tests, and call chain
+├─ Luna Max Read        → map the API, tests, and call chain
 ├─ Terra XHigh Research → inspect cross-file impact and hidden dependencies
-├─ Luna Max Execute    → implement and test once the boundary is clear
-└─ Sol High Review     → independently check a higher-impact change
+├─ Luna Max Execute     → implement and test once the boundary is clear
+└─ Sol High Review      → independently check a higher-impact change
 ```
 
 Main takes the evidence back, decides what is trustworthy, and integrates the final change.
@@ -63,6 +63,8 @@ The basic loop is small:
 
 New project children start with fresh context by default. Main passes the objective, scope, constraints, acceptance conditions, and accepted facts that matter for that responsibility instead of copying the entire conversation.
 
+When the Codex Host has trusted and enabled the packaged spawn guard, the plugin also mechanically checks prepared state, exact Agent type, task name, and `fork_turns=none` before a managed `spawn_agent` call executes. The Hook guards the call boundary only. Codex Native Subagents still own actual child identity and lifecycle.
+
 The point is to reduce repeated discovery and context mixing without creating coordination work for its own sake.
 
 ## Install
@@ -76,7 +78,7 @@ Start a new Codex session after installation, then choose **Dispatch** from the 
 
 On the first run that genuinely needs a child, the plugin checks its five managed Agent profiles. If those profiles need to be created, the current task returns `RESTART_REQUIRED`. Start a fresh Codex task/session and choose Dispatch again.
 
-Profile provisioning, Doctor helpers, and Runtime Attestation helpers require Python 3.11+. See [Plugin Installation](docs/plugin-installation.md) for the complete lifecycle.
+Profile provisioning, Doctor helpers, Runtime Attestation helpers, and the spawn guard require Python 3.11+. See [Plugin Installation](docs/plugin-installation.md) for the complete lifecycle.
 
 ## The six Skills you will actually use
 
@@ -87,7 +89,7 @@ Profile provisioning, Doctor helpers, and Runtime Attestation helpers require Py
 | **Status** | take one look at the current state |
 | **Steer** | add guidance to the same child already doing the work |
 | **Takeover** | safely settle the old writer, then return responsibility to Main |
-| **Doctor** | inspect installation, profiles, state, and runtime evidence |
+| **Doctor** | inspect installation, spawn guard, profiles, state, and runtime evidence |
 
 `Status` performs one observation and does not background poll. `Steer` keeps the same child. `Takeover` checks that the old writer is safely settled before conflicting write authority can move.
 
@@ -114,6 +116,7 @@ Delegation can be flexible. These boundaries stay conservative:
 * Main owns project-level delegation. Project children do not create more project children.
 * One orchestration keeps one active writer in the canonical workspace.
 * Every responsibility uses the exact `subagents_dispatch_*` Agent type specified by `contracts/policy.json`.
+* Every new project child explicitly uses `fork_turns=none`.
 * `UNKNOWN` stays unknown. It cannot authorize replacement, rerouting, ownership transfer, or conflicting mutation.
 * Child output becomes task truth only after Main verifies and accepts it.
 * Final Review is driven by the consequence of the change instead of a fixed extra reviewer on every task.
@@ -168,7 +171,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Start a fresh Codex session after updating.
+Start a fresh Codex session after updating. If the packaged Hook changed, Codex may require a new review/trust action. Doctor does not silently change that Host state.
 
 If managed Agent profiles were provisioned, keep the Plugin installed first, choose **Doctor**, and explicitly ask it to uninstall the subagents-dispatch managed profiles. Doctor verifies the ownership manifest and file SHA-256 values and removes only configuration it can prove belongs to this plugin.
 
@@ -191,6 +194,7 @@ Do not bypass an ownership conflict with `rm`, wildcards, or manual deletion. Se
 ├── .agents/plugins/                  # Marketplace registration
 ├── .codex-plugin/                    # Plugin manifest
 ├── agent-profiles/                   # five managed Agent profiles
+├── hooks/                            # default-discovered spawn guard + launchers
 ├── contracts/                        # routing, state, safety, and evidence contracts
 ├── scripts/                          # provisioning, validation, and runtime helpers
 ├── skills/

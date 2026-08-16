@@ -187,7 +187,7 @@ ARCHITECTURE = ROOT / 'docs' / 'architecture.md'
 
 def test_architecture_document_matches_v3_control_and_receipt_contracts():
     text = ARCHITECTURE.read_text(encoding='utf-8')
-    for phrase in ['six thin explicit entry points', 'There is no minimum Subagent count', 'INTERRUPTED', '## Dispatch Receipt', 'scripts/dispatch_state.py', 'Doctor has exactly eight diagnostic layers', 'Effective permission state', 'Permission-source provenance', 'scripts/uninstall-agents.py', 'selected project lane bound to materialized work', 'Explicit Dispatch that routes everything to Main still returns the minimal zero-child Receipt']:
+    for phrase in ['six thin explicit entry points', 'There is no minimum Subagent count', 'INTERRUPTED', '## Dispatch Receipt', 'scripts/dispatch_state.py', 'Doctor has exactly ten diagnostic layers', 'Effective permission state', 'Permission-source provenance', 'scripts/uninstall-agents.py', 'selected project lane bound to materialized work', 'Explicit Dispatch that routes everything to Main still returns the minimal zero-child Receipt']:
         assert phrase in text
     for obsolete in ['Version 2.1 adds', '## Execution Receipt', 'Dispatch: Reader → Worker', '· complete · no retry', 'Zero children is normal', 'preview <task>', 'steer <unit_id>: <guidance>', 'Doctor has exactly six diagnostic layers', 'Zero-child tasks, Preview, Status-only requests, and `RESTART_REQUIRED` first-use setup do not add a receipt']:
         assert obsolete not in text
@@ -213,10 +213,10 @@ def test_behavioral_eval_protocol_keeps_ui_syntax_observation_gated():
     assert 'contracts/receipt.md' in text
     assert 'contracts/state.md' in text
 ROOT = Path(__file__).resolve().parents[1]
-DOCTOR = ROOT / 'scripts' / 'doctor.py'
+DOCTOR_CORE = ROOT / 'scripts' / 'doctor_core.py'
 
 def test_doctor_reuses_dispatch_state_temp_boundary_for_state_scanning():
-    text = DOCTOR.read_text(encoding='utf-8')
+    text = DOCTOR_CORE.read_text(encoding='utf-8')
     assert '_temporary_root,' in text
     assert '_reject_symlink,' in text
     assert 'root_base = _temporary_root(temp_root)' in text

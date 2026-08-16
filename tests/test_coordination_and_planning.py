@@ -30,7 +30,7 @@ def test_policy_owns_capability_dedup_reference_route_and_aliases():
     role = dedup['reference_role']
     reference = policy['roles'][role]
     order = dedup['reasoning_effort_order']
-    assert policy['schema_version'] == 7
+    assert policy['schema_version'] == 8
     assert role == 'solver'
     assert reference['model'] == 'gpt-5.6-sol'
     assert reference['effort'] == 'high'
@@ -69,7 +69,7 @@ def routing_cases() -> dict[str, dict]:
     return {case['id']: case for case in payload['cases']}
 
 def test_machine_contract_keeps_depth_and_semantic_writer_coordination():
-    assert policy()['delegation'] == {'max_depth': 1}
+    assert policy()['delegation'] == {'max_depth': 1, 'fork_turns': 'none'}
     assert policy()['write_coordination'] == {'mode': 'single_writer', 'scope': 'canonical_workspace'}
 
 def test_static_cases_cover_adaptive_fanout_and_material_compute_consent():
@@ -446,9 +446,9 @@ def test_dispatch_skill_and_openai_metadata_keep_explicit_identity():
 
 def test_policy_contract_is_the_single_machine_role_source():
     payload = contract()
-    assert payload['schema_version'] == 7
+    assert payload['schema_version'] == 8
     assert set(payload) == {'schema_version', 'delegation', 'write_coordination', 'permission_semantics', 'capability_dedup', 'roles', 'final_review'}
-    assert payload['delegation'] == {'max_depth': 1}
+    assert payload['delegation'] == {'max_depth': 1, 'fork_turns': 'none'}
     assert payload['write_coordination'] == {'mode': 'single_writer', 'scope': 'canonical_workspace'}
     assert payload['permission_semantics'] == {'candidate_source_kinds': ['selected_environment', 'parent_turn']}
     assert set(payload['roles']) == {'reader', 'worker', 'solver', 'investigator', 'advisor'}
@@ -490,7 +490,7 @@ def test_composition_and_evidence_artifact_are_progressive_disclosure_owners():
 
 def test_team_plan_and_recovery_do_not_define_fixed_fanout_policy():
     delegation = contract()['delegation']
-    assert delegation == {'max_depth': 1}
+    assert delegation == {'max_depth': 1, 'fork_turns': 'none'}
     team_plan = (CONTRACTS / 'team-plan.md').read_text(encoding='utf-8').lower()
     recovery = (CONTRACTS / 'recovery.md').read_text(encoding='utf-8').lower()
     assert 'native codex capacity remains the concurrency ceiling' in team_plan

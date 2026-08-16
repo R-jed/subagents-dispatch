@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: 2026-08-11
+Last updated: 2026-08-16
 
-subagents-dispatch is a local Codex plugin built around Skills. It also ships local helper scripts and managed custom-Agent templates used by those Skills. The project does not operate a developer-controlled server, analytics service, account system, advertising system, or telemetry endpoint.
+subagents-dispatch is a local Codex plugin built around Skills, Codex Native Subagents, one local spawn-guard Hook, and bundled local helper scripts. The project does not operate a developer-controlled server, analytics service, account system, advertising system, telemetry endpoint, or remote orchestration service.
 
 ## Data collected by the project
 
@@ -12,9 +12,21 @@ The plugin runs inside the user's Codex environment and may work with files, rep
 
 ## Local configuration
 
-When an explicit **Dispatch** Skill task actually needs delegation and the plugin's managed custom Agent roles are absent, subagents-dispatch may automatically provision five fixed TOML Agent profiles plus an ownership manifest and installer lock under the user's `CODEX_HOME`. Routine provisioning is limited to those plugin-owned paths. It does not modify `config.toml`, credentials, MCP configuration, repositories, or unrelated Agent profiles, and unsafe or unowned conflicting state is not overwritten automatically.
+When an explicit **Dispatch** Skill task actually needs delegation and the plugin's managed custom Agent roles are absent, subagents-dispatch may automatically provision five fixed TOML Agent profiles plus an ownership manifest and installer lock under the user's `CODEX_HOME`. Routine provisioning is limited to those plugin-owned paths. It does not modify `config.toml`, credentials, MCP configuration, Hook trust state, repositories, or unrelated Agent profiles, and unsafe or unowned conflicting state is not overwritten automatically.
 
 These local files contain plugin configuration and ownership/synchronization metadata. They do not contain project-operated credentials, conversation transcripts, or usage telemetry, and they are not sent to the project maintainer.
+
+## Local spawn guard Hook
+
+The Plugin packages one synchronous `PreToolUse` Hook for `spawn_agent` under the Host's default Plugin Hook path `hooks/hooks.json`.
+
+Codex supplies the proposed tool call to the local Hook process. For a subagents-dispatch managed spawn, the guard reads only the structural fields required to check the action boundary, including the caller/target Agent identity when present, `task_name`, and `fork_turns`. It compares those facts with the already-prepared thread-local Dispatch state and the bundled machine policy.
+
+The proposed spawn may also contain a task message or other Host fields. The guard does not use those fields as task evidence, does not persist them, does not echo them in a block reason, and does not write the raw Hook input to logs or project state. Hook failures emit only bounded generic diagnostic information. The Hook performs no network request, sends no telemetry, and subagents-dispatch sends no Hook data to the maintainer.
+
+The Hook does not create a second orchestration control plane. It does not spawn Agents itself, route work, create or mutate `active.json`, bind child identity, release a writer, or perform Takeover. Native Host observation and the existing Dispatch state/reconciliation contracts remain authoritative.
+
+Codex may require user review and trust for a new or changed Hook. subagents-dispatch does not silently change that Host trust state. If the Hook is unsupported, untrusted, disabled, or fails to launch, the Plugin's existing Skill and contract checks remain the correctness fallback and Doctor reports the runtime Hook fact only when supported Host evidence is available.
 
 ## Temporary dispatch state
 
@@ -44,11 +56,11 @@ The project maintainer does not receive user data through the plugin. Data may b
 
 The project retains no user data collected through the plugin. Managed local configuration remains on the user's device until it is updated or removed by the user or by an authorized plugin lifecycle action. Temporary dispatch state is removed on normal terminal completion; stale terminal state is eligible for explicit cleanup after seven days, while unresolved writer state is preserved for review.
 
-The explicit runtime-attestation helper does not create or retain a project-owned copy of a Codex rollout. Any source rollout remains part of the user's local Codex session data and follows the retention behavior of Codex itself.
+The spawn guard does not create a project-owned history of Hook calls. The explicit runtime-attestation helper does not create or retain a project-owned copy of a Codex rollout. Any source rollout remains part of the user's local Codex session data and follows the retention behavior of Codex itself.
 
 ## User controls
 
-Users can disable or uninstall subagents-dispatch and remove the plugin's managed local configuration. Repair, migration, upgrade, broader configuration changes, and resolution of conflicting or unowned state remain explicit user-controlled actions. Live route verification is also explicit; ordinary plugin use does not require local rollout inspection. Because the project does not operate a user account or remote data store, there is no project-held personal data account to delete.
+Users can disable or uninstall subagents-dispatch and remove the plugin's managed local configuration. Repair, migration, upgrade, broader configuration changes, and resolution of conflicting or unowned state remain explicit user-controlled actions. Live route verification is also explicit; ordinary plugin use does not require local rollout inspection. Hook enablement and trust remain Host/user controls. Because the project does not operate a user account or remote data store, there is no project-held personal data account to delete.
 
 ## Security and privacy reports
 

@@ -63,6 +63,8 @@ Main 拿回证据，决定哪些内容可信，再完成最终整合。
 
 新的 project child 默认拿 fresh context。Main 会把目标、范围、约束、验收条件和已经接受的事实传过去，而不是把整段主对话复制一遍。
 
+当 Codex Host 已信任并启用插件自带的 spawn guard 时，`spawn_agent` 真正执行前还会机械核对 prepared state、exact Agent type、task name 和 `fork_turns=none`。这个 Hook 只守调用边界，Codex Native Subagents 仍然负责真实 child identity 和 lifecycle。
+
 这也是项目的取舍。它希望减少重复调查和上下文混杂，同时避免为了“多 Agent”而制造更多协调工作。
 
 ## 安装
@@ -76,7 +78,7 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 第一次真正需要 child 时，插件会检查自己管理的五个 Agent profiles。如果需要首次创建，当前任务会返回 `RESTART_REQUIRED`。重新开一个 Codex task/session，再次选择 Dispatch 即可。
 
-Profile provisioning、Doctor helpers 和 Runtime Attestation helpers 需要 Python 3.11+。完整流程见 [Plugin Installation](docs/plugin-installation.md)。
+Profile provisioning、Doctor helpers、Runtime Attestation helpers 和 spawn guard 需要 Python 3.11+。完整流程见 [Plugin Installation](docs/plugin-installation.md)。
 
 ## 你会用到的六个 Skill
 
@@ -87,7 +89,7 @@ Profile provisioning、Doctor helpers 和 Runtime Attestation helpers 需要 Pyt
 | **Status** | 看一次当前状态 |
 | **Steer** | 给正在工作的同一个 child 追加指导 |
 | **Takeover** | 安全结束旧 writer 后，把职责交回 Main |
-| **Doctor** | 检查安装、profiles、state 和 runtime evidence |
+| **Doctor** | 检查安装、spawn guard、profiles、state 和 runtime evidence |
 
 `Status` 只观察一次，不做后台轮询。`Steer` 继续使用同一个 child。`Takeover` 会先确认旧 writer 已经安全结束。
 
@@ -114,6 +116,7 @@ Profile provisioning、Doctor helpers 和 Runtime Attestation helpers 需要 Pyt
 * Main 负责项目级委派，project child 不继续创建 project children。
 * 同一次编排的 canonical workspace 保持一个 active writer。
 * 每个职责使用 `contracts/policy.json` 指定的 exact `subagents_dispatch_*` Agent type。
+* 每个新的 project child 都显式使用 `fork_turns=none`。
 * `UNKNOWN` 就保持未知。它不会自动授权 replacement、reroute、ownership transfer 或冲突写入。
 * child 的输出需要 Main 验证和接受，最终完成状态仍由 Main 判断。
 * Final Review 看变更后果决定是否需要，不固定多开一个 reviewer。
@@ -168,7 +171,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-更新后启动新的 Codex session。
+更新后启动新的 Codex session。插件 Hook 发生变化时，Codex 可能要求重新 review/trust，Doctor 不会替用户静默修改这个 Host 状态。
 
 如果已经创建过 managed Agent profiles，请先保持插件已安装，选择 **Doctor** 并明确要求卸载 subagents-dispatch 的 managed profiles。Doctor 会校验 ownership manifest 和文件 SHA-256，只删除能够证明属于本插件的配置。
 
@@ -191,6 +194,7 @@ codex plugin marketplace remove subagents-dispatch
 ├── .agents/plugins/                  # Marketplace registration
 ├── .codex-plugin/                    # Plugin manifest
 ├── agent-profiles/                   # five managed Agent profiles
+├── hooks/                            # default-discovered spawn guard + launchers
 ├── contracts/                        # routing, state, safety and evidence contracts
 ├── scripts/                          # provisioning, validation and runtime helpers
 ├── skills/
