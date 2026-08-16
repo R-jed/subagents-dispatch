@@ -60,6 +60,36 @@ def test_complete_evidence_normalizes_to_execution_ready_snapshot():
     assert module.effective_managed_child_limit(snapshot, product_limit=3) == 3
 
 
+def test_public_v2_agent_status_union_is_normalized_without_assuming_agent_id():
+    module = load_module()
+
+    assert module.normalize_agent_status("pending_init") == {
+        "state": "pending_init",
+        "detail": None,
+    }
+    assert module.normalize_agent_status("running") == {"state": "running", "detail": None}
+    assert module.normalize_agent_status({"completed": None}) == {
+        "state": "completed",
+        "detail": None,
+    }
+    assert module.normalize_agent_status({"completed": "done"}) == {
+        "state": "completed",
+        "detail": "done",
+    }
+    assert module.normalize_agent_status({"errored": "boom"}) == {
+        "state": "errored",
+        "detail": "boom",
+    }
+
+
+def test_malformed_agent_status_fails_closed():
+    module = load_module()
+
+    for status in ["completed", {"completed": 1}, {"errored": None}, {"other": "x"}]:
+        with pytest.raises(module.HostCapabilityError, match="status"):
+            module.normalize_agent_status(status)
+
+
 def test_missing_lifecycle_post_hook_fails_closed():
     module = load_module()
     snapshot = module.normalize_host_capabilities(evidence(post=False))
