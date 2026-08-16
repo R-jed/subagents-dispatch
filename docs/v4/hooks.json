@@ -1,0 +1,47 @@
+{
+  "description": "Staged V4 managed lifecycle Hook manifest. Activate only at the V4 cutover after isolated Host smoke passes.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "spawn_agent|followup_task|interrupt_agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT}/hooks/run-python.sh\" \"${PLUGIN_ROOT}/scripts/orchestration_guard.py\"",
+            "commandWindows": "\"%PLUGIN_ROOT%\\hooks\\run-python.cmd\" \"%PLUGIN_ROOT%\\scripts\\orchestration_guard.py\"",
+            "timeout": 5,
+            "async": false
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "spawn_agent|followup_task|interrupt_agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT}/hooks/run-python.sh\" \"${PLUGIN_ROOT}/scripts/orchestration_guard.py\"",
+            "commandWindows": "\"%PLUGIN_ROOT%\\hooks\\run-python.cmd\" \"%PLUGIN_ROOT%\\scripts\\orchestration_guard.py\"",
+            "timeout": 5,
+            "async": false
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "subagents_dispatch_reader|subagents_dispatch_worker|subagents_dispatch_investigator|subagents_dispatch_solver|subagents_dispatch_advisor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT}/hooks/run-python.sh\" \"${PLUGIN_ROOT}/scripts/orchestration_guard.py\"",
+            "commandWindows": "\"%PLUGIN_ROOT%\\hooks\\run-python.cmd\" \"%PLUGIN_ROOT%\\scripts\\orchestration_guard.py\"",
+            "timeout": 5,
+            "async": false
+          }
+        ]
+      }
+    ]
+  }
+}
