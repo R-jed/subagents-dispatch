@@ -36,7 +36,7 @@ def managed_execution_readiness() -> dict[str, Any]:
     try:
         payload = load_host_smoke()
     except ReleaseGateError as exc:
-        return {"ready": False, "status": "UNKNOWN", "reason": str(exc)}
+        return {"ready": False, "gate_status": "UNKNOWN", "reason": str(exc)}
     probes = payload.get("probe_results")
     passed = {
         str(item.get("id"))
@@ -46,7 +46,7 @@ def managed_execution_readiness() -> dict[str, Any]:
     ready = payload.get("status") == "PASS" and REQUIRED_PROBES.issubset(passed)
     return {
         "ready": ready,
-        "status": payload.get("status", "UNKNOWN"),
+        "gate_status": payload.get("status", "UNKNOWN"),
         "passed_probes": sorted(passed),
         "missing_probes": sorted(REQUIRED_PROBES - passed),
         "gate_id": payload.get("gate_id"),
