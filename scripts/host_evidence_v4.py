@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Strict V4 Host evidence ingestion from paired list_agents Hooks.
-
-PreToolUse captures the exact execution/control/lease basis for one observation
-request. PostToolUse can only reconcile against that captured basis, so a late or
-out-of-order Host response cannot be rebound to a newer execution generation.
-Consumed observation identities are compacted through the bounded state facade.
-"""
+"""Strict V4 Host evidence ingestion from paired list_agents Hooks."""
 
 from __future__ import annotations
 
@@ -26,6 +20,8 @@ OBSERVATION_TOOL = "list_agents"
 RESERVED_AGENT_PREFIX = "subagents_dispatch_"
 PREPARE_KIND = "host_observation_prepare"
 RECEIPT_KIND = "host_observation_receipt"
+CAPACITY_KIND = state.HOST_CAPACITY_OBSERVATION_KIND
+SETTLED_HOST_STATES = {"completed", "errored", "interrupted"}
 
 
 class HostEvidenceError(RuntimeError):
@@ -37,24 +33,34 @@ def _nonempty(value: Any) -> bool:
 
 
 def _strict_response(value: Any) -> list[Mapping[str, Any]]:
-    if not isinstance(value, list):
-        raise HostEvidenceError("list_agents tool_response must be an array")
+    """Parse the pinned current V2 generic PostToolUse wire representation."""
+    if not isinstance(value, str):
+        raise HostEvidenceError("list_agents tool_response must be the Host JSON text body")
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise HostEvidenceError("list_agents tool_response text must contain valid JSON") from exc
+    if not isinstance(decoded, Mapping) or set(decoded) != {"agents"}:
+        raise HostEvidenceError("list_agents result must contain exactly agents")
+    agents = decoded.get("agents")
+    if not isinstance(agents, list):
+        raise HostEvidenceError("list_agents agents must be an array")
     result: list[Mapping[str, Any]] = []
     names: set[str] = set()
-    for index, item in enumerate(value):
-        if not isinstance(item, Mapping) or set(item) != {"agent_name", "status"}:
+    for index, item in enumerate(agents):
+        if not isinstance(item, Mapping) or set(item) != {"agent_name", "agent_status"}:
             raise HostEvidenceError(
-                f"list_agents tool_response[{index}] must contain exactly agent_name and status"
+                f"list_agents agents[{index}] must contain exactly agent_name and agent_status"
             )
         name = item.get("agent_name")
         if not _nonempty(name) or name in names:
             raise HostEvidenceError("list_agents response has invalid or duplicate agent_name")
         try:
-            host_capabilities.normalize_agent_status(item.get("status"))
+            host_capabilities.normalize_agent_status(item.get("agent_status"))
         except host_capabilities.HostCapabilityError as exc:
             raise HostEvidenceError(str(exc)) from exc
-        names.add(name)
-        result.append(item)
+        names.add(str(name))
+        result.append({"agent_name": str(name), "status": item.get("agent_status")})
     return result
 
 
@@ -84,6 +90,10 @@ def _prepare_ref(tool_use_id: str) -> str:
 
 def _receipt_ref(tool_use_id: str) -> str:
     return f"host-observation-receipt:{tool_use_id}"
+
+
+def _capacity_ref(tool_use_id: str) -> str:
+    return f"host-capacity-observation:{tool_use_id}"
 
 
 def _response_digest(response: list[Mapping[str, Any]]) -> str:
@@ -183,6 +193,71 @@ def _matching_receipt(
     return matches[0] if matches else None
 
 
+def _capacity_observation(
+    response: list[Mapping[str, Any]],
+    current: Mapping[str, Any],
+    *,
+    turn_id: str,
+    tool_use_id: str,
+    response_digest: str,
+) -> dict[str, Any]:
+    managed_names = {
+        f"/root/{execution['native_task_name']}"
+        for execution in current.get("executions", [])
+        if isinstance(execution, Mapping) and _nonempty(execution.get("native_task_name"))
+    }
+    children = [item for item in response if item.get("agent_name") != "/root"]
+    settled = 0
+    managed = 0
+    for item in children:
+        normalized = host_capabilities.normalize_agent_status(item.get("status"))
+        if normalized["state"] in SETTLED_HOST_STATES:
+            settled += 1
+        if item.get("agent_name") in managed_names:
+            managed += 1
+    resident = len(children)
+    return {
+        "ref": _capacity_ref(tool_use_id),
+        "kind": CAPACITY_KIND,
+        "source": "post_tool_use:list_agents",
+        "turn_id": turn_id,
+        "tool_use_id": tool_use_id,
+        "resident_children": resident,
+        "settled_children": settled,
+        "active_children": resident - settled,
+        "managed_resident_children": managed,
+        "unmanaged_resident_children": resident - managed,
+        "response_digest": response_digest,
+    }
+
+
+def invalidate_host_capacity_observation(
+    session_id: str,
+    *,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Invalidate occupancy truth after a successful lifecycle mutation."""
+    current = state.load_state(session_id, temp_root=temp_root)
+    if current is None:
+        raise HostEvidenceError("active V4 state is unavailable for capacity invalidation")
+    present = any(
+        isinstance(event, Mapping) and event.get("kind") == CAPACITY_KIND
+        for event in current.get("accounting_refs", [])
+    )
+    if not present:
+        return False
+
+    def mutate(latest: dict[str, Any]) -> None:
+        latest["accounting_refs"] = [
+            event
+            for event in latest.get("accounting_refs", [])
+            if not (isinstance(event, Mapping) and event.get("kind") == CAPACITY_KIND)
+        ]
+
+    state.mutate_state(session_id, mutate, temp_root=temp_root)
+    return True
+
+
 def ingest_list_agents_post_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -214,6 +289,13 @@ def ingest_list_agents_post_tool_use(
     bases = prepared.get("bases")
     if not isinstance(bases, list) or not all(isinstance(item, Mapping) for item in bases):
         raise HostEvidenceError("list_agents preparation has invalid observation bases")
+    capacity_event = _capacity_observation(
+        response,
+        current,
+        turn_id=turn_id,
+        tool_use_id=tool_use_id,
+        response_digest=response_digest,
+    )
     by_name = {str(item["agent_name"]): item for item in response}
     outcomes: list[dict[str, Any]] = []
     for basis in bases:
@@ -277,6 +359,12 @@ def ingest_list_agents_post_tool_use(
                 "response_digest": response_digest,
             }
         )
+        latest["accounting_refs"] = [
+            event
+            for event in latest["accounting_refs"]
+            if not (isinstance(event, Mapping) and event.get("kind") == CAPACITY_KIND)
+        ]
+        latest["accounting_refs"].append(capacity_event)
 
     state.mutate_state(session_id, finalize, temp_root=temp_root)
     return outcomes

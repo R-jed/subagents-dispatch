@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize inspectable Codex Host evidence into the V4 capability contract.
-
-This module does not probe the Host or simulate missing primitives. Callers supply
-inspectable evidence and receive a deterministic fail-closed capability snapshot.
-Real Hook coverage is validated later by Host smoke tests.
-"""
+"""Normalize inspectable Codex Host evidence into the V4 capability contract."""
 
 from __future__ import annotations
 
@@ -35,6 +30,15 @@ TOOL_CAPABILITY_MAP = {
 }
 SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
 GUARD_TRUST_FIELDS = {"manifest_sha256", "trusted_current_definition", "evidence_ref"}
+NORMALIZED_SNAPSHOT_FIELDS = {
+    "surface",
+    "capabilities",
+    "fork_turns_none",
+    "max_spawned_threads",
+    "capacity_excludes_primary",
+    "execution_ready",
+    "missing",
+}
 HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -121,9 +125,9 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     missing_capabilities = [
         capability for capability in REQUIRED_CAPABILITIES if capabilities.get(capability) is not True
     ]
-    execution_ready = not missing_capabilities and evidence["fork_turns_none"] is True
     if evidence["fork_turns_none"] is not True:
         missing_capabilities.append("fresh_context_spawn")
+    execution_ready = not missing_capabilities
 
     return {
         "surface": surface,
@@ -136,6 +140,39 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    """Recompute every normalized capability fact at the scheduler boundary."""
+    if not isinstance(snapshot, Mapping) or set(snapshot) != NORMALIZED_SNAPSHOT_FIELDS:
+        raise HostCapabilityError("normalized Host snapshot has invalid fields")
+    if snapshot.get("surface") != EXPECTED_SURFACE:
+        raise HostCapabilityError("normalized Host snapshot has invalid surface")
+    capabilities = snapshot.get("capabilities")
+    if not isinstance(capabilities, Mapping) or set(capabilities) != set(REQUIRED_CAPABILITIES):
+        raise HostCapabilityError("normalized Host snapshot has invalid capability set")
+    if not all(isinstance(capabilities[item], bool) for item in REQUIRED_CAPABILITIES):
+        raise HostCapabilityError("normalized Host snapshot capabilities must be boolean")
+    fork_none = snapshot.get("fork_turns_none")
+    if not isinstance(fork_none, bool):
+        raise HostCapabilityError("normalized Host snapshot fork_turns_none must be boolean")
+    capacity = snapshot.get("max_spawned_threads")
+    if capacity is not None and (
+        not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
+    ):
+        raise HostCapabilityError("normalized Host snapshot has invalid max_spawned_threads")
+    if snapshot.get("capacity_excludes_primary") is not True:
+        raise HostCapabilityError("normalized Host snapshot must exclude primary from capacity")
+    expected_missing = [
+        capability for capability in REQUIRED_CAPABILITIES if capabilities[capability] is not True
+    ]
+    if fork_none is not True:
+        expected_missing.append("fresh_context_spawn")
+    if snapshot.get("missing") != expected_missing:
+        raise HostCapabilityError("normalized Host snapshot missing list is inconsistent")
+    if snapshot.get("execution_ready") is not (not expected_missing):
+        raise HostCapabilityError("normalized Host snapshot execution_ready is inconsistent")
+    return copy.deepcopy(dict(snapshot))
+
+
 def build_guard_coverage_proof(
     snapshot: Mapping[str, Any],
     *,
@@ -143,13 +180,12 @@ def build_guard_coverage_proof(
     trust_evidence: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Build a diagnostic Hook-coverage summary with no WriterLease authority."""
-    if not isinstance(snapshot, Mapping) or snapshot.get("execution_ready") is not True:
+    normalized = validate_normalized_snapshot(snapshot)
+    if normalized.get("execution_ready") is not True:
         raise HostCapabilityError("Guard coverage summary requires an execution-ready Host snapshot")
     if not isinstance(session_id, str) or not session_id.strip():
         raise HostCapabilityError("Guard coverage summary requires non-empty session_id")
-    capabilities = snapshot.get("capabilities")
-    if not isinstance(capabilities, Mapping):
-        raise HostCapabilityError("Guard coverage summary requires normalized capabilities")
+    capabilities = normalized["capabilities"]
     for capability in (
         "pre_tool_use_guard",
         "post_tool_use_guard",
@@ -192,20 +228,14 @@ def effective_managed_child_limit(
     product_limit: int = 3,
 ) -> int | None:
     """Cap V4 product fan-out by known Host spawned-thread capacity."""
-    if not isinstance(snapshot, Mapping):
-        raise HostCapabilityError("capability snapshot must be an object")
+    normalized = validate_normalized_snapshot(snapshot)
     if not isinstance(product_limit, int) or isinstance(product_limit, bool) or product_limit < 1:
         raise HostCapabilityError("product_limit must be a positive integer")
-    capacity = snapshot.get("max_spawned_threads")
+    capacity = normalized["max_spawned_threads"]
     if capacity is None:
         return None
-    if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1:
-        raise HostCapabilityError("snapshot has invalid max_spawned_threads")
     return min(product_limit, capacity)
 
 
 def capability_snapshot_copy(snapshot: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a defensive copy for persistence/diagnostics without adding evidence."""
-    if not isinstance(snapshot, Mapping):
-        raise HostCapabilityError("capability snapshot must be an object")
-    return copy.deepcopy(dict(snapshot))
+    return validate_normalized_snapshot(snapshot)

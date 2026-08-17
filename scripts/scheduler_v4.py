@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""V4 wakeup-driven reconcile scheduler.
-
-The scheduler is a deterministic decision engine. It has no daemon, timer, or
-background polling loop. Every call starts from persisted V4 state plus an
-explicit Host capability snapshot and returns bounded next actions.
-"""
+"""V4 wakeup-driven reconcile scheduler with authoritative Host occupancy."""
 
 from __future__ import annotations
 
@@ -26,54 +21,51 @@ WAKEUP_REASONS = {
     "USER_CANCEL",
 }
 ACTIVE_TURN_STATES = {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
-OPEN_THREAD_STATES = {
-    "SPAWN_PENDING",
-    "RUNNING",
-    "INTERRUPTED",
-    "COMPLETED",
-    "FAILED",
-    "UNKNOWN",
-}
 RESULT_BACKLOG_STATES = {"RESULT_READY", "VERIFYING"}
 PRODUCT_CHILD_LIMIT = 3
 INITIAL_CHILD_LIMIT = 2
 BACKPRESSURE_THRESHOLD = 2
+CAPACITY_KIND = state.HOST_CAPACITY_OBSERVATION_KIND
 
 
 class SchedulerError(RuntimeError):
-    """Scheduler input is malformed or violates the frozen V4 policy."""
+    """Scheduler input is malformed or violates the frozen V4 contract."""
 
 
-def _snapshot_capacity(snapshot: Mapping[str, Any] | None) -> tuple[int, bool, list[str]]:
+def _snapshot_capacity(snapshot: Mapping[str, Any] | None) -> tuple[int | None, bool, list[str]]:
     if snapshot is None:
-        return 0, False, ["host_capabilities_unavailable"]
-    if not isinstance(snapshot, Mapping):
-        raise SchedulerError("Host capability snapshot must be an object")
-    execution_ready = snapshot.get("execution_ready") is True
-    missing_raw = snapshot.get("missing", [])
-    missing = list(missing_raw) if isinstance(missing_raw, list) else ["invalid_host_snapshot"]
-    if not execution_ready:
-        return 0, False, missing or ["host_not_execution_ready"]
+        return None, False, ["host_capabilities_unavailable"]
     try:
-        effective = host_capabilities.effective_managed_child_limit(
-            snapshot, product_limit=PRODUCT_CHILD_LIMIT
-        )
+        normalized = host_capabilities.validate_normalized_snapshot(snapshot)
     except host_capabilities.HostCapabilityError as exc:
         raise SchedulerError(str(exc)) from exc
-    return (1 if effective is None else effective), True, []
+    if normalized.get("execution_ready") is not True:
+        missing = normalized.get("missing", [])
+        return None, False, list(missing) or ["host_not_execution_ready"]
+    return normalized["max_spawned_threads"], True, []
 
 
 def _execution_counts(payload: Mapping[str, Any]) -> tuple[int, dict[str, list[dict[str, Any]]]]:
-    """Count Host thread slots conservatively until an execution is CLOSED."""
     by_unit: dict[str, list[dict[str, Any]]] = {}
-    open_threads = 0
+    active = 0
     for execution in payload.get("executions", []):
         if not isinstance(execution, dict):
             continue
         by_unit.setdefault(execution["unit_id"], []).append(execution)
-        if execution["lifecycle"] in OPEN_THREAD_STATES:
-            open_threads += 1
-    return open_threads, by_unit
+        if execution["lifecycle"] in ACTIVE_TURN_STATES:
+            active += 1
+    return active, by_unit
+
+
+def _capacity_observation(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    matches = [
+        event
+        for event in payload.get("accounting_refs", [])
+        if isinstance(event, Mapping) and event.get("kind") == CAPACITY_KIND
+    ]
+    if len(matches) > 1:
+        raise SchedulerError("multiple current Host capacity observations are unsafe")
+    return matches[0] if matches else None
 
 
 def _blocking_writer(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -105,7 +97,6 @@ def _eligible_fresh_start(
 
 
 def _has_accepted_progress(payload: Mapping[str, Any]) -> bool:
-    """Initial fan-out ends only after Main has accepted at least one result."""
     return any(
         isinstance(unit, Mapping) and unit.get("state") == "ACCEPTED"
         for unit in payload.get("work_units", [])
@@ -125,8 +116,9 @@ def scheduler_decision(
     current = work_graph.refresh_dependency_states(copy.deepcopy(dict(payload)))
     state.validate_state_payload(current)
 
-    effective_capacity, host_ready, host_missing = _snapshot_capacity(capability_snapshot)
-    occupied, executions_by_unit = _execution_counts(current)
+    host_capacity, host_ready, host_missing = _snapshot_capacity(capability_snapshot)
+    active_managed, executions_by_unit = _execution_counts(current)
+    capacity_observation = _capacity_observation(current)
     result_backlog = sum(
         1 for unit in current["work_units"] if unit["state"] in RESULT_BACKLOG_STATES
     )
@@ -155,28 +147,75 @@ def scheduler_decision(
             waiting.append({"unit_id": unit_id, "reason": reason or "ineligible"})
 
     initial = not _has_accepted_progress(current)
-    concurrency_ceiling = min(
-        effective_capacity,
-        INITIAL_CHILD_LIMIT if initial else PRODUCT_CHILD_LIMIT,
-    )
-    launch_budget = max(0, concurrency_ceiling - occupied)
+    product_ceiling = INITIAL_CHILD_LIMIT if initial else PRODUCT_CHILD_LIMIT
+    product_free = max(0, product_ceiling - active_managed)
+
+    resident = 0
+    settled = 0
+    managed_resident = 0
+    unmanaged_resident = 0
+    observation_required = bool(eligible) and capacity_observation is None
+    if capacity_observation is not None:
+        resident = int(capacity_observation["resident_children"])
+        settled = int(capacity_observation["settled_children"])
+        managed_resident = int(capacity_observation["managed_resident_children"])
+        unmanaged_resident = int(capacity_observation["unmanaged_resident_children"])
+
+    host_reclaim_attempt = False
+    if capacity_observation is None:
+        host_free = 0
+    elif host_capacity is None:
+        host_free = 1 if resident == 0 else 0
+    else:
+        host_free = max(0, host_capacity - resident)
+
+    launch_budget = min(product_free, host_free)
+    if (
+        capacity_observation is not None
+        and host_capacity is not None
+        and resident >= host_capacity
+        and settled > 0
+        and product_free > 0
+        and eligible
+    ):
+        # Current V2 performs the precise active-turn/mailbox unloadability check
+        # inside the next spawn. Permit exactly one attempt; do not claim the
+        # settled resident is guaranteed reclaimable.
+        launch_budget = 1
+        host_reclaim_attempt = True
 
     stop_reason: str | None = None
     if plan_only:
         launch_budget = 0
+        host_reclaim_attempt = False
         stop_reason = "plan_only"
     elif not host_ready:
         launch_budget = 0
+        host_reclaim_attempt = False
         stop_reason = "host_not_execution_ready"
     elif backpressure:
         launch_budget = 0
+        host_reclaim_attempt = False
         stop_reason = "acceptance_backpressure"
     elif wakeup_reason == "USER_CANCEL":
         launch_budget = 0
+        host_reclaim_attempt = False
         stop_reason = "user_cancel"
-    elif occupied >= concurrency_ceiling:
+    elif product_free == 0 and eligible:
         launch_budget = 0
-        stop_reason = "capacity_full"
+        host_reclaim_attempt = False
+        stop_reason = "product_capacity_full"
+    elif observation_required:
+        launch_budget = 0
+        host_reclaim_attempt = False
+        stop_reason = "host_occupancy_observation_required"
+    elif host_capacity is None and resident > 0 and eligible:
+        launch_budget = 0
+        host_reclaim_attempt = False
+        stop_reason = "host_capacity_unknown_with_residents"
+    elif host_capacity is not None and resident >= host_capacity and settled == 0 and eligible:
+        launch_budget = 0
+        stop_reason = "host_capacity_full"
 
     selected = eligible[:launch_budget]
     actions = [
@@ -205,6 +244,9 @@ def scheduler_decision(
         if unit["state"] == "BLOCKED"
     ]
 
+    effective_capacity = (
+        1 if host_capacity is None else min(PRODUCT_CHILD_LIMIT, host_capacity)
+    )
     return {
         "mode": "wakeup_reconcile",
         "wakeup_reason": wakeup_reason,
@@ -212,9 +254,17 @@ def scheduler_decision(
         "host_ready": host_ready,
         "host_missing": host_missing,
         "effective_capacity": effective_capacity,
+        "host_capacity": host_capacity,
         "initial_fanout": initial,
-        "occupied_slots": occupied,
-        "occupied_open_threads": occupied,
+        "active_managed_executions": active_managed,
+        "occupied_slots": active_managed,
+        "occupied_open_threads": resident if capacity_observation is not None else active_managed,
+        "occupied_host_residents": resident,
+        "settled_host_residents": settled,
+        "managed_host_residents": managed_resident,
+        "unmanaged_host_residents": unmanaged_resident,
+        "requires_host_observation": observation_required,
+        "host_reclaim_attempt": host_reclaim_attempt,
         "result_backlog": result_backlog,
         "backpressure": backpressure,
         "ready_frontier": ready_ids,
@@ -228,7 +278,6 @@ def scheduler_decision(
 
 
 def scheduler_status(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Return user-visible structural status without Host polling."""
     current = work_graph.refresh_dependency_states(copy.deepcopy(dict(payload)))
     state.validate_state_payload(current)
     active = [

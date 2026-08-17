@@ -203,6 +203,18 @@ def _evaluate_host_observation(
     return None
 
 
+def _invalidate_capacity(
+    session_id: str,
+    *,
+    temp_root: str | os.PathLike[str] | None,
+) -> dict[str, Any] | None:
+    try:
+        host_evidence.invalidate_host_capacity_observation(session_id, temp_root=temp_root)
+    except Exception:
+        return _stop("Host capacity truth could not be invalidated safely; execution stopped")
+    return None
+
+
 def evaluate_post_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -237,7 +249,7 @@ def evaluate_post_tool_use(
     ]
     managed_target = _managed_target_in_v4(current, tool_name, tool_input)
     if not inflight and not managed_target:
-        return None
+        return _invalidate_capacity(session_id, temp_root=temp_root)
     try:
         control.acknowledge_control(
             session_id,
@@ -260,7 +272,7 @@ def evaluate_post_tool_use(
             except Exception:
                 pass
         return _stop("managed lifecycle acknowledgement is ambiguous; control quarantined")
-    return None
+    return _invalidate_capacity(session_id, temp_root=temp_root)
 
 
 def evaluate_subagent_stop(payload: Mapping[str, Any]) -> dict[str, Any] | None:

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""V4 state facade with RC3 correctness-bearing truth and bounded accounting.
-
-This module owns the V4 schema facade and persisted correctness truth. The
-storage/schema implementation lives in ``dispatch_state_v4_core``. This facade
-preserves the public V4 state API while making persisted correctness facts at
-least as strict as the mutation paths that create them and compacting consumed
-Host evidence before the bounded state capsule can wedge on valid history.
-"""
+"""V4 state facade with RC3/RC4 correctness-bearing truth and bounded accounting."""
 
 from __future__ import annotations
 
@@ -25,6 +18,22 @@ CONTROL_ACK_FILTER_KIND = "control_ack_filter"
 OBSERVATION_RECEIPT_FILTER_KIND = "host_observation_receipt_filter"
 CONTROL_ACK_FILTER_REF = "control-ack-filter:v1"
 OBSERVATION_RECEIPT_FILTER_REF = "host-observation-receipt-filter:v1"
+HOST_CAPACITY_OBSERVATION_KIND = "host_capacity_observation"
+HOST_CAPACITY_OBSERVATION_FIELDS = {
+    "ref",
+    "kind",
+    "source",
+    "turn_id",
+    "tool_use_id",
+    "resident_children",
+    "settled_children",
+    "active_children",
+    "managed_resident_children",
+    "unmanaged_resident_children",
+    "response_digest",
+}
+HOST_AGENT_NAME_PATTERN = _core.re.compile(r"[a-z0-9_]+\Z")
+HOST_RESERVED_AGENT_NAMES = {"root", ".", ".."}
 
 
 if not hasattr(_core, "_rc3_base_validate_state_payload"):
@@ -52,6 +61,28 @@ def current_execution_for_unit(
             f"work unit {unit_id} current execution is ambiguous"
         )
     return matches[0]
+
+
+def validate_native_task_name(value: Any) -> str:
+    """Freeze the current V2 AgentPath child-name grammar at state authority."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in HOST_RESERVED_AGENT_NAMES
+        or HOST_AGENT_NAME_PATTERN.fullmatch(value) is None
+    ):
+        raise _core.StatePayloadError(
+            "native_task_name must match Host agent name grammar: lowercase letters, digits, underscores"
+        )
+    return value
+
+
+def _prevalidate_native_task_names(payload: Any) -> None:
+    if not isinstance(payload, Mapping):
+        return
+    for execution in payload.get("executions", []):
+        if isinstance(execution, Mapping):
+            validate_native_task_name(execution.get("native_task_name"))
 
 
 def _canonical_scope(value: str) -> str:
@@ -187,6 +218,51 @@ def _validate_acceptance_truth(state: Mapping[str, Any]) -> None:
             )
 
 
+def _strict_count(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _validate_host_capacity_truth(state: Mapping[str, Any]) -> None:
+    observations = [
+        event
+        for event in state.get("accounting_refs", [])
+        if isinstance(event, Mapping) and event.get("kind") == HOST_CAPACITY_OBSERVATION_KIND
+    ]
+    if len(observations) > 1:
+        raise _core.StatePayloadError("V4 state may retain only one current Host capacity observation")
+    if not observations:
+        return
+    event = observations[0]
+    if set(event) != HOST_CAPACITY_OBSERVATION_FIELDS:
+        raise _core.StatePayloadError("Host capacity observation has invalid fields")
+    if event.get("source") != "post_tool_use:list_agents":
+        raise _core.StatePayloadError("Host capacity observation requires list_agents PostToolUse source")
+    for field in ("turn_id", "tool_use_id"):
+        value = event.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise _core.StatePayloadError(f"Host capacity observation requires {field}")
+    digest = event.get("response_digest")
+    if not isinstance(digest, str) or _core.HEX64.fullmatch(digest) is None:
+        raise _core.StatePayloadError("Host capacity observation requires response_digest")
+    counts = {
+        field: event.get(field)
+        for field in (
+            "resident_children",
+            "settled_children",
+            "active_children",
+            "managed_resident_children",
+            "unmanaged_resident_children",
+        )
+    }
+    if not all(_strict_count(value) for value in counts.values()):
+        raise _core.StatePayloadError("Host capacity observation counts must be non-negative integers")
+    resident = counts["resident_children"]
+    if counts["settled_children"] + counts["active_children"] != resident:
+        raise _core.StatePayloadError("Host capacity observation active/settled counts are inconsistent")
+    if counts["managed_resident_children"] + counts["unmanaged_resident_children"] != resident:
+        raise _core.StatePayloadError("Host capacity observation managed/unmanaged counts are inconsistent")
+
+
 def _filter_positions(value: str) -> tuple[int, ...]:
     digest = hashlib.sha256(value.encode("utf-8")).digest()
     return tuple(
@@ -249,6 +325,7 @@ def _compact_accounting_refs(payload: dict[str, Any]) -> None:
     control_acks: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
+    capacity_observation: dict[str, Any] | None = None
     preserved: list[dict[str, Any]] = []
 
     for raw in events:
@@ -272,6 +349,8 @@ def _compact_accounting_refs(payload: dict[str, Any]) -> None:
             receipts.append(raw)
         elif kind == "host_observation":
             observations.append(raw)
+        elif kind == HOST_CAPACITY_OBSERVATION_KIND:
+            capacity_observation = raw
         else:
             preserved.append(raw)
 
@@ -330,6 +409,8 @@ def _compact_accounting_refs(payload: dict[str, Any]) -> None:
     compacted_events.extend(control_acks)
     compacted_events.extend(receipts)
     compacted_events.extend(observations)
+    if capacity_observation is not None:
+        compacted_events.append(capacity_observation)
     payload["accounting_refs"] = compacted_events
 
 
@@ -339,6 +420,7 @@ def validate_state_payload(
     thread_id: str | None = None,
     max_bytes: int = _core.DEFAULT_MAX_BYTES,
 ) -> dict[str, Any]:
+    _prevalidate_native_task_names(payload)
     _prevalidate_scope_canonical(payload)
     state = _BASE_VALIDATE_STATE_PAYLOAD(
         payload,
@@ -347,6 +429,7 @@ def validate_state_payload(
     )
     _validate_scope_truth(state)
     _validate_acceptance_truth(state)
+    _validate_host_capacity_truth(state)
     return state
 
 
