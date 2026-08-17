@@ -268,7 +268,7 @@ def validate_sources() -> None:
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
-            fail(f"Invalid Agent profile {path}: {exc}")
+            fail(f"Invalid Agent profile {filename}: {exc}")
         actual = (
             str(data.get("name", "")).strip(),
             str(data.get("model", "")).strip(),
@@ -294,7 +294,7 @@ def preflight_agents_dir(path: Path, *, check_only: bool) -> None:
         fail(
             f"Not installed: managed Agent profiles have not been provisioned yet "
             f"(agents directory missing: {path}). "
-            "An explicit Dispatch task that needs delegation can provision these plugin-owned profiles automatically; "
+            "An explicit Orchestrate task that needs delegation can provision these plugin-owned profiles automatically; "
             "newly provisioned roles require a fresh Codex task/session before spawn."
         )
 
@@ -326,7 +326,7 @@ def preflight_profiles(
             if check_only:
                 fail(
                     f"Not installed: managed Agent profile is missing ({target}). "
-                    "An explicit Dispatch task that needs delegation can provision this plugin-owned profile automatically; "
+                    "An explicit Orchestrate task that needs delegation can provision this plugin-owned profile automatically; "
                     "newly provisioned roles require a fresh Codex task/session before spawn."
                 )
             continue
@@ -553,9 +553,9 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
             "review it explicitly instead of repeating automatic migration."
         )
     print(
-        "Profile files are ready. If the current Dispatch task could not see the required role before this install, "
+        "Profile files are ready. If the current Orchestrate task could not see the required role before this install, "
         "its readiness outcome is RESTART_REQUIRED: do not attempt spawn_agent in that task; "
-        "start a fresh Codex task/session and rerun the request through Dispatch."
+        "start a fresh Codex task/session and rerun the request through Orchestrate."
     )
 
 
