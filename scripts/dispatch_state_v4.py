@@ -52,6 +52,36 @@ def _canonical_scope(value: str) -> str:
     return canonical
 
 
+def _prevalidate_scope_canonical(payload: Any) -> None:
+    """Reject lexical aliases before any set/subset authority comparison."""
+    if not isinstance(payload, Mapping):
+        return
+    for unit in payload.get("work_units", []):
+        if not isinstance(unit, Mapping):
+            continue
+        ownership = unit.get("ownership")
+        if isinstance(ownership, Mapping):
+            for field in ("write", "forbidden"):
+                values = ownership.get(field)
+                if isinstance(values, list):
+                    for value in values:
+                        if isinstance(value, str):
+                            _canonical_scope(value)
+        ceiling = unit.get("write_scope_ceiling")
+        if isinstance(ceiling, list):
+            for value in ceiling:
+                if isinstance(value, str):
+                    _canonical_scope(value)
+    for execution in payload.get("executions", []):
+        if not isinstance(execution, Mapping):
+            continue
+        granted = execution.get("granted_write_scope")
+        if isinstance(granted, list):
+            for value in granted:
+                if isinstance(value, str):
+                    _canonical_scope(value)
+
+
 def _scope_overlaps(left: str, right: str) -> bool:
     left_parts = _core.PurePosixPath(left).parts
     right_parts = _core.PurePosixPath(right).parts
@@ -153,6 +183,7 @@ def validate_state_payload(
     max_bytes: int = _core.DEFAULT_MAX_BYTES,
 ) -> dict[str, Any]:
     """Validate schema/storage safety and all RC3 correctness-bearing truths."""
+    _prevalidate_scope_canonical(payload)
     state = _BASE_VALIDATE_STATE_PAYLOAD(
         payload,
         thread_id=thread_id,
