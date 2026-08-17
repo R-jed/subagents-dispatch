@@ -1,7 +1,0 @@
-interface:
-  display_name: "Subagents Dispatch: Preview"
-  short_description: "Predict likely orchestration without execution"
-  default_prompt: "Use the Preview skill to predict how this task would be orchestrated without spawning or mutating."
-
-policy:
-  allow_implicit_invocation: false

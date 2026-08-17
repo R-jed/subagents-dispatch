@@ -1,7 +1,0 @@
-interface:
-  display_name: "Subagents Dispatch: Dispatch"
-  short_description: "Start or resume value-driven Subagent orchestration"
-  default_prompt: "Use the Dispatch skill to complete this task, delegating only when it adds distinct value."
-
-policy:
-  allow_implicit_invocation: false
