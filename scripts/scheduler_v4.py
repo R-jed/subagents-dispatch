@@ -104,6 +104,14 @@ def _eligible_fresh_start(
     return True, None
 
 
+def _has_accepted_progress(payload: Mapping[str, Any]) -> bool:
+    """Initial fan-out ends only after Main has accepted at least one result."""
+    return any(
+        isinstance(unit, Mapping) and unit.get("state") == "ACCEPTED"
+        for unit in payload.get("work_units", [])
+    )
+
+
 def scheduler_decision(
     payload: Mapping[str, Any],
     *,
@@ -146,7 +154,7 @@ def scheduler_decision(
         else:
             waiting.append({"unit_id": unit_id, "reason": reason or "ineligible"})
 
-    initial = len(current["executions"]) == 0
+    initial = not _has_accepted_progress(current)
     concurrency_ceiling = min(
         effective_capacity,
         INITIAL_CHILD_LIMIT if initial else PRODUCT_CHILD_LIMIT,
