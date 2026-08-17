@@ -28,6 +28,7 @@ DISPATCH_SKILL = SKILLS / "dispatch" / "SKILL.md"
 UNINSTALLER = ROOT / "scripts" / "uninstall-agents.py"
 PLUGIN_UPDATER = ROOT / "scripts" / "plugin_update.py"
 SKILL_IDS = {"dispatch", "preview", "status", "steer", "takeover", "doctor"}
+COEXISTENCE_SKILL_IDS = SKILL_IDS | {"orchestrate"}
 DOCTOR_LAYERS = [
     "Plugin",
     "Plugin installation",
@@ -75,9 +76,9 @@ def test_active_surfaces_do_not_publish_unverified_or_legacy_skill_entrypoints()
     assert not violations, "\n".join(violations)
 
 
-def test_six_explicit_skills_keep_distinct_identity_and_human_ui_gate():
-    assert {path.name for path in SKILLS.iterdir() if path.is_dir()} == SKILL_IDS
-    for skill_id in SKILL_IDS:
+def test_explicit_skills_keep_distinct_identity_and_human_ui_gate_during_coexistence():
+    assert {path.name for path in SKILLS.iterdir() if path.is_dir()} == COEXISTENCE_SKILL_IDS
+    for skill_id in COEXISTENCE_SKILL_IDS:
         skill = (SKILLS / skill_id / "SKILL.md").read_text(encoding="utf-8")
         metadata = yaml.safe_load(
             (SKILLS / skill_id / "agents" / "openai.yaml").read_text(encoding="utf-8")
