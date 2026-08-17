@@ -117,6 +117,7 @@ def print_legacy_recommendation(state: MigrationState) -> None:
         print("  Migration complete. No legacy cleanup is needed.")
     elif state.preserved_legacy:
         print("  Current profiles are installed and preserved legacy state requires explicit review.")
+        print("  Do not repeat automatic migration for preserved modified legacy state.")
     elif state.ownership_unknown:
         print("  Legacy ownership metadata is missing, invalid, or unsafe. Automatic migration is blocked.")
     elif state.legacy_only or state.mixed:
@@ -541,7 +542,16 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
     if calibration is not None:
         development_layers.append(calibration)
 
-    excluded_unknown = {"Host capabilities", "Lifecycle Hook coverage", "Release readiness"}
+    excluded_unknown = {
+        "V4 state",
+        "Legacy V3.x state",
+        "Work Graph",
+        "WriterLease",
+        "PendingControl",
+        "Host capabilities",
+        "Lifecycle Hook coverage",
+        "Release readiness",
+    }
     production_unhealthy = any(
         item["status"] in {"WARN", "FAIL"}
         or (item["status"] == "UNKNOWN" and item["name"] not in excluded_unknown)
