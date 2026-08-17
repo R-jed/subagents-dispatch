@@ -81,7 +81,7 @@ def install(state, tmp_path: Path, *, executions: list[dict], state_name: str = 
     state.write_state(payload, temp_root=tmp_path)
 
 
-def test_reused_tool_use_id_cannot_turn_new_control_into_old_idempotent_ack(tmp_path: Path):
+def test_historical_tool_use_id_cannot_bind_new_control(tmp_path: Path):
     state = load_module("rc3_truth_state_replay", "dispatch_state_v4.py")
     control = load_module("rc3_truth_control_replay", "dispatch_control_v4.py")
     install(state, tmp_path, executions=[execution("exec-1")])
@@ -120,28 +120,24 @@ def test_reused_tool_use_id_cannot_turn_new_control_into_old_idempotent_ack(tmp_
         tool_input=tool_input,
         temp_root=tmp_path,
     )
-    control.consume_prepared_control(
-        "thread-rc3-truth",
-        tool_name="followup_task",
-        tool_input=tool_input,
-        tool_use_id="T",
-        temp_root=tmp_path,
-    )
-    second = control.acknowledge_control(
-        "thread-rc3-truth",
-        tool_name="followup_task",
-        tool_input=tool_input,
-        tool_response={},
-        tool_use_id="T",
-        temp_root=tmp_path,
-    )
-    assert second["idempotent"] is False
+    with pytest.raises(control.ControlError, match="acknowledged|reuse"):
+        control.consume_prepared_control(
+            "thread-rc3-truth",
+            tool_name="followup_task",
+            tool_input=tool_input,
+            tool_use_id="T",
+            temp_root=tmp_path,
+        )
 
     current = state.load_state("thread-rc3-truth", temp_root=tmp_path)
     assert current is not None
+    assert current["control_epoch"] if "control_epoch" in current else True
+    prepared = [item for item in current["pending_controls"] if item["control_id"] == "c2"]
+    assert len(prepared) == 1
+    assert prepared[0]["state"] == "PREPARED"
+    assert prepared[0]["tool_use_id"] is None
     ack_events = [event for event in current["accounting_refs"] if event.get("kind") == "control_ack"]
-    assert {event["control_id"] for event in ack_events} == {"c1", "c2"}
-    assert len({event["ref"] for event in ack_events}) == 2
+    assert [event["control_id"] for event in ack_events] == ["c1"]
 
 
 def test_superseded_attempt_cannot_prepare_followup(tmp_path: Path):
