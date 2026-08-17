@@ -58,7 +58,7 @@ def execution(
         "attempt_no": attempt_no,
         "profile_id": "reader",
         "agent_id": None,
-        "native_task_name": f"sd-u1-a{attempt_no}",
+        "native_task_name": f"sd_u1_a{attempt_no}",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "granted_authority": "none",

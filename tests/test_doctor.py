@@ -130,7 +130,7 @@ def test_unresolved_v3_state_blocks_v4_health_and_is_not_silently_migrated(tmp_p
             "unit_id": "U1",
             "task_id": "task-1",
             "attempt": 1,
-            "native_task_name": "sd_u1_a1-execute",
+            "native_task_name": "sd_u1_a1_execute",
             "agent_id": None,
             "role": "worker",
             "model_lane": "Luna Max",
