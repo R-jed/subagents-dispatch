@@ -80,6 +80,21 @@ def _execution(current: Mapping[str, Any], execution_id: str) -> dict[str, Any]:
     return matches[0]
 
 
+def _require_current_execution(
+    current: Mapping[str, Any], execution: Mapping[str, Any], *, operation: str
+) -> None:
+    if operation not in {"FOLLOWUP", "CONTINUE"}:
+        return
+    current_execution = state.current_execution_for_unit(
+        current, unit_id=execution["unit_id"]
+    )
+    if (
+        current_execution is None
+        or current_execution.get("execution_id") != execution.get("execution_id")
+    ):
+        raise ControlError("superseded execution cannot receive lifecycle continuation")
+
+
 def _writer_requirements(
     current: Mapping[str, Any],
     execution: Mapping[str, Any],
@@ -152,6 +167,7 @@ def prepare_control(
 
     def mutate(current: dict[str, Any]) -> None:
         execution = _execution(current, execution_id)
+        _require_current_execution(current, execution, operation=operation)
         if execution["native_task_name"] != target:
             raise ControlError("tool target does not match ExecutionBinding native_task_name")
         unresolved = [
@@ -257,6 +273,7 @@ def consume_prepared_control(
             raise ControlError("tool_use_id is already bound to another PendingControl")
         control = matches[0]
         execution = _execution(current, control["execution_id"])
+        _require_current_execution(current, execution, operation=control["operation"])
         if control["expected_team_plan_revision"] != current["team_plan_revision"]:
             raise ControlError("PendingControl TeamPlan revision is stale")
         if control["expected_control_epoch"] != execution["control_epoch"]:
@@ -274,8 +291,29 @@ def consume_prepared_control(
     return consumed
 
 
-def _ack_ref(tool_use_id: str) -> str:
-    return f"control-ack:{tool_use_id}"
+def _ack_ref(control_id: str, tool_use_id: str) -> str:
+    return f"control-ack:{control_id}:{tool_use_id}"
+
+
+def _historical_ack_matches(
+    current: Mapping[str, Any],
+    *,
+    tool_name: str,
+    tool_input: Mapping[str, Any],
+    tool_use_id: str,
+) -> list[Mapping[str, Any]]:
+    digest = canonical_tool_input_digest(tool_input)
+    target = _target_for(tool_name, tool_input)
+    return [
+        event
+        for event in current.get("accounting_refs", [])
+        if isinstance(event, Mapping)
+        and event.get("kind") == "control_ack"
+        and event.get("tool_use_id") == tool_use_id
+        and event.get("tool_name") == tool_name
+        and event.get("payload_digest") == digest
+        and event.get("target") == target
+    ]
 
 
 def _apply_writer_effect_on_ack(
@@ -323,14 +361,12 @@ def acknowledge_control(
     tool_use_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Acknowledge one successful Host call and atomically apply its writer effect."""
+    """Acknowledge one Host call, binding the ACK to the exact current control."""
     if not isinstance(tool_use_id, str) or not tool_use_id.strip():
         raise ControlError("tool_use_id must be non-empty")
     acknowledged: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
-        if any(event.get("ref") == _ack_ref(tool_use_id) for event in current["accounting_refs"]):
-            raise ControlAlreadyAcknowledged("control acknowledgement already persisted")
         matches = _matching_controls(
             current,
             tool_name=tool_name,
@@ -338,14 +374,28 @@ def acknowledge_control(
             control_state="IN_FLIGHT",
             tool_use_id=tool_use_id,
         )
-        if len(matches) != 1:
+        if not matches:
+            historical = _historical_ack_matches(
+                current,
+                tool_name=tool_name,
+                tool_input=tool_input,
+                tool_use_id=tool_use_id,
+            )
+            if historical:
+                raise ControlAlreadyAcknowledged("control acknowledgement already persisted")
             raise ControlError("PostToolUse does not match exactly one IN_FLIGHT control")
+        if len(matches) != 1:
+            raise ControlError("PostToolUse matches multiple IN_FLIGHT controls")
         control = matches[0]
+        execution = _execution(current, control["execution_id"])
+        _require_current_execution(current, execution, operation=control["operation"])
+        ack_ref = _ack_ref(control["control_id"], tool_use_id)
+        if any(event.get("ref") == ack_ref for event in current["accounting_refs"]):
+            raise ControlAlreadyAcknowledged("control acknowledgement already persisted")
         if tool_name == "spawn_agent" and isinstance(tool_response, Mapping):
             response_task = tool_response.get("task_name")
             if response_task is not None and response_task != control["target"]:
                 raise ControlError("spawn response task_name conflicts with PendingControl target")
-        execution = _execution(current, control["execution_id"])
         if execution["control_epoch"] != control["expected_control_epoch"]:
             raise ControlError("execution control_epoch changed while control was IN_FLIGHT")
 
@@ -356,9 +406,13 @@ def acknowledge_control(
         current["pending_controls"].remove(control)
         current["accounting_refs"].append(
             {
-                "ref": _ack_ref(tool_use_id),
+                "ref": ack_ref,
                 "kind": "control_ack",
                 "control_id": control["control_id"],
+                "tool_use_id": tool_use_id,
+                "tool_name": tool_name,
+                "payload_digest": control["payload_digest"],
+                "target": control["target"],
             }
         )
 
