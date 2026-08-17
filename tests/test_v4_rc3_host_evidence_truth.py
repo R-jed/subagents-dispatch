@@ -27,13 +27,13 @@ def load_module(name: str, filename: str):
 
 def capability_evidence(*, surface: str = "multi_agent_v2", include_list_hook: bool = True) -> dict:
     lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
-    post = lifecycle + (["list_agents"] if include_list_hook else [])
+    guarded = lifecycle + (["list_agents"] if include_list_hook else [])
     return {
         "surface": surface,
         "tools": lifecycle + ["list_agents", "wait_agent"],
         "hooks": {
-            "PreToolUse": lifecycle,
-            "PostToolUse": post,
+            "PreToolUse": guarded,
+            "PostToolUse": guarded,
             "SubagentStop": True,
         },
         "fork_turns_none": True,
@@ -90,6 +90,17 @@ def install(state, tmp_path: Path) -> None:
     state.write_state(payload, temp_root=tmp_path)
 
 
+def list_agents_pre(*, session_id: str = "thread-host") -> dict:
+    return {
+        "hook_event_name": "PreToolUse",
+        "session_id": session_id,
+        "turn_id": "turn-observe-1",
+        "tool_name": "list_agents",
+        "tool_use_id": "tool-observe-1",
+        "tool_input": {},
+    }
+
+
 def list_agents_post(*, status: object = "running", session_id: str = "thread-host") -> dict:
     return {
         "hook_event_name": "PostToolUse",
@@ -113,7 +124,7 @@ def test_host_surface_must_be_exact_multi_agent_v2():
         host.normalize_host_capabilities(capability_evidence(surface="multi_agent_v2-ish"))
 
 
-def test_execution_ready_requires_list_agents_posttool_observation_coverage():
+def test_execution_ready_requires_paired_list_agents_observation_coverage():
     host = load_module("rc3_host_observe_hook", "host_capabilities.py")
     snapshot = host.normalize_host_capabilities(capability_evidence(include_list_hook=False))
     assert snapshot["execution_ready"] is False
@@ -125,11 +136,12 @@ def test_lifecycle_layer_does_not_accept_caller_supplied_host_state():
     assert not hasattr(lifecycle, "persist_host_observation")
 
 
-def test_list_agents_posttool_is_authoritative_observation_path(tmp_path: Path):
+def test_list_agents_pre_post_is_authoritative_observation_path(tmp_path: Path):
     state = load_module("rc3_host_state_ingest", "dispatch_state_v4.py")
     guard = load_module("rc3_host_guard_ingest", "orchestration_guard.py")
     install(state, tmp_path)
 
+    assert guard.evaluate_pre_tool_use(list_agents_pre(), temp_root=tmp_path) is None
     assert guard.evaluate_post_tool_use(
         list_agents_post(status={"completed": "done"}), temp_root=tmp_path
     ) is None
@@ -147,14 +159,13 @@ def test_list_agents_posttool_is_authoritative_observation_path(tmp_path: Path):
     assert observations[0]["tool_use_id"] == "tool-observe-1"
 
 
-def test_list_agents_observation_rejects_wrong_root_session_without_mutation(tmp_path: Path):
-    state = load_module("rc3_host_state_session", "dispatch_state_v4.py")
-    guard = load_module("rc3_host_guard_session", "orchestration_guard.py")
+def test_list_agents_post_without_pre_fails_closed(tmp_path: Path):
+    state = load_module("rc3_host_state_unbound", "dispatch_state_v4.py")
+    guard = load_module("rc3_host_guard_unbound", "orchestration_guard.py")
     install(state, tmp_path)
 
     result = guard.evaluate_post_tool_use(
-        list_agents_post(status={"completed": "done"}, session_id="other-root"),
-        temp_root=tmp_path,
+        list_agents_post(status={"completed": "done"}), temp_root=tmp_path
     )
     assert result is not None
     assert result["continue"] is False
@@ -163,12 +174,37 @@ def test_list_agents_observation_rejects_wrong_root_session_without_mutation(tmp
     assert current["executions"][0]["lifecycle"] == "RUNNING"
 
 
+def test_wrong_session_post_cannot_mutate_active_root(tmp_path: Path):
+    state = load_module("rc3_host_state_session", "dispatch_state_v4.py")
+    guard = load_module("rc3_host_guard_session", "orchestration_guard.py")
+    install(state, tmp_path)
+
+    assert guard.evaluate_pre_tool_use(list_agents_pre(), temp_root=tmp_path) is None
+    result = guard.evaluate_post_tool_use(
+        list_agents_post(status={"completed": "done"}, session_id="other-root"),
+        temp_root=tmp_path,
+    )
+    assert result is None
+    current = state.load_state("thread-host", temp_root=tmp_path)
+    assert current is not None
+    assert current["executions"][0]["lifecycle"] == "RUNNING"
+    prepared = [
+        event
+        for event in current["accounting_refs"]
+        if event.get("kind") == "host_observation_prepare"
+    ]
+    assert len(prepared) == 1
+    assert prepared[0]["tool_use_id"] == "tool-observe-1"
+
+
 def test_duplicate_list_agents_posttool_is_idempotent(tmp_path: Path):
     state = load_module("rc3_host_state_dup", "dispatch_state_v4.py")
     guard = load_module("rc3_host_guard_dup", "orchestration_guard.py")
     install(state, tmp_path)
+    pre = list_agents_pre()
     post = list_agents_post(status="running")
 
+    assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
     assert guard.evaluate_post_tool_use(post, temp_root=tmp_path) is None
     assert guard.evaluate_post_tool_use(post, temp_root=tmp_path) is None
     current = state.load_state("thread-host", temp_root=tmp_path)
@@ -178,4 +214,10 @@ def test_duplicate_list_agents_posttool_is_idempotent(tmp_path: Path):
         for event in current["accounting_refs"]
         if event.get("kind") == "host_observation"
     ]
+    receipts = [
+        event
+        for event in current["accounting_refs"]
+        if event.get("kind") == "host_observation_receipt"
+    ]
     assert len(observations) == 1
+    assert len(receipts) == 1
