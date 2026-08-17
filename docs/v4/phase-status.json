@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-3",
+  "schema_version": "4.0.0-phase-status-4",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -35,7 +35,9 @@
     },
     "phase6": {
       "name": "Orchestrate coexistence",
-      "status": "NOT_STARTED"
+      "status": "PASS",
+      "offline_verification": "PASS",
+      "ci_run": 31983588703
     },
     "phase7": {
       "name": "Doctor, migration, and public cutover",
