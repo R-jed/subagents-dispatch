@@ -49,6 +49,7 @@
     "scripts/package_integrity.py": "e10ec43903517a4b67f1974d6f10360d78dff207ae7013d8dea07319fc43ed79",
     "scripts/plugin_update.py": "df88d827c66646373cc8ef32683387eb4e7ffbb71f21af6c99c7bd90c991ed54",
     "scripts/policy.py": "d98f5c9f6019dcbc6a9a4d26ff42973f6e3832bcb95dd708d35fc4ee1ee57d74",
+    "scripts/release_evidence_v4.py": "25909c4404ad76234e62aeaf4d8906533c92de2a52030d42a0c1b1eedf2fb903",
     "scripts/review-artifact.py": "3f5ee696806249e01fc81914d5da87ba0dee6ad84eb5704f0f7e0014fd23b87d",
     "scripts/runtime-evidence.py": "1bda857f2abb1adac7ae9d776d325d24ad7fd23947dd944003f86d3268d24597",
     "scripts/scheduler_v4.py": "6d270938752cb764d9a2dd946617d4ab7dccfc417b525eb1b0f8dc5536710da0",
