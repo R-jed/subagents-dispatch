@@ -103,40 +103,69 @@ plan-only creates no runtime state, lease, control, or Host action
 
 This gate is defined by `docs/v4/host-smoke.json`. Offline CI, source inspection, the official Plugin validator, prior V3 spawn-guard evidence, or model self-report cannot substitute for it.
 
-All H01-H07 probes must have real Codex Host evidence:
+All H00-H10 probes must have real Codex Host evidence from the exact lifecycle Hook definition under test:
 
 ```text
+H00 Hook trust and activation
+     exact active Hook-definition hash captured
+     current Host trusts/enables that exact definition
+
 H01 spawn_agent
      PreToolUse observed
      PostToolUse observed
      same tool_use_id across both
+     sanitized tool_input shape and canonical digest remain compatible
 
 H02 followup_task
      PreToolUse observed
      PostToolUse observed
      same tool_use_id across both
+     sanitized tool_input shape and canonical digest remain compatible
 
 H03 interrupt_agent
      PreToolUse observed
      PostToolUse observed
      same tool_use_id across both
+     sanitized tool_input shape and canonical digest remain compatible
 
 H04 SubagentStop
      managed stop event observed
      continue:false prevents automatic continuation
+     continue:false still wins when another matching Hook requests continuation
 
 H05 managed child sibling followup
+     managed child caller context is observable
      blocked before sibling lifecycle control
 
 H06 managed child sibling interrupt
+     managed child caller context is observable
      blocked before sibling lifecycle control
 
-H07 missing PostToolUse
+H07 missing or failed PostToolUse
      control is not ACKED
-     unresolved state remains fail closed
+     unresolved or UNKNOWN state remains fail closed
+     writer ownership is not released from missing acknowledgement
+
+H08 message payload representation compatibility
+     no raw message body is retained as smoke evidence
+     prepare-time and Hook-time sanitized key/type shape is compared
+     exact authorized call preserves PendingControl canonical digest compatibility
+
+H09 open spawned-thread capacity and refill
+     Host capacity means concurrently open spawned threads excluding primary
+     completed/interrupted child behavior before close is observed
+     close releases capacity
+     refill remains inside V4 product ceiling of three managed children
+
+H10 writable lifecycle acknowledgement
+     writer SPAWN begins with matching RESERVED WriterLease
+     successful PostToolUse ACK applies WriterLease activation in the same persisted transition boundary
+     successful writable activation ends with HELD WriterLease
+     interrupt ACK leaves WriterLease REVOKING until fresh settlement evidence
+     missing PostToolUse never promotes or releases WriterLease
 ```
 
-Only after H01-H07 pass may the staged `docs/v4/hooks.json` be promoted to production `hooks/hooks.json`. After promotion, rerun the entire repository matrix and repeat the relevant Host smoke against the exact promoted candidate.
+Only after H00-H10 pass may the staged `docs/v4/hooks.json` be promoted to production `hooks/hooks.json`. After promotion, rerun the entire repository matrix and repeat the relevant Host smoke against the exact promoted candidate.
 
 A generic non-blocking Hook command failure is not a successful Guard block. Internal Guard failures must use the Host's actual blocking path. Real Host evidence must distinguish tool rejection, Hook rejection, Host lifecycle acceptance, and later settlement observation.
 
@@ -147,7 +176,7 @@ fresh writer activation reserves WriterLease before the Host call
 second managed writer is blocked
 followup for an old writer cannot bypass the current lease
 interrupt ACK alone does not release WriterLease
-fresh same-generation INTERRUPTED evidence may settle a writer only with proven Guard coverage
+fresh same-generation INTERRUPTED evidence may settle a writer only with current structured Guard coverage proof
 takeover transfers WriterLease atomically to Main
 stale lease identity cannot release a newer lease
 ```
@@ -181,7 +210,7 @@ Run:
 <python-3.11+> scripts/doctor.py --codex-home <isolated-home> --release-check --thread-id release-doctor
 ```
 
-The first command validates repository/package health. The second must remain non-zero while `docs/v4/host-smoke.json` is pending, and may turn green only after the production lifecycle Hook manifest and real Host evidence agree. Doctor must not edit Host Hook trust state to make the report green.
+The first command validates repository/package health. The second must remain non-zero while `docs/v4/host-smoke.json` is pending, and may turn green only after the production lifecycle Hook manifest and every required H00-H10 probe have current real Host evidence. Doctor must not edit Host Hook trust state to make the report green.
 
 After the exact release candidate is installed in Codex, record the exact rendered entry labels for Orchestrate and Doctor through Direct human Codex App observation. Verify both entries are distinguishable, post-selection presentation is correct, and unrelated tasks do not implicitly activate either Skill. If managed profiles were newly provisioned and the Host requires rediscovery, record `RESTART_REQUIRED` and start a fresh task before the route smoke. Do not infer literal slash syntax from repository names.
 
@@ -193,11 +222,10 @@ Final sequence:
 
 ```text
 repository matrix PASS
-real Host H01-H07 PASS
+real Host H00-H10 PASS
 promote staged V4 Hooks
 repository matrix PASS again
-writer/takeover Host smoke PASS
-Orchestrate representative Host smoke PASS
+repeat relevant Host smoke against promoted exact candidate
 Doctor --release-check PASS
 human two-Skill App observation PASS
 merge approved candidate
