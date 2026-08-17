@@ -157,6 +157,7 @@
     "interrupt",
     "pre_tool_use_guard",
     "post_tool_use_guard",
+    "host_observation_guard",
     "subagent_stop_veto"
   ],
   "invariants": {
