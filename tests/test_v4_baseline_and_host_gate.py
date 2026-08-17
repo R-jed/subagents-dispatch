@@ -78,4 +78,7 @@ def test_offline_development_can_advance_while_supported_release_stays_blocked()
     assert smoke["status"] == "PENDING"
     assert smoke["results"] == {}
     assert status["phases"]["phase4"]["status"] == "PASS"
-    assert "publication remain blocked" in status["release_rule"]
+    assert status["phases"]["phase8"]["publication"] == "BLOCKED"
+    assert status["phases"]["phase8"]["external_host_campaign"] == "REQUIRED_H00_H20"
+    assert "external candidate-bound H00-H20 Host campaign PASS" in status["release_rule"]
+    assert "tracked docs/v4/host-smoke.json remains a PENDING static contract" in status["release_rule"]
