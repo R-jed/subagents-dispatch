@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-4",
+  "schema_version": "4.0.0-phase-status-5",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -41,11 +41,20 @@
     },
     "phase7": {
       "name": "Doctor, migration, and public cutover",
-      "status": "NOT_STARTED"
+      "status": "PASS",
+      "offline_verification": "PASS",
+      "ci_run": 31985839253,
+      "verified_head": "d0e61e1ed3e1ad3c6da5e07a1e6bfd5fafc813e4"
     },
     "phase8": {
       "name": "release candidate and Host validation",
-      "status": "NOT_STARTED"
+      "status": "HOST_VALIDATION_PENDING",
+      "repository_candidate_branch": "v4/phase8-release-candidate-host-validation",
+      "repository_ci_requirement": "exact candidate head must pass the canonical four-platform matrix and final policy gate",
+      "real_host_smoke": "PENDING_RELEASE_GATE",
+      "real_host_smoke_contract": "docs/v4/host-smoke.json",
+      "production_hook_activation": "BLOCKED",
+      "publication": "BLOCKED"
     }
   },
   "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
