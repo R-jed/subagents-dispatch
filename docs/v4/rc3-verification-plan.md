@@ -29,7 +29,7 @@ For each HIGH or CRITICAL invariant, verify both the intended path and at least 
 
 ## Gate 3: Real Host gate
 
-The final frozen RC3 candidate MUST pass the existing H00-H10 Host campaign plus RC3 additions:
+The final frozen RC3 candidate MUST pass the existing H00-H10 Host campaign plus RC3 additions H11-H20:
 
 - H11: managed Sol child lifecycle delegation is blocked by V4 policy
 - H12: managed Terra child lifecycle delegation is blocked by V4 policy
@@ -40,6 +40,7 @@ The final frozen RC3 candidate MUST pass the existing H00-H10 Host campaign plus
 - H17: duplicate, delayed, and out-of-order lifecycle Hook delivery is fail-closed or idempotent as specified
 - H18: scheduler capacity remains correct with mixed managed and unmanaged Host children
 - H19: Host/release evidence bound to candidate A is rejected for candidate B
+- H20: Windows effective path aliases, including case-insensitive and supported reparse-point aliases, cannot bypass canonical write-scope authority; unclassifiable aliases fail closed
 
 Issue reports or repository mocks do not replace these Host checks.
 
