@@ -307,7 +307,7 @@ def test_public_architecture_and_orchestrate_bind_current_v4_contracts():
     assert "Orchestrate\nDoctor" in architecture
     assert "initial managed children <= 2" in architecture
     assert "normal managed children <= 3" in architecture
-    assert "six explicit Skills" not in architecture.lower()
+    assert "six explicit skills" not in architecture.lower()
     assert "../../contracts/final-review.md" in skill
     assert "../../scripts/review-artifact.py" in skill
     assert "valid `ship` verdict" in skill
