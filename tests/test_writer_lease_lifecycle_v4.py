@@ -76,15 +76,6 @@ def allocate_writer(lifecycle, tmp_path: Path, *, unit_id: str = "U1", execution
     )
 
 
-def spawn_input(task_name: str) -> dict:
-    return {
-        "task_name": task_name,
-        "message": "perform bounded work",
-        "fork_turns": "none",
-        "agent_type": "subagents_dispatch_worker",
-    }
-
-
 def guard_proof(**overrides) -> dict:
     proof = {
         "schema_version": "4.0",
@@ -104,7 +95,9 @@ def activate_writer(state, control, lifecycle, tmp_path: Path, *, execution_id: 
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
     execution = next(item for item in current["executions"] if item["execution_id"] == execution_id)
-    tool_input = spawn_input(execution["native_task_name"])
+    tool_input = lifecycle.build_managed_spawn_tool_input(
+        "thread-p5", execution_id=execution_id, temp_root=tmp_path
+    )
     prepared = lifecycle.prepare_spawn(
         "thread-p5",
         execution_id=execution_id,
