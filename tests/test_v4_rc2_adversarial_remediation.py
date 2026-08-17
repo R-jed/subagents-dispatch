@@ -204,6 +204,7 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
     control = load_module("rc2_control_crash", "dispatch_control_v4.py")
     lifecycle = load_module("rc2_lifecycle_crash", "execution_lifecycle_v4.py")
     writer = load_module("rc2_writer_crash", "writer_lease_v4.py")
+    guard = load_module("rc2_guard_crash", "orchestration_guard.py")
 
     payload = state.new_state(thread_id="thread-crash")
     state.write_state(payload, temp_root=tmp_path)
@@ -257,16 +258,23 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
         tool_use_id="tool-spawn",
         temp_root=tmp_path,
     )
-    basis = lifecycle.fresh_observation_basis(
-        "thread-crash", execution_id="exec-1", temp_root=tmp_path
-    )
-    lifecycle.persist_host_observation(
-        "thread-crash",
-        basis=basis,
-        host_state="running",
-        agent_id="agent-1",
-        temp_root=tmp_path,
-    )
+    observe_common = {
+        "session_id": "thread-crash",
+        "turn_id": "turn-observe-running",
+        "tool_name": "list_agents",
+        "tool_input": {},
+        "tool_use_id": "tool-observe-running",
+    }
+    observe_pre = {**observe_common, "hook_event_name": "PreToolUse"}
+    observe_post = {
+        **observe_common,
+        "hook_event_name": "PostToolUse",
+        "tool_response": [
+            {"agent_name": "/root/sd-u1-a1", "status": "running"}
+        ],
+    }
+    assert guard.evaluate_pre_tool_use(observe_pre, temp_root=tmp_path) is None
+    assert guard.evaluate_post_tool_use(observe_post, temp_root=tmp_path) is None
 
     current = state.load_state("thread-crash", temp_root=tmp_path)
     assert current is not None
