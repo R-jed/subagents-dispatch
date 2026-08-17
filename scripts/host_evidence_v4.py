@@ -4,6 +4,7 @@
 PreToolUse captures the exact execution/control/lease basis for one observation
 request. PostToolUse can only reconcile against that captured basis, so a late or
 out-of-order Host response cannot be rebound to a newer execution generation.
+Consumed observation identities are compacted through the bounded state facade.
 """
 
 from __future__ import annotations
@@ -95,6 +96,21 @@ def _response_digest(response: list[Mapping[str, Any]]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _tool_use_id_was_consumed(current: Mapping[str, Any], tool_use_id: str) -> bool:
+    if state.accounting_filter_contains(
+        current,
+        kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
+        value=tool_use_id,
+    ):
+        return True
+    return any(
+        isinstance(event, Mapping)
+        and event.get("kind") == RECEIPT_KIND
+        and event.get("tool_use_id") == tool_use_id
+        for event in current.get("accounting_refs", [])
+    )
+
+
 def prepare_list_agents_pre_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -107,13 +123,15 @@ def prepare_list_agents_pre_tool_use(
     def mutate(current: dict[str, Any]) -> None:
         if current.get("root_session_id") != session_id:
             raise HostEvidenceError("Host observation is bound to another root session")
+        if _tool_use_id_was_consumed(current, tool_use_id):
+            raise HostEvidenceError("list_agents tool_use_id was already consumed")
         if any(
             isinstance(event, Mapping)
-            and event.get("kind") in {PREPARE_KIND, RECEIPT_KIND}
+            and event.get("kind") == PREPARE_KIND
             and event.get("tool_use_id") == tool_use_id
             for event in current.get("accounting_refs", [])
         ):
-            raise HostEvidenceError("list_agents tool_use_id was already prepared or consumed")
+            raise HostEvidenceError("list_agents tool_use_id is already prepared")
         bases = [
             state.observation_basis(current, execution_id=str(execution["execution_id"]))
             for execution in current.get("executions", [])
@@ -185,6 +203,12 @@ def ingest_list_agents_post_tool_use(
         receipt = _matching_receipt(current, turn_id=turn_id, tool_use_id=tool_use_id)
         if receipt is not None and receipt.get("response_digest") == response_digest:
             return []
+        if state.accounting_filter_contains(
+            current,
+            kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
+            value=tool_use_id,
+        ):
+            return []
         raise HostEvidenceError("list_agents PostToolUse has no matching PreToolUse basis")
 
     bases = prepared.get("bases")
@@ -235,6 +259,12 @@ def ingest_list_agents_post_tool_use(
         if prep is None:
             receipt = _matching_receipt(latest, turn_id=turn_id, tool_use_id=tool_use_id)
             if receipt is not None and receipt.get("response_digest") == response_digest:
+                return
+            if state.accounting_filter_contains(
+                latest,
+                kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
+                value=tool_use_id,
+            ):
                 return
             raise HostEvidenceError("list_agents observation preparation disappeared before receipt")
         latest["accounting_refs"].remove(prep)
