@@ -6,16 +6,16 @@
   "activation_manifest": "docs/v4/hooks.json",
   "production_manifest": "hooks/hooks.json",
   "required_environment_fields": [
+    "architecture",
     "codex_version",
     "host_build",
     "platform",
-    "architecture",
     "run_id"
   ],
   "required_result_fields": [
-    "status",
+    "environment_id",
     "evidence_ref",
-    "environment_id"
+    "status"
   ],
   "required_probes": [
     {"id":"H00","operation":"Hook trust and activation","platform":"any","requires":["exact active lifecycle Hook digest","current Host trusts the exact promoted definition"]},
