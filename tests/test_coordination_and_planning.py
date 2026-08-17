@@ -80,11 +80,10 @@ def test_orchestrate_keeps_zero_child_and_plan_only_as_valid_outcomes():
 
 def test_scheduler_uses_acceptance_gated_dependencies_and_bounded_fanout():
     scheduler = load_module("coord_scheduler", "scheduler_v4.py")
-    source = (SCRIPTS / "scheduler_v4.py").read_text(encoding="utf-8")
-    assert "INITIAL_FANOUT_LIMIT = 2" in source
-    assert "NORMAL_FANOUT_LIMIT = 3" in source
-    assert "BACKPRESSURE_RESULT_LIMIT = 2" in source
-    assert callable(scheduler.reconcile_once)
+    assert scheduler.INITIAL_CHILD_LIMIT == 2
+    assert scheduler.PRODUCT_CHILD_LIMIT == 3
+    assert scheduler.BACKPRESSURE_THRESHOLD == 2
+    assert callable(scheduler.scheduler_decision)
     graph = (SCRIPTS / "work_graph_v4.py").read_text(encoding="utf-8")
     assert "ACCEPTED" in graph
     assert "RESULT_READY" in graph
@@ -101,12 +100,13 @@ def test_v4_runtime_separates_workunit_execution_control_and_writer_truth():
 
 
 def test_same_child_reuse_and_takeover_are_not_fresh_attempt_shortcuts():
-    lifecycle = (SCRIPTS / "execution_lifecycle_v4.py").read_text(encoding="utf-8")
-    assert "prepare_same_child_followup" in lifecycle
-    assert "prepare_continue" in lifecycle
-    assert "prepare_interrupt" in lifecycle
-    assert "takeover_to_main" in lifecycle
-    assert "followup_count" in lifecycle
+    lifecycle = load_module("coord_lifecycle", "execution_lifecycle_v4.py")
+    assert callable(lifecycle.prepare_same_child_followup)
+    assert callable(lifecycle.prepare_same_child_continue)
+    assert callable(lifecycle.prepare_interrupt)
+    assert callable(lifecycle.takeover_to_main)
+    source = (SCRIPTS / "execution_lifecycle_v4.py").read_text(encoding="utf-8")
+    assert "followup_count" in source
     writer = (SCRIPTS / "writer_lease_v4.py").read_text(encoding="utf-8")
     assert "guard_coverage" in writer
     assert "observation" in writer.lower()
