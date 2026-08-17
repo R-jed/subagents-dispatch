@@ -196,9 +196,8 @@ def evaluate_post_tool_use(
         for item in current["pending_controls"]
         if item.get("state") == "IN_FLIGHT" and item.get("tool_use_id") == tool_use_id
     ]
-    if not inflight:
-        if _managed_target_in_v4(current, tool_name, tool_input):
-            return _stop("managed lifecycle PostToolUse has no matching IN_FLIGHT control")
+    managed_target = _managed_target_in_v4(current, tool_name, tool_input)
+    if not inflight and not managed_target:
         return None
     try:
         control.acknowledge_control(
@@ -212,14 +211,15 @@ def evaluate_post_tool_use(
     except control.ControlAlreadyAcknowledged:
         return None
     except control.ControlError:
-        try:
-            control.mark_control_unknown(
-                session_id,
-                tool_use_id=tool_use_id,
-                temp_root=temp_root,
-            )
-        except Exception:
-            pass
+        if inflight:
+            try:
+                control.mark_control_unknown(
+                    session_id,
+                    tool_use_id=tool_use_id,
+                    temp_root=temp_root,
+                )
+            except Exception:
+                pass
         return _stop("managed lifecycle acknowledgement is ambiguous; control quarantined")
     return None
 
