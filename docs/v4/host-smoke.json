@@ -3,6 +3,7 @@
   "gate_id": "phase3-real-host-hook-coverage",
   "status": "PENDING",
   "blocks_phase": "phase8-supported-release",
+  "blocks_release": "v4.0.0-production-hook-activation-and-publication",
   "activation_manifest": "docs/v4/hooks.json",
   "production_manifest_remains": "hooks/hooks.json",
   "inherited_evidence": [
