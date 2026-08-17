@@ -126,13 +126,15 @@ def test_distribution_removal_is_semantically_bounded():
     assert "unrelated configuration semantics and other Codex state must remain unchanged" in release
 
 
-def test_release_sequence_keeps_host_and_human_gates_after_offline_ci():
+def test_release_sequence_keeps_host_review_and_human_gates_after_offline_ci():
     release = RELEASE.read_text(encoding="utf-8")
     order = [
         "repository matrix PASS",
-        "real Host H00-H10 PASS",
+        "real Host H00-H20 PASS",
         "promote staged V4 Hooks",
         "repository matrix PASS again",
+        "fresh candidate-bound Advisor Final Review PASS",
+        "external release evidence verifies exactly",
         "Doctor --release-check PASS",
         "human two-Skill App observation PASS",
         "create v4.0.0 versioned semantic-version tag",
