@@ -1,0 +1,58 @@
+name: rc4-fixture-migration
+
+on:
+  push:
+    branches:
+      - v4/rc4-host-contract-closure
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: v4/rc4-host-contract-closure
+          persist-credentials: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Migrate stale Host-invalid test names
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('tests')
+          excluded = {'test_v4_rc4_host_contract_closure.py'}
+          changed = []
+          fixed = re.compile(r'sd-([a-z0-9]+)-a([0-9]+)')
+          for path in sorted(root.glob('test_*.py')):
+              if path.name in excluded:
+                  continue
+              old = path.read_text(encoding='utf-8')
+              new = fixed.sub(r'sd_\1_a\2', old)
+              new = new.replace('f"sd-{unit_id.lower()}-a{attempt_no}"', 'f"sd_{unit_id.lower()}_a{attempt_no}"')
+              new = new.replace('f"sd-{unit_id.lower()}-a1"', 'f"sd_{unit_id.lower()}_a1"')
+              new = new.replace("f'sd-{unit_id.lower()}-a{attempt_no}'", "f'sd_{unit_id.lower()}_a{attempt_no}'")
+              new = new.replace("f'sd-{unit_id.lower()}-a1'", "f'sd_{unit_id.lower()}_a1'")
+              if new != old:
+                  path.write_text(new, encoding='utf-8', newline='\n')
+                  changed.append(str(path))
+          print('\n'.join(changed))
+          if not changed:
+              raise SystemExit('expected at least one stale fixture migration')
+          PY
+      - name: Commit fixture migration
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tests
+          git diff --cached --check
+          git commit -m "test(v4): migrate stale Host-invalid task fixtures"
+          git push origin HEAD:v4/rc4-host-contract-closure
