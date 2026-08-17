@@ -10,119 +10,101 @@ Repository:          R-jed/subagents-dispatch
 Repo marketplace id: subagents-dispatch
 Plugin id:           subagents-dispatch
 Plugin directory:    .
-Current version:     3.0.1
+Current version:     4.0.0
 Distribution:        Codex Plugin
 License:             MIT
 ```
 
-The Plugin exposes six explicit Skills:
+The V4 public surface contains exactly two explicit Skills:
 
-| Skill id | Intended display label | Canonical responsibility |
+| Skill id | Display label | Responsibility |
 | --- | --- | --- |
-| `dispatch` | Dispatch | start or resume orchestration |
-| `preview` | Preview | predict likely orchestration without execution |
-| `status` | Status | observe and reconcile current orchestration once |
-| `steer` | Steer | guide one unchanged delegated attempt |
-| `takeover` | Takeover | safely return delegated work to Main |
-| `doctor` | Doctor | diagnose installation and runtime health |
+| `orchestrate` | Orchestrate | plan-only, execute, inspect, correct, continue, cancel, take over, review, and integrate |
+| `doctor` | Doctor | diagnose package, fixed profiles, V4 state, Host capabilities, Hook evidence, and release readiness |
 
 Do not invent a Codex App slash-command string from repository identifiers. Exact App labels and presentation are Host/UI facts requiring direct observation.
 
-## Canonical owners
+## V4 runtime owners
+
+```text
+scripts/orchestrate_v4.py
+-> explicit Orchestrate admission, fixed profile routing, plan-only, status surface
+
+scripts/dispatch_state_v4.py
+-> bounded thread-scoped state v4 and stale-observation protection
+
+scripts/work_graph_v4.py
+-> WorkUnit graph, acceptance-gated dependency readiness
+
+scripts/scheduler_v4.py
+-> wakeup-driven reconcile decision, fanout, critical path, backpressure
+
+scripts/dispatch_control_v4.py
+-> PendingControl prepare/consume/ack/quarantine
+
+scripts/execution_lifecycle_v4.py
+-> ExecutionBinding lifecycle, followup, continue, interrupt and takeover coordination
+
+scripts/writer_lease_v4.py
+-> canonical managed WriterLease protocol
+
+scripts/host_capabilities.py
+-> semantic Host capability normalization
+
+scripts/orchestration_guard.py
+-> staged V4 lifecycle Guard implementation
+
+docs/v4/host-smoke.json
+-> H01-H07 real Host release gate
+```
+
+## Fixed profiles
+
+```text
+Reader        gpt-5.6-luna   max   read-only
+Worker        gpt-5.6-luna   max   bounded write
+Investigator  gpt-5.6-terra  high  read-only
+Solver        gpt-5.6-sol    high  bounded write
+Advisor       gpt-5.6-sol    high  read-only review
+```
+
+Dynamic reasoning-effort routing is outside V4.0.0.
+
+## Compatibility owners
 
 ```text
 contracts/policy.json
--> machine-readable hard invariants and five configured Agent routes
-
-contracts/routing.md
--> delegation value, role selection, responsibility compilation, semantic coverage, adaptive ready work
-
-contracts/composition.md
--> Host / project rules / external Skill / hook / role-contract composition boundaries
-
-contracts/interaction.md
--> Preview, Status, Steer, Takeover, target resolution, control detours
-
-contracts/state.md
--> root-thread ephemeral orchestration continuity and Host reconciliation
-
-contracts/receipt.md
--> orchestration accounting and Chinese/English presentation
-
-contracts/team-plan.md
--> multi-responsibility identity, dependencies, ownership, revisions
-
-contracts/recovery.md
--> delegated attempt lifecycle, retries, UNKNOWN, INTERRUPTED, Main takeover
-
-contracts/guardrails.md
--> authority, trust, mutation permissions, writer coordination, consent, runtime-evidence boundaries
-
-contracts/handoff.md
--> compact Main-accepted evidence transfer
-
-contracts/evidence-artifact.md
--> optional references-first evidence bundles that keep conversational handoff compact
-
-contracts/final-review.md
--> consequence-driven exact-candidate independent review
-```
-
-Each `skills/<id>/SKILL.md` is a thin explicit entry adapter. Each `skills/<id>/agents/openai.yaml` owns its App metadata. `policy.allow_implicit_invocation` is false for all six.
-
-## Deterministic helpers
-
-```text
-scripts/policy.py
--> shared contracts/policy.json loading
-
-scripts/install-agents.py
--> managed Agent profile install/check lifecycle
-
-scripts/uninstall-agents.py
--> ownership-aware managed Agent profile removal using the existing install manifest and lock
-
-scripts/validate_team_plan.py
--> TeamPlan structural validation
-
-scripts/validate_team_ledger.py
--> delegated lifecycle/recovery ledger validation
-
-scripts/inspect-agent-runtime.py
--> explicit exact-child Codex rollout inspection; emits only allowlisted Host-produced route/identity/permission metadata
-
-scripts/runtime-evidence.py
--> configured/requested, accepted, and actual-runtime evidence normalization; native/local overlap must agree
-
-scripts/review-artifact.py
--> exact-candidate Git review binding
-
-scripts/validate-experiment-campaign.py
--> validate/freeze either a role-calibration or single-agent-versus-Dispatch campaign against the exact current candidate
-
-scripts/validate-experiment-run.py
--> validate one actual run against its frozen campaign, including input attestation, complete materialized-child evidence, route evidence, oracle/result refs, and exact measurement provenance; never scores, aggregates, or mutates policy
-
-scripts/score-behavioral-evals.py
--> validate and summarize paired behavioral result records without inventing a global quality score
+-> fixed route identities, delegation depth and single-writer policy
 
 scripts/dispatch_state.py
--> compact thread-scoped state, reconciliation, control targeting, and receipt accounting primitives
+-> hardened V3.x state/storage compatibility boundary used for legacy detection and shared filesystem primitives
 
-scripts/doctor.py
--> deterministic installation diagnostics; consumes explicit normalized runtime evidence but never spawns or scans Host runtime automatically
+scripts/legacy_migration.py
+-> managed-profile legacy ownership detection
+
+contracts/final-review.md
+-> exact-candidate independent review identity retained from V3.x
 ```
 
-For install, first-run provisioning, update, or uninstall commands, read `docs/plugin-installation.md`. For architecture, read `docs/repository-architecture.md`. For native runtime boundaries, read `docs/native-subagent-runtime.md`. For the exact child model/effort/sandbox proof protocol, read `docs/runtime-attestation.md`. For role calibration, single-agent-versus-Dispatch benchmarking, policy promotion, and README claim publication rules, read `docs/experiment-protocol.md`. For broader evaluation boundaries and the campaign/run implementation, read `evals/README.md`.
+A V3.x orchestration capsule is legacy evidence. Never silently rewrite it into V4. An unresolved legacy writer, pending takeover, corrupt state, WriterLease.UNKNOWN, or unresolved PendingControl remains fail closed.
 
-For release evidence, read `docs/release-checklist.md`: repository gates are deterministic, App labels require direct human observation, and Host route/control claims require raw Host/rollout evidence from the exact candidate under validation. Evidence status belongs to the release validation record, not this reference file; never treat repository text or model self-report as proof that a Host/UI gate passed. During the single-maintainer phase, implement non-trivial changes on a short-lived feature branch, run full local validation and adversarial review there, repair and revalidate on the same branch, then merge directly to `main` and use the `main` push GitHub Actions run as cross-platform confirmation. A pull request is optional, not a hidden requirement.
+## Safety invariants
 
-The Experiment Plane is development/research infrastructure. Role calibration, formal model/effort campaigns, formal single-agent-versus-Dispatch benchmark campaigns, calibration-profile materialization, and experiment-run provenance do not block v3.0.0 unless the release publishes a claim that specifically depends on that evidence. Runtime attestation remains a product release gate when a release claim states what actually ran. A small real-task product canary may be used to catch obvious regressions without turning the full formal experiment machinery into a release prerequisite.
+```text
+Main owns user intent, integration and WorkUnit acceptance
+Host COMPLETED does not unlock dependencies
+WorkUnit ACCEPTED unlocks dependencies
+initial managed children <= 2
+normal managed children <= 3 and Host-capacity bounded
+canonical managed writer <= 1
+fork_turns = none
+depth = 1
+interrupt ACK alone cannot release WriterLease
+stale execution/control/lease observations are discarded
+```
 
-Runtime truth is layered. `contracts/policy.json` and managed profile TOMLs establish configuration intent. Before every project-child spawn, the semantic role must resolve through `contracts/policy.json` to that role's exact `subagents_dispatch_*` `agent_type`; built-in roles, legacy aliases, unrelated installed custom Agents, remembered role names, and model-equivalent profiles are not substitutions. A requested or Host-accepted `agent_type` establishes request/acceptance facts. Observed child runtime truth comes only from actual Host evidence: public Host metadata and, when needed, the exact Host-produced Codex child rollout inspected by `scripts/inspect-agent-runtime.py`. Never copy configured or accepted values into an observed field, and never treat a child's prose self-identification as evidence. When public Host metadata and the exact rollout both expose a field, they must agree or the route claim is quarantined.
+The production `hooks/hooks.json` remains the hardened V3.x spawn boundary until H01-H07 pass. `docs/v4/hooks.json` is staged configuration only. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
 
-Composition is also layered. Host/current user authority and applicable project instructions constrain the work; an accepted external Skill or workflow may own domain planning and acceptance; subagents-dispatch adds orchestration only; the child role/responsibility packet narrows the result further. Hooks are optional observations/guards and are not a required control plane.
+Each `skills/<id>/SKILL.md` is a thin explicit adapter. `policy.allow_implicit_invocation` is false for both public Skills.
 
-Experiments are typed. Role calibration keeps the responsibility/isolation contract fixed and changes model/effort. Its campaign freezes an evaluator-owned responsibility packet identity so a packet change cannot be misattributed to model/effort. Product benchmark keeps the real task/environment fixed and compares ordinary `single_agent` with explicit `dispatch`; it does not pre-script which project roles Dispatch must use. Campaign fields define expected/frozen inputs. Per-run input evidence must independently attest the Host, repository/base, task, applicable calibration packet, and controlled environment; copying campaign values is not observation. Per-run materialization evidence independently records the complete project-child count, so an empty route list cannot by itself be relabeled as a zero-child Dispatch. Every observed materialized child must have one route row; unavailable child-set evidence keeps route assurance `UNKNOWN`. Formal experiment claims require repeated real runs and exact evidence. Policy never changes automatically from benchmark output.
-
-An ordinary Dispatch Receipt may show the selected project lane for materialized work; explicit live-route proof still requires actual Host evidence. Ordinary Dispatch does not scan Codex session rollouts. Current role model/effort settings are operational policy, not benchmark-proven optimality claims. Do not claim benchmark gains, public availability, token/cost attribution, or App UI behavior without current accepted evidence.
+For installation and lifecycle instructions, use `docs/plugin-installation.md`. For runtime helpers, use the named scripts above and `scripts/policy.py`. Keep Experiment Plane material under `evals/` and experiment documentation separate from production routing truth.
