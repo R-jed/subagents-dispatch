@@ -1,5 +1,5 @@
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "delegation": {
     "max_depth": 1,
     "fork_turns": "none"
@@ -18,6 +18,12 @@
     "reference_role": "solver",
     "model_aliases": ["gpt-5.6"],
     "reasoning_effort_order": ["minimal", "low", "medium", "high", "xhigh", "max"]
+  },
+  "fixed_execution_profiles": {
+    "luna": "max",
+    "terra": "high",
+    "sol": "high",
+    "dynamic_effort_routing": false
   },
   "roles": {
     "reader": {
@@ -45,7 +51,7 @@
       "profile_file": "subagents-dispatch-investigator.toml",
       "agent_type": "subagents_dispatch_investigator",
       "model": "gpt-5.6-terra",
-      "effort": "xhigh",
+      "effort": "high",
       "mutation_authority": "none"
     },
     "advisor": {
