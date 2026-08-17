@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """V4 PendingControl preparation and single-use Host binding.
 
-This module owns only lifecycle-control authorization. It does not route work,
+This module owns lifecycle-control authorization. It does not route work,
 acquire WriterLease, or infer Host lifecycle completion.
 """
 
@@ -278,6 +278,42 @@ def _ack_ref(tool_use_id: str) -> str:
     return f"control-ack:{tool_use_id}"
 
 
+def _apply_writer_effect_on_ack(
+    current: dict[str, Any],
+    *,
+    control: Mapping[str, Any],
+    execution: Mapping[str, Any],
+) -> None:
+    """Apply the authorized WriterLease effect inside the same ACK transaction."""
+    effect = control["writer_effect"]
+    if effect == "NONE":
+        if execution.get("granted_authority") != "none":
+            raise ControlError("writing lifecycle ACK cannot use writer_effect=NONE")
+        return
+
+    lease = current.get("writer_lease")
+    if not isinstance(lease, dict):
+        raise ControlError("writer lifecycle ACK requires WriterLease")
+    if (
+        lease.get("owner_kind") != "execution"
+        or lease.get("owner_id") != execution.get("execution_id")
+        or lease.get("unit_id") != execution.get("unit_id")
+        or lease.get("lease_epoch") != control.get("expected_lease_epoch")
+    ):
+        raise ControlError("writer lifecycle ACK uses stale WriterLease identity")
+
+    if effect in {"RESERVE", "RETAIN"}:
+        if lease.get("state") not in {"RESERVED", "HELD"}:
+            raise ControlError("writer activation ACK requires RESERVED or HELD WriterLease")
+        lease["state"] = "HELD"
+        return
+    if effect == "REVOKE":
+        if lease.get("state") != "REVOKING":
+            raise ControlError("writer interrupt ACK requires REVOKING WriterLease")
+        return
+    raise ControlError("writer lifecycle ACK has unsupported writer_effect")
+
+
 def acknowledge_control(
     thread_id: str,
     *,
@@ -287,7 +323,7 @@ def acknowledge_control(
     tool_use_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Acknowledge one successful Host call, close its control, and advance epoch."""
+    """Acknowledge one successful Host call and atomically apply its writer effect."""
     if not isinstance(tool_use_id, str) or not tool_use_id.strip():
         raise ControlError("tool_use_id must be non-empty")
     acknowledged: dict[str, Any] = {}
@@ -312,6 +348,8 @@ def acknowledge_control(
         execution = _execution(current, control["execution_id"])
         if execution["control_epoch"] != control["expected_control_epoch"]:
             raise ControlError("execution control_epoch changed while control was IN_FLIGHT")
+
+        _apply_writer_effect_on_ack(current, control=control, execution=execution)
         execution["control_epoch"] = control["next_control_epoch"]
         acknowledged.update(copy.deepcopy(control))
         acknowledged["state"] = "ACKED"
