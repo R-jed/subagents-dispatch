@@ -105,10 +105,11 @@ def test_same_child_reuse_and_takeover_are_not_fresh_attempt_shortcuts():
     assert callable(lifecycle.prepare_same_child_continue)
     assert callable(lifecycle.prepare_interrupt)
     assert callable(lifecycle.takeover_to_main)
-    source = (SCRIPTS / "execution_lifecycle_v4.py").read_text(encoding="utf-8")
+    source = (SCRIPTS / "execution_lifecycle_v4_core.py").read_text(encoding="utf-8")
     assert "followup_count" in source
     writer = (SCRIPTS / "writer_lease_v4.py").read_text(encoding="utf-8")
-    assert "guard_coverage" in writer
+    assert "AUTHORITATIVE_OBSERVATION_SOURCE" in writer
+    assert "guard_coverage" not in writer
     assert "observation" in writer.lower()
 
 
