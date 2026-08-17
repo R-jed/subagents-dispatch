@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-1",
+  "schema_version": "4.0.0-phase-status-2",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -18,13 +18,14 @@
       "name": "PendingControl and managed orchestration guard",
       "repository_implementation": "PASS",
       "offline_verification": "PASS",
-      "real_host_smoke": "PENDING",
+      "real_host_smoke": "PENDING_RELEASE_GATE",
       "real_host_smoke_contract": "docs/v4/host-smoke.json"
     },
     "phase4": {
       "name": "Work Graph and scheduler core",
-      "status": "BLOCKED",
-      "blocked_by": "phase3-real-host-hook-coverage"
+      "status": "PASS",
+      "offline_verification": "PASS",
+      "ci_run": 31982479778
     },
     "phase5": {
       "name": "WriterLease and same-child lifecycle",
@@ -43,5 +44,6 @@
       "status": "NOT_STARTED"
     }
   },
-  "advance_rule": "Phase 4 stays blocked while docs/v4/host-smoke.json is PENDING. Offline tests cannot substitute for real Host Hook evidence."
+  "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
+  "release_rule": "V4 lifecycle Hook activation as a supported release and V4.0.0 publication remain blocked while docs/v4/host-smoke.json is not PASS. Offline tests cannot substitute for real Host Hook evidence."
 }
