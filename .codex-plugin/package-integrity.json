@@ -57,7 +57,7 @@
     "scripts/validate_team_plan.py": "03c91c984a638dde2abde996515f10923e56230e90c1883be5c6d2560ff2f816",
     "scripts/work_graph_v4.py": "805465184fff7cbf6e195fb41dd12c375da3c4ed925435794678e3b09270f2f5",
     "scripts/writer_lease_v4.py": "f2d653933a99e7d652d51d1b652089456889e4dbe18f59e66243f14fc72725fb",
-    "skills/doctor/SKILL.md": "8606b0219f1ff6cf7e15c9b0d5609daf788748dbb03cb324d13b0e6b6887221e",
+    "skills/doctor/SKILL.md": "eab2f45f25ce556b887ebeeb1d2d55078106f4b3f50200d23a76586bf31eee09",
     "skills/doctor/agents/openai.yaml": "0811c7d17fec437db183f4bf2b40596e20aa038447da82195cd08c71c6e93b3b",
     "skills/orchestrate/SKILL.md": "874de902433b028cf087980c3ba4cdff6cfb96f2c955baf89c962e29b12bee17",
     "skills/orchestrate/agents/openai.yaml": "5208099f78cbda15f0cd11e66d7812d5881edd1b1a422f2061ed8ba2899c03ee"
