@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-5",
+  "schema_version": "4.0.0-phase-status-6",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -34,7 +34,7 @@
       "ci_run": 31983106374
     },
     "phase6": {
-      "name": "Orchestrate coexistence",
+      "name": "Orchestrate production cutover",
       "status": "PASS",
       "offline_verification": "PASS",
       "ci_run": 31983588703
@@ -49,14 +49,18 @@
     "phase8": {
       "name": "release candidate and Host validation",
       "status": "HOST_VALIDATION_PENDING",
-      "repository_candidate_branch": "v4/phase8-release-candidate-host-validation",
+      "repository_candidate_branch": "v4/rc4-host-contract-closure",
       "repository_ci_requirement": "exact candidate head must pass the canonical four-platform matrix and final policy gate",
+      "tracked_host_contract_status": "PENDING_REQUIRED",
+      "external_host_campaign": "REQUIRED_H00_H20",
       "real_host_smoke": "PENDING_RELEASE_GATE",
       "real_host_smoke_contract": "docs/v4/host-smoke.json",
       "production_hook_activation": "BLOCKED",
+      "final_review": "PENDING_RELEASE_GATE",
+      "external_release_evidence": "PENDING_RELEASE_GATE",
       "publication": "BLOCKED"
     }
   },
   "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
-  "release_rule": "V4 lifecycle Hook activation as a supported release and V4.0.0 publication remain blocked while docs/v4/host-smoke.json is not PASS. Offline tests cannot substitute for real Host Hook evidence."
+  "release_rule": "V4.0.0 publication requires an external candidate-bound H00-H20 Host campaign PASS, production lifecycle Hook promotion and relevant exact-candidate Host retest, a fresh candidate-bound Advisor Final Review PASS, verified external release evidence, Doctor --release-check PASS, and human App observation. The tracked docs/v4/host-smoke.json remains a PENDING static contract and cannot self-attest runtime PASS."
 }
