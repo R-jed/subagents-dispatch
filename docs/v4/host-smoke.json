@@ -1,10 +1,12 @@
 {
-  "schema_version": "4.0.0-host-smoke-2",
+  "schema_version": "4.0.0-host-smoke-3",
   "gate_id": "phase3-real-host-hook-coverage",
-  "status": "PENDING",
-  "blocks_phase": "phase8-supported-release",
+  "status": "PENDING_RELEASE_GATE",
+  "blocks_release": "v4.0.0-publication",
+  "development_may_continue": true,
   "activation_manifest": "docs/v4/hooks.json",
-  "production_manifest_remains": "hooks/hooks.json",
+  "production_manifest": "hooks/hooks.json",
+  "production_manifest_status": "RC_UNSUPPORTED_UNTIL_PASS",
   "inherited_evidence": [
     {
       "source": "PR #66",
@@ -26,63 +28,14 @@
     }
   ],
   "required_probes": [
-    {
-      "id": "H01",
-      "operation": "spawn_agent",
-      "requires": [
-        "PreToolUse observed",
-        "PostToolUse observed",
-        "same tool_use_id across PreToolUse and PostToolUse"
-      ]
-    },
-    {
-      "id": "H02",
-      "operation": "followup_task",
-      "requires": [
-        "PreToolUse observed",
-        "PostToolUse observed",
-        "same tool_use_id across PreToolUse and PostToolUse"
-      ]
-    },
-    {
-      "id": "H03",
-      "operation": "interrupt_agent",
-      "requires": [
-        "PreToolUse observed",
-        "PostToolUse observed",
-        "same tool_use_id across PreToolUse and PostToolUse"
-      ]
-    },
-    {
-      "id": "H04",
-      "operation": "SubagentStop",
-      "requires": [
-        "managed agent stop event observed",
-        "continue false prevents automatic continuation"
-      ]
-    },
-    {
-      "id": "H05",
-      "operation": "managed child sibling followup",
-      "requires": [
-        "PreToolUse blocks sibling lifecycle control"
-      ]
-    },
-    {
-      "id": "H06",
-      "operation": "managed child sibling interrupt",
-      "requires": [
-        "PreToolUse blocks sibling lifecycle control"
-      ]
-    },
-    {
-      "id": "H07",
-      "operation": "missing PostToolUse",
-      "requires": [
-        "control is not acknowledged",
-        "unresolved control remains fail closed"
-      ]
-    }
+    {"id": "H01", "operation": "spawn_agent", "requires": ["PreToolUse observed", "PostToolUse observed", "same tool_use_id across PreToolUse and PostToolUse"]},
+    {"id": "H02", "operation": "followup_task", "requires": ["PreToolUse observed", "PostToolUse observed", "same tool_use_id across PreToolUse and PostToolUse"]},
+    {"id": "H03", "operation": "interrupt_agent", "requires": ["PreToolUse observed", "PostToolUse observed", "same tool_use_id across PreToolUse and PostToolUse"]},
+    {"id": "H04", "operation": "SubagentStop", "requires": ["managed agent stop event observed", "continue false prevents automatic continuation"]},
+    {"id": "H05", "operation": "managed child sibling followup", "requires": ["PreToolUse blocks sibling lifecycle control"]},
+    {"id": "H06", "operation": "managed child sibling interrupt", "requires": ["PreToolUse blocks sibling lifecycle control"]},
+    {"id": "H07", "operation": "missing PostToolUse", "requires": ["control is not acknowledged", "unresolved control remains fail closed"]}
   ],
-  "pass_policy": "All required probes must have captured real Host evidence from the V4 lifecycle Hook manifest before the release candidate is declared supported or V4.0.0 is published."
+  "probe_results": [],
+  "pass_policy": "All H01-H07 probes require captured real Codex Host evidence. Only then may status become PASS and supported V4.0.0 managed execution/publication be declared."
 }
