@@ -335,7 +335,8 @@ def acknowledge_lifecycle_control(
     tool_use_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    acknowledged = control.acknowledge_control(
+    """Persist the Host ACK and authorized WriterLease effect in one transaction."""
+    return control.acknowledge_control(
         thread_id,
         tool_name=tool_name,
         tool_input=tool_input,
@@ -343,29 +344,6 @@ def acknowledge_lifecycle_control(
         tool_use_id=tool_use_id,
         temp_root=temp_root,
     )
-    if acknowledged.get("idempotent") is True:
-        return acknowledged
-    execution_id = acknowledged["execution_id"]
-    current = state.load_state(thread_id, temp_root=temp_root)
-    if current is None:
-        raise ExecutionLifecycleError("acknowledged state disappeared")
-    execution = _execution(current, execution_id)
-    if acknowledged["operation"] in {"SPAWN", "FOLLOWUP", "CONTINUE"} and execution[
-        "granted_authority"
-    ] != "none":
-        lease = current.get("writer_lease")
-        if not isinstance(lease, Mapping):
-            raise ExecutionLifecycleError("writer ACK lost WriterLease")
-        writer.confirm_execution_writer_activation(
-            thread_id,
-            execution_id=execution_id,
-            lease_id=lease["lease_id"],
-            lease_epoch=lease["lease_epoch"],
-            control_id=acknowledged["control_id"],
-            tool_use_id=tool_use_id,
-            temp_root=temp_root,
-        )
-    return acknowledged
 
 
 def fresh_observation_basis(
@@ -406,7 +384,7 @@ def takeover_to_main(
     old_lease_id: str,
     old_lease_epoch: int,
     main_lease_id: str,
-    guard_coverage: bool,
+    guard_coverage: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     return writer.transfer_settled_execution_writer_to_main(
