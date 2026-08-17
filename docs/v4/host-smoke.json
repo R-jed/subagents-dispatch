@@ -1,8 +1,8 @@
 {
-  "schema_version": "4.0.0-host-smoke-1",
+  "schema_version": "4.0.0-host-smoke-2",
   "gate_id": "phase3-real-host-hook-coverage",
   "status": "PENDING",
-  "blocks_phase": "phase4-scheduler-core",
+  "blocks_phase": "phase8-supported-release",
   "activation_manifest": "docs/v4/hooks.json",
   "production_manifest_remains": "hooks/hooks.json",
   "inherited_evidence": [
@@ -84,5 +84,5 @@
       ]
     }
   ],
-  "pass_policy": "All required probes must have captured real Host evidence from the staged V4 Hook manifest before phase 4 begins."
+  "pass_policy": "All required probes must have captured real Host evidence from the V4 lifecycle Hook manifest before the release candidate is declared supported or V4.0.0 is published."
 }
