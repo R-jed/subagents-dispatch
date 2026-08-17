@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """V4 state facade with RC3 correctness-bearing truth invariants.
 
-The storage/schema implementation lives in ``dispatch_state_v4_core``. This
-facade preserves the public V4 state API while making persisted correctness
-facts at least as strict as the mutation paths that create them.
+This module owns the V4 schema facade and persisted correctness truth. The
+storage/schema implementation lives in ``dispatch_state_v4_core``. This facade
+preserves the public V4 state API while making persisted correctness facts at
+least as strict as the mutation paths that create them.
 """
 
 from __future__ import annotations
@@ -41,6 +42,19 @@ def current_execution_for_unit(
     return matches[0]
 
 
+def _has_completed_observation(
+    state: Mapping[str, Any], *, execution_id: str, control_epoch: int
+) -> bool:
+    return any(
+        isinstance(event, Mapping)
+        and event.get("kind") == "host_observation"
+        and event.get("execution_id") == execution_id
+        and event.get("control_epoch") == control_epoch
+        and event.get("lifecycle") == "COMPLETED"
+        for event in state.get("accounting_refs", [])
+    )
+
+
 def _validate_acceptance_truth(state: Mapping[str, Any]) -> None:
     unresolved = _core.UNRESOLVED_CONTROL_STATES
     for unit in state.get("work_units", []):
@@ -56,13 +70,26 @@ def _validate_acceptance_truth(state: Mapping[str, Any]) -> None:
             raise _core.StatePayloadError(
                 f"accepted work unit {unit_id} must reference the current execution attempt"
             )
-        if producer.get("lifecycle") != "COMPLETED":
-            raise _core.StatePayloadError(
-                f"accepted work unit {unit_id} producer must be COMPLETED"
-            )
-        if unit.get("accepted_control_epoch") != producer.get("control_epoch"):
+        accepted_epoch = unit.get("accepted_control_epoch")
+        if accepted_epoch != producer.get("control_epoch"):
             raise _core.StatePayloadError(
                 f"accepted work unit {unit_id} control epoch must match current producer"
+            )
+        lifecycle = producer.get("lifecycle")
+        if lifecycle == "COMPLETED":
+            pass
+        elif lifecycle == "CLOSED":
+            if not _has_completed_observation(
+                state,
+                execution_id=str(producer["execution_id"]),
+                control_epoch=int(accepted_epoch),
+            ):
+                raise _core.StatePayloadError(
+                    f"accepted work unit {unit_id} closed producer lacks prior COMPLETED proof"
+                )
+        else:
+            raise _core.StatePayloadError(
+                f"accepted work unit {unit_id} producer must be COMPLETED or proven CLOSED"
             )
         execution_ids = {
             item.get("execution_id")
