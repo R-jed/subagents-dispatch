@@ -190,6 +190,29 @@ def test_accepted_unit_rejects_unresolved_control_even_when_producer_is_complete
         state.validate_state_payload(payload)
 
 
+def test_accepted_closed_producer_requires_prior_completed_observation():
+    state = load_module("rc3_truth_state_closed", "dispatch_state_v4.py")
+    payload = state.new_state(thread_id="thread-rc3-truth")
+    payload["team_plan_revision"] = 1
+    payload["work_units"] = [unit(state_name="ACCEPTED")]
+    payload["executions"] = [execution("exec-1", lifecycle="CLOSED")]
+
+    with pytest.raises(state.StatePayloadError, match="COMPLETED proof"):
+        state.validate_state_payload(payload)
+
+    payload["accounting_refs"] = [
+        {
+            "ref": "host-observation:exec-1:0:none:COMPLETED",
+            "kind": "host_observation",
+            "execution_id": "exec-1",
+            "control_epoch": 0,
+            "lease_epoch": None,
+            "lifecycle": "COMPLETED",
+        }
+    ]
+    state.validate_state_payload(payload)
+
+
 def test_duplicate_posttooluse_is_idempotent_at_production_guard(tmp_path: Path):
     state = load_module("rc3_truth_state_guard", "dispatch_state_v4.py")
     control = load_module("rc3_truth_control_guard", "dispatch_control_v4.py")
