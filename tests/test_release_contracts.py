@@ -78,13 +78,7 @@ def test_release_path_keeps_experiment_plane_conditional_and_host_gate_mandatory
     assert smoke["status"] != "PASS"
     assert smoke["blocks_release"] == "v4.0.0-production-hook-activation-and-publication"
     assert {probe["id"] for probe in smoke["required_probes"]} == {
-        "H01",
-        "H02",
-        "H03",
-        "H04",
-        "H05",
-        "H06",
-        "H07",
+        f"H{number:02d}" for number in range(11)
     }
 
 
@@ -93,7 +87,7 @@ def test_staged_hooks_are_not_promoted_without_real_host_evidence():
     production = json.loads(PRODUCTION_HOOKS.read_text(encoding="utf-8"))
     assert {"PreToolUse", "PostToolUse", "SubagentStop"}.issubset(staged["hooks"])
     assert set(production["hooks"]) == {"PreToolUse"}
-    assert "Only after H01-H07 pass may the staged `docs/v4/hooks.json` be promoted" in RELEASE.read_text(encoding="utf-8")
+    assert "Only after H00-H10 pass may the staged `docs/v4/hooks.json` be promoted" in RELEASE.read_text(encoding="utf-8")
 
 
 def test_release_contract_freezes_two_skills_and_five_profile_identities():
@@ -135,7 +129,7 @@ def test_release_sequence_keeps_host_and_human_gates_after_offline_ci():
     release = RELEASE.read_text(encoding="utf-8")
     order = [
         "repository matrix PASS",
-        "real Host H01-H07 PASS",
+        "real Host H00-H10 PASS",
         "promote staged V4 Hooks",
         "repository matrix PASS again",
         "Doctor --release-check PASS",
