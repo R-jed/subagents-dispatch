@@ -20,7 +20,7 @@
       "id": "TD-V4-DOCTOR-COMPAT-DECOUPLE",
       "priority": "P2",
       "status": "DEFERRED_POST_HOST_VALIDATION",
-      "current_condition": "doctor_runtime imports doctor_core as a compatibility provider for mature Host/runtime/permission evidence diagnostics",
+      "current_condition": "doctor_runtime_core imports doctor_core as a compatibility provider for mature Host/runtime/permission evidence diagnostics",
       "risk_of_now": "Splitting the compatibility core before real Host evidence is available would create broad diagnostic churn while the release gate still depends on those evidence paths",
       "target": "Extract reusable Host, runtime-route, permission, and legacy diagnostics into narrowly scoped modules, then retire the V3 six-Skill Doctor core from the V4 runtime dependency graph",
       "acceptance": [
@@ -31,5 +31,5 @@
       ]
     }
   ],
-  "release_policy": "These structural items are tracked debt and are not substitutes for the real Host H01-H07 gate. They remain deferred while the exact RC is awaiting Host validation."
+  "release_policy": "These structural items are tracked debt and are not substitutes for the real Host H00-H20 gate. They remain deferred while the exact RC is awaiting external candidate-bound Host validation."
 }
