@@ -1,0 +1,27 @@
+{
+  "schema_version": "4.0.0-engineering-baseline-1",
+  "family": "V3.x Hardened Baseline",
+  "branch": "main",
+  "commit": "1252c366756b1f981c845f7664da14c0f81eac20",
+  "release_lineage": {
+    "v3.0.0": "f90105f4a9f0ecdf94c8306095d80a92ab995370",
+    "v3.0.1": "bfc4e249ba1acc75876dab1b43cedb9f321ee829"
+  },
+  "post_release_hardening": [
+    {
+      "commit": "d563a06bb0e4abd4eaa79316e28e88ca6c6766c1",
+      "change": "managed spawn guard introduced after the v3.0.1 release"
+    },
+    {
+      "commit": "12fcbe8c74833423eb37b3c35466a439b454d150",
+      "change": "Doctor package integrity bootstrap"
+    }
+  ],
+  "v4_branching_rule": "Every V4 phase branch must descend from this hardened baseline or from a newer main commit that includes it.",
+  "migration_note": "V3.x state names the legacy state-protocol family. It does not mean the V4 engineering code baseline is the original V3.0.0 release.",
+  "phase0_guard_evidence": {
+    "baseline_spawn_guard_failure_exit_code": 78,
+    "codex_pre_tool_use_blocking_exit_code": 2,
+    "phase0_fix_required": true
+  }
+}
