@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-scheduler-1",
+  "schema_version": "4.0.0-scheduler-2",
   "mode": "wakeup_driven_reconcile",
   "background_daemon": false,
   "wakeup_reasons": [
@@ -13,6 +13,11 @@
   ],
   "dependency_truth": "WorkUnit.ACCEPTED",
   "host_completed_effect": "RESULT_READY",
+  "host_occupancy_truth": "latest_authoritative_list_agents_observation",
+  "host_occupancy_observation_required_before_fresh_start": true,
+  "one_host_observation_fresh_spawn_max": 1,
+  "mixed_managed_unmanaged_occupancy": true,
+  "settled_resident_reclaim": "one_bounded_host_attempt",
   "initial_managed_children_max": 2,
   "product_managed_children_max": 3,
   "unknown_host_capacity_managed_children_max": 1,
