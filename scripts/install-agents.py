@@ -268,7 +268,7 @@ def validate_sources() -> None:
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
-            fail(f"Invalid Agent profile {filename}: {exc}")
+            fail(f"Invalid Agent profile {path}: {exc}")
         actual = (
             str(data.get("name", "")).strip(),
             str(data.get("model", "")).strip(),
