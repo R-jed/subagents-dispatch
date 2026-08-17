@@ -149,10 +149,14 @@ def current_review_artifact_id(repo: Path) -> str:
         receipt = _review_module().build_receipt(repo)
     except Exception as exc:
         raise ReleaseEvidenceError(f"current review artifact identity is unavailable: {exc}") from exc
-    artifact_id = getattr(receipt, "artifact_id", None)
-    if not _valid_hex(artifact_id, 64):
+    artifact_id = receipt.get("review_artifact_id") if isinstance(receipt, Mapping) else None
+    if (
+        not isinstance(artifact_id, str)
+        or not artifact_id.startswith("sha256:")
+        or not _valid_hex(artifact_id.removeprefix("sha256:"), 64)
+    ):
         raise ReleaseEvidenceError("current review artifact identity is malformed")
-    return str(artifact_id)
+    return artifact_id
 
 
 def _load_evidence(value: Mapping[str, Any] | Path) -> tuple[dict[str, Any] | None, list[str]]:
