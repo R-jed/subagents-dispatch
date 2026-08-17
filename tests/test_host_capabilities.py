@@ -28,6 +28,7 @@ def load_module():
 
 def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) -> dict:
     lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
+    paired_observation = [*lifecycle, "list_agents"]
     return {
         "surface": "multi_agent_v2",
         "tools": [
@@ -39,8 +40,10 @@ def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) 
             "interrupt_agent",
         ],
         "hooks": {
-            "PreToolUse": lifecycle,
-            "PostToolUse": lifecycle if post else ["spawn_agent", "interrupt_agent"],
+            "PreToolUse": paired_observation,
+            "PostToolUse": paired_observation
+            if post
+            else ["spawn_agent", "interrupt_agent", "list_agents"],
             "SubagentStop": stop,
         },
         "fork_turns_none": True,
@@ -97,6 +100,21 @@ def test_missing_lifecycle_post_hook_fails_closed():
     assert snapshot["execution_ready"] is False
     assert snapshot["capabilities"]["post_tool_use_guard"] is False
     assert "post_tool_use_guard" in snapshot["missing"]
+
+
+def test_host_observation_requires_paired_pre_and_post_hooks():
+    module = load_module()
+    payload = evidence()
+    payload["hooks"]["PreToolUse"] = [
+        "spawn_agent",
+        "followup_task",
+        "interrupt_agent",
+    ]
+    snapshot = module.normalize_host_capabilities(payload)
+
+    assert snapshot["execution_ready"] is False
+    assert snapshot["capabilities"]["host_observation_guard"] is False
+    assert "host_observation_guard" in snapshot["missing"]
 
 
 def test_missing_subagent_stop_veto_fails_closed():
