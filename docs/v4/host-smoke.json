@@ -1,0 +1,88 @@
+{
+  "schema_version": "4.0.0-host-smoke-1",
+  "gate_id": "phase3-real-host-hook-coverage",
+  "status": "PENDING",
+  "blocks_phase": "phase4-scheduler-core",
+  "activation_manifest": "docs/v4/hooks.json",
+  "production_manifest_remains": "hooks/hooks.json",
+  "inherited_evidence": [
+    {
+      "source": "PR #66",
+      "head_commit": "d563a06bb0e4abd4eaa79316e28e88ca6c6766c1",
+      "proves": [
+        "packaged PreToolUse spawn_agent guard configuration",
+        "four-platform offline CI",
+        "official Plugin validator pass",
+        "managed profile lifecycle pass"
+      ],
+      "does_not_prove": [
+        "real Host execution of PreToolUse for spawn_agent",
+        "PostToolUse coverage",
+        "followup_task Hook coverage",
+        "interrupt_agent Hook coverage",
+        "SubagentStop veto behavior"
+      ],
+      "satisfies_runtime_gate": false
+    }
+  ],
+  "required_probes": [
+    {
+      "id": "H01",
+      "operation": "spawn_agent",
+      "requires": [
+        "PreToolUse observed",
+        "PostToolUse observed",
+        "same tool_use_id across PreToolUse and PostToolUse"
+      ]
+    },
+    {
+      "id": "H02",
+      "operation": "followup_task",
+      "requires": [
+        "PreToolUse observed",
+        "PostToolUse observed",
+        "same tool_use_id across PreToolUse and PostToolUse"
+      ]
+    },
+    {
+      "id": "H03",
+      "operation": "interrupt_agent",
+      "requires": [
+        "PreToolUse observed",
+        "PostToolUse observed",
+        "same tool_use_id across PreToolUse and PostToolUse"
+      ]
+    },
+    {
+      "id": "H04",
+      "operation": "SubagentStop",
+      "requires": [
+        "managed agent stop event observed",
+        "continue false prevents automatic continuation"
+      ]
+    },
+    {
+      "id": "H05",
+      "operation": "managed child sibling followup",
+      "requires": [
+        "PreToolUse blocks sibling lifecycle control"
+      ]
+    },
+    {
+      "id": "H06",
+      "operation": "managed child sibling interrupt",
+      "requires": [
+        "PreToolUse blocks sibling lifecycle control"
+      ]
+    },
+    {
+      "id": "H07",
+      "operation": "missing PostToolUse",
+      "requires": [
+        "control is not acknowledged",
+        "unresolved control remains fail closed"
+      ]
+    }
+  ],
+  "pass_policy": "All required probes must have captured real Host evidence from the staged V4 Hook manifest before phase 4 begins."
+}
