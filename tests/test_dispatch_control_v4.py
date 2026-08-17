@@ -55,7 +55,7 @@ def execution(*, lifecycle: str = "SPAWN_PENDING", authority: str = "none", epoc
         "attempt_no": 1,
         "profile_id": profile,
         "agent_id": None,
-        "native_task_name": "sd-u1-a1",
+        "native_task_name": "sd_u1_a1",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "granted_authority": authority,
@@ -92,7 +92,7 @@ def test_spawn_control_is_prepared_consumed_and_acknowledged_once(tmp_path: Path
     control = load_module("control_v4_spawn", CONTROL_PATH)
     persist(state_module, tmp_path)
     tool_input = {
-        "task_name": "sd-u1-a1",
+        "task_name": "sd_u1_a1",
         "message": "read one bounded area",
         "agent_type": "subagents_dispatch_reader",
         "fork_turns": "none",
@@ -131,7 +131,7 @@ def test_spawn_control_is_prepared_consumed_and_acknowledged_once(tmp_path: Path
         "thread-1",
         tool_name="spawn_agent",
         tool_input=tool_input,
-        tool_response={"task_name": "sd-u1-a1"},
+        tool_response={"task_name": "sd_u1_a1"},
         tool_use_id="tool-1",
         temp_root=tmp_path,
     )
@@ -153,7 +153,7 @@ def test_spawn_control_is_prepared_consumed_and_acknowledged_once(tmp_path: Path
         "thread-1",
         tool_name="spawn_agent",
         tool_input=tool_input,
-        tool_response={"task_name": "sd-u1-a1"},
+        tool_response={"task_name": "sd_u1_a1"},
         tool_use_id="tool-1",
         temp_root=tmp_path,
     )
@@ -164,7 +164,7 @@ def test_followup_advances_local_control_epoch_only_after_ack(tmp_path: Path):
     state_module = load_module("control_state_followup", STATE_PATH)
     control = load_module("control_v4_followup", CONTROL_PATH)
     persist(state_module, tmp_path, lifecycle="COMPLETED")
-    tool_input = {"target": "sd-u1-a1", "message": "fix the one acceptance miss"}
+    tool_input = {"target": "sd_u1_a1", "message": "fix the one acceptance miss"}
 
     control.prepare_control(
         "thread-1",
@@ -203,7 +203,7 @@ def test_payload_drift_cannot_ack_and_inflight_control_can_be_quarantined(tmp_pa
     control = load_module("control_v4_drift", CONTROL_PATH)
     persist(state_module, tmp_path)
     original = {
-        "task_name": "sd-u1-a1",
+        "task_name": "sd_u1_a1",
         "message": "read bounded scope",
         "agent_type": "subagents_dispatch_reader",
         "fork_turns": "none",
@@ -231,7 +231,7 @@ def test_payload_drift_cannot_ack_and_inflight_control_can_be_quarantined(tmp_pa
             "thread-1",
             tool_name="spawn_agent",
             tool_input=changed,
-            tool_response={"task_name": "sd-u1-a1"},
+            tool_response={"task_name": "sd_u1_a1"},
             tool_use_id="tool-drift",
             temp_root=tmp_path,
         )
@@ -248,7 +248,7 @@ def test_writer_control_requires_matching_lease_state_and_effect(tmp_path: Path)
     control = load_module("control_v4_writer", CONTROL_PATH)
     persist(state_module, tmp_path, authority="bounded-source-write")
     tool_input = {
-        "task_name": "sd-u1-a1",
+        "task_name": "sd_u1_a1",
         "message": "write bounded scope",
         "agent_type": "subagents_dispatch_worker",
         "fork_turns": "none",
@@ -281,7 +281,7 @@ def test_continue_and_followup_are_distinct_semantics_on_same_host_tool(tmp_path
     state_module = load_module("control_state_continue", STATE_PATH)
     control = load_module("control_v4_continue", CONTROL_PATH)
     persist(state_module, tmp_path, lifecycle="INTERRUPTED")
-    tool_input = {"target": "sd-u1-a1", "message": "continue the unchanged assignment"}
+    tool_input = {"target": "sd_u1_a1", "message": "continue the unchanged assignment"}
 
     prepared = control.prepare_control(
         "thread-1",
