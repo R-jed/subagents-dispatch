@@ -169,7 +169,11 @@ def scheduler_decision(
     else:
         host_free = max(0, host_capacity - resident)
 
-    launch_budget = min(product_free, host_free)
+    # One authoritative occupancy observation can authorize at most one fresh
+    # Host mutation. A successful lifecycle PostToolUse invalidates the
+    # observation, so event-driven refill must observe again before another
+    # child can be admitted.
+    launch_budget = min(product_free, host_free, 1)
     if (
         capacity_observation is not None
         and host_capacity is not None
