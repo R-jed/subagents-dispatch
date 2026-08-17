@@ -9,6 +9,7 @@ Real Hook coverage is validated later by Host smoke tests.
 from __future__ import annotations
 
 import copy
+import re
 from typing import Any, Mapping
 
 
@@ -31,6 +32,8 @@ TOOL_CAPABILITY_MAP = {
     "interrupt": {"interrupt_agent"},
 }
 SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
+GUARD_TRUST_FIELDS = {"manifest_sha256", "trusted_current_definition", "evidence_ref"}
+HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 class HostCapabilityError(RuntimeError):
@@ -148,6 +151,45 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "capacity_excludes_primary": True,
         "execution_ready": execution_ready,
         "missing": missing_capabilities,
+    }
+
+
+def build_guard_coverage_proof(
+    snapshot: Mapping[str, Any],
+    *,
+    session_id: str,
+    trust_evidence: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind current Host lifecycle capability and Hook trust evidence to one root session."""
+    if not isinstance(snapshot, Mapping) or snapshot.get("execution_ready") is not True:
+        raise HostCapabilityError("Guard coverage proof requires an execution-ready Host snapshot")
+    if not isinstance(session_id, str) or not session_id.strip():
+        raise HostCapabilityError("Guard coverage proof requires non-empty session_id")
+    capabilities = snapshot.get("capabilities")
+    if not isinstance(capabilities, Mapping):
+        raise HostCapabilityError("Guard coverage proof requires normalized capabilities")
+    for capability in ("pre_tool_use_guard", "post_tool_use_guard", "subagent_stop_veto"):
+        if capabilities.get(capability) is not True:
+            raise HostCapabilityError(f"Guard coverage proof requires {capability}")
+    if not isinstance(trust_evidence, Mapping) or set(trust_evidence) != GUARD_TRUST_FIELDS:
+        raise HostCapabilityError("Guard trust evidence has invalid fields")
+    digest = trust_evidence.get("manifest_sha256")
+    if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
+        raise HostCapabilityError("Guard trust evidence has invalid manifest SHA-256")
+    if trust_evidence.get("trusted_current_definition") is not True:
+        raise HostCapabilityError("current Hook definition is not proven trusted")
+    evidence_ref = trust_evidence.get("evidence_ref")
+    if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+        raise HostCapabilityError("Guard trust evidence requires evidence_ref")
+    return {
+        "schema_version": "4.0",
+        "session_id": session_id,
+        "manifest_sha256": digest,
+        "trusted_current_definition": True,
+        "pre_tool_use": True,
+        "post_tool_use": True,
+        "subagent_stop_veto": True,
+        "evidence_ref": evidence_ref,
     }
 
 
