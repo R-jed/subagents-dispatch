@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""V4 Orchestrate coexistence facade.
+"""V4 Orchestrate production facade.
 
 This module keeps orchestration decisions deterministic and Host-neutral. It can
-prepare state/control intents, but native Host tool execution remains outside
-this facade.
+prepare state/control intents, while native Host tool execution is performed by
+the Host-facing lifecycle layer.
 """
 
 from __future__ import annotations
