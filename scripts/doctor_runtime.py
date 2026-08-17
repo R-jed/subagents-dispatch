@@ -41,6 +41,7 @@ HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 PROFILE_DIR = ROOT / "agent-profiles"
 SKILLS = ROOT / "skills"
 EXPECTED_SKILLS = ("orchestrate", "doctor")
+EXPECTED_HOST_PROBES = tuple(f"H{index:02d}" for index in range(11))
 EXPECTED_PROFILES = {
     "reader": ("gpt-5.6-luna", "max"),
     "worker": ("gpt-5.6-luna", "max"),
@@ -84,6 +85,68 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise DoctorError(f"{path} must contain a JSON object")
     return payload
+
+
+def _is_hex64(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _validate_host_smoke_evidence(smoke: Mapping[str, Any]) -> tuple[bool, bool, str | None]:
+    """Validate Host-smoke structure and independently derive completeness."""
+    status = smoke.get("status")
+    if status not in {"PENDING", "PASS"}:
+        return False, False, "Host-smoke status must be PENDING or PASS"
+    required = smoke.get("required_probes")
+    if not isinstance(required, list):
+        return False, False, "Host-smoke required_probes must be an array"
+    required_ids: list[str] = []
+    for probe in required:
+        if not isinstance(probe, Mapping) or not isinstance(probe.get("id"), str):
+            return False, False, "Host-smoke required probe is malformed"
+        required_ids.append(probe["id"])
+    if len(required_ids) != len(set(required_ids)) or set(required_ids) != set(EXPECTED_HOST_PROBES):
+        return False, False, "Host-smoke required probes must be exactly H00-H10"
+
+    results = smoke.get("results")
+    if not isinstance(results, Mapping):
+        return False, False, "Host-smoke results must be an object"
+    unknown = set(results) - set(EXPECTED_HOST_PROBES)
+    if unknown:
+        return False, False, "Host-smoke results contain unsupported probe ids"
+
+    for probe_id, result in results.items():
+        if not isinstance(result, Mapping):
+            return False, False, f"Host-smoke result {probe_id} must be an object"
+        result_status = result.get("status")
+        if result_status not in {"PASS", "FAIL"}:
+            return False, False, f"Host-smoke result {probe_id} has invalid status"
+        evidence_ref = result.get("evidence_ref")
+        if result_status == "PASS" and (
+            not isinstance(evidence_ref, str) or not evidence_ref.strip()
+        ):
+            return False, False, f"Host-smoke result {probe_id} PASS requires evidence_ref"
+        if probe_id == "H00" and result_status == "PASS":
+            if not _is_hex64(result.get("manifest_sha256")):
+                return False, False, "Host-smoke H00 PASS requires manifest_sha256"
+            if result.get("trusted_current_definition") is not True:
+                return False, False, "Host-smoke H00 PASS requires current Hook trust"
+
+    complete = (
+        status == "PASS"
+        and set(results) == set(EXPECTED_HOST_PROBES)
+        and all(
+            isinstance(results[probe_id], Mapping)
+            and results[probe_id].get("status") == "PASS"
+            for probe_id in EXPECTED_HOST_PROBES
+        )
+    )
+    if status == "PASS" and not complete:
+        return False, False, "Host-smoke top-level PASS requires PASS evidence for every H00-H10 probe"
+    return True, complete, None
 
 
 def parse_args() -> argparse.Namespace:
@@ -443,20 +506,41 @@ def diagnose_hook_and_release() -> tuple[dict[str, Any], dict[str, Any]]:
         hook = layer("Lifecycle Hook coverage", "FAIL", str(exc))
         return hook, layer("Release readiness", "UNKNOWN", "Hook state cannot be classified")
     smoke_status = smoke.get("status")
+    valid_smoke, smoke_complete, smoke_error = _validate_host_smoke_evidence(smoke)
     production_events = sorted((production.get("hooks") or {}).keys()) if isinstance(production.get("hooks"), Mapping) else []
     staged_events = sorted((staged.get("hooks") or {}).keys()) if isinstance(staged.get("hooks"), Mapping) else []
+    if not valid_smoke:
+        hook = layer(
+            "Lifecycle Hook coverage",
+            "FAIL",
+            f"Host-smoke evidence is malformed: {smoke_error}",
+            smoke_status=smoke_status,
+            production_events=production_events,
+            staged_events=staged_events,
+            activation_manifest="docs/v4/hooks.json",
+            required_probes=list(EXPECTED_HOST_PROBES),
+        )
+        return hook, layer(
+            "Release readiness",
+            "UNKNOWN",
+            "V4.0.0 publication remains blocked by invalid Host-smoke evidence",
+            release_ready=False,
+            blocking_gate=smoke.get("gate_id"),
+        )
     hook = layer(
         "Lifecycle Hook coverage",
-        "OK" if smoke_status == "PASS" else "UNKNOWN",
+        "OK" if smoke_complete else "UNKNOWN",
         "real Host lifecycle Hook coverage is verified"
-        if smoke_status == "PASS"
+        if smoke_complete
         else "V4 lifecycle Hooks remain staged pending real Host smoke",
         smoke_status=smoke_status,
+        smoke_complete=smoke_complete,
         production_events=production_events,
         staged_events=staged_events,
         activation_manifest="docs/v4/hooks.json",
+        required_probes=list(EXPECTED_HOST_PROBES),
     )
-    release_ready = smoke_status == "PASS" and {"PreToolUse", "PostToolUse", "SubagentStop"}.issubset(production_events)
+    release_ready = smoke_complete and {"PreToolUse", "PostToolUse", "SubagentStop"}.issubset(production_events)
     release = layer(
         "Release readiness",
         "OK" if release_ready else "UNKNOWN",
