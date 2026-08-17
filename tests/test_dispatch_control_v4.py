@@ -142,7 +142,12 @@ def test_spawn_control_is_prepared_consumed_and_acknowledged_once(tmp_path: Path
     assert current is not None
     assert current["pending_controls"] == []
     assert current["executions"][0]["control_epoch"] == 0
-    assert any(event["ref"] == "control-ack:tool-1" for event in current["accounting_refs"])
+    assert any(
+        event["ref"] == "control-ack:control-1:tool-1"
+        and event.get("control_id") == "control-1"
+        and event.get("tool_use_id") == "tool-1"
+        for event in current["accounting_refs"]
+    )
 
     duplicate = control.acknowledge_control(
         "thread-1",
