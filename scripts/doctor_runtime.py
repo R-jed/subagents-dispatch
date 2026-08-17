@@ -77,6 +77,13 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+def release_predicate(report: Mapping[str, Any]) -> bool:
+    """Return the single publication predicate for one Doctor report."""
+    if not isinstance(report, Mapping):
+        return False
+    return report.get("healthy") is True and report.get("release_ready") is True
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -647,14 +654,16 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
         for item in development_layers
     )
     healthy = not production_unhealthy and not development_fail and not live_required_unverified
-    release_ready = bool(by_name["Release readiness"]["details"].get("release_ready"))
-    return {
+    release_candidate = bool(by_name["Release readiness"]["details"].get("release_ready"))
+    report = {
         "schema_version": 4,
         "healthy": healthy,
-        "release_ready": release_ready,
+        "release_ready": release_candidate,
         "layers": ordered,
         "development_layers": development_layers,
     }
+    report["release_ready"] = release_predicate(report)
+    return report
 
 
 def render_text(report: Mapping[str, Any], actions: list[str]) -> str:
@@ -718,7 +727,7 @@ def main() -> None:
 
     if args.check and not report["healthy"]:
         raise SystemExit(1)
-    if args.release_check and not report["release_ready"]:
+    if args.release_check and not release_predicate(report):
         raise SystemExit(1)
 
 
