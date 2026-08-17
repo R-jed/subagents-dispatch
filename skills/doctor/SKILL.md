@@ -1,70 +1,40 @@
 ---
 name: doctor
-description: Diagnose subagents-dispatch package, installation, spawn guard, managed profiles, state, Host, and runtime-route health; mutate only on explicit lifecycle intent.
+description: Diagnose the V4 package, two-Skill public surface, fixed profiles, state, Work Graph, WriterLease, PendingControl, Host capabilities, Hook evidence, and release readiness.
 ---
 
 # Doctor
 
-Diagnosis is read-only by default. Run `../../scripts/doctor.py --check` as the deterministic report owner and show its user-facing output verbatim. Do not rewrite statuses, hide `UNKNOWN`, or convert warnings into reassurance. Doctor never refreshes the Marketplace during ordinary diagnosis.
+Diagnosis is read-only by default. Run `../../scripts/doctor.py --check` as the deterministic diagnostic owner and show its user-facing output verbatim. Do not rewrite statuses, hide `UNKNOWN`, or claim release readiness when the Host smoke gate is pending.
 
-Before the eleven-layer report can start, `../../scripts/package_integrity.py` verifies the shipped runtime package against `.codex-plugin/package-integrity.json`. A bootstrap integrity failure is reported separately and is not a twelfth production layer.
+Before the report starts, `../../scripts/package_integrity.py` verifies the shipped runtime package against `.codex-plugin/package-integrity.json`. A bootstrap integrity failure terminates diagnosis safely.
 
-The production report has exactly eleven layers, in this order:
+The V4 report has exactly eleven layers, in this order:
 
 ```text
 Plugin
-Plugin installation
-Skills
-Spawn guard package
-Managed Agent profiles
-Dispatch state
-Codex Host
-Spawn guard runtime
-Runtime route
-Effective permission state
-Permission-source provenance
+Public Skills
+Fixed execution profiles
+V4 state
+Legacy V3.x state
+Work Graph
+WriterLease
+PendingControl
+Host capabilities
+Lifecycle Hook coverage
+Release readiness
 ```
 
-Keep evidence boundaries exact. Packaged configuration does not prove Host discovery, Hook trust, runtime route, permission state, or provenance. Missing evidence stays `UNKNOWN`. Do not edit Hook trust or `config.toml` to make Doctor green. The Experiment Plane remains separate from production health; compatibility calibration output belongs to development checks.
+Public Skills must resolve to exactly `Orchestrate` and `Doctor`. Fixed execution profiles are Luna Max, Terra High, and Sol High; dynamic reasoning-effort routing is outside V4.0.0.
 
-Use deterministic owners rather than reproducing their logic: `../../contracts/policy.json`, `../../contracts/state.md`, `../../contracts/guardrails.md`, `../../contracts/composition.md`, `../../docs/python-runtime.md`, `../../scripts/doctor_core.py`, `../../scripts/plugin_update.py`, `../../scripts/spawn_guard.py`, `../../scripts/install-agents.py`, `../../scripts/uninstall-agents.py`, `../../scripts/inspect-agent-runtime.py`, and `../../scripts/runtime-evidence.py`.
+Treat V4 state as thread-scoped, bounded and fail-closed. A valid legacy V3.x capsule is migration evidence only. Never silently rewrite or enroll it into V4. Unresolved V3.x ownership, active writers, pending takeover, corrupt state, `WriterLease.UNKNOWN`, or unresolved `PendingControl.UNKNOWN` must remain visible.
 
-Resolve one Python 3.11+ interpreter according to `../../docs/python-runtime.md` before invoking bundled Python helpers interactively. Hook launcher failure is a Hook-runtime limitation, not a Host role rejection.
+Host capability evidence is explicit input. Missing Host evidence stays `UNKNOWN`. Packaged `docs/v4/hooks.json` proves only the staged V4 Hook configuration. It does not prove Host discovery, Hook trust, `PreToolUse`/`PostToolUse` coverage, `SubagentStop` veto behavior, or `tool_use_id` continuity.
 
-## Explicit update check
+Use `../../scripts/doctor.py --release-check` only when evaluating a V4.0.0 release candidate. This must exit non-zero while `../../docs/v4/host-smoke.json` is pending. Offline CI cannot promote the real Host gate to PASS.
 
-Only when the user asks whether an update is available, run:
+Use deterministic owners rather than reproducing their logic: `../../contracts/policy.json`, `../../scripts/dispatch_state_v4.py`, `../../scripts/work_graph_v4.py`, `../../scripts/writer_lease_v4.py`, `../../scripts/dispatch_control_v4.py`, `../../scripts/host_capabilities.py`, `../../scripts/orchestration_guard.py`, `../../scripts/install-agents.py`, `../../scripts/uninstall-agents.py`, and `../../docs/v4/host-smoke.json`.
 
-```text
-<python-3.11+> ../../scripts/check-plugin-update.py --codex-home <active-codex-home>
-```
+Only explicit user intent may run lifecycle mutations. `--repair` may reconcile the five managed profiles. `--migrate-legacy` applies only to proven-owned legacy managed-profile installation state. It never migrates a live V3.x orchestration capsule. `--cleanup-stale` may remove only stale terminal legacy state through the hardened compatibility helper; active or corrupt state remains fail closed.
 
-This is an explicit network/cache-refresh operation. It may refresh only the configured `subagents-dispatch` Marketplace snapshot, then reads `codex plugin list --json`. It must not run `codex plugin add`, reconcile profiles, mutate Dispatch state, or edit Hook trust. Show its deterministic output verbatim; a failed or ambiguous check must not fall through into update.
-
-## Explicit update
-
-Only when the user asks to update or upgrade, run:
-
-```text
-<python-3.11+> ../../scripts/doctor.py --codex-home <active-codex-home> --update
-```
-
-`--update` is exclusive with other Doctor checks and mutations. The updater requires the canonical versioned Marketplace source, installs the exact `subagents-dispatch@subagents-dispatch` release when needed, verifies the returned installed root, manifest and package integrity before managed-profile reconciliation, rechecks installed identity, and runs the newly installed Doctor. It never edits Hook trust. Show its output verbatim and honor `[RESTART]`.
-
-`--repair`, `--migrate-legacy`, and `--cleanup-stale` are separate explicit mutation intents. Preserve unresolved writers, pending takeover, corrupt state, and unproven ownership. For managed-profile uninstall, run `../../scripts/uninstall-agents.py --codex-home <active-codex-home>` while the Plugin is still installed; never replace a refusal with wildcard deletion.
-
-## Explicit live route workflow
-
-Run live route verification only when explicitly requested. The Skill may create one bounded no-op child for each exact role:
-
-```text
-subagents_dispatch_reader
-subagents_dispatch_worker
-subagents_dispatch_solver
-subagents_dispatch_investigator
-subagents_dispatch_advisor
-```
-
-Spawn with `fork_turns = none`, delegation depth one, and no extra authority. Capture requested route, accepted role only when Host-exposed, parent/root and child identity, observed model/effort, effective permission state, and permission-source provenance only when directly evidenced. Settle every smoke child before returning.
-
-Prefer public Host metadata. If required fields are absent and the exact rollout is locally available, use `../../scripts/inspect-agent-runtime.py` with exact child, parent, and role identity. The inspector streams exactly one rollout and enforces bounded total-rollout and per-line input limits. Oversized rollout input fails closed. Normalize once through `../../scripts/runtime-evidence.py` with `runtime_observation_required=true` and `requires_permission_observation=true`; candidate source kinds remain policy-owned, direct Host source evidence maps to `native_permission_source`, exact local inspector source evidence maps to `local_permission_source`, and `requires_permission_provenance=true` is added only when the claim actually requires source/selection provenance. Never infer a source from equal permission values. Configured, Requested, Accepted, and Observed remain distinct. Any observed mismatch or native/local conflict is `FAIL`; unavailable facts remain `UNKNOWN` only in the affected dimension.
+For plugin update requests, use the existing package-integrity-protected `../../scripts/doctor.py --update` path. Never edit Hook trust or Host configuration to make Doctor green.
