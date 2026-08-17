@@ -99,6 +99,7 @@ def build_valid_evidence(module, repo: Path) -> dict:
         "schema_version": module.RELEASE_EVIDENCE_SCHEMA,
         "repository": module.EXPECTED_REPOSITORY,
         **identity,
+        "host_campaign_result_sha256": module.canonical_json_sha256(results),
         "host_campaign": campaign,
         "final_review": review,
     }
@@ -168,6 +169,20 @@ def test_host_campaign_requires_every_h00_through_h20_pass(tmp_path: Path):
     assert any("H12" in issue for issue in result["issues"])
 
 
+def test_host_campaign_result_digest_must_match_exact_results(tmp_path: Path):
+    module = load_module("rc3_release_host_digest", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    evidence = build_valid_evidence(module, repo)
+    original_digest = evidence["host_campaign_result_sha256"]
+
+    evidence["host_campaign"]["results"]["H13"]["evidence_ref"] = "host:tampered"
+    assert evidence["host_campaign_result_sha256"] == original_digest
+
+    result = module.verify_release_evidence(repo, evidence)
+    assert result["ok"] is False
+    assert any("host_campaign_result_sha256" in issue for issue in result["issues"])
+
+
 def test_final_review_must_be_ship_and_match_current_review_artifact(tmp_path: Path):
     module = load_module("rc3_release_review", "release_evidence_v4.py")
     repo = make_candidate(tmp_path)
@@ -196,6 +211,7 @@ def test_malformed_all_green_json_does_not_create_release_authority(tmp_path: Pa
         "runtime_manifest_sha256": "a" * 64,
         "production_hook_sha256": "b" * 64,
         "profile_contract_sha256": "c" * 64,
+        "host_campaign_result_sha256": "d" * 64,
         "host_campaign": {"status": "PASS"},
         "final_review": {"verdict": "ship"},
     }
