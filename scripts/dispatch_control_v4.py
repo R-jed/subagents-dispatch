@@ -244,6 +244,12 @@ def _matching_controls(
 
 
 def _tool_use_id_was_acknowledged(current: Mapping[str, Any], tool_use_id: str) -> bool:
+    if state.accounting_filter_contains(
+        current,
+        kind=state.CONTROL_ACK_FILTER_KIND,
+        value=tool_use_id,
+    ):
+        return True
     return any(
         isinstance(event, Mapping)
         and event.get("kind") == "control_ack"
@@ -392,7 +398,11 @@ def acknowledge_control(
                 tool_input=tool_input,
                 tool_use_id=tool_use_id,
             )
-            if historical:
+            if historical or state.accounting_filter_contains(
+                current,
+                kind=state.CONTROL_ACK_FILTER_KIND,
+                value=tool_use_id,
+            ):
                 raise ControlAlreadyAcknowledged("control acknowledgement already persisted")
             raise ControlError("PostToolUse does not match exactly one IN_FLIGHT control")
         if len(matches) != 1:
@@ -412,6 +422,8 @@ def acknowledge_control(
 
         _apply_writer_effect_on_ack(current, control=control, execution=execution)
         execution["control_epoch"] = control["next_control_epoch"]
+        if control["operation"] == "FOLLOWUP":
+            execution["followup_count"] = 1
         acknowledged.update(copy.deepcopy(control))
         acknowledged["state"] = "ACKED"
         current["pending_controls"].remove(control)
@@ -420,6 +432,8 @@ def acknowledge_control(
                 "ref": ack_ref,
                 "kind": "control_ack",
                 "control_id": control["control_id"],
+                "execution_id": execution["execution_id"],
+                "control_epoch": execution["control_epoch"],
                 "tool_use_id": tool_use_id,
                 "tool_name": tool_name,
                 "payload_digest": control["payload_digest"],
