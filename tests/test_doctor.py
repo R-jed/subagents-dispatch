@@ -124,18 +124,28 @@ def test_unresolved_v3_state_blocks_v4_health_and_is_not_silently_migrated(tmp_p
     home = tmp_path / "codex-home"
     install(home)
     legacy = load_module("doctor_legacy_state", "dispatch_state.py")
-    legacy.write_state(legacy.new_state(thread_id=THREAD), temp_root=tmp_path)
-    legacy.prepare_spawn(
-        THREAD,
-        "U1",
-        role="reader",
-        responsibility="bounded read",
-        ownership={"write": []},
-        authority="read-only",
-        task_name="sd-u1-a1",
-        writer=False,
-        temp_root=tmp_path,
+    payload = legacy.new_state(thread_id=THREAD)
+    payload["units"].append(
+        {
+            "unit_id": "U1",
+            "task_id": "task-1",
+            "attempt": 1,
+            "native_task_name": "sd-u1-a1-execute",
+            "agent_id": None,
+            "role": "worker",
+            "model_lane": "Luna Max",
+            "responsibility": {"outcome": "bounded change", "acceptance": "focused test passes"},
+            "authority": {"write_scope": ["owned.py"]},
+            "writer": True,
+            "control_state": "SPAWN_PENDING",
+            "adopted": False,
+            "accepted": False,
+            "failure_origin": "none",
+            "blocker": "none",
+            "quarantine_reason": None,
+        }
     )
+    legacy.write_state(payload, temp_root=tmp_path)
     result = run_doctor(home, tmp_path, "--check")
     assert result.returncode != 0
     assert "[FAIL] Legacy V3.x state:" in result.stdout
