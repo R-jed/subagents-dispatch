@@ -1,0 +1,7 @@
+interface:
+  display_name: "Subagents Dispatch: Orchestrate"
+  short_description: "Plan and control V4 Subagent orchestration"
+  default_prompt: "Use the Orchestrate skill to plan or execute this task with fixed V4 profiles, acceptance-gated dependencies, and one-writer safety."
+
+policy:
+  allow_implicit_invocation: false

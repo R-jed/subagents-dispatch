@@ -1,0 +1,33 @@
+{
+  "schema_version": "4.0.0-orchestrate-coexistence-1",
+  "public_target": ["orchestrate", "doctor"],
+  "coexistence_skills": [
+    "dispatch",
+    "doctor",
+    "orchestrate",
+    "preview",
+    "status",
+    "steer",
+    "takeover"
+  ],
+  "session_targeting": {
+    "control_requires_exact_orchestration_id": true,
+    "unrelated_request_auto_attaches": false
+  },
+  "plan_only": {
+    "creates_state": false,
+    "acquires_writer_lease": false,
+    "prepares_pending_control": false,
+    "host_actions": 0
+  },
+  "routing": {
+    "dynamic_reasoning_effort": false,
+    "reader": ["gpt-5.6-luna", "max"],
+    "worker": ["gpt-5.6-luna", "max"],
+    "investigator": ["gpt-5.6-terra", "high"],
+    "solver": ["gpt-5.6-sol", "high"],
+    "advisor": ["gpt-5.6-sol", "high"]
+  },
+  "host_execution": "native_host_only",
+  "lifecycle_hooks": "staged_until_release_runtime_validation"
+}
