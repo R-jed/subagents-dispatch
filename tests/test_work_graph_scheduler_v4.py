@@ -195,7 +195,7 @@ def test_critical_path_priority_prefers_longest_downstream_chain():
     assert decision["actions"][0]["priority"] > decision["actions"][1]["priority"]
 
 
-def test_initial_fanout_is_two_then_progressive_refill_uses_available_capacity():
+def test_initial_fanout_is_two_then_progressive_refill_requires_accepted_progress():
     state = load_module("p4_state_refill", "dispatch_state_v4.py")
     graph = load_module("p4_graph_refill", "work_graph_v4.py")
     scheduler = load_module("p4_scheduler_refill", "scheduler_v4.py")
@@ -227,15 +227,35 @@ def test_initial_fanout_is_two_then_progressive_refill_uses_available_capacity()
     ]
     payload["work_units"][0]["state"] = "EXECUTING"
     state.validate_state_payload(payload)
-    refill = scheduler.scheduler_decision(
+    no_progress = scheduler.scheduler_decision(
         payload,
         capability_snapshot=capability_snapshot(capacity=3),
-        wakeup_reason="CAPACITY_RELEASED",
+        wakeup_reason="AGENT_UPDATE",
     )
-    assert refill["initial_fanout"] is False
-    assert refill["occupied_slots"] == 1
-    assert refill["launch_budget"] == 2
-    assert len(refill["actions"]) == 2
+    assert no_progress["initial_fanout"] is True
+    assert no_progress["occupied_slots"] == 1
+    assert no_progress["launch_budget"] == 1
+    assert len(no_progress["actions"]) == 1
+
+    payload["executions"][0]["lifecycle"] = "COMPLETED"
+    payload["work_units"][0].update(
+        {
+            "state": "ACCEPTED",
+            "accepted_result_ref": "result:u1",
+            "accepted_execution_id": "exec-1",
+            "accepted_control_epoch": 0,
+        }
+    )
+    state.validate_state_payload(payload)
+    progressed = scheduler.scheduler_decision(
+        payload,
+        capability_snapshot=capability_snapshot(capacity=3),
+        wakeup_reason="AGENT_COMPLETED",
+    )
+    assert progressed["initial_fanout"] is False
+    assert progressed["occupied_slots"] == 1
+    assert progressed["launch_budget"] == 2
+    assert len(progressed["actions"]) == 2
 
 
 def test_acceptance_backpressure_stops_refill_at_two_unaccepted_results():
