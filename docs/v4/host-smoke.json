@@ -1,6 +1,6 @@
 {
-  "schema_version": "4.0.0-host-smoke-2",
-  "gate_id": "phase3-real-host-hook-coverage",
+  "schema_version": "4.0.0-host-smoke-3",
+  "gate_id": "phase8-real-host-lifecycle-coverage",
   "status": "PENDING",
   "blocks_phase": "phase8-supported-release",
   "blocks_release": "v4.0.0-production-hook-activation-and-publication",
@@ -17,23 +17,51 @@
         "managed profile lifecycle pass"
       ],
       "does_not_prove": [
+        "current Host trust of the exact V4 Hook definition",
         "real Host execution of PreToolUse for spawn_agent",
         "PostToolUse coverage",
         "followup_task Hook coverage",
         "interrupt_agent Hook coverage",
-        "SubagentStop veto behavior"
+        "SubagentStop veto behavior",
+        "Host tool_input representation compatibility",
+        "open spawned-thread capacity behavior",
+        "WriterLease activation after real PostToolUse"
       ],
       "satisfies_runtime_gate": false
     }
   ],
+  "evidence_hygiene": {
+    "store_raw_prompts": false,
+    "store_message_contents": false,
+    "store_child_transcripts": false,
+    "allowed_tool_input_evidence": [
+      "tool name",
+      "tool_use_id",
+      "sorted top-level key names",
+      "value type names",
+      "canonical SHA-256 digest",
+      "target or task_name when non-sensitive"
+    ]
+  },
   "required_probes": [
+    {
+      "id": "H00",
+      "operation": "Hook trust and activation",
+      "requires": [
+        "exact active lifecycle Hook definition hash captured",
+        "current Host trusts or enables that exact definition",
+        "captured hash matches the definition exercised by H01-H10"
+      ]
+    },
     {
       "id": "H01",
       "operation": "spawn_agent",
       "requires": [
         "PreToolUse observed",
         "PostToolUse observed",
-        "same tool_use_id across PreToolUse and PostToolUse"
+        "same tool_use_id across PreToolUse and PostToolUse",
+        "sanitized Pre/Post tool_input shape captured",
+        "canonical tool_input digest remains compatible with PendingControl"
       ]
     },
     {
@@ -42,7 +70,9 @@
       "requires": [
         "PreToolUse observed",
         "PostToolUse observed",
-        "same tool_use_id across PreToolUse and PostToolUse"
+        "same tool_use_id across PreToolUse and PostToolUse",
+        "sanitized Pre/Post tool_input shape captured",
+        "canonical tool_input digest remains compatible with PendingControl"
       ]
     },
     {
@@ -51,7 +81,9 @@
       "requires": [
         "PreToolUse observed",
         "PostToolUse observed",
-        "same tool_use_id across PreToolUse and PostToolUse"
+        "same tool_use_id across PreToolUse and PostToolUse",
+        "sanitized Pre/Post tool_input shape captured",
+        "canonical tool_input digest remains compatible with PendingControl"
       ]
     },
     {
@@ -59,13 +91,15 @@
       "operation": "SubagentStop",
       "requires": [
         "managed agent stop event observed",
-        "continue false prevents automatic continuation"
+        "continue false prevents automatic continuation",
+        "continue false still wins when another matching Hook requests continuation"
       ]
     },
     {
       "id": "H05",
       "operation": "managed child sibling followup",
       "requires": [
+        "managed child caller context is observable",
         "PreToolUse blocks sibling lifecycle control"
       ]
     },
@@ -73,17 +107,51 @@
       "id": "H06",
       "operation": "managed child sibling interrupt",
       "requires": [
+        "managed child caller context is observable",
         "PreToolUse blocks sibling lifecycle control"
       ]
     },
     {
       "id": "H07",
-      "operation": "missing PostToolUse",
+      "operation": "missing or failed PostToolUse",
       "requires": [
         "control is not acknowledged",
-        "unresolved control remains fail closed"
+        "unresolved or UNKNOWN control remains fail closed",
+        "conflicting lifecycle action remains blocked",
+        "writer ownership is not released from missing acknowledgement"
+      ]
+    },
+    {
+      "id": "H08",
+      "operation": "message payload representation compatibility",
+      "requires": [
+        "spawn_agent and followup_task message contents are not recorded",
+        "prepare-time and Hook-time sanitized key/type shapes are compared",
+        "prepare-time and Hook-time canonical digests match for the exact authorized call",
+        "any Host encryption or transformation is demonstrated compatible before publication"
+      ]
+    },
+    {
+      "id": "H09",
+      "operation": "open spawned-thread capacity and refill",
+      "requires": [
+        "Host capacity evidence is recorded as spawned threads open concurrently excluding primary",
+        "completed or interrupted child is tested before close to determine whether it still consumes capacity",
+        "closing the child releases capacity",
+        "scheduler refill after confirmed capacity release stays within product max three managed children"
+      ]
+    },
+    {
+      "id": "H10",
+      "operation": "writable lifecycle acknowledgement",
+      "requires": [
+        "writer SPAWN starts with matching RESERVED WriterLease",
+        "successful PostToolUse ACK and WriterLease activation are observed as one persisted transition boundary",
+        "WriterLease is HELD after successful writable SPAWN or reactivation",
+        "interrupt PostToolUse leaves WriterLease REVOKING until fresh settlement evidence",
+        "missing PostToolUse never promotes or releases WriterLease"
       ]
     }
   ],
-  "pass_policy": "All required probes must have captured real Host evidence from the V4 lifecycle Hook manifest before the release candidate is declared supported or V4.0.0 is published."
+  "pass_policy": "All required probes H00-H10 must have captured real Host evidence from the exact V4 lifecycle Hook definition before the release candidate is declared supported, production Hook activation is retained, or V4.0.0 is published."
 }
