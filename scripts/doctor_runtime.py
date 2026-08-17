@@ -50,6 +50,15 @@ def _validate_host_smoke_evidence(smoke: Mapping[str, Any]) -> tuple[bool, bool,
 _core.EXPECTED_HOST_PROBES = EXPECTED_HOST_PROBES
 _core._validate_host_smoke_evidence = _validate_host_smoke_evidence
 
+
+def diagnose_hook_and_release() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Delegate through the facade while honoring facade-bound contract paths."""
+    for name in ("HOST_SMOKE", "HOOKS", "STAGED_HOOKS"):
+        if name in globals():
+            setattr(_core, name, globals()[name])
+    return _core.diagnose_hook_and_release()
+
+
 for _name in dir(_core):
     if _name.startswith("__") or _name in {"EXPECTED_HOST_PROBES", "_validate_host_smoke_evidence"}:
         continue
