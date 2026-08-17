@@ -243,7 +243,7 @@ def _normalized_host_lifecycle(host_state: str) -> str:
 
 
 def _same_epoch_observation_regresses(existing: str, incoming: str) -> bool:
-    """Reject delayed same-generation evidence that would reopen settled work."""
+    """Classify lifecycle movement that is invalid after current-generation proof exists."""
     if existing == "UNKNOWN":
         return False
     if existing == "CLOSED":
@@ -253,6 +253,19 @@ def _same_epoch_observation_regresses(existing: str, incoming: str) -> bool:
     if existing == "INTERRUPTED":
         return incoming in {"SPAWN_PENDING", "RUNNING"}
     return False
+
+
+def _lifecycle_is_proven_in_current_epoch(
+    current: Mapping[str, Any], execution: Mapping[str, Any]
+) -> bool:
+    return any(
+        isinstance(event, Mapping)
+        and event.get("kind") == "host_observation"
+        and event.get("execution_id") == execution["execution_id"]
+        and event.get("control_epoch") == execution["control_epoch"]
+        and event.get("lifecycle") == execution["lifecycle"]
+        for event in current.get("accounting_refs", [])
+    )
 
 
 def persist_host_observation(
@@ -274,9 +287,13 @@ def persist_host_observation(
         current_basis = state.observation_basis(current, execution_id=execution_id)
         if dict(current_basis) != dict(basis):
             raise StaleObservation("Host observation basis is stale")
-        existing = _execution(current, execution_id)["lifecycle"]
+        current_execution = _execution(current, execution_id)
+        existing = current_execution["lifecycle"]
         incoming = _normalized_host_lifecycle(host_state)
-        if _same_epoch_observation_regresses(existing, incoming):
+        if (
+            _lifecycle_is_proven_in_current_epoch(current, current_execution)
+            and _same_epoch_observation_regresses(existing, incoming)
+        ):
             raise StaleObservation("Host observation regresses lifecycle within one control epoch")
         reconciled = state.reconcile_execution_observation(
             current,
