@@ -1,5 +1,5 @@
 {
-  "description": "Staged V4 managed lifecycle Hook manifest. Activate only at the V4 cutover after isolated Host smoke passes.",
+  "description": "Staged V4 managed lifecycle and Host-observation Hook manifest. Activate only at the V4 cutover after isolated Host smoke passes.",
   "hooks": {
     "PreToolUse": [
       {
@@ -17,7 +17,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "spawn_agent|followup_task|interrupt_agent",
+        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents",
         "hooks": [
           {
             "type": "command",
