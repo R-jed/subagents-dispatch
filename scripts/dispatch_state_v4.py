@@ -10,7 +10,6 @@ Host evidence before the bounded state capsule can wedge on valid history.
 
 from __future__ import annotations
 
-import copy
 import hashlib
 from typing import Any, Callable, Mapping
 
@@ -28,9 +27,6 @@ CONTROL_ACK_FILTER_REF = "control-ack-filter:v1"
 OBSERVATION_RECEIPT_FILTER_REF = "host-observation-receipt-filter:v1"
 
 
-# Dynamic test loading imports this facade more than once under different module
-# names. Preserve stable pointers to the original core functions so wrappers do
-# not recursively wrap themselves across those imports.
 if not hasattr(_core, "_rc3_base_validate_state_payload"):
     _core._rc3_base_validate_state_payload = _core.validate_state_payload
 if not hasattr(_core, "_rc3_base_mutate_state"):
@@ -42,7 +38,6 @@ _BASE_MUTATE_STATE = _core._rc3_base_mutate_state
 def current_execution_for_unit(
     payload: Mapping[str, Any], *, unit_id: str
 ) -> Mapping[str, Any] | None:
-    """Return the unique greatest-attempt ExecutionBinding for one WorkUnit."""
     executions = [
         item
         for item in payload.get("executions", [])
@@ -70,7 +65,6 @@ def _canonical_scope(value: str) -> str:
 
 
 def _prevalidate_scope_canonical(payload: Any) -> None:
-    """Reject lexical aliases before any set/subset authority comparison."""
     if not isinstance(payload, Mapping):
         return
     for unit in payload.get("work_units", []):
@@ -219,7 +213,6 @@ def _filter_add(bits: int, value: str) -> int:
 def accounting_filter_contains(
     payload: Mapping[str, Any], *, kind: str, value: str
 ) -> bool:
-    """Return whether a compacted consumed-call filter contains one Host id."""
     if not isinstance(value, str) or not value:
         return False
     matches = [
@@ -346,7 +339,6 @@ def validate_state_payload(
     thread_id: str | None = None,
     max_bytes: int = _core.DEFAULT_MAX_BYTES,
 ) -> dict[str, Any]:
-    """Validate schema/storage safety and all RC3 correctness-bearing truths."""
     _prevalidate_scope_canonical(payload)
     state = _BASE_VALIDATE_STATE_PAYLOAD(
         payload,
@@ -367,8 +359,6 @@ def mutate_state(
     max_bytes: int = _core.DEFAULT_MAX_BYTES,
     now: Any = None,
 ) -> dict[str, Any]:
-    """Atomically mutate state and compact consumed accounting history first."""
-
     def bounded_mutator(current: dict[str, Any]) -> None:
         mutator(current)
         _compact_accounting_refs(current)
@@ -383,13 +373,9 @@ def mutate_state(
     )
 
 
-# Core functions resolve their module-global helpers at call time. Point those
-# names at the facade wrappers so load/write/mutate/reconcile paths cannot bypass
-# the RC3 truth kernel or accounting compaction.
 _core.validate_state_payload = validate_state_payload
 _core.mutate_state = mutate_state
 
-# Preserve the established dispatch_state_v4 public surface for existing callers.
 for _name in dir(_core):
     if not _name.startswith("__") and _name not in {"validate_state_payload", "mutate_state"}:
         globals()[_name] = getattr(_core, _name)
