@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 import sys
@@ -101,16 +102,18 @@ def test_v4_runtime_separates_workunit_execution_control_and_writer_truth():
 
 def test_same_child_reuse_and_takeover_are_not_fresh_attempt_shortcuts():
     lifecycle = load_module("coord_lifecycle", "execution_lifecycle_v4.py")
+    writer = load_module("coord_writer", "writer_lease_v4.py")
     assert callable(lifecycle.prepare_same_child_followup)
     assert callable(lifecycle.prepare_same_child_continue)
     assert callable(lifecycle.prepare_interrupt)
     assert callable(lifecycle.takeover_to_main)
     source = (SCRIPTS / "execution_lifecycle_v4_core.py").read_text(encoding="utf-8")
     assert "followup_count" in source
-    writer = (SCRIPTS / "writer_lease_v4.py").read_text(encoding="utf-8")
-    assert "AUTHORITATIVE_OBSERVATION_SOURCE" in writer
-    assert "guard_coverage" not in writer
-    assert "observation" in writer.lower()
+    assert writer.AUTHORITATIVE_OBSERVATION_SOURCE == "post_tool_use:list_agents"
+    assert "guard_coverage" not in inspect.signature(writer.release_settled_execution_writer).parameters
+    assert "guard_coverage" not in inspect.signature(
+        writer.transfer_settled_execution_writer_to_main
+    ).parameters
 
 
 def test_public_v4_surface_is_two_skills_and_review_identity_is_retained():
