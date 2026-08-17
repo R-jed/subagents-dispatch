@@ -1,7 +1,7 @@
 {
   "name": "subagents-dispatch",
-  "version": "3.0.1",
-  "description": "Let the main Codex session lead a specialist Subagent team with adaptive delegation, preview, live control, and evidence-bound handoffs.",
+  "version": "4.0.0",
+  "description": "Main-led Codex subagent orchestration with bounded delegation, one-writer safety, lifecycle controls, and evidence-bound acceptance.",
   "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",
   "repository": "https://github.com/R-jed/subagents-dispatch",
@@ -10,8 +10,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "subagents-dispatch",
-    "shortDescription": "Adaptive Subagent delegation with preview and live control.",
-    "longDescription": "subagents-dispatch lets the current session act as team leader through six explicit Skills. Dispatch starts or resumes value-driven orchestration. Preview predicts likely delegation without execution. Status observes once, Steer guides an unchanged attempt, Takeover safely returns responsibility to Main, and Doctor diagnoses installation and runtime health. Shared contracts preserve bounded recovery, one-writer safety, evidence-bound handoffs, compact factual receipts, and consequence-driven independent review.",
+    "shortDescription": "Bounded Main-led Subagent orchestration and diagnostics.",
+    "longDescription": "subagents-dispatch V4 exposes two explicit Skills. Orchestrate plans, executes, observes, corrects, resumes, takes over, verifies, and integrates bounded Subagent work through the V4 Work Graph, PendingControl, and WriterLease model. Doctor validates package integrity, the fixed Luna Max / Terra High / Sol High profiles, V4 state, legacy-state isolation, Host capability evidence, staged lifecycle Hooks, and release readiness.",
     "developerName": "R-jed",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -23,12 +23,8 @@
     "logo": "./assets/subagents-dispatch-logo.svg",
     "screenshots": [],
     "defaultPrompt": [
-      "Use the Dispatch skill to complete this task, delegating only when it adds distinct value.",
-      "Use the Preview skill to predict how this task would be orchestrated without execution.",
-      "Use the Status skill to inspect the current orchestration once.",
-      "Use the Steer skill to guide one unchanged delegated attempt.",
-      "Use the Takeover skill to safely return one delegated responsibility to Main.",
-      "Use the Doctor skill to diagnose this subagents-dispatch installation and configuration."
+      "Use the Orchestrate skill to complete this task with bounded delegation only where it adds value.",
+      "Use the Doctor skill to diagnose this subagents-dispatch installation and V4 release readiness."
     ]
   }
 }
