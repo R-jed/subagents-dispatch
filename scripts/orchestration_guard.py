@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Managed lifecycle Hook guard for V4 PendingControl.
-
-During V4 development this guard preserves V3 spawn compatibility while enforcing
-V4 single-use controls. Managed children never receive lifecycle authority.
-"""
+"""Managed lifecycle and Host-evidence Hook guard for V4 orchestration."""
 
 from __future__ import annotations
 
@@ -20,6 +16,7 @@ if sys.platform == "win32":
 import dispatch_control_v4 as control
 import dispatch_state as state_v3
 import dispatch_state_v4 as state_v4
+import host_evidence_v4 as host_evidence
 import managed_execution_v4 as managed_execution
 import spawn_guard
 
@@ -28,6 +25,7 @@ PRE_TOOL_USE = "PreToolUse"
 POST_TOOL_USE = "PostToolUse"
 SUBAGENT_STOP = "SubagentStop"
 LIFECYCLE_TOOLS = {"spawn_agent", "followup_task", "interrupt_agent"}
+OBSERVATION_TOOL = "list_agents"
 RESERVED_AGENT_PREFIX = "subagents_dispatch_"
 MAX_STDIN_BYTES = 2 * 1024 * 1024
 BLOCKING_EXIT_CODE = 2
@@ -170,6 +168,20 @@ def evaluate_pre_tool_use(
     return None
 
 
+def _evaluate_host_observation(
+    payload: Mapping[str, Any],
+    *,
+    temp_root: str | os.PathLike[str] | None,
+) -> dict[str, Any] | None:
+    try:
+        host_evidence.ingest_list_agents_post_tool_use(payload, temp_root=temp_root)
+    except host_evidence.HostEvidenceError:
+        return _stop("Host lifecycle observation is invalid or unbound; execution stopped")
+    except Exception:
+        return _stop("Host lifecycle observation could not be persisted safely; execution stopped")
+    return None
+
+
 def evaluate_post_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -178,6 +190,8 @@ def evaluate_post_tool_use(
     if payload.get("hook_event_name") != POST_TOOL_USE:
         return None
     tool_name = payload.get("tool_name")
+    if tool_name == OBSERVATION_TOOL:
+        return _evaluate_host_observation(payload, temp_root=temp_root)
     if tool_name not in LIFECYCLE_TOOLS:
         return None
     if _is_managed_agent_type(payload.get("agent_type")):
