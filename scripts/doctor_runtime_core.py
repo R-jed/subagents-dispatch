@@ -42,7 +42,10 @@ HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 PROFILE_DIR = ROOT / "agent-profiles"
 SKILLS = ROOT / "skills"
 EXPECTED_SKILLS = ("orchestrate", "doctor")
-EXPECTED_HOST_PROBES = tuple(f"H{index:02d}" for index in range(11))
+EXPECTED_HOST_PROBES = release_evidence_v4.REQUIRED_HOST_PROBES
+HOST_CONTRACT_VERSION = release_evidence_v4.HOST_CAMPAIGN_CONTRACT_VERSION
+HOST_ENVIRONMENT_FIELDS = sorted(release_evidence_v4.HOST_ENVIRONMENT_FIELDS)
+HOST_RESULT_FIELDS = sorted(release_evidence_v4.HOST_RESULT_FIELDS)
 EXPECTED_PROFILES = {
     "reader": ("gpt-5.6-luna", "max"),
     "worker": ("gpt-5.6-luna", "max"),
@@ -104,57 +107,32 @@ def _is_hex64(value: Any) -> bool:
 
 
 def _validate_host_smoke_evidence(smoke: Mapping[str, Any]) -> tuple[bool, bool, str | None]:
-    """Validate Host-smoke structure and independently derive completeness."""
-    status = smoke.get("status")
-    if status not in {"PENDING", "PASS"}:
-        return False, False, "Host-smoke status must be PENDING or PASS"
+    """Validate the tracked H00-H20 Host contract; runtime PASS stays external."""
+    if not isinstance(smoke, Mapping):
+        return False, False, "Host-smoke contract must be an object"
+    if smoke.get("schema_version") != HOST_CONTRACT_VERSION:
+        return False, False, "Host-smoke contract schema_version is unsupported"
+    if smoke.get("status") != "PENDING":
+        return False, False, "tracked Host-smoke contract must remain PENDING"
     required = smoke.get("required_probes")
     if not isinstance(required, list):
         return False, False, "Host-smoke required_probes must be an array"
-    required_ids: list[str] = []
-    for probe in required:
-        if not isinstance(probe, Mapping) or not isinstance(probe.get("id"), str):
-            return False, False, "Host-smoke required probe is malformed"
-        required_ids.append(probe["id"])
-    if len(required_ids) != len(set(required_ids)) or set(required_ids) != set(EXPECTED_HOST_PROBES):
-        return False, False, "Host-smoke required probes must be exactly H00-H10"
-
-    results = smoke.get("results")
-    if not isinstance(results, Mapping):
-        return False, False, "Host-smoke results must be an object"
-    unknown = set(results) - set(EXPECTED_HOST_PROBES)
-    if unknown:
-        return False, False, "Host-smoke results contain unsupported probe ids"
-
-    for probe_id, result in results.items():
-        if not isinstance(result, Mapping):
-            return False, False, f"Host-smoke result {probe_id} must be an object"
-        result_status = result.get("status")
-        if result_status not in {"PASS", "FAIL"}:
-            return False, False, f"Host-smoke result {probe_id} has invalid status"
-        evidence_ref = result.get("evidence_ref")
-        if result_status == "PASS" and (
-            not isinstance(evidence_ref, str) or not evidence_ref.strip()
-        ):
-            return False, False, f"Host-smoke result {probe_id} PASS requires evidence_ref"
-        if probe_id == "H00" and result_status == "PASS":
-            if not _is_hex64(result.get("manifest_sha256")):
-                return False, False, "Host-smoke H00 PASS requires manifest_sha256"
-            if result.get("trusted_current_definition") is not True:
-                return False, False, "Host-smoke H00 PASS requires current Hook trust"
-
-    complete = (
-        status == "PASS"
-        and set(results) == set(EXPECTED_HOST_PROBES)
-        and all(
-            isinstance(results[probe_id], Mapping)
-            and results[probe_id].get("status") == "PASS"
-            for probe_id in EXPECTED_HOST_PROBES
-        )
+    ids = [item.get("id") for item in required if isinstance(item, Mapping)]
+    if len(ids) != len(required) or tuple(ids) != EXPECTED_HOST_PROBES:
+        return False, False, "Host-smoke required probes must be exactly ordered H00-H20"
+    if smoke.get("required_environment_fields") != HOST_ENVIRONMENT_FIELDS:
+        return False, False, "Host-smoke environment field contract is unsupported"
+    if smoke.get("required_result_fields") != HOST_RESULT_FIELDS:
+        return False, False, "Host-smoke result field contract is unsupported"
+    h20 = next(
+        (item for item in required if isinstance(item, Mapping) and item.get("id") == "H20"),
+        None,
     )
-    if status == "PASS" and not complete:
-        return False, False, "Host-smoke top-level PASS requires PASS evidence for every H00-H10 probe"
-    return True, complete, None
+    if not isinstance(h20, Mapping) or h20.get("platform") != "windows":
+        return False, False, "Host-smoke H20 must require Windows"
+    if smoke.get("results") != {}:
+        return False, False, "tracked Host-smoke contract cannot contain authoritative runtime results"
+    return True, False, None
 
 
 def parse_args() -> argparse.Namespace:
