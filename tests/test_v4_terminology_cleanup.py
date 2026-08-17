@@ -33,4 +33,5 @@ def test_deferred_structural_debt_is_explicit():
         "TD-V4-DOCTOR-COMPAT-DECOUPLE",
     }
     assert {item["status"] for item in items.values()} == {"DEFERRED_POST_HOST_VALIDATION"}
-    assert "H01-H07" in payload["release_policy"]
+    assert "H00-H20" in payload["release_policy"]
+    assert "H01-H07" not in payload["release_policy"]
