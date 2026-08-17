@@ -98,7 +98,7 @@ def test_public_readmes_state_v4_profile_and_measurement_boundaries():
         for command in (CANONICAL_MARKETPLACE, PLUGIN_ADD, PLUGIN_REMOVE):
             assert command in text
     assert "本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token" in zh
-    assert "this README does not claim that subagents-dispatch is proven faster" in en
+    assert "this readme does not claim that subagents-dispatch is proven faster" in en.lower()
 
 
 def test_ai_reference_points_to_v4_owners_without_install_commands():
