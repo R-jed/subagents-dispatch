@@ -67,7 +67,7 @@ def make_execution(
         "attempt_no": attempt_no,
         "profile_id": profile_id,
         "agent_id": None,
-        "native_task_name": f"sd-{unit_id.lower()}-a{attempt_no}",
+        "native_task_name": f"sd_{unit_id.lower()}_a{attempt_no}",
         "model": model,
         "effort": effort,
         "granted_authority": authority,
@@ -114,7 +114,7 @@ def test_reader_binding_cannot_prepare_worker_agent_type(tmp_path: Path):
     state.write_state(payload, temp_root=tmp_path)
 
     mismatched = {
-        "task_name": "sd-u1-a1",
+        "task_name": "sd_u1_a1",
         "message": "inspect only",
         "agent_type": "subagents_dispatch_worker",
         "fork_turns": "none",
@@ -140,7 +140,7 @@ def test_managed_spawn_requires_fork_turns_none_at_prepare_boundary(tmp_path: Pa
     state.write_state(payload, temp_root=tmp_path)
 
     bad = {
-        "task_name": "sd-u1-a1",
+        "task_name": "sd_u1_a1",
         "message": "inspect only",
         "agent_type": "subagents_dispatch_reader",
         "fork_turns": "all",

@@ -65,7 +65,7 @@ def execution(
         "attempt_no": 1,
         "profile_id": "worker" if writable else "reader",
         "agent_id": None,
-        "native_task_name": task_name or f"sd-{unit_id.lower()}-a1",
+        "native_task_name": task_name or f"sd_{unit_id.lower()}_a1",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "granted_authority": authority,
@@ -120,7 +120,7 @@ def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
     }
     state.write_state(payload, temp_root=tmp_path)
     tool_input = {
-        "task_name": "sd-u1-a1",
+        "task_name": "sd_u1_a1",
         "message": "bounded write",
         "agent_type": "subagents_dispatch_worker",
         "fork_turns": "none",
@@ -150,7 +150,7 @@ def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
         "thread-rc2",
         tool_name="spawn_agent",
         tool_input=tool_input,
-        tool_response={"task_name": "sd-u1-a1"},
+        tool_response={"task_name": "sd_u1_a1"},
         tool_use_id="tool-spawn-1",
         temp_root=tmp_path,
     )
@@ -225,7 +225,7 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
         "thread-crash",
         unit_id="U1",
         execution_id="exec-1",
-        native_task_name="sd-u1-a1",
+        native_task_name="sd_u1_a1",
         profile_id="worker",
         granted_authority="bounded-source-write",
         granted_write_scope=["src/u1.py"],
@@ -254,7 +254,7 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
         "thread-crash",
         tool_name="spawn_agent",
         tool_input=spawn,
-        tool_response={"task_name": "sd-u1-a1"},
+        tool_response={"task_name": "sd_u1_a1"},
         tool_use_id="tool-spawn",
         temp_root=tmp_path,
     )
@@ -270,7 +270,7 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
         **observe_common,
         "hook_event_name": "PostToolUse",
         "tool_response": [
-            {"agent_name": "/root/sd-u1-a1", "status": "running"}
+            {"agent_name": "/root/sd_u1_a1", "status": "running"}
         ],
     }
     assert guard.evaluate_pre_tool_use(observe_pre, temp_root=tmp_path) is None
@@ -291,7 +291,7 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
     assert intermediate["writer_lease"]["state"] == "REVOKING"
     assert intermediate["pending_controls"] == []
 
-    interrupt = {"target": "sd-u1-a1"}
+    interrupt = {"target": "sd_u1_a1"}
     recovered = lifecycle.prepare_interrupt(
         "thread-crash",
         execution_id="exec-1",

@@ -67,7 +67,7 @@ def execution() -> dict:
         "attempt_no": 1,
         "profile_id": "reader",
         "agent_id": "agent-id-1",
-        "native_task_name": "sd-u1-a1",
+        "native_task_name": "sd_u1_a1",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "granted_authority": "none",
@@ -111,7 +111,7 @@ def list_agents_post(*, status: object = "running", session_id: str = "thread-ho
         "tool_input": {},
         "tool_response": [
             {
-                "agent_name": "/root/sd-u1-a1",
+                "agent_name": "/root/sd_u1_a1",
                 "status": status,
             }
         ],

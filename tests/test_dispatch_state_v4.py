@@ -76,7 +76,7 @@ def execution(
         "attempt_no": 1,
         "profile_id": profile_id,
         "agent_id": agent_id,
-        "native_task_name": f"sd-{unit_id.lower()}-a1",
+        "native_task_name": f"sd_{unit_id.lower()}_a1",
         "model": model,
         "effort": effort,
         "granted_authority": authority,
@@ -185,7 +185,7 @@ def test_v2_native_task_name_is_sufficient_when_agent_id_is_unavailable():
     state["executions"] = [execution(agent_id=None, lifecycle="RUNNING")]
 
     assert module.validate_state_payload(state) == state
-    assert state["executions"][0]["native_task_name"] == "sd-u1-a1"
+    assert state["executions"][0]["native_task_name"] == "sd_u1_a1"
 
 
 def test_read_only_profile_cannot_claim_write_authority():
@@ -231,7 +231,7 @@ def test_pending_controls_are_single_unresolved_control_per_execution():
         "unit_id": "U1",
         "execution_id": "exec-1",
         "operation": "INTERRUPT",
-        "target": "sd-u1-a1",
+        "target": "sd_u1_a1",
         "payload_digest": "a" * 64,
         "expected_team_plan_revision": None,
         "expected_control_epoch": 0,

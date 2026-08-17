@@ -38,7 +38,7 @@ guard = load_module("spawn_guard_under_test", SPAWN_GUARD)
 def unit(
     *,
     role: str = "worker",
-    task_name: str = "sd-u1-a1-execute",
+    task_name: str = "sd_u1_a1-execute",
     writer: bool = True,
 ) -> dict:
     return {
@@ -69,7 +69,7 @@ def unit(
     }
 
 
-def prepare(tmp_path: Path, *, role: str = "worker", task_name: str = "sd-u1-a1-execute") -> None:
+def prepare(tmp_path: Path, *, role: str = "worker", task_name: str = "sd_u1_a1-execute") -> None:
     payload = state.new_state(thread_id="root-thread")
     state.prepare_spawn(
         payload,
@@ -82,7 +82,7 @@ def hook_input(
     *,
     target_agent_type: str = "subagents_dispatch_worker",
     fork_turns: str | None = "none",
-    task_name: str = "sd-u1-a1-execute",
+    task_name: str = "sd_u1_a1-execute",
     caller_agent_type: str | None = None,
     session_id: str = "root-thread",
 ) -> dict:

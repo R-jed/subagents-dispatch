@@ -68,7 +68,7 @@ def make_execution(
         "attempt_no": attempt_no,
         "profile_id": profile_id,
         "agent_id": f"agent-{execution_id}",
-        "native_task_name": f"sd-{unit_id.lower()}-a{attempt_no}",
+        "native_task_name": f"sd_{unit_id.lower()}_a{attempt_no}",
         "model": model,
         "effort": effort,
         "granted_authority": authority,

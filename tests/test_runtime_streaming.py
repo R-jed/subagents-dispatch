@@ -246,10 +246,10 @@ def load_module():
     return module
 
 def unit(*, state='SPAWN_PENDING', agent_id=None):
-    return {'unit_id': 'U1', 'task_id': 'task-1', 'attempt': 1, 'native_task_name': 'sd-u1-a1-execute', 'agent_id': agent_id, 'role': 'worker', 'model_lane': 'Luna Max', 'responsibility': {'outcome': 'change one file', 'acceptance': 'focused test passes'}, 'authority': {'write_scope': ['owned.py']}, 'writer': True, 'control_state': state, 'adopted': False, 'accepted': False, 'failure_origin': 'none', 'blocker': 'none', 'quarantine_reason': None}
+    return {'unit_id': 'U1', 'task_id': 'task-1', 'attempt': 1, 'native_task_name': 'sd_u1_a1-execute', 'agent_id': agent_id, 'role': 'worker', 'model_lane': 'Luna Max', 'responsibility': {'outcome': 'change one file', 'acceptance': 'focused test passes'}, 'authority': {'write_scope': ['owned.py']}, 'writer': True, 'control_state': state, 'adopted': False, 'accepted': False, 'failure_origin': 'none', 'blocker': 'none', 'quarantine_reason': None}
 
 def observation(state):
-    return {'complete': True, 'children': [{'native_task_name': 'sd-u1-a1-execute', 'agent_id': 'agent-1', 'state': state}]}
+    return {'complete': True, 'children': [{'native_task_name': 'sd_u1_a1-execute', 'agent_id': 'agent-1', 'state': state}]}
 
 def test_current_codex_native_statuses_normalize_without_inventing_new_lifecycle_states():
     module = load_module()
@@ -292,7 +292,7 @@ def test_spawn_binding_reloads_canonical_state_and_preserves_concurrent_metadata
     assert concurrent is not None
     concurrent['accounting_refs'] = [{'ref': 'control:status:concurrent', 'kind': 'control', 'action': 'Status'}]
     module.write_state(concurrent, temp_root=tmp_path)
-    bound = module.bind_spawn_identity('thread-1', unit_id='U1', task_id='task-1', attempt=1, native_task_name='sd-u1-a1-execute', agent_id='agent-1', temp_root=tmp_path, now='2026-08-10T00:00:01Z')
+    bound = module.bind_spawn_identity('thread-1', unit_id='U1', task_id='task-1', attempt=1, native_task_name='sd_u1_a1-execute', agent_id='agent-1', temp_root=tmp_path, now='2026-08-10T00:00:01Z')
     record = bound['units'][0]
     assert record['control_state'] == 'RUNNING'
     assert record['agent_id'] == 'agent-1'
@@ -300,13 +300,13 @@ def test_spawn_binding_reloads_canonical_state_and_preserves_concurrent_metadata
     assert module.load_state('thread-1', temp_root=tmp_path) == bound
     assert prepared['units'][0]['agent_id'] is None
     with pytest.raises(module.StatePayloadError, match='no longer eligible'):
-        module.bind_spawn_identity('thread-1', unit_id='U1', task_id='task-1', attempt=1, native_task_name='sd-u1-a1-execute', agent_id='agent-2', temp_root=tmp_path)
+        module.bind_spawn_identity('thread-1', unit_id='U1', task_id='task-1', attempt=1, native_task_name='sd_u1_a1-execute', agent_id='agent-2', temp_root=tmp_path)
 
 def test_persisted_reconciliation_updates_same_capsule_without_losing_metadata(tmp_path: Path):
     module = load_module()
     initial = module.new_state(thread_id='thread-1', locale='zh')
     module.prepare_spawn(initial, unit(), temp_root=tmp_path)
-    module.bind_spawn_identity('thread-1', unit_id='U1', task_id='task-1', attempt=1, native_task_name='sd-u1-a1-execute', agent_id='agent-1', temp_root=tmp_path)
+    module.bind_spawn_identity('thread-1', unit_id='U1', task_id='task-1', attempt=1, native_task_name='sd_u1_a1-execute', agent_id='agent-1', temp_root=tmp_path)
     current = module.load_state('thread-1', temp_root=tmp_path)
     assert current is not None
     current['accounting_refs'] = [{'ref': 'control:status:metadata', 'kind': 'control', 'action': 'Status'}]

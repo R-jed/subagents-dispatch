@@ -42,7 +42,7 @@ def unit(
     attempt: int = 1,
     state: str = "SPAWN_PENDING",
     agent_id: str | None = None,
-    native_task_name: str = "sd-u1-a1-execute",
+    native_task_name: str = "sd_u1_a1-execute",
     writer: bool = True,
 ) -> dict:
     return {
@@ -207,7 +207,7 @@ def test_prepare_spawn_rejects_a_second_active_writer(tmp_path: Path):
     with pytest.raises(module.StatePayloadError, match="active writer"):
         module.prepare_spawn(
             stale,
-            unit(unit_id="U2", task_id="task-2", native_task_name="sd-u2-a1-execute"),
+            unit(unit_id="U2", task_id="task-2", native_task_name="sd_u2_a1-execute"),
             temp_root=tmp_path,
         )
     assert module.load_state("thread-1", temp_root=tmp_path) == first
@@ -221,7 +221,7 @@ def test_reconcile_unambiguously_binds_spawn_and_host_truth_wins():
         "complete": True,
         "children": [
             {
-                "native_task_name": "sd-u1-a1-execute",
+                "native_task_name": "sd_u1_a1-execute",
                 "agent_id": "agent-1",
                 "state": "running",
             }
@@ -256,8 +256,8 @@ def test_reconcile_ambiguity_conflict_and_absence_quarantine_without_replacement
     duplicate_name = {
         "complete": True,
         "children": [
-            {"native_task_name": "sd-u1-a1-execute", "agent_id": "agent-1", "state": "running"},
-            {"native_task_name": "sd-u1-a1-execute", "agent_id": "agent-2", "state": "running"},
+            {"native_task_name": "sd_u1_a1-execute", "agent_id": "agent-1", "state": "running"},
+            {"native_task_name": "sd_u1_a1-execute", "agent_id": "agent-2", "state": "running"},
         ],
     }
     ambiguous = module.reconcile_state(state, duplicate_name)
@@ -283,15 +283,15 @@ def test_status_is_one_low_resolution_snapshot_with_optional_unit_zoom():
         unit(
             unit_id="U2",
             task_id="task-2",
-            native_task_name="sd-u2-a1-read",
+            native_task_name="sd_u2_a1-read",
             writer=False,
         ),
     ]
     observation = {
         "complete": True,
         "children": [
-            {"native_task_name": "sd-u1-a1-execute", "agent_id": "agent-1", "state": "running"},
-            {"native_task_name": "sd-u2-a1-read", "agent_id": "agent-2", "state": "completed"},
+            {"native_task_name": "sd_u1_a1-execute", "agent_id": "agent-1", "state": "running"},
+            {"native_task_name": "sd_u2_a1-read", "agent_id": "agent-2", "state": "completed"},
         ],
     }
 
@@ -324,7 +324,7 @@ def test_target_resolution_never_guesses_and_controls_preserve_identity():
             task_id="task-2",
             state="RUNNING",
             agent_id="agent-2",
-            native_task_name="sd-u2-a1-execute",
+            native_task_name="sd_u2_a1-execute",
         )
     )
     ambiguous = module.resolve_control_target(state, action="steer")

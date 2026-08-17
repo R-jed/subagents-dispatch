@@ -85,7 +85,7 @@ def test_historical_tool_use_id_cannot_bind_new_control(tmp_path: Path):
     state = load_module("rc3_truth_state_replay", "dispatch_state_v4.py")
     control = load_module("rc3_truth_control_replay", "dispatch_control_v4.py")
     install(state, tmp_path, executions=[execution("exec-1")])
-    tool_input = {"target": "sd-u1-a1", "message": "same correction"}
+    tool_input = {"target": "sd_u1_a1", "message": "same correction"}
 
     control.prepare_control(
         "thread-rc3-truth",
@@ -155,7 +155,7 @@ def test_superseded_attempt_cannot_prepare_followup(tmp_path: Path):
             control_id="old-followup",
             execution_id="exec-1",
             operation="FOLLOWUP",
-            tool_input={"target": "sd-u1-a1", "message": "stale"},
+            tool_input={"target": "sd_u1_a1", "message": "stale"},
             temp_root=tmp_path,
         )
 
@@ -172,7 +172,7 @@ def test_accepted_unit_rejects_unresolved_control_even_when_producer_is_complete
             "unit_id": "U1",
             "execution_id": "exec-1",
             "operation": "FOLLOWUP",
-            "target": "sd-u1-a1",
+            "target": "sd_u1_a1",
             "payload_digest": "a" * 64,
             "expected_team_plan_revision": 1,
             "expected_control_epoch": 0,
@@ -245,7 +245,7 @@ def test_duplicate_posttooluse_is_idempotent_at_production_guard(tmp_path: Path)
         "tool_name": "spawn_agent",
         "tool_input": tool_input,
         "tool_use_id": "tool-1",
-        "tool_response": {"task_name": "sd-u1-a1"},
+        "tool_response": {"task_name": "sd_u1_a1"},
     }
     assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
     assert guard.evaluate_post_tool_use(post, temp_root=tmp_path) is None

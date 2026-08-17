@@ -13,7 +13,7 @@ def _dispatch_state_compact_schema__load_module():
     return module
 
 def _dispatch_state_compact_schema__unit():
-    return {'unit_id': 'U1', 'task_id': 'task-1', 'attempt': 1, 'native_task_name': 'sd-u1-a1-execute', 'agent_id': None, 'role': 'worker', 'model_lane': 'Luna Max', 'responsibility': {'outcome': 'change one owned file', 'intent': 'implement', 'acceptance': 'focused test passes'}, 'authority': {'write_scope': ['owned.py'], 'mutation_authority': 'bounded-source-write', 'decision_rights': ['local implementation mechanics']}, 'writer': True, 'control_state': 'SPAWN_PENDING', 'adopted': False, 'accepted': False, 'failure_origin': 'none', 'blocker': 'none', 'quarantine_reason': None}
+    return {'unit_id': 'U1', 'task_id': 'task-1', 'attempt': 1, 'native_task_name': 'sd_u1_a1-execute', 'agent_id': None, 'role': 'worker', 'model_lane': 'Luna Max', 'responsibility': {'outcome': 'change one owned file', 'intent': 'implement', 'acceptance': 'focused test passes'}, 'authority': {'write_scope': ['owned.py'], 'mutation_authority': 'bounded-source-write', 'decision_rights': ['local implementation mechanics']}, 'writer': True, 'control_state': 'SPAWN_PENDING', 'adopted': False, 'accepted': False, 'failure_origin': 'none', 'blocker': 'none', 'quarantine_reason': None}
 
 def state_with_unit(module):
     state = module.new_state(thread_id='thread-1', locale='en')
@@ -79,10 +79,10 @@ def _dispatch_state_hardening__load_module():
     return module
 
 def _dispatch_state_hardening__unit(module, *, state='UNKNOWN', blocker='investigation'):
-    return {'unit_id': 'U1', 'task_id': 'task-1', 'attempt': 1, 'native_task_name': 'sd-u1-a1-execute', 'agent_id': 'agent-1', 'role': 'worker', 'model_lane': 'Luna Max', 'responsibility': {'outcome': 'change one file', 'acceptance': 'focused test passes'}, 'authority': {'write_scope': ['owned.py']}, 'writer': True, 'control_state': state, 'adopted': False, 'accepted': False, 'failure_origin': 'runtime_ambiguous' if state == 'UNKNOWN' else 'none', 'blocker': blocker, 'quarantine_reason': 'native_identity_not_found' if state == 'UNKNOWN' else None}
+    return {'unit_id': 'U1', 'task_id': 'task-1', 'attempt': 1, 'native_task_name': 'sd_u1_a1-execute', 'agent_id': 'agent-1', 'role': 'worker', 'model_lane': 'Luna Max', 'responsibility': {'outcome': 'change one file', 'acceptance': 'focused test passes'}, 'authority': {'write_scope': ['owned.py']}, 'writer': True, 'control_state': state, 'adopted': False, 'accepted': False, 'failure_origin': 'runtime_ambiguous' if state == 'UNKNOWN' else 'none', 'blocker': blocker, 'quarantine_reason': 'native_identity_not_found' if state == 'UNKNOWN' else None}
 
 def errored_observation(*, failure_origin: str):
-    return {'complete': True, 'children': [{'native_task_name': 'sd-u1-a1-execute', 'agent_id': 'agent-1', 'state': 'errored', 'failure_origin': failure_origin}]}
+    return {'complete': True, 'children': [{'native_task_name': 'sd_u1_a1-execute', 'agent_id': 'agent-1', 'state': 'errored', 'failure_origin': failure_origin}]}
 
 def test_reconcile_real_failure_clears_quarantine_blocker_and_normalizes_origin(tmp_path: Path):
     module = _dispatch_state_hardening__load_module()

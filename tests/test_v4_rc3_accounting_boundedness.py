@@ -51,7 +51,7 @@ def execution() -> dict:
         "attempt_no": 1,
         "profile_id": "reader",
         "agent_id": "agent-1",
-        "native_task_name": "sd-u1-a1",
+        "native_task_name": "sd_u1_a1",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "granted_authority": "none",
@@ -84,7 +84,7 @@ def add_history(current: dict, *, count: int) -> None:
                 "tool_use_id": f"tool-{index}",
                 "tool_name": "followup_task",
                 "payload_digest": "a" * 64,
-                "target": "sd-u1-a1",
+                "target": "sd_u1_a1",
             }
         )
         current["accounting_refs"].append(
@@ -107,7 +107,7 @@ def add_history(current: dict, *, count: int) -> None:
                 "lifecycle": "COMPLETED",
                 "turn_id": f"observe-turn-{index}",
                 "tool_use_id": f"observe-{index}",
-                "agent_name": "/root/sd-u1-a1",
+                "agent_name": "/root/sd_u1_a1",
             }
         )
 
@@ -127,7 +127,7 @@ def test_compacted_ack_history_still_blocks_old_tool_use_id_reuse(tmp_path: Path
     )
     assert any(event.get("kind") == "control_ack_filter" for event in updated["accounting_refs"])
 
-    tool_input = {"target": "sd-u1-a1", "message": "new correction"}
+    tool_input = {"target": "sd_u1_a1", "message": "new correction"}
     control.prepare_control(
         "thread-bounded",
         control_id="new-control",

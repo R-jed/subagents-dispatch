@@ -74,7 +74,7 @@ def allocate_writer(
         "thread-p5",
         unit_id=unit_id,
         execution_id=execution_id,
-        native_task_name=f"sd-{unit_id.lower()}-a1",
+        native_task_name=f"sd_{unit_id.lower()}_a1",
         profile_id="worker",
         granted_authority="bounded-source-write",
         granted_write_scope=scope,
@@ -229,7 +229,7 @@ def test_interrupt_ack_alone_never_releases_or_transfers_writer(tmp_path: Path):
     activate_writer(state, control, lifecycle, tmp_path)
     observe(lifecycle, tmp_path, execution_id="exec-1", host_state="running")
 
-    interrupt_input = {"target": "sd-u1-a1"}
+    interrupt_input = {"target": "sd_u1_a1"}
     prepared = lifecycle.prepare_interrupt(
         "thread-p5",
         execution_id="exec-1",
@@ -278,7 +278,7 @@ def test_fresh_same_epoch_interrupted_observation_allows_atomic_takeover(tmp_pat
     activate_writer(state, control, lifecycle, tmp_path)
     observe(lifecycle, tmp_path, execution_id="exec-1", host_state="running")
 
-    interrupt_input = {"target": "sd-u1-a1"}
+    interrupt_input = {"target": "sd_u1_a1"}
     lifecycle.prepare_interrupt(
         "thread-p5", execution_id="exec-1", tool_input=interrupt_input, temp_root=tmp_path
     )
@@ -327,7 +327,7 @@ def test_takeover_stays_blocked_when_observation_post_lacks_pre_basis(tmp_path: 
     allocate_writer(lifecycle, tmp_path)
     activate_writer(state, control, lifecycle, tmp_path)
     observe(lifecycle, tmp_path, execution_id="exec-1", host_state="running")
-    interrupt_input = {"target": "sd-u1-a1"}
+    interrupt_input = {"target": "sd_u1_a1"}
     lifecycle.prepare_interrupt(
         "thread-p5", execution_id="exec-1", tool_input=interrupt_input, temp_root=tmp_path
     )
@@ -422,7 +422,7 @@ def test_pre_captured_observation_cannot_settle_new_control_epoch(tmp_path: Path
     )
     assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
 
-    followup_input = {"target": "sd-u1-a1", "message": "focused correction"}
+    followup_input = {"target": "sd_u1_a1", "message": "focused correction"}
     lifecycle.prepare_same_child_followup(
         "thread-p5",
         execution_id="exec-1",
@@ -488,7 +488,7 @@ def test_new_epoch_followup_can_reactivate_completed_execution(tmp_path: Path):
     activate_writer(state, control, lifecycle, tmp_path)
     observe(lifecycle, tmp_path, execution_id="exec-1", host_state="completed")
 
-    followup_input = {"target": "sd-u1-a1", "message": "focused correction"}
+    followup_input = {"target": "sd_u1_a1", "message": "focused correction"}
     lifecycle.prepare_same_child_followup(
         "thread-p5", execution_id="exec-1", tool_input=followup_input, temp_root=tmp_path
     )
@@ -523,7 +523,7 @@ def test_same_child_followup_does_not_create_fresh_attempt_and_is_bounded(tmp_pa
     activate_writer(state, control, lifecycle, tmp_path)
     observe(lifecycle, tmp_path, execution_id="exec-1", host_state="completed")
 
-    followup_input = {"target": "sd-u1-a1", "message": "fix only the failing assertion"}
+    followup_input = {"target": "sd_u1_a1", "message": "fix only the failing assertion"}
     lifecycle.prepare_same_child_followup(
         "thread-p5",
         execution_id="exec-1",

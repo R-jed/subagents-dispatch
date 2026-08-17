@@ -56,7 +56,7 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
             "attempt_no": 1,
             "profile_id": "worker",
             "agent_id": None,
-            "native_task_name": "sd-u1-a1",
+            "native_task_name": "sd_u1_a1",
             "model": "gpt-5.6-luna",
             "effort": "max",
             "granted_authority": "bounded-source-write",
@@ -113,7 +113,7 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
         "tool_name": "spawn_agent",
         "tool_input": tool_input,
         "tool_use_id": "tool-spawn",
-        "tool_response": {"task_name": "sd-u1-a1"},
+        "tool_response": {"task_name": "sd_u1_a1"},
     }
     assert guard.evaluate_post_tool_use(post, temp_root=tmp_path) is None
     acknowledged = state.load_state("thread-guard", temp_root=tmp_path)

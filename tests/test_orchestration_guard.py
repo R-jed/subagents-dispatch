@@ -58,7 +58,7 @@ def v4_state(state_module, tmp_path: Path) -> None:
             "attempt_no": 1,
             "profile_id": "reader",
             "agent_id": None,
-            "native_task_name": "sd-u1-a1",
+            "native_task_name": "sd_u1_a1",
             "model": "gpt-5.6-luna",
             "effort": "max",
             "granted_authority": "none",
@@ -105,7 +105,7 @@ def post_payload(tool_input: dict, *, tool_name: str = "spawn_agent") -> dict:
         "tool_name": tool_name,
         "tool_use_id": "tool-1",
         "tool_input": tool_input,
-        "tool_response": {"task_name": "sd-u1-a1"},
+        "tool_response": {"task_name": "sd_u1_a1"},
     }
 
 

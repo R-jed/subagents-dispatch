@@ -100,7 +100,7 @@ def test_execution_granted_scope_must_also_be_canonical():
             "attempt_no": 1,
             "profile_id": "worker",
             "agent_id": None,
-            "native_task_name": "sd-u1-a1",
+            "native_task_name": "sd_u1_a1",
             "model": "gpt-5.6-luna",
             "effort": "max",
             "granted_authority": "bounded-source-write",
