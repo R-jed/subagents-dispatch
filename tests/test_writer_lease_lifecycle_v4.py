@@ -61,7 +61,14 @@ def install_graph(state, graph, tmp_path: Path, *, two_writers: bool = False):
     )
 
 
-def allocate_writer(lifecycle, tmp_path: Path, *, unit_id: str = "U1", execution_id: str = "exec-1", lease_id: str = "lease-1"):
+def allocate_writer(
+    lifecycle,
+    tmp_path: Path,
+    *,
+    unit_id: str = "U1",
+    execution_id: str = "exec-1",
+    lease_id: str = "lease-1",
+):
     scope = ["src/a.py"] if unit_id == "U1" else ["src/b.py"]
     return lifecycle.allocate_execution(
         "thread-p5",
@@ -168,7 +175,11 @@ def test_spawn_ack_promotes_reserved_writer_to_held(tmp_path: Path):
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
     assert current["writer_lease"]["state"] == "HELD"
-    assert any(event["ref"] == "control-ack:tool-spawn-exec-1" for event in current["accounting_refs"])
+    assert any(
+        event.get("ref") == "control-ack:spawn:exec-1:tool-spawn-exec-1"
+        and event.get("control_id") == "spawn:exec-1"
+        for event in current["accounting_refs"]
+    )
 
 
 def test_interrupt_ack_alone_never_releases_or_transfers_writer(tmp_path: Path):
@@ -393,9 +404,9 @@ def test_stale_observation_cannot_settle_new_control_epoch(tmp_path: Path):
     assert stale["reconcile_status"] == "stale"
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
-    execution = current["executions"][0]
-    assert execution["control_epoch"] == 1
-    assert execution["followup_count"] == 1
+    current_execution = current["executions"][0]
+    assert current_execution["control_epoch"] == 1
+    assert current_execution["followup_count"] == 1
 
 
 def test_delayed_running_observation_cannot_reopen_completed_same_epoch(tmp_path: Path):
