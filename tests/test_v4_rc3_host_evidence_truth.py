@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -102,6 +103,14 @@ def list_agents_pre(*, session_id: str = "thread-host") -> dict:
 
 
 def list_agents_post(*, status: object = "running", session_id: str = "thread-host") -> dict:
+    wire = {
+        "agents": [
+            {
+                "agent_name": "/root/sd_u1_a1",
+                "agent_status": status,
+            }
+        ]
+    }
     return {
         "hook_event_name": "PostToolUse",
         "session_id": session_id,
@@ -109,12 +118,7 @@ def list_agents_post(*, status: object = "running", session_id: str = "thread-ho
         "tool_name": "list_agents",
         "tool_use_id": "tool-observe-1",
         "tool_input": {},
-        "tool_response": [
-            {
-                "agent_name": "/root/sd_u1_a1",
-                "status": status,
-            }
-        ],
+        "tool_response": json.dumps(wire, separators=(",", ":")),
     }
 
 
@@ -153,10 +157,33 @@ def test_list_agents_pre_post_is_authoritative_observation_path(tmp_path: Path):
         for event in current["accounting_refs"]
         if event.get("kind") == "host_observation"
     ]
+    capacity = [
+        event
+        for event in current["accounting_refs"]
+        if event.get("kind") == "host_capacity_observation"
+    ]
     assert len(observations) == 1
     assert observations[0]["source"] == "post_tool_use:list_agents"
     assert observations[0]["turn_id"] == "turn-observe-1"
     assert observations[0]["tool_use_id"] == "tool-observe-1"
+    assert len(capacity) == 1
+    assert capacity[0]["resident_children"] == 1
+    assert capacity[0]["settled_children"] == 1
+    assert capacity[0]["managed_resident_children"] == 1
+
+
+def test_legacy_invented_bare_list_wire_fails_closed(tmp_path: Path):
+    state = load_module("rc3_host_state_legacy_wire", "dispatch_state_v4.py")
+    guard = load_module("rc3_host_guard_legacy_wire", "orchestration_guard.py")
+    install(state, tmp_path)
+    assert guard.evaluate_pre_tool_use(list_agents_pre(), temp_root=tmp_path) is None
+    legacy = list_agents_post(status={"completed": "done"})
+    legacy["tool_response"] = [
+        {"agent_name": "/root/sd_u1_a1", "status": {"completed": "done"}}
+    ]
+    result = guard.evaluate_post_tool_use(legacy, temp_root=tmp_path)
+    assert result is not None
+    assert result["continue"] is False
 
 
 def test_list_agents_post_without_pre_fails_closed(tmp_path: Path):
@@ -219,5 +246,11 @@ def test_duplicate_list_agents_posttool_is_idempotent(tmp_path: Path):
         for event in current["accounting_refs"]
         if event.get("kind") == "host_observation_receipt"
     ]
+    capacity = [
+        event
+        for event in current["accounting_refs"]
+        if event.get("kind") == "host_capacity_observation"
+    ]
     assert len(observations) == 1
     assert len(receipts) == 1
+    assert len(capacity) == 1
