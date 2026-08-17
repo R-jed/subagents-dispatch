@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-host-smoke-3",
+  "schema_version": "4.0.0-host-smoke-4",
   "gate_id": "phase8-real-host-lifecycle-coverage",
   "status": "PENDING",
   "blocks_phase": "phase8-supported-release",
@@ -153,5 +153,11 @@
       ]
     }
   ],
+  "results": {},
+  "result_contract": {
+    "every_record_requires": ["status=PASS", "non-empty evidence_ref"],
+    "H00_additionally_requires": ["64-hex manifest_sha256", "trusted_current_definition=true"],
+    "top_level_PASS_requires": "exactly H00-H10 result records and every record PASS"
+  },
   "pass_policy": "All required probes H00-H10 must have captured real Host evidence from the exact V4 lifecycle Hook definition before the release candidate is declared supported, production Hook activation is retained, or V4.0.0 is published."
 }
