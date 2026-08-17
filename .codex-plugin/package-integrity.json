@@ -35,7 +35,7 @@
     "scripts/doctor_core.py": "bf2e0b2c7da1f59fcdbda69b4d29ea5def9f08a40cfd2b1cdff01b86b86df931",
     "scripts/doctor_runtime.py": "ceea4f961673e87a59cfcf2dcc50903cd3c822620335018f112eba0d797eecbe",
     "scripts/execution_lifecycle_v4.py": "a5fc5d805c34da40b257c2b026a39cd14bbe0adbbecaaf3772e9a0d739fd45a2",
-    "scripts/host_capabilities.py": "ef14c4f319cb9110d6710e2ec0b501e7e03c5a498500f9814294d0345cef65ee",
+    "scripts/host_capabilities.py": "6495f8a14c7a75e4ab68a877b4296ab789874781cd12f4a9392b41f8e245441e",
     "scripts/inspect-agent-runtime.py": "4bd179811d6e2ed415243995a09866d4566bed5e466e42f2097ad349187c4453",
     "scripts/install-agents.py": "9065aca9f167c4f2b112c1c15c612e175f3e5a85ad9285ed1458bee63100b3f6",
     "scripts/legacy_migration.py": "eddb068caa8c3ee4cc76751bf19eeb73b620fbfe894a88110d892d3aa40152e2",
