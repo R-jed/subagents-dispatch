@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Verify candidate-bound external release evidence for V4.0.0 RC3.
+"""Verify candidate-bound external release evidence for V4.0.0 RC4.
 
-The release evidence file is deliberately external to the candidate repository.
-This verifier recomputes repository identity and package/Hook/profile digests from
-the exact candidate and requires a complete H00-H20 Host campaign plus a fresh
-Final Review receipt for the same candidate.
+The release evidence artifact must live outside the candidate repository. This
+verifier recomputes exact candidate identity, package/Hook/profile/Host-contract
+digests, requires a complete environment-bound H00-H20 Host campaign, and binds
+a fresh Final Review receipt to the same candidate.
 
 This is release-process evidence, not cryptographic Host attestation. The trusted
-boundary is the release/CI operator that supplies the external evidence artifact;
-ordinary orchestration runtime data cannot create publication authority by
+boundary remains the release/CI operator supplying the external evidence artifact.
+Ordinary orchestration runtime data cannot create publication authority by
 supplying lifecycle strings, booleans, or arbitrary digests.
 """
 
@@ -27,41 +27,51 @@ import package_integrity
 
 
 EXPECTED_REPOSITORY = "R-jed/subagents-dispatch"
-RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-1"
-HOST_CAMPAIGN_SCHEMA = "4.0.0-host-campaign-1"
+RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-2"
+HOST_CAMPAIGN_SCHEMA = "4.0.0-host-campaign-2"
 FINAL_REVIEW_SCHEMA = "4.0.0-final-review-1"
-HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-host-smoke-6"
+HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-host-smoke-7"
 REQUIRED_HOST_PROBES = tuple(f"H{index:02d}" for index in range(21))
-HEX40 = frozenset("0123456789abcdef")
-HEX64 = HEX40
+HEX = frozenset("0123456789abcdef")
 
 RUNTIME_MANIFEST = Path(".codex-plugin/package-integrity.json")
 PRODUCTION_HOOK = Path("hooks/hooks.json")
 PROFILE_CONTRACT = Path("contracts/policy.json")
+HOST_CAMPAIGN_CONTRACT = Path("docs/v4/host-smoke.json")
 
-TOP_LEVEL_FIELDS = {
-    "schema_version",
-    "repository",
+IDENTITY_FIELDS = {
     "candidate_commit",
     "candidate_tree",
     "runtime_manifest_sha256",
     "production_hook_sha256",
     "profile_contract_sha256",
-    "host_campaign_result_sha256",
+    "host_contract_sha256",
+}
+TOP_LEVEL_FIELDS = {
+    "schema_version",
+    "repository",
+    *IDENTITY_FIELDS,
+    "host_campaign_sha256",
     "host_campaign",
     "final_review",
 }
 HOST_CAMPAIGN_FIELDS = {
     "schema_version",
     "repository",
-    "candidate_commit",
-    "candidate_tree",
-    "runtime_manifest_sha256",
-    "production_hook_sha256",
-    "profile_contract_sha256",
+    *IDENTITY_FIELDS,
     "contract_version",
+    "campaign_id",
+    "environments",
     "results",
 }
+HOST_ENVIRONMENT_FIELDS = {
+    "codex_version",
+    "host_build",
+    "platform",
+    "architecture",
+    "run_id",
+}
+HOST_RESULT_FIELDS = {"status", "evidence_ref", "environment_id"}
 FINAL_REVIEW_FIELDS = {
     "schema_version",
     "candidate_commit",
@@ -70,6 +80,7 @@ FINAL_REVIEW_FIELDS = {
     "verdict",
     "evidence_ref",
 }
+SUPPORTED_PLATFORMS = {"linux", "macos", "windows"}
 
 
 class ReleaseEvidenceError(RuntimeError):
@@ -92,11 +103,11 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def _valid_hex(value: Any, length: int) -> bool:
-    return (
-        isinstance(value, str)
-        and len(value) == length
-        and all(character in HEX64 for character in value)
-    )
+    return isinstance(value, str) and len(value) == length and all(ch in HEX for ch in value)
+
+
+def _nonempty(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 def canonical_json_sha256(value: Any) -> str:
@@ -131,8 +142,37 @@ def _resolve_repo(repo: Path) -> Path:
     return resolved
 
 
+def _load_host_contract(repo: Path) -> Mapping[str, Any]:
+    path = repo / HOST_CAMPAIGN_CONTRACT
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ReleaseEvidenceError(f"Host campaign contract is unreadable: {exc}") from exc
+    if not isinstance(payload, Mapping):
+        raise ReleaseEvidenceError("Host campaign contract must be an object")
+    if payload.get("schema_version") != HOST_CAMPAIGN_CONTRACT_VERSION:
+        raise ReleaseEvidenceError("Host campaign contract schema_version is unsupported")
+    required = payload.get("required_probes")
+    if not isinstance(required, list):
+        raise ReleaseEvidenceError("Host campaign contract required_probes must be an array")
+    ids = [item.get("id") for item in required if isinstance(item, Mapping)]
+    if len(ids) != len(required) or tuple(ids) != REQUIRED_HOST_PROBES:
+        raise ReleaseEvidenceError("Host campaign contract probes must be exactly ordered H00-H20")
+    env_fields = payload.get("required_environment_fields")
+    result_fields = payload.get("required_result_fields")
+    if env_fields != sorted(HOST_ENVIRONMENT_FIELDS):
+        raise ReleaseEvidenceError("Host campaign contract environment field set is unsupported")
+    if result_fields != sorted(HOST_RESULT_FIELDS):
+        raise ReleaseEvidenceError("Host campaign contract result field set is unsupported")
+    h20 = next((item for item in required if isinstance(item, Mapping) and item.get("id") == "H20"), None)
+    if not isinstance(h20, Mapping) or h20.get("platform") != "windows":
+        raise ReleaseEvidenceError("Host campaign contract H20 must require Windows")
+    return payload
+
+
 def current_candidate_identity(repo: Path) -> dict[str, str]:
     repo = _resolve_repo(repo)
+    _load_host_contract(repo)
     commit = _git(repo, "rev-parse", "HEAD")
     tree = _git(repo, "rev-parse", "HEAD^{tree}")
     if not _valid_hex(commit, 40) or not _valid_hex(tree, 40):
@@ -143,6 +183,7 @@ def current_candidate_identity(repo: Path) -> dict[str, str]:
         "runtime_manifest_sha256": normalized_file_sha256(repo / RUNTIME_MANIFEST),
         "production_hook_sha256": normalized_file_sha256(repo / PRODUCTION_HOOK),
         "profile_contract_sha256": normalized_file_sha256(repo / PROFILE_CONTRACT),
+        "host_contract_sha256": normalized_file_sha256(repo / HOST_CAMPAIGN_CONTRACT),
     }
 
 
@@ -196,7 +237,13 @@ def _inside(candidate: Path, path: Path) -> bool:
     return True
 
 
-def _exact_fields(value: Any, fields: set[str], *, label: str, issues: list[str]) -> Mapping[str, Any] | None:
+def _exact_fields(
+    value: Any,
+    fields: set[str],
+    *,
+    label: str,
+    issues: list[str],
+) -> Mapping[str, Any] | None:
     if not isinstance(value, Mapping):
         issues.append(f"{label} must be an object")
         return None
@@ -226,30 +273,54 @@ def _compare_identity(
             issues.append(f"{label}.{field} does not match the exact candidate")
 
 
-def _validate_host_campaign_result_digest(
-    top: Mapping[str, Any],
-    *,
-    issues: list[str],
-) -> None:
-    supplied = top.get("host_campaign_result_sha256")
+def _validate_host_campaign_digest(top: Mapping[str, Any], *, issues: list[str]) -> None:
+    supplied = top.get("host_campaign_sha256")
     if not _valid_hex(supplied, 64):
-        issues.append("release evidence.host_campaign_result_sha256 is malformed")
+        issues.append("release evidence.host_campaign_sha256 is malformed")
         return
     campaign = top.get("host_campaign")
     if not isinstance(campaign, Mapping):
         return
-    results = campaign.get("results")
-    if not isinstance(results, Mapping):
-        return
     try:
-        expected = canonical_json_sha256(results)
+        expected = canonical_json_sha256(campaign)
     except ReleaseEvidenceError as exc:
-        issues.append(f"host campaign results cannot be digested: {exc}")
+        issues.append(f"host campaign cannot be digested: {exc}")
         return
     if supplied != expected:
-        issues.append(
-            "release evidence.host_campaign_result_sha256 does not match exact Host campaign results"
+        issues.append("release evidence.host_campaign_sha256 does not match exact Host campaign")
+
+
+def _validate_host_environments(value: Any, *, issues: list[str]) -> set[str]:
+    if not isinstance(value, Mapping) or not value:
+        issues.append("host campaign environments must be a non-empty object")
+        return set()
+    valid_ids: set[str] = set()
+    seen_run_ids: set[str] = set()
+    for environment_id, raw in value.items():
+        if not _nonempty(environment_id):
+            issues.append("host campaign environment id must be non-empty")
+            continue
+        env = _exact_fields(
+            raw,
+            HOST_ENVIRONMENT_FIELDS,
+            label=f"host campaign environment {environment_id}",
+            issues=issues,
         )
+        if env is None:
+            continue
+        for field in HOST_ENVIRONMENT_FIELDS:
+            if not _nonempty(env.get(field)):
+                issues.append(f"host campaign environment {environment_id}.{field} must be non-empty")
+        platform = env.get("platform")
+        if isinstance(platform, str) and platform.lower() not in SUPPORTED_PLATFORMS:
+            issues.append(f"host campaign environment {environment_id}.platform is unsupported")
+        run_id = env.get("run_id")
+        if isinstance(run_id, str) and run_id in seen_run_ids:
+            issues.append("host campaign environment run_id values must be unique")
+        elif isinstance(run_id, str):
+            seen_run_ids.add(run_id)
+        valid_ids.add(str(environment_id))
+    return valid_ids
 
 
 def _validate_host_campaign(
@@ -267,8 +338,12 @@ def _validate_host_campaign(
         issues.append("host campaign repository identity is invalid")
     if value.get("contract_version") != HOST_CAMPAIGN_CONTRACT_VERSION:
         issues.append("host campaign contract_version is unsupported")
+    if not _nonempty(value.get("campaign_id")):
+        issues.append("host campaign campaign_id must be non-empty")
     _compare_identity(value, identity, label="host campaign", issues=issues)
 
+    environments = value.get("environments")
+    environment_ids = _validate_host_environments(environments, issues=issues)
     results = value.get("results")
     if not isinstance(results, Mapping):
         issues.append("host campaign results must be an object")
@@ -282,15 +357,27 @@ def _validate_host_campaign(
     if extra:
         issues.append("host campaign contains unsupported probes: " + ", ".join(extra))
     for probe_id in sorted(required_ids & actual_ids):
-        result = results[probe_id]
-        if not isinstance(result, Mapping):
-            issues.append(f"host campaign {probe_id} must be an object")
+        result = _exact_fields(
+            results[probe_id],
+            HOST_RESULT_FIELDS,
+            label=f"host campaign {probe_id}",
+            issues=issues,
+        )
+        if result is None:
             continue
         if result.get("status") != "PASS":
             issues.append(f"host campaign {probe_id} must PASS")
-        evidence_ref = result.get("evidence_ref")
-        if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+        if not _nonempty(result.get("evidence_ref")):
             issues.append(f"host campaign {probe_id} PASS requires evidence_ref")
+        environment_id = result.get("environment_id")
+        if environment_id not in environment_ids:
+            issues.append(f"host campaign {probe_id} references unknown environment_id")
+            continue
+        if probe_id == "H20" and isinstance(environments, Mapping):
+            environment = environments.get(environment_id)
+            platform = environment.get("platform") if isinstance(environment, Mapping) else None
+            if not isinstance(platform, str) or platform.lower() != "windows":
+                issues.append("host campaign H20 must be bound to a Windows environment")
 
 
 def _validate_final_review(
@@ -304,17 +391,15 @@ def _validate_final_review(
     if value is None:
         return
     if value.get("schema_version") != FINAL_REVIEW_SCHEMA:
-        issues.append("final review schema_version is unsupported")
+        issues.append("final review.schema_version is unsupported")
     for field in ("candidate_commit", "candidate_tree"):
-        supplied = value.get(field)
-        if supplied != identity[field]:
+        if value.get(field) != identity[field]:
             issues.append(f"final review.{field} does not match the exact candidate")
     if value.get("review_artifact_id") != review_artifact_id:
         issues.append("final review.review_artifact_id does not match the current candidate")
     if value.get("verdict") != "ship":
         issues.append("final review verdict must be ship")
-    evidence_ref = value.get("evidence_ref")
-    if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+    if not _nonempty(value.get("evidence_ref")):
         issues.append("final review ship verdict requires evidence_ref")
 
 
@@ -356,7 +441,7 @@ def verify_release_evidence(
         if top.get("repository") != EXPECTED_REPOSITORY:
             issues.append("release evidence repository identity is invalid")
         _compare_identity(top, identity, label="release evidence", issues=issues)
-        _validate_host_campaign_result_digest(top, issues=issues)
+        _validate_host_campaign_digest(top, issues=issues)
 
     try:
         review_artifact_id = current_review_artifact_id(candidate)
