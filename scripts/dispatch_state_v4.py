@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """V4 bounded orchestration state foundation.
 
-This module is intentionally parallel to the V3 ``dispatch_state`` module during
-migration. It reuses the already-hardened V3 storage boundary, lock, and atomic
-replace helpers, while owning a separate V4 schema and reconciliation contract.
-Production Skills remain on V3 until the explicit V4 cutover phase.
+This module owns the V4 schema and reconciliation contract used by Orchestrate.
+It currently reuses the hardened storage boundary, locking, and atomic replace
+helpers from legacy ``dispatch_state``. Legacy V3.x state remains available only
+for compatibility diagnostics and explicit migration handling.
 """
 
 from __future__ import annotations
