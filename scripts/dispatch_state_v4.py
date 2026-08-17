@@ -42,6 +42,45 @@ def current_execution_for_unit(
     return matches[0]
 
 
+def _canonical_scope(value: str) -> str:
+    normalized = value.replace("\\", "/")
+    canonical = _core.PurePosixPath(normalized).as_posix()
+    if value != canonical:
+        raise _core.StatePayloadError(
+            f"write scope {value!r} must use canonical repository-relative POSIX form"
+        )
+    return canonical
+
+
+def _scope_overlaps(left: str, right: str) -> bool:
+    left_parts = _core.PurePosixPath(left).parts
+    right_parts = _core.PurePosixPath(right).parts
+    shortest = min(len(left_parts), len(right_parts))
+    return left_parts[:shortest] == right_parts[:shortest]
+
+
+def _validate_scope_truth(state: Mapping[str, Any]) -> None:
+    for unit in state.get("work_units", []):
+        if not isinstance(unit, Mapping):
+            continue
+        ownership = unit.get("ownership")
+        if not isinstance(ownership, Mapping):
+            continue
+        write = [_canonical_scope(value) for value in ownership.get("write", [])]
+        forbidden = [_canonical_scope(value) for value in ownership.get("forbidden", [])]
+        for value in unit.get("write_scope_ceiling", []):
+            _canonical_scope(value)
+        if any(_scope_overlaps(writable, denied) for writable in write for denied in forbidden):
+            raise _core.StatePayloadError(
+                f"work unit {unit.get('unit_id')} write and forbidden scopes overlap by ancestry"
+            )
+    for execution in state.get("executions", []):
+        if not isinstance(execution, Mapping):
+            continue
+        for value in execution.get("granted_write_scope", []):
+            _canonical_scope(value)
+
+
 def _has_completed_observation(
     state: Mapping[str, Any], *, execution_id: str, control_epoch: int
 ) -> bool:
@@ -119,6 +158,7 @@ def validate_state_payload(
         thread_id=thread_id,
         max_bytes=max_bytes,
     )
+    _validate_scope_truth(state)
     _validate_acceptance_truth(state)
     return state
 
