@@ -25,7 +25,15 @@ WAKEUP_REASONS = {
     "REVIEW_FAILED",
     "USER_CANCEL",
 }
-ACTIVE_SLOT_STATES = {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
+ACTIVE_TURN_STATES = {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
+OPEN_THREAD_STATES = {
+    "SPAWN_PENDING",
+    "RUNNING",
+    "INTERRUPTED",
+    "COMPLETED",
+    "FAILED",
+    "UNKNOWN",
+}
 RESULT_BACKLOG_STATES = {"RESULT_READY", "VERIFYING"}
 PRODUCT_CHILD_LIMIT = 3
 INITIAL_CHILD_LIMIT = 2
@@ -56,15 +64,16 @@ def _snapshot_capacity(snapshot: Mapping[str, Any] | None) -> tuple[int, bool, l
 
 
 def _execution_counts(payload: Mapping[str, Any]) -> tuple[int, dict[str, list[dict[str, Any]]]]:
+    """Count Host thread slots conservatively until an execution is CLOSED."""
     by_unit: dict[str, list[dict[str, Any]]] = {}
-    occupied = 0
+    open_threads = 0
     for execution in payload.get("executions", []):
         if not isinstance(execution, dict):
             continue
         by_unit.setdefault(execution["unit_id"], []).append(execution)
-        if execution["lifecycle"] in ACTIVE_SLOT_STATES:
-            occupied += 1
-    return occupied, by_unit
+        if execution["lifecycle"] in OPEN_THREAD_STATES:
+            open_threads += 1
+    return open_threads, by_unit
 
 
 def _blocking_writer(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -86,7 +95,7 @@ def _eligible_fresh_start(
         return False, "not_ready"
     if len(executions) >= 2:
         return False, "fresh_attempt_limit"
-    if any(item["lifecycle"] in ACTIVE_SLOT_STATES for item in executions):
+    if any(item["lifecycle"] in ACTIVE_TURN_STATES for item in executions):
         return False, "execution_active_or_unknown"
     if any(item["lifecycle"] not in {"COMPLETED", "FAILED", "CLOSED"} for item in executions):
         return False, "prior_execution_not_settled_for_fresh"
@@ -197,6 +206,7 @@ def scheduler_decision(
         "effective_capacity": effective_capacity,
         "initial_fanout": initial,
         "occupied_slots": occupied,
+        "occupied_open_threads": occupied,
         "result_backlog": result_backlog,
         "backpressure": backpressure,
         "ready_frontier": ready_ids,
@@ -220,7 +230,7 @@ def scheduler_status(payload: Mapping[str, Any]) -> dict[str, Any]:
             "lifecycle": execution["lifecycle"],
         }
         for execution in current["executions"]
-        if execution["lifecycle"] in ACTIVE_SLOT_STATES
+        if execution["lifecycle"] in ACTIVE_TURN_STATES
     ]
     waiting = [
         {
