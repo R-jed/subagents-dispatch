@@ -21,6 +21,7 @@ import dispatch_state as legacy_state
 import dispatch_state_v4 as state_v4
 import doctor_core as compatibility_core
 import host_capabilities
+import release_evidence_v4
 from legacy_migration import (
     LEGACY_LOCK_NAME,
     LEGACY_MANIFEST_NAME,
@@ -166,6 +167,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temp-root", type=Path, default=Path(tempfile.gettempdir()))
     parser.add_argument("--thread-id")
     parser.add_argument("--host-evidence", type=Path)
+    parser.add_argument("--release-evidence", type=Path)
     parser.add_argument("--runtime-evidence", type=Path)
     parser.add_argument("--live-route", action="store_true")
     parser.add_argument("--calibration-evidence-root", type=Path)
@@ -504,6 +506,51 @@ def diagnose_host(host_evidence: Path | None) -> dict[str, Any]:
     )
 
 
+def diagnose_release_evidence(release_evidence: Path | None) -> dict[str, Any]:
+    if release_evidence is None:
+        return layer(
+            "Release readiness",
+            "UNKNOWN",
+            "V4.0.0 publication remains blocked by real Host validation and external release evidence",
+            release_ready=False,
+            issues=["external release evidence was not supplied"],
+        )
+    try:
+        result = release_evidence_v4.verify_release_evidence(ROOT, release_evidence)
+    except Exception as exc:
+        return layer(
+            "Release readiness",
+            "FAIL",
+            "external candidate-bound release evidence verification failed",
+            release_ready=False,
+            issues=[str(exc)],
+        )
+    raw_issues = result.get("issues")
+    issues = [str(item) for item in raw_issues] if isinstance(raw_issues, list) else []
+    if result.get("ok") is not True:
+        if not issues:
+            issues = ["release evidence verification failed closed"]
+        return layer(
+            "Release readiness",
+            "FAIL",
+            "external candidate-bound release evidence is invalid",
+            release_ready=False,
+            issues=issues,
+            candidate_commit=result.get("candidate_commit"),
+            candidate_tree=result.get("candidate_tree"),
+        )
+    return layer(
+        "Release readiness",
+        "OK",
+        "external candidate-bound release evidence validates exactly",
+        release_ready=True,
+        issues=[],
+        candidate_commit=result.get("candidate_commit"),
+        candidate_tree=result.get("candidate_tree"),
+        review_artifact_id=result.get("review_artifact_id"),
+    )
+
+
 def diagnose_hook_and_release() -> tuple[dict[str, Any], dict[str, Any]]:
     try:
         smoke = _read_json(HOST_SMOKE)
@@ -623,7 +670,8 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
     layers = [diagnose_plugin(), diagnose_skills(), diagnose_profiles(codex_home)]
     layers.extend(diagnose_state_layers(args.temp_root, thread_id))
     layers.append(diagnose_host(args.host_evidence))
-    hook, release = diagnose_hook_and_release()
+    hook, _legacy_release = diagnose_hook_and_release()
+    release = diagnose_release_evidence(args.release_evidence)
     layers.extend([hook, release])
     by_name = {item["name"]: item for item in layers}
     ordered = [by_name[name] for name in LAYER_ORDER]
