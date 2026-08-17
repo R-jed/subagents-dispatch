@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+"""Verify candidate-bound external release evidence for V4.0.0 RC3.
+
+The release evidence file is deliberately external to the candidate repository.
+This verifier recomputes repository identity and package/Hook/profile digests from
+the exact candidate and requires a complete H00-H20 Host campaign plus a fresh
+Final Review receipt for the same candidate.
+
+This is release-process evidence, not cryptographic Host attestation. The trusted
+boundary is the release/CI operator that supplies the external evidence artifact;
+ordinary orchestration runtime data cannot create publication authority by
+supplying lifecycle strings, booleans, or arbitrary digests.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+from typing import Any, Mapping
+
+import package_integrity
+
+
+EXPECTED_REPOSITORY = "R-jed/subagents-dispatch"
+RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-1"
+HOST_CAMPAIGN_SCHEMA = "4.0.0-host-campaign-1"
+FINAL_REVIEW_SCHEMA = "4.0.0-final-review-1"
+HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-host-smoke-6"
+REQUIRED_HOST_PROBES = tuple(f"H{index:02d}" for index in range(21))
+HEX40 = frozenset("0123456789abcdef")
+HEX64 = HEX40
+
+RUNTIME_MANIFEST = Path(".codex-plugin/package-integrity.json")
+PRODUCTION_HOOK = Path("hooks/hooks.json")
+PROFILE_CONTRACT = Path("contracts/policy.json")
+
+TOP_LEVEL_FIELDS = {
+    "schema_version",
+    "repository",
+    "candidate_commit",
+    "candidate_tree",
+    "runtime_manifest_sha256",
+    "production_hook_sha256",
+    "profile_contract_sha256",
+    "host_campaign",
+    "final_review",
+}
+HOST_CAMPAIGN_FIELDS = {
+    "schema_version",
+    "repository",
+    "candidate_commit",
+    "candidate_tree",
+    "runtime_manifest_sha256",
+    "production_hook_sha256",
+    "profile_contract_sha256",
+    "contract_version",
+    "results",
+}
+FINAL_REVIEW_FIELDS = {
+    "schema_version",
+    "candidate_commit",
+    "candidate_tree",
+    "review_artifact_id",
+    "verdict",
+    "evidence_ref",
+}
+
+
+class ReleaseEvidenceError(RuntimeError):
+    """Candidate or evidence could not be inspected safely."""
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ReleaseEvidenceError(
+            f"git {' '.join(args)} failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return result.stdout.strip()
+
+
+def _valid_hex(value: Any, length: int) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == length
+        and all(character in HEX64 for character in value)
+    )
+
+
+def normalized_file_sha256(path: Path) -> str:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise ReleaseEvidenceError(f"cannot read candidate file {path}: {exc}") from exc
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+def _resolve_repo(repo: Path) -> Path:
+    try:
+        resolved = repo.expanduser().resolve(strict=True)
+    except OSError as exc:
+        raise ReleaseEvidenceError(f"candidate repository is unavailable: {exc}") from exc
+    if not resolved.is_dir():
+        raise ReleaseEvidenceError("candidate repository must be a directory")
+    return resolved
+
+
+def current_candidate_identity(repo: Path) -> dict[str, str]:
+    repo = _resolve_repo(repo)
+    commit = _git(repo, "rev-parse", "HEAD")
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+    if not _valid_hex(commit, 40) or not _valid_hex(tree, 40):
+        raise ReleaseEvidenceError("candidate Git identity is malformed")
+    return {
+        "candidate_commit": commit,
+        "candidate_tree": tree,
+        "runtime_manifest_sha256": normalized_file_sha256(repo / RUNTIME_MANIFEST),
+        "production_hook_sha256": normalized_file_sha256(repo / PRODUCTION_HOOK),
+        "profile_contract_sha256": normalized_file_sha256(repo / PROFILE_CONTRACT),
+    }
+
+
+def _review_module():
+    path = Path(__file__).with_name("review-artifact.py")
+    spec = importlib.util.spec_from_file_location("release_evidence_review_artifact", path)
+    if spec is None or spec.loader is None:
+        raise ReleaseEvidenceError("review-artifact helper cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def current_review_artifact_id(repo: Path) -> str:
+    repo = _resolve_repo(repo)
+    try:
+        receipt = _review_module().build_receipt(repo)
+    except Exception as exc:
+        raise ReleaseEvidenceError(f"current review artifact identity is unavailable: {exc}") from exc
+    artifact_id = getattr(receipt, "artifact_id", None)
+    if not _valid_hex(artifact_id, 64):
+        raise ReleaseEvidenceError("current review artifact identity is malformed")
+    return str(artifact_id)
+
+
+def _load_evidence(value: Mapping[str, Any] | Path) -> tuple[dict[str, Any] | None, list[str]]:
+    if isinstance(value, Mapping):
+        return dict(value), []
+    if not isinstance(value, Path):
+        return None, ["release evidence must be an object or file path"]
+    try:
+        payload = json.loads(value.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return None, [f"release evidence file is invalid: {exc}"]
+    if not isinstance(payload, dict):
+        return None, ["release evidence file must contain a JSON object"]
+    return payload, []
+
+
+def _inside(candidate: Path, path: Path) -> bool:
+    try:
+        resolved = path.expanduser().resolve(strict=False)
+        resolved.relative_to(candidate)
+    except ValueError:
+        return False
+    return True
+
+
+def _exact_fields(value: Any, fields: set[str], *, label: str, issues: list[str]) -> Mapping[str, Any] | None:
+    if not isinstance(value, Mapping):
+        issues.append(f"{label} must be an object")
+        return None
+    actual = set(value)
+    missing = fields - actual
+    extra = actual - fields
+    if missing:
+        issues.append(f"{label} missing fields: {', '.join(sorted(missing))}")
+    if extra:
+        issues.append(f"{label} unsupported fields: {', '.join(sorted(extra))}")
+    return value
+
+
+def _compare_identity(
+    value: Mapping[str, Any],
+    expected: Mapping[str, str],
+    *,
+    label: str,
+    issues: list[str],
+) -> None:
+    for field, actual in expected.items():
+        supplied = value.get(field)
+        required_length = 40 if field in {"candidate_commit", "candidate_tree"} else 64
+        if not _valid_hex(supplied, required_length):
+            issues.append(f"{label}.{field} is malformed")
+        elif supplied != actual:
+            issues.append(f"{label}.{field} does not match the exact candidate")
+
+
+def _validate_host_campaign(
+    campaign: Any,
+    *,
+    identity: Mapping[str, str],
+    issues: list[str],
+) -> None:
+    value = _exact_fields(campaign, HOST_CAMPAIGN_FIELDS, label="host campaign", issues=issues)
+    if value is None:
+        return
+    if value.get("schema_version") != HOST_CAMPAIGN_SCHEMA:
+        issues.append("host campaign schema_version is unsupported")
+    if value.get("repository") != EXPECTED_REPOSITORY:
+        issues.append("host campaign repository identity is invalid")
+    if value.get("contract_version") != HOST_CAMPAIGN_CONTRACT_VERSION:
+        issues.append("host campaign contract_version is unsupported")
+    _compare_identity(value, identity, label="host campaign", issues=issues)
+
+    results = value.get("results")
+    if not isinstance(results, Mapping):
+        issues.append("host campaign results must be an object")
+        return
+    actual_ids = set(results)
+    required_ids = set(REQUIRED_HOST_PROBES)
+    missing = sorted(required_ids - actual_ids)
+    extra = sorted(actual_ids - required_ids)
+    if missing:
+        issues.append("host campaign missing required probes: " + ", ".join(missing))
+    if extra:
+        issues.append("host campaign contains unsupported probes: " + ", ".join(extra))
+    for probe_id in sorted(required_ids & actual_ids):
+        result = results[probe_id]
+        if not isinstance(result, Mapping):
+            issues.append(f"host campaign {probe_id} must be an object")
+            continue
+        if result.get("status") != "PASS":
+            issues.append(f"host campaign {probe_id} must PASS")
+        evidence_ref = result.get("evidence_ref")
+        if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+            issues.append(f"host campaign {probe_id} PASS requires evidence_ref")
+
+
+def _validate_final_review(
+    review: Any,
+    *,
+    identity: Mapping[str, str],
+    review_artifact_id: str,
+    issues: list[str],
+) -> None:
+    value = _exact_fields(review, FINAL_REVIEW_FIELDS, label="final review", issues=issues)
+    if value is None:
+        return
+    if value.get("schema_version") != FINAL_REVIEW_SCHEMA:
+        issues.append("final review schema_version is unsupported")
+    for field in ("candidate_commit", "candidate_tree"):
+        supplied = value.get(field)
+        if supplied != identity[field]:
+            issues.append(f"final review.{field} does not match the exact candidate")
+    if value.get("review_artifact_id") != review_artifact_id:
+        issues.append("final review.review_artifact_id does not match the current candidate")
+    if value.get("verdict") != "ship":
+        issues.append("final review verdict must be ship")
+    evidence_ref = value.get("evidence_ref")
+    if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+        issues.append("final review ship verdict requires evidence_ref")
+
+
+def verify_release_evidence(
+    repo: Path,
+    evidence: Mapping[str, Any] | Path,
+) -> dict[str, Any]:
+    issues: list[str] = []
+    try:
+        candidate = _resolve_repo(repo)
+    except ReleaseEvidenceError as exc:
+        return {"ok": False, "issues": [str(exc)]}
+
+    if isinstance(evidence, Path) and _inside(candidate, evidence):
+        issues.append("release evidence file must live outside the candidate repository")
+
+    payload, load_issues = _load_evidence(evidence)
+    issues.extend(load_issues)
+    if payload is None:
+        return {"ok": False, "issues": issues}
+
+    try:
+        identity = current_candidate_identity(candidate)
+    except ReleaseEvidenceError as exc:
+        return {"ok": False, "issues": issues + [str(exc)]}
+
+    status = _git(candidate, "status", "--porcelain", "--untracked-files=all")
+    if status:
+        issues.append("candidate repository must be clean before release evidence can be authoritative")
+
+    package_result = package_integrity.verify_package(candidate)
+    if package_result.get("ok") is not True:
+        issues.append("candidate package integrity verification failed")
+
+    top = _exact_fields(payload, TOP_LEVEL_FIELDS, label="release evidence", issues=issues)
+    if top is not None:
+        if top.get("schema_version") != RELEASE_EVIDENCE_SCHEMA:
+            issues.append("release evidence schema_version is unsupported")
+        if top.get("repository") != EXPECTED_REPOSITORY:
+            issues.append("release evidence repository identity is invalid")
+        _compare_identity(top, identity, label="release evidence", issues=issues)
+
+    try:
+        review_artifact_id = current_review_artifact_id(candidate)
+    except ReleaseEvidenceError as exc:
+        issues.append(str(exc))
+        review_artifact_id = ""
+
+    if top is not None:
+        _validate_host_campaign(top.get("host_campaign"), identity=identity, issues=issues)
+        _validate_final_review(
+            top.get("final_review"),
+            identity=identity,
+            review_artifact_id=review_artifact_id,
+            issues=issues,
+        )
+
+    return {
+        "ok": not issues,
+        "issues": issues,
+        **identity,
+        "review_artifact_id": review_artifact_id,
+        "required_host_probes": list(REQUIRED_HOST_PROBES),
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Verify external V4.0.0 candidate-bound release evidence.")
+    parser.add_argument("--repo", type=Path, default=Path.cwd())
+    parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--json", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    result = verify_release_evidence(args.repo, args.evidence)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    elif result["ok"]:
+        print("V4 RELEASE EVIDENCE PASS")
+    else:
+        print("V4 RELEASE EVIDENCE FAIL")
+        for issue in result["issues"]:
+            print(f"- {issue}")
+    if not result["ok"]:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
