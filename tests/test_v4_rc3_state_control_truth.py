@@ -131,7 +131,8 @@ def test_historical_tool_use_id_cannot_bind_new_control(tmp_path: Path):
 
     current = state.load_state("thread-rc3-truth", temp_root=tmp_path)
     assert current is not None
-    assert current["control_epoch"] if "control_epoch" in current else True
+    exec1 = next(item for item in current["executions"] if item["execution_id"] == "exec-1")
+    assert exec1["control_epoch"] == 1
     prepared = [item for item in current["pending_controls"] if item["control_id"] == "c2"]
     assert len(prepared) == 1
     assert prepared[0]["state"] == "PREPARED"
