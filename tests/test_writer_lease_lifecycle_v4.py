@@ -168,7 +168,7 @@ def test_interrupt_ack_alone_never_releases_or_transfers_writer(tmp_path: Path):
     graph = load_module("p5_graph_interrupt", "work_graph_v4.py")
     control = load_module("p5_control_interrupt", "dispatch_control_v4.py")
     lifecycle = load_module("p5_lifecycle_interrupt", "execution_lifecycle_v4.py")
-    writer = load_module("p5_writer_interrupt", "writer_lease_v4.py")
+    writer = lifecycle.writer
     install_graph(state, graph, tmp_path)
     allocate_writer(lifecycle, tmp_path)
     activate_writer(state, control, lifecycle, tmp_path)
@@ -268,7 +268,7 @@ def test_takeover_stays_blocked_when_guard_coverage_is_unproven(tmp_path: Path):
     graph = load_module("p5_graph_guard", "work_graph_v4.py")
     control = load_module("p5_control_guard", "dispatch_control_v4.py")
     lifecycle = load_module("p5_lifecycle_guard", "execution_lifecycle_v4.py")
-    writer = load_module("p5_writer_guard", "writer_lease_v4.py")
+    writer = lifecycle.writer
     install_graph(state, graph, tmp_path)
     allocate_writer(lifecycle, tmp_path)
     activate_writer(state, control, lifecycle, tmp_path)
