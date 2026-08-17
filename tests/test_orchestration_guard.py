@@ -14,6 +14,7 @@ SCRIPTS = ROOT / "scripts"
 STATE_V4 = SCRIPTS / "dispatch_state_v4.py"
 CONTROL_V4 = SCRIPTS / "dispatch_control_v4.py"
 GUARD = SCRIPTS / "orchestration_guard.py"
+MANAGED = SCRIPTS / "managed_execution_v4.py"
 
 
 def load_module(name: str, path: Path):
@@ -74,6 +75,13 @@ def v4_state(state_module, tmp_path: Path) -> None:
     state_module.write_state(payload, temp_root=tmp_path)
 
 
+def canonical_spawn(state_module, tmp_path: Path, *, module_name: str) -> dict:
+    managed = load_module(module_name, MANAGED)
+    current = state_module.load_state("root-thread", temp_root=tmp_path)
+    assert current is not None
+    return managed.expected_spawn_input_for_execution(current, execution_id="exec-1")
+
+
 def pre_payload(tool_input: dict, *, tool_name: str = "spawn_agent", caller: str | None = None) -> dict:
     payload = {
         "hook_event_name": "PreToolUse",
@@ -106,12 +114,7 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
     control = load_module("guard_control_v4", CONTROL_V4)
     guard = load_module("guard_under_test_v4", GUARD)
     v4_state(state_module, tmp_path)
-    tool_input = {
-        "task_name": "sd-u1-a1",
-        "message": "read bounded scope",
-        "agent_type": "subagents_dispatch_reader",
-        "fork_turns": "none",
-    }
+    tool_input = canonical_spawn(state_module, tmp_path, module_name="guard_managed_v4")
 
     with pytest.raises(guard.control.ControlError, match="PREPARED"):
         guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path)
@@ -141,12 +144,7 @@ def test_post_tool_use_acknowledges_exact_control(tmp_path: Path):
     control = load_module("guard_control_post", CONTROL_V4)
     guard = load_module("guard_under_test_post", GUARD)
     v4_state(state_module, tmp_path)
-    tool_input = {
-        "task_name": "sd-u1-a1",
-        "message": "read bounded scope",
-        "agent_type": "subagents_dispatch_reader",
-        "fork_turns": "none",
-    }
+    tool_input = canonical_spawn(state_module, tmp_path, module_name="guard_managed_post")
     control.prepare_control(
         "root-thread",
         control_id="control-1",
@@ -169,12 +167,7 @@ def test_post_payload_drift_stops_and_quarantines_control(tmp_path: Path):
     control = load_module("guard_control_drift", CONTROL_V4)
     guard = load_module("guard_under_test_drift", GUARD)
     v4_state(state_module, tmp_path)
-    original = {
-        "task_name": "sd-u1-a1",
-        "message": "read bounded scope",
-        "agent_type": "subagents_dispatch_reader",
-        "fork_turns": "none",
-    }
+    original = canonical_spawn(state_module, tmp_path, module_name="guard_managed_drift")
     control.prepare_control(
         "root-thread",
         control_id="control-1",
