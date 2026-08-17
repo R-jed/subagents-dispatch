@@ -37,4 +37,6 @@ Use deterministic owners rather than reproducing their logic: `../../contracts/p
 
 Only explicit user intent may run lifecycle mutations. `--repair` may reconcile the five managed profiles. `--migrate-legacy` applies only to proven-owned legacy managed-profile installation state. It never migrates a live V3.x orchestration capsule. `--cleanup-stale` may remove only stale terminal legacy state through the hardened compatibility helper; active or corrupt state remains fail closed.
 
-For plugin update requests, use the existing package-integrity-protected `../../scripts/doctor.py --update` path. Never edit Hook trust or Host configuration to make Doctor green.
+Experiment Plane remains separate from the eleven production layers. Existing explicit runtime attestation remains available through `../../scripts/runtime-evidence.py`: a formal live-route check requires `requires_permission_observation=true`, preserves permission-source provenance separately, and streams exactly one rollout when the caller explicitly supplies that evidence. These compatibility checks never satisfy the H01-H07 Host-smoke gate.
+
+Update checking is an explicit network/cache-refresh operation. Use `../../scripts/check-plugin-update.py` to check availability and `../../scripts/plugin_update.py` only through the package-integrity-protected `../../scripts/doctor.py --update` path for an explicit update. Never edit Hook trust or Host configuration to make Doctor green.
