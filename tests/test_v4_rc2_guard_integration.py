@@ -121,6 +121,7 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
     assert acknowledged["pending_controls"] == []
     assert acknowledged["writer_lease"]["state"] == "HELD"
     assert any(
-        item.get("ref") == "control-ack:tool-spawn"
+        item.get("ref") == "control-ack:spawn:exec-1:tool-spawn"
+        and item.get("control_id") == "spawn:exec-1"
         for item in acknowledged["accounting_refs"]
     )
