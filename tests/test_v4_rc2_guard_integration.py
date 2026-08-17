@@ -27,6 +27,7 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
     state = load_module("rc2_guard_state", "dispatch_state_v4.py")
     control = load_module("rc2_guard_control", "dispatch_control_v4.py")
     guard = load_module("rc2_guard", "orchestration_guard.py")
+    managed = load_module("rc2_guard_managed", "managed_execution_v4.py")
 
     payload = state.new_state(thread_id="thread-guard")
     payload["team_plan_revision"] = 1
@@ -80,12 +81,9 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
     }
     state.write_state(payload, temp_root=tmp_path)
 
-    tool_input = {
-        "task_name": "sd-u1-a1",
-        "message": "bounded write",
-        "agent_type": "subagents_dispatch_worker",
-        "fork_turns": "none",
-    }
+    current = state.load_state("thread-guard", temp_root=tmp_path)
+    assert current is not None
+    tool_input = managed.expected_spawn_input_for_execution(current, execution_id="exec-1")
     control.prepare_control(
         "thread-guard",
         control_id="spawn:exec-1",
