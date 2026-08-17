@@ -12,9 +12,21 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 
-V4_RED = pytest.mark.xfail(
+PUBLIC_CUTOVER_RED = pytest.mark.xfail(
     strict=True,
-    reason="V4 implementation is intentionally absent during architecture-freeze phase",
+    reason="V4 public Skill cutover is intentionally deferred until the coexistence and migration gates pass",
+)
+PRODUCTION_STATE_CUTOVER_RED = pytest.mark.xfail(
+    strict=True,
+    reason="V4 state and control modules exist in parallel; production dispatch_state.py cutover is intentionally deferred",
+)
+HOOK_ACTIVATION_RED = pytest.mark.xfail(
+    strict=True,
+    reason="V4 lifecycle Hooks remain staged until the real Host smoke gate passes",
+)
+PROFILE_CUTOVER_RED = pytest.mark.xfail(
+    strict=True,
+    reason="V4 Terra High production profile cutover is intentionally deferred until the V4 public cutover",
 )
 
 
@@ -32,19 +44,19 @@ def load_module(name: str, path: Path):
         sys.path.remove(scripts)
 
 
-@V4_RED
+@PUBLIC_CUTOVER_RED
 def test_red_public_surface_is_orchestrate_and_doctor_only():
     skills = sorted(path.name for path in (ROOT / "skills").iterdir() if path.is_dir())
     assert skills == ["doctor", "orchestrate"]
 
 
-@V4_RED
+@PRODUCTION_STATE_CUTOVER_RED
 def test_red_dispatch_state_uses_v4_schema():
     state = load_module("v4_red_dispatch_state_schema", SCRIPTS / "dispatch_state.py")
     assert state.SCHEMA_VERSION == "4.0"
 
 
-@V4_RED
+@PRODUCTION_STATE_CUTOVER_RED
 def test_red_state_capsule_has_v4_runtime_entities():
     state = load_module("v4_red_dispatch_state_entities", SCRIPTS / "dispatch_state.py")
     capsule = state.new_state(thread_id="v4-red-thread")
@@ -57,7 +69,7 @@ def test_red_state_capsule_has_v4_runtime_entities():
     }.issubset(capsule)
 
 
-@V4_RED
+@PRODUCTION_STATE_CUTOVER_RED
 def test_red_work_unit_state_machine_exists():
     state = load_module("v4_red_dispatch_state_work_unit", SCRIPTS / "dispatch_state.py")
     assert set(state.WORK_UNIT_STATES) == {
@@ -72,7 +84,7 @@ def test_red_work_unit_state_machine_exists():
     }
 
 
-@V4_RED
+@PRODUCTION_STATE_CUTOVER_RED
 def test_red_writer_lease_state_machine_exists():
     state = load_module("v4_red_dispatch_state_writer", SCRIPTS / "dispatch_state.py")
     assert set(state.WRITER_LEASE_STATES) == {
@@ -84,7 +96,7 @@ def test_red_writer_lease_state_machine_exists():
     }
 
 
-@V4_RED
+@PRODUCTION_STATE_CUTOVER_RED
 def test_red_pending_control_state_machine_and_prepare_api_exist():
     state = load_module("v4_red_dispatch_state_control", SCRIPTS / "dispatch_state.py")
     assert set(state.PENDING_CONTROL_STATES) == {
@@ -101,7 +113,7 @@ def test_host_capability_adapter_exists():
     assert (SCRIPTS / "host_capabilities.py").is_file()
 
 
-@V4_RED
+@HOOK_ACTIVATION_RED
 def test_red_managed_guard_covers_lifecycle_and_stop_events():
     payload = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     hooks = payload["hooks"]
@@ -115,7 +127,7 @@ def test_red_managed_guard_covers_lifecycle_and_stop_events():
     assert "spawn_agent|followup_task|interrupt_agent" in post_matchers
 
 
-@V4_RED
+@PROFILE_CUTOVER_RED
 def test_red_investigator_profile_is_terra_high():
     profile = tomllib.loads(
         (ROOT / "agent-profiles" / "subagents-dispatch-investigator.toml").read_text(encoding="utf-8")
