@@ -13,6 +13,7 @@ import re
 from typing import Any, Mapping
 
 
+EXPECTED_SURFACE = "multi_agent_v2"
 REQUIRED_CAPABILITIES = (
     "spawn",
     "observe",
@@ -21,6 +22,7 @@ REQUIRED_CAPABILITIES = (
     "interrupt",
     "pre_tool_use_guard",
     "post_tool_use_guard",
+    "host_observation_guard",
     "subagent_stop_veto",
 )
 LIFECYCLE_TOOLS = ("spawn_agent", "followup_task", "interrupt_agent")
@@ -54,12 +56,7 @@ def _hook_tool_set(hooks: Mapping[str, Any], event: str) -> set[str]:
 
 
 def normalize_agent_status(status: Any) -> dict[str, Any]:
-    """Normalize the public Multi-Agent V2 status union without inventing identity.
-
-    V2 exposes simple states as strings, while completed and errored statuses are
-    single-key objects. The returned detail is transient Host evidence; V4 state
-    persists only normalized lifecycle and bounded failure metadata.
-    """
+    """Normalize the public Multi-Agent V2 status union without inventing identity."""
     if isinstance(status, str) and status in SIMPLE_AGENT_STATES:
         return {"state": status, "detail": None}
     if isinstance(status, Mapping) and set(status) == {"completed"}:
@@ -76,25 +73,7 @@ def normalize_agent_status(status: Any) -> dict[str, Any]:
 
 
 def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a deterministic V4 capability snapshot from explicit Host evidence.
-
-    Expected evidence shape::
-
-        {
-          "surface": "multi_agent_v2",
-          "tools": ["spawn_agent", ...],
-          "hooks": {
-            "PreToolUse": ["spawn_agent", ...],
-            "PostToolUse": ["spawn_agent", ...],
-            "SubagentStop": true
-          },
-          "fork_turns_none": true,
-          "max_spawned_threads": 4 | null
-        }
-
-    ``max_spawned_threads`` follows the public Host meaning: spawned threads only,
-    excluding the primary thread. Missing or untrusted capacity remains ``None``.
-    """
+    """Return a deterministic V4 capability snapshot from explicit Host evidence."""
     if not isinstance(evidence, Mapping):
         raise HostCapabilityError("Host evidence must be an object")
     required_fields = {"surface", "tools", "hooks", "fork_turns_none", "max_spawned_threads"}
@@ -106,8 +85,8 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         raise HostCapabilityError("Host evidence is missing fields: " + ", ".join(sorted(missing)))
 
     surface = evidence["surface"]
-    if not isinstance(surface, str) or not surface.strip():
-        raise HostCapabilityError("surface must be a non-empty string")
+    if surface != EXPECTED_SURFACE:
+        raise HostCapabilityError(f"surface must be exactly {EXPECTED_SURFACE}")
     tools = _string_set(evidence["tools"], label="tools")
     hooks = evidence["hooks"]
     if not isinstance(hooks, Mapping):
@@ -134,6 +113,7 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     lifecycle = set(LIFECYCLE_TOOLS)
     capabilities["pre_tool_use_guard"] = lifecycle.issubset(pre_tools)
     capabilities["post_tool_use_guard"] = lifecycle.issubset(post_tools)
+    capabilities["host_observation_guard"] = "list_agents" in post_tools
     capabilities["subagent_stop_veto"] = hooks["SubagentStop"] is True
 
     missing_capabilities = [
@@ -160,17 +140,22 @@ def build_guard_coverage_proof(
     session_id: str,
     trust_evidence: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Bind current Host lifecycle capability and Hook trust evidence to one root session."""
+    """Build a diagnostic Hook-coverage summary with no WriterLease authority."""
     if not isinstance(snapshot, Mapping) or snapshot.get("execution_ready") is not True:
-        raise HostCapabilityError("Guard coverage proof requires an execution-ready Host snapshot")
+        raise HostCapabilityError("Guard coverage summary requires an execution-ready Host snapshot")
     if not isinstance(session_id, str) or not session_id.strip():
-        raise HostCapabilityError("Guard coverage proof requires non-empty session_id")
+        raise HostCapabilityError("Guard coverage summary requires non-empty session_id")
     capabilities = snapshot.get("capabilities")
     if not isinstance(capabilities, Mapping):
-        raise HostCapabilityError("Guard coverage proof requires normalized capabilities")
-    for capability in ("pre_tool_use_guard", "post_tool_use_guard", "subagent_stop_veto"):
+        raise HostCapabilityError("Guard coverage summary requires normalized capabilities")
+    for capability in (
+        "pre_tool_use_guard",
+        "post_tool_use_guard",
+        "host_observation_guard",
+        "subagent_stop_veto",
+    ):
         if capabilities.get(capability) is not True:
-            raise HostCapabilityError(f"Guard coverage proof requires {capability}")
+            raise HostCapabilityError(f"Guard coverage summary requires {capability}")
     if not isinstance(trust_evidence, Mapping) or set(trust_evidence) != GUARD_TRUST_FIELDS:
         raise HostCapabilityError("Guard trust evidence has invalid fields")
     digest = trust_evidence.get("manifest_sha256")
@@ -183,11 +168,13 @@ def build_guard_coverage_proof(
         raise HostCapabilityError("Guard trust evidence requires evidence_ref")
     return {
         "schema_version": "4.0",
+        "authority": "diagnostic_only",
         "session_id": session_id,
         "manifest_sha256": digest,
         "trusted_current_definition": True,
         "pre_tool_use": True,
         "post_tool_use": True,
+        "host_observation_guard": True,
         "subagent_stop_veto": True,
         "evidence_ref": evidence_ref,
     }
@@ -202,11 +189,7 @@ def effective_managed_child_limit(
     *,
     product_limit: int = 3,
 ) -> int | None:
-    """Cap V4 product fan-out by known Host spawned-thread capacity.
-
-    ``None`` means Host capacity is unknown. The scheduler must then use its
-    conservative runtime path instead of inventing a capacity number.
-    """
+    """Cap V4 product fan-out by known Host spawned-thread capacity."""
     if not isinstance(snapshot, Mapping):
         raise HostCapabilityError("capability snapshot must be an object")
     if not isinstance(product_limit, int) or isinstance(product_limit, bool) or product_limit < 1:
