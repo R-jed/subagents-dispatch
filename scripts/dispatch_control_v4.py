@@ -243,6 +243,15 @@ def _matching_controls(
     return matches
 
 
+def _tool_use_id_was_acknowledged(current: Mapping[str, Any], tool_use_id: str) -> bool:
+    return any(
+        isinstance(event, Mapping)
+        and event.get("kind") == "control_ack"
+        and event.get("tool_use_id") == tool_use_id
+        for event in current.get("accounting_refs", [])
+    )
+
+
 def consume_prepared_control(
     thread_id: str,
     *,
@@ -265,6 +274,8 @@ def consume_prepared_control(
         )
         if len(matches) != 1:
             raise ControlError("tool call does not resolve to exactly one PREPARED control")
+        if _tool_use_id_was_acknowledged(current, tool_use_id):
+            raise ControlError("tool_use_id was already acknowledged and cannot be reused")
         if any(
             control.get("tool_use_id") == tool_use_id
             for control in current["pending_controls"]
