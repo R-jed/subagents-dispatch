@@ -232,12 +232,9 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
         temp_root=tmp_path,
     )
 
-    spawn = {
-        "task_name": "sd-u1-a1",
-        "message": "bounded write",
-        "agent_type": "subagents_dispatch_worker",
-        "fork_turns": "none",
-    }
+    spawn = lifecycle.build_managed_spawn_tool_input(
+        "thread-crash", execution_id="exec-1", temp_root=tmp_path
+    )
     lifecycle.prepare_spawn(
         "thread-crash",
         execution_id="exec-1",
