@@ -1,7 +1,0 @@
-interface:
-  display_name: "Subagents Dispatch: Steer"
-  short_description: "Guide one active delegated attempt"
-  default_prompt: "Use the Steer skill to give focused guidance to one active delegated attempt."
-
-policy:
-  allow_implicit_invocation: false

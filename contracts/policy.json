@@ -1,5 +1,5 @@
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "delegation": {
     "max_depth": 1,
     "fork_turns": "none"
@@ -45,7 +45,7 @@
       "profile_file": "subagents-dispatch-investigator.toml",
       "agent_type": "subagents_dispatch_investigator",
       "model": "gpt-5.6-terra",
-      "effort": "xhigh",
+      "effort": "high",
       "mutation_authority": "none"
     },
     "advisor": {

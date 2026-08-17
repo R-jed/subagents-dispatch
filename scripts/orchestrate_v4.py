@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""V4 Orchestrate coexistence facade.
+"""V4 Orchestrate production facade.
 
-This module keeps orchestration decisions deterministic and Host-neutral. It can
-prepare state/control intents, but native Host tool execution remains outside
-this facade.
+Orchestration decisions remain deterministic and Host-neutral. Repository and
+offline verification may run while real Host smoke is pending, while managed
+Host lifecycle execution stays fail-closed behind release_gate_v4.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 import dispatch_state_v4 as state
 import execution_lifecycle_v4 as lifecycle
+import release_gate_v4 as release_gate
 import scheduler_v4 as scheduler
 
 
@@ -85,7 +86,7 @@ def route_profile(
 
 
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
-    """Compile a plan preview without reading or creating active state."""
+    """Compile a plan preview without reading or creating active state or Host work."""
     if not isinstance(goal, str) or not goal.strip():
         raise OrchestrateError("goal must be non-empty")
     units: list[dict[str, Any]] = []
@@ -117,6 +118,16 @@ def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -
         "host_actions": [],
         "work_units": units,
     }
+
+
+def execution_readiness() -> dict[str, Any]:
+    """Return the canonical supported-execution release gate without mutation."""
+    return release_gate.managed_execution_readiness()
+
+
+def require_execution_ready() -> dict[str, Any]:
+    """Fail closed before any managed Host lifecycle action is prepared."""
+    return release_gate.require_managed_execution_ready()
 
 
 def _load(thread_id: str, temp_root: str | os.PathLike[str] | None) -> dict[str, Any] | None:
@@ -234,6 +245,7 @@ def status_view(
                 }
                 for unit in current["work_units"]
             ],
+            "execution_readiness": execution_readiness(),
         }
     )
     return view
@@ -250,11 +262,13 @@ def reconcile_once(
     current = require_control_session(
         thread_id, orchestration_id=orchestration_id, temp_root=temp_root
     )
-    return scheduler.scheduler_decision(
+    decision = scheduler.scheduler_decision(
         current,
         capability_snapshot=capability_snapshot,
         wakeup_reason=wakeup_reason,
     )
+    decision["execution_readiness"] = execution_readiness()
+    return decision
 
 
 def prepare_steer(
@@ -265,6 +279,7 @@ def prepare_steer(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    require_execution_ready()
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
     return lifecycle.prepare_same_child_followup(
         thread_id,
@@ -282,6 +297,7 @@ def prepare_takeover_interrupt(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    require_execution_ready()
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
     return lifecycle.prepare_interrupt(
         thread_id,

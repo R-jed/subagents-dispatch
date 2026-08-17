@@ -1,24 +1,32 @@
 ---
 name: orchestrate
-description: Plan, start, resume, inspect, steer, and safely take over V4 orchestration through one explicit control surface while preserving fixed profiles, one-writer safety, Host truth, and acceptance-gated dependencies.
+description: Plan, execute, inspect, steer, recover, take over, verify, and review one V4 subagent orchestration with bounded concurrency and single-writer safety.
 ---
 
 # Orchestrate
 
-Use this Skill as the V4 unified orchestration entrypoint. During the coexistence phase the legacy Dispatch, Preview, Status, Steer, and Takeover adapters may still be installed; do not mix control surfaces inside one active orchestration. The final V4 public cutover removes those legacy adapters.
+Use this Skill as the single V4 orchestration entrypoint. Doctor is the separate diagnostics and maintenance entrypoint.
 
-The V4 engineering baseline is `docs/v4/engineering-baseline.json`. The frozen architecture is `docs/v4/architecture.json`. Runtime structure is implemented by `scripts/dispatch_state_v4.py`, `scripts/work_graph_v4.py`, `scripts/scheduler_v4.py`, `scripts/dispatch_control_v4.py`, `scripts/execution_lifecycle_v4.py`, and `scripts/writer_lease_v4.py`.
+Load `../../docs/v4/architecture.json` for the frozen V4 contract and use the V4 runtime helpers under `../../scripts/`. Keep Luna Max, Terra High, and Sol High fixed. Do not dynamically change model reasoning effort.
 
-For plan-only requests, compile the goal, responsibilities, dependencies, ownership ceilings, done conditions, and fixed profile routes without creating `active.json`, acquiring WriterLease, preparing PendingControl, or invoking any Host lifecycle tool.
+For plan-only requests, compile the proposed WorkUnits and routes without creating state, acquiring WriterLease, preparing PendingControl, or invoking Host lifecycle tools.
 
-For execution, bind control to the exact active `orchestration_id`. An unrelated later request must not silently join an unresolved orchestration. Status, steer, takeover, cancellation, and resume operations require the current orchestration target to be unambiguous.
+Before any managed Host lifecycle action, call the supported-execution readiness gate exposed by `../../scripts/orchestrate_v4.py`. If H01 through H07 real Host smoke evidence is not PASS, fail closed for managed execution and report that plan-only and diagnostics remain available. Offline CI, package integrity, or source inspection cannot satisfy this gate.
 
-Use only the fixed V4 profile set. Luna Max Reader handles bounded inspection, Luna Max Worker handles bounded implementation, Terra High Investigator handles broad investigation, Sol High Solver handles stalled or high-judgment work within its authority ceiling, and Sol High Advisor handles fresh review. Do not dynamically change model or reasoning effort.
+Main owns the user goal, TeamPlan, integration, WorkUnit acceptance, lifecycle authority, WriterLease transfers, and final response. Use semantic roles Main, Work, and Review. Physical profiles remain Reader, Worker, Investigator, Solver, and Advisor. Route to the lowest eligible fixed profile that can safely satisfy acceptance.
 
-Use the wakeup-driven scheduler one reconciliation at a time. A wakeup is a reason to observe and reconcile; it is not lifecycle truth. `Host COMPLETED` produces `WorkUnit.RESULT_READY`. Dependencies unlock only after Main accepts the producing WorkUnit. Keep initial managed fanout at at most two children, product fanout at at most three, respect Host capacity, prioritize the longer downstream critical path, and stop new fresh starts while two or more results await acceptance.
+Use `fork_turns: none`, depth one, and self-contained child packets. A child may not create or control managed siblings. Peer messages are outside the V4.0.0 correctness path.
 
-A writing activation requires the canonical WriterLease before the Host call. Same-child follow-up does not consume a fresh Agent attempt and remains bounded by the recovery policy. Interrupt acknowledgement alone never settles a writer. Takeover requires fresh current-generation Host evidence, no unresolved PendingControl, proven managed lifecycle Guard coverage, and atomic WriterLease transfer to Main.
+WorkUnit truth is independent from native Agent lifecycle. Host COMPLETED may advance a WorkUnit only to RESULT_READY. Dependencies unlock only after Main records ACCEPTED. Keep cancellation explicit.
 
-The V4 lifecycle Hook manifest remains staged until runtime validation. `docs/v4/host-smoke.json` defines the H01-H07 evidence required before V4.0.0 can be declared supported or published. Do not infer that those probes passed from offline tests.
+Use wakeup-driven reconciliation. Start with at most two managed children, refill progressively, and keep normal managed child fanout at or below three and the observed Host child capacity. If Host capacity is unknown, use the conservative single-child path. Apply verification backpressure when at least two results are ready but unaccepted.
 
-Keep child packets self-contained because `fork_turns` is `none`. Managed children do not create or control sibling project children. Peer messages are outside correctness-critical authority, acceptance, lease transfer, and dependency unlocking.
+Canonical workspace mutation uses one managed WriterLease. Main also requires WriterLease before integration writes. Treat RESERVED, HELD, REVOKING, and UNKNOWN as blocking. Never release or transfer a writer from an interrupt acknowledgement alone. Require fresh current-epoch Host evidence, no unresolved lifecycle control, and verified Guard coverage.
+
+Same-child correction remains on the same ExecutionBinding, is bounded, and does not consume a fresh Agent attempt. CONTINUE is a distinct semantic operation and does not consume the correction follow-up budget. Changes to the WorkUnit contract require revision or supersession rather than silent child reuse.
+
+Status must surface the active orchestration identity, working and waiting units, dependency and execution blockers, WriterLease ownership/state, unresolved controls, and acceptance state. Control requests must target the active orchestration identity exactly.
+
+Final review uses a fresh Advisor and the existing exact candidate-artifact binding. Any candidate mutation invalidates the prior review verdict.
+
+V3.x live state is legacy state. Never silently migrate unresolved V3.x state into V4. Use Doctor for migration diagnostics and explicit safe cleanup.

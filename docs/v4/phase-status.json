@@ -1,19 +1,10 @@
 {
-  "schema_version": "4.0.0-phase-status-3",
+  "schema_version": "4.0.0-phase-status-4",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
-    "phase0": {
-      "name": "V3.x hardened baseline safety preflight",
-      "status": "PASS"
-    },
-    "phase1": {
-      "name": "architecture freeze and red contracts",
-      "status": "PASS"
-    },
-    "phase2": {
-      "name": "state v4 and Host capability foundation",
-      "status": "PASS"
-    },
+    "phase0": {"name": "V3.x hardened baseline safety preflight", "status": "PASS"},
+    "phase1": {"name": "architecture freeze and red contracts", "status": "PASS"},
+    "phase2": {"name": "state v4 and Host capability foundation", "status": "PASS"},
     "phase3": {
       "name": "PendingControl and managed orchestration guard",
       "repository_implementation": "PASS",
@@ -35,17 +26,16 @@
     },
     "phase6": {
       "name": "Orchestrate coexistence",
-      "status": "NOT_STARTED"
+      "status": "PASS",
+      "offline_verification": "PASS",
+      "ci_run": 31983588703
     },
     "phase7": {
       "name": "Doctor, migration, and public cutover",
-      "status": "NOT_STARTED"
+      "status": "IN_PROGRESS"
     },
-    "phase8": {
-      "name": "release candidate and Host validation",
-      "status": "NOT_STARTED"
-    }
+    "phase8": {"name": "release candidate and Host validation", "status": "NOT_STARTED"}
   },
   "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
-  "release_rule": "V4 lifecycle Hook activation as a supported release and V4.0.0 publication remain blocked while docs/v4/host-smoke.json is not PASS. Offline tests cannot substitute for real Host Hook evidence."
+  "release_rule": "V4.0.0 supported managed execution and publication remain blocked while docs/v4/host-smoke.json is not PASS. Offline tests cannot substitute for real Host Hook evidence."
 }
