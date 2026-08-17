@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import os
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -16,6 +17,17 @@ import dispatch_state_v4 as state
 
 
 SETTLED_EXECUTION_STATES = {"INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"}
+GUARD_COVERAGE_FIELDS = {
+    "schema_version",
+    "session_id",
+    "manifest_sha256",
+    "trusted_current_definition",
+    "pre_tool_use",
+    "post_tool_use",
+    "subagent_stop_veto",
+    "evidence_ref",
+}
+HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 class WriterLeaseError(RuntimeError):
@@ -191,7 +203,7 @@ def confirm_execution_writer_activation(
     tool_use_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Promote RESERVED to HELD only after the exact Host control ACK exists."""
+    """Verify the exact ACK and preserve the execution-owned HELD WriterLease."""
     held: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
@@ -224,6 +236,25 @@ def _observation_ref(
     return f"host-observation:{execution_id}:{control_epoch}:{lease_text}:{lifecycle}"
 
 
+def _normalized_host_lifecycle(host_state: str) -> str:
+    if host_state in state.HOST_UNCERTAIN_STATES:
+        return "UNKNOWN"
+    return state.HOST_STATE_MAP.get(host_state, "UNKNOWN")
+
+
+def _same_epoch_observation_regresses(existing: str, incoming: str) -> bool:
+    """Reject delayed same-generation evidence that would reopen settled work."""
+    if existing == "UNKNOWN":
+        return False
+    if existing == "CLOSED":
+        return incoming != "CLOSED"
+    if existing in {"COMPLETED", "FAILED"}:
+        return incoming not in {existing, "CLOSED", "UNKNOWN"}
+    if existing == "INTERRUPTED":
+        return incoming in {"SPAWN_PENDING", "RUNNING"}
+    return False
+
+
 def persist_host_observation(
     thread_id: str,
     *,
@@ -243,6 +274,10 @@ def persist_host_observation(
         current_basis = state.observation_basis(current, execution_id=execution_id)
         if dict(current_basis) != dict(basis):
             raise StaleObservation("Host observation basis is stale")
+        existing = _execution(current, execution_id)["lifecycle"]
+        incoming = _normalized_host_lifecycle(host_state)
+        if _same_epoch_observation_regresses(existing, incoming):
+            raise StaleObservation("Host observation regresses lifecycle within one control epoch")
         reconciled = state.reconcile_execution_observation(
             current,
             basis=basis,
@@ -315,16 +350,42 @@ def _has_current_observation_proof(
     )
 
 
+def _validate_guard_coverage_proof(
+    current: Mapping[str, Any], proof: Mapping[str, Any] | Any
+) -> None:
+    if not isinstance(proof, Mapping):
+        raise WriterLeaseError("writer settlement requires structured Guard coverage proof")
+    if set(proof) != GUARD_COVERAGE_FIELDS:
+        raise WriterLeaseError("Guard coverage proof has invalid fields")
+    if proof.get("schema_version") != "4.0":
+        raise WriterLeaseError("Guard coverage proof has unsupported schema_version")
+    if proof.get("session_id") != current.get("root_session_id"):
+        raise WriterLeaseError("Guard coverage proof is bound to another root session")
+    digest = proof.get("manifest_sha256")
+    if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
+        raise WriterLeaseError("Guard coverage proof has invalid manifest SHA-256")
+    for field in (
+        "trusted_current_definition",
+        "pre_tool_use",
+        "post_tool_use",
+        "subagent_stop_veto",
+    ):
+        if proof.get(field) is not True:
+            raise WriterLeaseError(f"Guard coverage proof does not establish {field}")
+    evidence_ref = proof.get("evidence_ref")
+    if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+        raise WriterLeaseError("Guard coverage proof requires evidence_ref")
+
+
 def _verify_settlement(
     current: Mapping[str, Any],
     *,
     execution_id: str,
     lease_id: str,
     lease_epoch: int,
-    guard_coverage: bool,
+    guard_coverage: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    if guard_coverage is not True:
-        raise WriterLeaseError("writer settlement requires proven managed lifecycle Guard coverage")
+    _validate_guard_coverage_proof(current, guard_coverage)
     execution = _execution(current, execution_id)
     lease = current.get("writer_lease")
     if not isinstance(lease, dict):
@@ -361,7 +422,7 @@ def release_settled_execution_writer(
     execution_id: str,
     lease_id: str,
     lease_epoch: int,
-    guard_coverage: bool,
+    guard_coverage: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     released: dict[str, Any] = {}
@@ -388,7 +449,7 @@ def transfer_settled_execution_writer_to_main(
     lease_id: str,
     lease_epoch: int,
     main_lease_id: str,
-    guard_coverage: bool,
+    guard_coverage: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Atomically settle the old writer and acquire Main without an unleased gap."""
