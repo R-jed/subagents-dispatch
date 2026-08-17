@@ -1,0 +1,33 @@
+{
+  "schema_version": "4.0.0-scheduler-1",
+  "mode": "wakeup_driven_reconcile",
+  "background_daemon": false,
+  "wakeup_reasons": [
+    "USER_INPUT",
+    "AGENT_UPDATE",
+    "AGENT_COMPLETED",
+    "AGENT_BLOCKED",
+    "CAPACITY_RELEASED",
+    "REVIEW_FAILED",
+    "USER_CANCEL"
+  ],
+  "dependency_truth": "WorkUnit.ACCEPTED",
+  "host_completed_effect": "RESULT_READY",
+  "initial_managed_children_max": 2,
+  "product_managed_children_max": 3,
+  "unknown_host_capacity_managed_children_max": 1,
+  "progressive_refill": true,
+  "priority": "longest_downstream_critical_path_then_unit_id",
+  "backpressure": {
+    "threshold_unaccepted_results": 2,
+    "states": [
+      "RESULT_READY",
+      "VERIFYING"
+    ],
+    "action": "stop_new_fresh_starts"
+  },
+  "unknown_execution_occupies_capacity": true,
+  "plan_only_actions": 0,
+  "host_not_execution_ready_actions": 0,
+  "fresh_attempt_limit_per_work_unit": 2
+}
