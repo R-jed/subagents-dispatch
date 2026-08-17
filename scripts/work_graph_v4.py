@@ -48,6 +48,26 @@ def _executions(current: Mapping[str, Any], unit_id: str) -> list[dict[str, Any]
     ]
 
 
+def _current_execution(current: Mapping[str, Any], unit_id: str) -> dict[str, Any]:
+    executions = _executions(current, unit_id)
+    if not executions:
+        raise WorkGraphError("WorkUnit has no producing execution")
+    greatest = max(item.get("attempt_no", 0) for item in executions)
+    matches = [item for item in executions if item.get("attempt_no") == greatest]
+    if len(matches) != 1:
+        raise WorkGraphError("WorkUnit current execution is ambiguous")
+    return matches[0]
+
+
+def _require_current_execution(
+    current: Mapping[str, Any], *, unit_id: str, execution_id: str
+) -> dict[str, Any]:
+    execution = _current_execution(current, unit_id)
+    if execution.get("execution_id") != execution_id:
+        raise WorkGraphError("execution is superseded by a newer current attempt")
+    return execution
+
+
 def make_work_unit(
     *,
     unit_id: str,
@@ -171,13 +191,11 @@ def begin_verification(
         unit = _unit(current, unit_id)
         if unit["state"] != "RESULT_READY":
             raise WorkGraphError("verification requires RESULT_READY")
-        execution_matches = [
-            item
-            for item in _executions(current, unit_id)
-            if item["execution_id"] == execution_id
-        ]
-        if len(execution_matches) != 1 or execution_matches[0]["lifecycle"] != "COMPLETED":
-            raise WorkGraphError("verification requires the completed producing execution")
+        execution = _require_current_execution(
+            current, unit_id=unit_id, execution_id=execution_id
+        )
+        if execution["lifecycle"] != "COMPLETED":
+            raise WorkGraphError("verification requires the completed current producing execution")
         unit["state"] = "VERIFYING"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
@@ -192,7 +210,7 @@ def accept_work_unit(
     control_epoch: int,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Accept one exact execution generation and unlock only its dependents."""
+    """Accept one exact current execution generation and unlock only its dependents."""
     if not _nonempty(result_ref):
         raise WorkGraphError("result_ref must be non-empty")
     if not isinstance(control_epoch, int) or isinstance(control_epoch, bool) or control_epoch < 0:
@@ -202,20 +220,16 @@ def accept_work_unit(
         unit = _unit(current, unit_id)
         if unit["state"] not in {"RESULT_READY", "VERIFYING"}:
             raise WorkGraphError("acceptance requires RESULT_READY or VERIFYING")
-        execution_matches = [
-            item
-            for item in _executions(current, unit_id)
-            if item["execution_id"] == execution_id
-        ]
-        if len(execution_matches) != 1:
-            raise WorkGraphError("accepted execution does not belong to WorkUnit")
-        execution = execution_matches[0]
+        execution = _require_current_execution(
+            current, unit_id=unit_id, execution_id=execution_id
+        )
         if execution["lifecycle"] != "COMPLETED":
-            raise WorkGraphError("accepted execution must be Host COMPLETED")
+            raise WorkGraphError("accepted execution must be current and Host COMPLETED")
         if execution["control_epoch"] != control_epoch:
             raise WorkGraphError("acceptance control_epoch is stale")
+        execution_ids = {item["execution_id"] for item in _executions(current, unit_id)}
         if any(
-            control["execution_id"] == execution_id
+            control["execution_id"] in execution_ids
             and control["state"] in state.UNRESOLVED_CONTROL_STATES
             for control in current["pending_controls"]
         ):
@@ -243,13 +257,11 @@ def reject_work_unit(
         unit = _unit(current, unit_id)
         if unit["state"] not in {"RESULT_READY", "VERIFYING"}:
             raise WorkGraphError("rejection requires RESULT_READY or VERIFYING")
-        execution_matches = [
-            item
-            for item in _executions(current, unit_id)
-            if item["execution_id"] == execution_id
-        ]
-        if len(execution_matches) != 1 or execution_matches[0]["lifecycle"] != "COMPLETED":
-            raise WorkGraphError("rejection requires the completed producing execution")
+        execution = _require_current_execution(
+            current, unit_id=unit_id, execution_id=execution_id
+        )
+        if execution["lifecycle"] != "COMPLETED":
+            raise WorkGraphError("rejection requires the completed current producing execution")
         unit["state"] = "REJECTED"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
