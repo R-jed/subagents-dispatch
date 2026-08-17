@@ -221,6 +221,21 @@ def test_initial_fanout_does_not_expand_without_accepted_progress():
     payload["executions"] = [
         make_execution("U1", execution_id="exec-1", profile_id="reader", lifecycle="RUNNING")
     ]
+    payload["accounting_refs"] = [
+        {
+            "ref": "host-capacity-observation:rc3-fanout",
+            "kind": "host_capacity_observation",
+            "source": "post_tool_use:list_agents",
+            "turn_id": "turn-rc3-fanout",
+            "tool_use_id": "tool-rc3-fanout",
+            "resident_children": 1,
+            "settled_children": 0,
+            "active_children": 1,
+            "managed_resident_children": 1,
+            "unmanaged_resident_children": 0,
+            "response_digest": "a" * 64,
+        }
+    ]
     state.validate_state_payload(payload)
 
     decision = scheduler.scheduler_decision(
