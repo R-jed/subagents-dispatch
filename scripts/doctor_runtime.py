@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""V4 deterministic Doctor runtime.
-
-Package integrity is verified by scripts/doctor.py before this module runs.
-Diagnosis is read-only unless an explicit lifecycle action is requested.
-"""
+"""V4 deterministic Doctor runtime with bounded V3.x compatibility diagnostics."""
 
 from __future__ import annotations
 
@@ -23,7 +19,17 @@ if sys.platform == "win32":
 
 import dispatch_state as legacy_state
 import dispatch_state_v4 as state_v4
+import doctor_core as compatibility_core
 import host_capabilities
+from legacy_migration import (
+    LEGACY_LOCK_NAME,
+    LEGACY_MANIFEST_NAME,
+    LEGACY_PROFILE_FILES,
+    MigrationState,
+    detect_legacy_state,
+    format_migration_state,
+    legacy_manifest_status,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,18 +71,23 @@ def layer(name: str, status: str, summary: str, **details: Any) -> dict[str, Any
     return {"name": name, "status": status, "summary": summary, "details": details}
 
 
+def fail(message: str) -> None:
+    print(f"ERROR: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise DoctorError(f"cannot read {path.relative_to(ROOT)}: {exc}") from exc
+        raise DoctorError(f"cannot read {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {exc}") from exc
     if not isinstance(payload, dict):
-        raise DoctorError(f"{path.relative_to(ROOT)} must contain a JSON object")
+        raise DoctorError(f"{path} must contain a JSON object")
     return payload
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Diagnose subagents-dispatch V4 health.")
+    parser = argparse.ArgumentParser(description="Diagnose subagents-dispatch V4 health and release readiness.")
     parser.add_argument(
         "--codex-home",
         type=Path,
@@ -85,6 +96,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temp-root", type=Path, default=Path(tempfile.gettempdir()))
     parser.add_argument("--thread-id")
     parser.add_argument("--host-evidence", type=Path)
+    parser.add_argument("--runtime-evidence", type=Path)
+    parser.add_argument("--live-route", action="store_true")
+    parser.add_argument("--calibration-evidence-root", type=Path)
+    parser.add_argument("--calibration-campaign", type=Path)
+    parser.add_argument("--calibration-host-home-evidence", type=Path)
+    parser.add_argument("--calibration-provisioning-task-id")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--release-check", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -93,6 +110,48 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--migrate-legacy", action="store_true")
     parser.add_argument("--cleanup-stale", action="store_true")
     return parser.parse_args()
+
+
+def print_legacy_recommendation(state: MigrationState) -> None:
+    if state.migration_complete or state.current_only:
+        print("  Migration complete. No legacy cleanup is needed.")
+    elif state.preserved_legacy:
+        print("  Current profiles are installed and preserved legacy state requires explicit review.")
+    elif state.ownership_unknown:
+        print("  Legacy ownership metadata is missing, invalid, or unsafe. Automatic migration is blocked.")
+    elif state.legacy_only or state.mixed:
+        print("  Run the installer with --migrate-legacy to reconcile proven-owned legacy state.")
+    else:
+        print("  No actionable legacy installation was detected.")
+
+
+def show_legacy_profile_diagnostics(codex_home: Path) -> None:
+    state = detect_legacy_state(codex_home)
+    print("Legacy Migration Diagnostics")
+    print(f"State: {format_migration_state(state)}")
+    print(f"Legacy only: {state.legacy_only}")
+    print(f"Current only: {state.current_only}")
+    print(f"Mixed: {state.mixed}")
+    print(f"Ownership unknown: {state.ownership_unknown}")
+    print(f"Preserved legacy: {state.preserved_legacy}")
+    print(f"Migration complete: {state.migration_complete}")
+    agents_dir = codex_home / "agents"
+    manifest_path = codex_home / LEGACY_MANIFEST_NAME
+    lock_path = codex_home / LEGACY_LOCK_NAME
+    manifest_status, manifest = legacy_manifest_status(manifest_path)
+    print(f"Manifest: {manifest_status if manifest_path.exists() else 'not found'}")
+    if manifest:
+        print(f"Managed by: {manifest.managed_by}")
+        print(f"Owned profiles: {', '.join(manifest.profile_hashes.keys())}")
+    print(f"Lock: {'present' if lock_path.exists() else 'not found'}")
+    if agents_dir.is_dir() and not agents_dir.is_symlink():
+        profiles = [
+            name
+            for name in LEGACY_PROFILE_FILES
+            if (agents_dir / name).is_file() and not (agents_dir / name).is_symlink()
+        ]
+        print(f"Active legacy profiles: {', '.join(profiles) if profiles else 'none'}")
+    print_legacy_recommendation(state)
 
 
 def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
@@ -109,10 +168,29 @@ def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
             raise DoctorError("managed-profile lifecycle operation failed")
         actions.append("managed profile migration" if args.migrate_legacy else "managed profile repair")
     if args.cleanup_stale:
-        thread_id = args.thread_id or os.environ.get("CODEX_THREAD_ID")
-        if thread_id is None:
-            raise DoctorError("--cleanup-stale requires an explicit thread identity")
-        report = legacy_state.cleanup_stale_states(temp_root=args.temp_root, active_thread_id=thread_id)
+        if args.thread_id is not None:
+            active_thread_id = args.thread_id
+            if not active_thread_id.strip():
+                raise DoctorError("--cleanup-stale requires a valid CODEX_THREAD_ID")
+        else:
+            active_thread_id = os.environ.get("CODEX_THREAD_ID")
+            if active_thread_id is not None and not active_thread_id.strip():
+                active_thread_id = None
+        if active_thread_id is not None:
+            try:
+                legacy_state.resolve_thread_id(active_thread_id)
+            except legacy_state.StateIdentityError as exc:
+                raise DoctorError(f"--cleanup-stale requires a valid CODEX_THREAD_ID: {exc}") from exc
+        if not args.temp_root.exists():
+            report = {"removed": []}
+        else:
+            try:
+                report = legacy_state.cleanup_stale_states(
+                    temp_root=args.temp_root,
+                    active_thread_id=active_thread_id,
+                )
+            except (legacy_state.StateIdentityError, legacy_state.StatePathError) as exc:
+                raise DoctorError(f"stale cleanup failed safely: {exc}") from exc
         actions.append(
             f"legacy stale cleanup removed {len(report['removed'])} terminal capsule(s); active/corrupt state retained"
         )
@@ -140,11 +218,12 @@ def diagnose_skills() -> dict[str, Any]:
             expected=list(EXPECTED_SKILLS),
             actual=actual,
         )
-    missing: list[str] = []
-    for skill_id in EXPECTED_SKILLS:
-        root = SKILLS / skill_id
-        if not (root / "SKILL.md").is_file() or not (root / "agents" / "openai.yaml").is_file():
-            missing.append(skill_id)
+    missing = [
+        skill_id
+        for skill_id in EXPECTED_SKILLS
+        if not (SKILLS / skill_id / "SKILL.md").is_file()
+        or not (SKILLS / skill_id / "agents" / "openai.yaml").is_file()
+    ]
     if missing:
         return layer("Public Skills", "FAIL", "V4 Skill adapters are incomplete", missing=missing)
     return layer("Public Skills", "OK", "exactly Orchestrate and Doctor are public", count=2)
@@ -161,15 +240,11 @@ def diagnose_profiles(codex_home: Path) -> dict[str, Any]:
     mismatches: list[str] = []
     for role, (model, effort) in EXPECTED_PROFILES.items():
         spec = roles.get(role)
-        if not isinstance(spec, Mapping):
-            mismatches.append(role)
-            continue
-        profile_file = spec.get("profile_file")
-        if not isinstance(profile_file, str):
+        if not isinstance(spec, Mapping) or not isinstance(spec.get("profile_file"), str):
             mismatches.append(role)
             continue
         try:
-            profile = tomllib.loads((PROFILE_DIR / profile_file).read_text(encoding="utf-8"))
+            profile = tomllib.loads((PROFILE_DIR / str(spec["profile_file"])).read_text(encoding="utf-8"))
         except (OSError, UnicodeError, tomllib.TOMLDecodeError):
             mismatches.append(role)
             continue
@@ -182,7 +257,6 @@ def diagnose_profiles(codex_home: Path) -> dict[str, Any]:
             mismatches.append(role)
     if mismatches:
         return layer("Fixed execution profiles", "FAIL", "fixed model/effort contract differs", mismatches=mismatches)
-
     verifier = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "install-agents.py"), "--codex-home", str(codex_home), "--check"],
         capture_output=True,
@@ -195,7 +269,7 @@ def diagnose_profiles(codex_home: Path) -> dict[str, Any]:
         "OK" if installed else "WARN",
         "Luna Max, Terra High, and Sol High contract is exact"
         if installed
-        else "bundled profile contract is exact; Codex-home installation is not currently exact",
+        else "bundled fixed profile contract is exact; Codex-home installation is not currently exact",
         installed_exact=installed,
         luna="max",
         terra="high",
@@ -206,6 +280,8 @@ def diagnose_profiles(codex_home: Path) -> dict[str, Any]:
 def _state_snapshot(temp_root: Path, thread_id: str | None) -> tuple[str, dict[str, Any] | None, str | None]:
     if thread_id is None or not thread_id.strip():
         return "unknown", None, "thread identity unavailable"
+    if not temp_root.exists():
+        return "absent", None, None
     try:
         path = legacy_state.state_path(thread_id, temp_root=temp_root)
     except (legacy_state.StateIdentityError, legacy_state.StatePathError) as exc:
@@ -237,9 +313,8 @@ def _state_snapshot(temp_root: Path, thread_id: str | None) -> tuple[str, dict[s
 def diagnose_state_layers(temp_root: Path, thread_id: str | None) -> list[dict[str, Any]]:
     family, payload, error = _state_snapshot(temp_root, thread_id)
     if family == "unsafe":
-        fail = layer("V4 state", "FAIL", f"state is unsafe or corrupt: {error}")
         return [
-            fail,
+            layer("V4 state", "FAIL", f"state is unsafe or corrupt: {error}"),
             layer("Legacy V3.x state", "UNKNOWN", "state family cannot be classified safely"),
             layer("Work Graph", "UNKNOWN", "state family cannot be classified safely"),
             layer("WriterLease", "UNKNOWN", "state family cannot be classified safely"),
@@ -271,8 +346,10 @@ def diagnose_state_layers(temp_root: Path, thread_id: str | None) -> list[dict[s
             layer("V4 state", "OK", "no V4 state is active for this thread"),
             layer(
                 "Legacy V3.x state",
-                "WARN",
-                "legacy V3.x state is present and will not be silently migrated",
+                "FAIL" if unresolved else "WARN",
+                "unresolved legacy V3.x state blocks V4 execution and will not be silently migrated"
+                if unresolved
+                else "terminal legacy V3.x state is present and will not be silently migrated",
                 unresolved=unresolved,
                 v4_execution_allowed=False,
             ),
@@ -280,7 +357,6 @@ def diagnose_state_layers(temp_root: Path, thread_id: str | None) -> list[dict[s
             layer("WriterLease", "UNKNOWN", "V4 WriterLease unavailable while legacy state exists"),
             layer("PendingControl", "UNKNOWN", "V4 PendingControl unavailable while legacy state exists"),
         ]
-
     assert family == "v4" and payload is not None
     lease = payload["writer_lease"]
     unresolved_controls = [
@@ -326,9 +402,26 @@ def diagnose_host(host_evidence: Path | None) -> dict[str, Any]:
     if host_evidence is None:
         return layer("Host capabilities", "UNKNOWN", "explicit Host capability evidence was not supplied")
     try:
-        evidence = json.loads(host_evidence.read_text(encoding="utf-8"))
-        snapshot = host_capabilities.normalize_host_capabilities(evidence)
-    except (OSError, UnicodeError, json.JSONDecodeError, host_capabilities.HostCapabilityError) as exc:
+        payload = json.loads(host_evidence.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return layer("Host capabilities", "FAIL", f"Host evidence is invalid: {exc}")
+    if not isinstance(payload, dict):
+        return layer("Host capabilities", "FAIL", "Host evidence must be an object")
+    if "capabilities" in payload or "plugin_hooks" in payload:
+        host = compatibility_core.diagnose_host(host_evidence)
+        guard = compatibility_core.diagnose_spawn_guard_runtime(host_evidence)
+        severity = {"OK": 0, "UNKNOWN": 1, "WARN": 2, "FAIL": 3}
+        status = host["status"] if severity[host["status"]] >= severity[guard["status"]] else guard["status"]
+        return layer(
+            "Host capabilities",
+            status,
+            "legacy Host capability/Hook evidence was normalized without satisfying the V4 Host-smoke gate",
+            host=host,
+            legacy_spawn_guard=guard,
+        )
+    try:
+        snapshot = host_capabilities.normalize_host_capabilities(payload)
+    except host_capabilities.HostCapabilityError as exc:
         return layer("Host capabilities", "FAIL", f"Host evidence is invalid: {exc}")
     return layer(
         "Host capabilities",
@@ -348,14 +441,12 @@ def diagnose_hook_and_release() -> tuple[dict[str, Any], dict[str, Any]]:
     except DoctorError as exc:
         hook = layer("Lifecycle Hook coverage", "FAIL", str(exc))
         return hook, layer("Release readiness", "UNKNOWN", "Hook state cannot be classified")
-
     smoke_status = smoke.get("status")
     production_events = sorted((production.get("hooks") or {}).keys()) if isinstance(production.get("hooks"), Mapping) else []
     staged_events = sorted((staged.get("hooks") or {}).keys()) if isinstance(staged.get("hooks"), Mapping) else []
-    hook_status = "OK" if smoke_status == "PASS" else "UNKNOWN"
     hook = layer(
         "Lifecycle Hook coverage",
-        hook_status,
+        "OK" if smoke_status == "PASS" else "UNKNOWN",
         "real Host lifecycle Hook coverage is verified"
         if smoke_status == "PASS"
         else "V4 lifecycle Hooks remain staged pending real Host smoke",
@@ -377,8 +468,66 @@ def diagnose_hook_and_release() -> tuple[dict[str, Any], dict[str, Any]]:
     return hook, release
 
 
+def development_calibration_layer(args: argparse.Namespace, codex_home: Path) -> dict[str, Any] | None:
+    values = (
+        args.calibration_evidence_root,
+        args.calibration_campaign,
+        args.calibration_host_home_evidence,
+        args.calibration_provisioning_task_id,
+    )
+    if not any(item is not None for item in values):
+        return None
+    if not all(item is not None for item in values):
+        return layer(
+            "Calibration readiness",
+            "FAIL",
+            "calibration evidence root, campaign, Host-home evidence, and provisioning task id are all required",
+        )
+    repository_status = subprocess.run(
+        ["git", "-C", str(ROOT), "status", "--porcelain"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    repository_dirty = repository_status.returncode != 0 or bool(repository_status.stdout.strip())
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "calibration_profiles.py"),
+            "check",
+            "--evaluator-root",
+            str(args.calibration_evidence_root),
+            "--codex-home",
+            str(codex_home),
+            "--campaign",
+            str(args.calibration_campaign),
+            "--host-home-evidence",
+            str(args.calibration_host_home_evidence),
+            "--provisioning-task-id",
+            str(args.calibration_provisioning_task_id),
+        ],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    ready = result.returncode == 0 and not repository_dirty
+    return layer(
+        "Calibration readiness",
+        "OK" if ready else "FAIL",
+        "Experiment Plane profile-only calibration state is exact"
+        if ready
+        else "Experiment Plane profile-only calibration state is not ready",
+        materialization_mode="profile_only",
+        repository_clean=not repository_dirty,
+        verifier_returncode=result.returncode,
+    )
+
+
 def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
-    thread_id = args.thread_id or os.environ.get("CODEX_THREAD_ID")
+    thread_id = args.thread_id if args.thread_id is not None else os.environ.get("CODEX_THREAD_ID")
     layers = [diagnose_plugin(), diagnose_skills(), diagnose_profiles(codex_home)]
     layers.extend(diagnose_state_layers(args.temp_root, thread_id))
     layers.append(diagnose_host(args.host_evidence))
@@ -386,13 +535,31 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
     layers.extend([hook, release])
     by_name = {item["name"]: item for item in layers}
     ordered = [by_name[name] for name in LAYER_ORDER]
-    healthy = not any(item["status"] == "FAIL" for item in ordered)
+
+    development_layers = compatibility_core.diagnose_runtime(args.runtime_evidence, args.live_route)
+    calibration = development_calibration_layer(args, codex_home)
+    if calibration is not None:
+        development_layers.append(calibration)
+
+    excluded_unknown = {"Host capabilities", "Lifecycle Hook coverage", "Release readiness"}
+    production_unhealthy = any(
+        item["status"] in {"WARN", "FAIL"}
+        or (item["status"] == "UNKNOWN" and item["name"] not in excluded_unknown)
+        for item in ordered
+    )
+    development_fail = any(item["status"] == "FAIL" for item in development_layers)
+    live_required_unverified = args.live_route and any(
+        item.get("details", {}).get("required") is True and item.get("status") != "OK"
+        for item in development_layers
+    )
+    healthy = not production_unhealthy and not development_fail and not live_required_unverified
     release_ready = bool(by_name["Release readiness"]["details"].get("release_ready"))
     return {
         "schema_version": 4,
         "healthy": healthy,
         "release_ready": release_ready,
         "layers": ordered,
+        "development_layers": development_layers,
     }
 
 
@@ -402,16 +569,30 @@ def render_text(report: Mapping[str, Any], actions: list[str]) -> str:
         "Mode: V4 deterministic diagnostics; read-only unless an explicit lifecycle action was requested",
         "",
     ]
-    for item in report["layers"]:
+    layers = report.get("layers", [])
+    for item in layers:
         lines.append(f"[{item['status']}] {item['name']}: {item['summary']}")
+    development = report.get("development_layers", [])
+    if development:
+        lines.extend(["", "Development checks"])
+        for item in development:
+            lines.append(f"[{item['status']}] {item['name']}: {item['summary']}")
     if actions:
-        lines.append("")
-        lines.append("Actions: " + "; ".join(actions))
+        lines.extend(["", "Actions applied"])
+        lines.extend(f"[OK] {action}" for action in actions)
+    all_layers = list(layers) + list(development)
+    failures = sum(item.get("status") == "FAIL" for item in all_layers)
+    if failures:
+        verdict = "UNHEALTHY"
+    elif report.get("healthy") is True:
+        verdict = "HEALTHY"
+    else:
+        verdict = "ATTENTION"
     lines.extend(
         [
             "",
-            f"Health: {'HEALTHY' if report['healthy'] else 'UNHEALTHY'}",
-            f"Release readiness: {'READY' if report['release_ready'] else 'BLOCKED'}",
+            f"Overall: {verdict}",
+            f"Release readiness: {'READY' if report.get('release_ready') else 'BLOCKED'}",
         ]
     )
     return "\n".join(lines)
@@ -421,22 +602,20 @@ def main() -> None:
     args = parse_args()
     codex_home = args.codex_home.expanduser()
     if codex_home.is_symlink():
-        raise SystemExit("ERROR: refusing symlinked Codex home")
+        fail(f"Refusing symlinked Codex home: {codex_home}")
     codex_home = codex_home.resolve()
+
+    if args.legacy:
+        show_legacy_profile_diagnostics(codex_home)
+        return
+
     try:
         actions = _explicit_actions(args, codex_home)
         report = diagnose(args, codex_home)
     except DoctorError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(1) from None
+        fail(str(exc))
 
-    if args.legacy:
-        selected = next(item for item in report["layers"] if item["name"] == "Legacy V3.x state")
-        if args.json:
-            print(json.dumps(selected, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
-        else:
-            print(f"[{selected['status']}] {selected['name']}: {selected['summary']}")
-    elif args.json:
+    if args.json:
         output = dict(report)
         output["actions"] = actions
         print(json.dumps(output, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
