@@ -81,7 +81,7 @@ subagents_dispatch_advisor
 
 For formal route evidence, preserve the distinction `Configured → Requested → Accepted → Observed`. Accepted route metadata must not be promoted to observed Host truth.
 
-Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands. All unrelated configuration semantics must remain unchanged, and other Codex state must remain unchanged.
+Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged. In addition, all unrelated configuration semantics must remain unchanged.
 
 ## 3. State and migration gates
 
