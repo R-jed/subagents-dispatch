@@ -34,7 +34,7 @@ def test_v3_post_release_spawn_guard_evidence_does_not_satisfy_v4_runtime_gate()
     smoke = load_json("host-smoke.json")
 
     assert smoke["status"] == "PENDING"
-    assert smoke["blocks_phase"] == "phase4-scheduler-core"
+    assert smoke["blocks_phase"] == "phase8-supported-release"
     inherited = smoke["inherited_evidence"]
     assert len(inherited) == 1
     assert inherited[0]["source"] == "PR #66"
@@ -62,7 +62,7 @@ def test_real_host_smoke_gate_covers_all_managed_lifecycle_boundaries():
         assert "same tool_use_id across PreToolUse and PostToolUse" in requirements
 
 
-def test_phase4_cannot_advance_while_real_host_gate_is_pending():
+def test_offline_development_can_advance_while_supported_release_stays_blocked():
     status = load_json("phase-status.json")
     smoke = load_json("host-smoke.json")
 
@@ -71,6 +71,8 @@ def test_phase4_cannot_advance_while_real_host_gate_is_pending():
     assert status["phases"]["phase2"]["status"] == "PASS"
     assert status["phases"]["phase3"]["repository_implementation"] == "PASS"
     assert status["phases"]["phase3"]["offline_verification"] == "PASS"
-    assert status["phases"]["phase3"]["real_host_smoke"] == smoke["status"] == "PENDING"
-    assert status["phases"]["phase4"]["status"] == "BLOCKED"
-    assert status["phases"]["phase4"]["blocked_by"] == smoke["gate_id"]
+    assert status["phases"]["phase3"]["real_host_smoke"] == "PENDING_RELEASE_GATE"
+    assert smoke["status"] == "PENDING"
+    assert status["phases"]["phase4"]["status"] == "PASS"
+    assert smoke["blocks_phase"] == "phase8-supported-release"
+    assert "publication remain blocked" in status["release_rule"]
