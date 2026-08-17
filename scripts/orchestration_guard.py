@@ -20,6 +20,7 @@ if sys.platform == "win32":
 import dispatch_control_v4 as control
 import dispatch_state as state_v3
 import dispatch_state_v4 as state_v4
+import managed_execution_v4 as managed_execution
 import spawn_guard
 
 
@@ -142,6 +143,10 @@ def evaluate_pre_tool_use(
         if family == "v3" or family == "none":
             return spawn_guard.evaluate_hook(payload, temp_root=temp_root)
         assert current is not None
+        try:
+            managed_execution.validate_actual_spawn_input(current, tool_input=tool_input)
+        except managed_execution.ManagedExecutionContractError as exc:
+            return _block(str(exc))
         control.consume_prepared_control(
             session_id,
             tool_name=tool_name,
