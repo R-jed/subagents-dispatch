@@ -14,9 +14,9 @@ def test_staged_v4_hook_manifest_covers_all_managed_lifecycle_boundaries():
     events = payload["hooks"]
     assert set(events) == {"PreToolUse", "PostToolUse", "SubagentStop"}
 
-    lifecycle = "spawn_agent|followup_task|interrupt_agent"
-    assert events["PreToolUse"][0]["matcher"] == lifecycle
-    assert events["PostToolUse"][0]["matcher"] == lifecycle
+    guarded = "spawn_agent|followup_task|interrupt_agent|list_agents"
+    assert events["PreToolUse"][0]["matcher"] == guarded
+    assert events["PostToolUse"][0]["matcher"] == guarded
 
     stop_matcher = events["SubagentStop"][0]["matcher"]
     assert set(stop_matcher.split("|")) == {
