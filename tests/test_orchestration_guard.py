@@ -159,7 +159,11 @@ def test_post_tool_use_acknowledges_exact_control(tmp_path: Path):
     current = state_module.load_state("root-thread", temp_root=tmp_path)
     assert current is not None
     assert current["pending_controls"] == []
-    assert any(event["ref"] == "control-ack:tool-1" for event in current["accounting_refs"])
+    assert any(
+        event.get("ref") == "control-ack:control-1:tool-1"
+        and event.get("control_id") == "control-1"
+        for event in current["accounting_refs"]
+    )
 
 
 def test_post_payload_drift_stops_and_quarantines_control(tmp_path: Path):
