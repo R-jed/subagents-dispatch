@@ -47,6 +47,7 @@ TOP_LEVEL_FIELDS = {
     "runtime_manifest_sha256",
     "production_hook_sha256",
     "profile_contract_sha256",
+    "host_campaign_result_sha256",
     "host_campaign",
     "final_review",
 }
@@ -96,6 +97,19 @@ def _valid_hex(value: Any, length: int) -> bool:
         and len(value) == length
         and all(character in HEX64 for character in value)
     )
+
+
+def canonical_json_sha256(value: Any) -> str:
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ReleaseEvidenceError(f"value is not canonical JSON: {exc}") from exc
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def normalized_file_sha256(path: Path) -> str:
@@ -212,6 +226,32 @@ def _compare_identity(
             issues.append(f"{label}.{field} does not match the exact candidate")
 
 
+def _validate_host_campaign_result_digest(
+    top: Mapping[str, Any],
+    *,
+    issues: list[str],
+) -> None:
+    supplied = top.get("host_campaign_result_sha256")
+    if not _valid_hex(supplied, 64):
+        issues.append("release evidence.host_campaign_result_sha256 is malformed")
+        return
+    campaign = top.get("host_campaign")
+    if not isinstance(campaign, Mapping):
+        return
+    results = campaign.get("results")
+    if not isinstance(results, Mapping):
+        return
+    try:
+        expected = canonical_json_sha256(results)
+    except ReleaseEvidenceError as exc:
+        issues.append(f"host campaign results cannot be digested: {exc}")
+        return
+    if supplied != expected:
+        issues.append(
+            "release evidence.host_campaign_result_sha256 does not match exact Host campaign results"
+        )
+
+
 def _validate_host_campaign(
     campaign: Any,
     *,
@@ -316,6 +356,7 @@ def verify_release_evidence(
         if top.get("repository") != EXPECTED_REPOSITORY:
             issues.append("release evidence repository identity is invalid")
         _compare_identity(top, identity, label="release evidence", issues=issues)
+        _validate_host_campaign_result_digest(top, issues=issues)
 
     try:
         review_artifact_id = current_review_artifact_id(candidate)
