@@ -3,7 +3,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "spawn_agent|followup_task|interrupt_agent",
+        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents",
         "hooks": [
           {
             "type": "command",
