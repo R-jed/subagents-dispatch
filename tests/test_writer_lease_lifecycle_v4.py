@@ -85,6 +85,21 @@ def spawn_input(task_name: str) -> dict:
     }
 
 
+def guard_proof(**overrides) -> dict:
+    proof = {
+        "schema_version": "4.0",
+        "session_id": "thread-p5",
+        "manifest_sha256": "a" * 64,
+        "trusted_current_definition": True,
+        "pre_tool_use": True,
+        "post_tool_use": True,
+        "subagent_stop_veto": True,
+        "evidence_ref": "test-host-attestation",
+    }
+    proof.update(overrides)
+    return proof
+
+
 def activate_writer(state, control, lifecycle, tmp_path: Path, *, execution_id: str = "exec-1"):
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
@@ -209,7 +224,7 @@ def test_interrupt_ack_alone_never_releases_or_transfers_writer(tmp_path: Path):
             old_lease_id=lease["lease_id"],
             old_lease_epoch=lease["lease_epoch"],
             main_lease_id="lease-main",
-            guard_coverage=True,
+            guard_coverage=guard_proof(),
             temp_root=tmp_path,
         )
 
@@ -255,7 +270,7 @@ def test_fresh_same_epoch_interrupted_observation_allows_atomic_takeover(tmp_pat
         old_lease_id=old["lease_id"],
         old_lease_epoch=old["lease_epoch"],
         main_lease_id="lease-main",
-        guard_coverage=True,
+        guard_coverage=guard_proof(),
         temp_root=tmp_path,
     )
     assert main["owner_kind"] == "main"
@@ -304,7 +319,32 @@ def test_takeover_stays_blocked_when_guard_coverage_is_unproven(tmp_path: Path):
             old_lease_id=lease["lease_id"],
             old_lease_epoch=lease["lease_epoch"],
             main_lease_id="lease-main",
-            guard_coverage=False,
+            guard_coverage=guard_proof(trusted_current_definition=False),
+            temp_root=tmp_path,
+        )
+
+
+def test_naked_guard_boolean_is_not_settlement_evidence(tmp_path: Path):
+    state = load_module("p5_state_guard_bool", "dispatch_state_v4.py")
+    graph = load_module("p5_graph_guard_bool", "work_graph_v4.py")
+    control = load_module("p5_control_guard_bool", "dispatch_control_v4.py")
+    lifecycle = load_module("p5_lifecycle_guard_bool", "execution_lifecycle_v4.py")
+    writer = lifecycle.writer
+    install_graph(state, graph, tmp_path)
+    allocate_writer(lifecycle, tmp_path)
+    activate_writer(state, control, lifecycle, tmp_path)
+    observe(lifecycle, tmp_path, execution_id="exec-1", host_state="completed")
+    current = state.load_state("thread-p5", temp_root=tmp_path)
+    assert current is not None
+    lease = current["writer_lease"]
+
+    with pytest.raises(writer.WriterLeaseError, match="structured Guard coverage proof"):
+        writer.release_settled_execution_writer(
+            "thread-p5",
+            execution_id="exec-1",
+            lease_id=lease["lease_id"],
+            lease_epoch=lease["lease_epoch"],
+            guard_coverage=True,
             temp_root=tmp_path,
         )
 
@@ -365,6 +405,75 @@ def test_stale_observation_cannot_settle_new_control_epoch(tmp_path: Path):
     assert execution["followup_count"] == 1
 
 
+def test_delayed_running_observation_cannot_reopen_completed_same_epoch(tmp_path: Path):
+    state = load_module("p5_state_monotonic", "dispatch_state_v4.py")
+    graph = load_module("p5_graph_monotonic", "work_graph_v4.py")
+    control = load_module("p5_control_monotonic", "dispatch_control_v4.py")
+    lifecycle = load_module("p5_lifecycle_monotonic", "execution_lifecycle_v4.py")
+    install_graph(state, graph, tmp_path)
+    allocate_writer(lifecycle, tmp_path)
+    activate_writer(state, control, lifecycle, tmp_path)
+    basis = lifecycle.fresh_observation_basis(
+        "thread-p5", execution_id="exec-1", temp_root=tmp_path
+    )
+    completed = lifecycle.persist_host_observation(
+        "thread-p5",
+        basis=basis,
+        host_state="completed",
+        agent_id="agent-exec-1",
+        temp_root=tmp_path,
+    )
+    assert completed["lifecycle"] == "COMPLETED"
+
+    delayed = lifecycle.persist_host_observation(
+        "thread-p5",
+        basis=basis,
+        host_state="running",
+        agent_id="agent-exec-1",
+        temp_root=tmp_path,
+    )
+    assert delayed["reconcile_status"] == "stale"
+    current = state.load_state("thread-p5", temp_root=tmp_path)
+    assert current is not None
+    assert current["executions"][0]["lifecycle"] == "COMPLETED"
+    assert current["work_units"][0]["state"] == "RESULT_READY"
+
+
+def test_new_epoch_followup_can_reactivate_completed_execution(tmp_path: Path):
+    state = load_module("p5_state_new_epoch", "dispatch_state_v4.py")
+    graph = load_module("p5_graph_new_epoch", "work_graph_v4.py")
+    control = load_module("p5_control_new_epoch", "dispatch_control_v4.py")
+    lifecycle = load_module("p5_lifecycle_new_epoch", "execution_lifecycle_v4.py")
+    install_graph(state, graph, tmp_path)
+    allocate_writer(lifecycle, tmp_path)
+    activate_writer(state, control, lifecycle, tmp_path)
+    observe(lifecycle, tmp_path, execution_id="exec-1", host_state="completed")
+
+    followup_input = {"target": "sd-u1-a1", "message": "focused correction"}
+    lifecycle.prepare_same_child_followup(
+        "thread-p5", execution_id="exec-1", tool_input=followup_input, temp_root=tmp_path
+    )
+    control.consume_prepared_control(
+        "thread-p5",
+        tool_name="followup_task",
+        tool_input=followup_input,
+        tool_use_id="tool-followup-reactivate",
+        temp_root=tmp_path,
+    )
+    lifecycle.acknowledge_lifecycle_control(
+        "thread-p5",
+        tool_name="followup_task",
+        tool_input=followup_input,
+        tool_response={},
+        tool_use_id="tool-followup-reactivate",
+        temp_root=tmp_path,
+    )
+    running = observe(lifecycle, tmp_path, execution_id="exec-1", host_state="running")
+    assert running["lifecycle"] == "RUNNING"
+    assert running["state"]["executions"][0]["control_epoch"] == 1
+    assert running["state"]["work_units"][0]["state"] == "EXECUTING"
+
+
 def test_same_child_followup_does_not_create_fresh_attempt_and_is_bounded(tmp_path: Path):
     state = load_module("p5_state_followup", "dispatch_state_v4.py")
     graph = load_module("p5_graph_followup", "work_graph_v4.py")
@@ -420,7 +529,7 @@ def test_unknown_writer_never_auto_releases(tmp_path: Path):
             execution_id="exec-1",
             lease_id=lease["lease_id"],
             lease_epoch=lease["lease_epoch"],
-            guard_coverage=True,
+            guard_coverage=guard_proof(),
             temp_root=tmp_path,
         )
 
@@ -443,7 +552,7 @@ def test_stale_old_lease_release_cannot_clear_new_main_lease(tmp_path: Path):
         execution_id="exec-1",
         lease_id=old["lease_id"],
         lease_epoch=old["lease_epoch"],
-        guard_coverage=True,
+        guard_coverage=guard_proof(),
         temp_root=tmp_path,
     )
     main = writer.acquire_main_writer(
@@ -460,7 +569,7 @@ def test_stale_old_lease_release_cannot_clear_new_main_lease(tmp_path: Path):
             execution_id="exec-1",
             lease_id=old["lease_id"],
             lease_epoch=old["lease_epoch"],
-            guard_coverage=True,
+            guard_coverage=guard_proof(),
             temp_root=tmp_path,
         )
     current = state.load_state("thread-p5", temp_root=tmp_path)
