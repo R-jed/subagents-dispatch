@@ -1,0 +1,41 @@
+{
+  "schema_version": "4.0.0-writer-lifecycle-1",
+  "writer_lease": {
+    "scope": "canonical_workspace",
+    "states": ["RESERVED", "HELD", "REVOKING", "UNKNOWN", "RELEASED"],
+    "blocking_states": ["RESERVED", "HELD", "REVOKING", "UNKNOWN"],
+    "epoch_monotonic": true,
+    "stale_release_allowed": false,
+    "unknown_auto_release": false,
+    "main_uses_same_abstraction": true,
+    "security_boundary": "managed_orchestration_mutual_exclusion"
+  },
+  "settlement_theorem": {
+    "requires": [
+      "fresh current-epoch Host observation proof",
+      "matching execution_id",
+      "matching control_epoch",
+      "matching lease_epoch",
+      "no unresolved PendingControl",
+      "proven managed lifecycle Guard coverage"
+    ],
+    "interrupt_ack_alone_releases_writer": false
+  },
+  "same_child": {
+    "fresh_attempt_increment": false,
+    "focused_followup_limit": 1,
+    "continue_consumes_followup_budget": false,
+    "accepted_or_cancelled_reactivation": false
+  },
+  "takeover": {
+    "sequence": [
+      "WriterLease REVOKING",
+      "interrupt PendingControl ACK",
+      "fresh current-epoch Host observation",
+      "execution INTERRUPTED",
+      "atomic WriterLease transfer to Main"
+    ],
+    "unleased_transfer_gap": false
+  },
+  "runtime_validation": "required_before_supported_release"
+}
