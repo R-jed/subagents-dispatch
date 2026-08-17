@@ -76,9 +76,10 @@ def test_release_path_keeps_experiment_plane_conditional_and_host_gate_mandatory
     assert "Runtime attestation and the V4 Host lifecycle smoke remain release-path evidence" in text
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
     assert smoke["status"] != "PASS"
-    assert smoke["blocks_release"] == "v4.0.0-production-hook-activation-and-publication"
+    assert smoke["gate_id"] == "v4-real-host-h00-h20"
+    assert smoke["results"] == {}
     assert {probe["id"] for probe in smoke["required_probes"]} == {
-        f"H{number:02d}" for number in range(11)
+        f"H{number:02d}" for number in range(21)
     }
 
 
@@ -87,7 +88,7 @@ def test_staged_hooks_are_not_promoted_without_real_host_evidence():
     production = json.loads(PRODUCTION_HOOKS.read_text(encoding="utf-8"))
     assert {"PreToolUse", "PostToolUse", "SubagentStop"}.issubset(staged["hooks"])
     assert set(production["hooks"]) == {"PreToolUse"}
-    assert "Only after H00-H10 pass may the staged `docs/v4/hooks.json` be promoted" in RELEASE.read_text(encoding="utf-8")
+    assert "Only after H00-H20 pass may the staged `docs/v4/hooks.json` be promoted" in RELEASE.read_text(encoding="utf-8")
 
 
 def test_release_contract_freezes_two_skills_and_five_profile_identities():

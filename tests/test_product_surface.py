@@ -116,7 +116,7 @@ def test_v4_hooks_remain_staged_until_real_host_smoke():
     assert set(production["hooks"]) == {"PreToolUse"}
     assert set(staged["hooks"]) == {"PreToolUse", "PostToolUse", "SubagentStop"}
     assert smoke["status"] != "PASS"
-    assert smoke["gate_id"] == "phase8-real-host-lifecycle-coverage"
+    assert smoke["gate_id"] == "v4-real-host-h00-h20"
 
 
 def test_ci_keeps_cross_platform_integrity_validator_and_profile_lifecycle_gates():

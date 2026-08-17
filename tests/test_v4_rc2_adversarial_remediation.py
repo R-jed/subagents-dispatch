@@ -82,9 +82,23 @@ def execution(
 
 def host_snapshot(capacity: int) -> dict:
     return {
+        "surface": "multi_agent_v2",
+        "capabilities": {
+            "spawn": True,
+            "observe": True,
+            "wait_or_wakeup": True,
+            "followup": True,
+            "interrupt": True,
+            "pre_tool_use_guard": True,
+            "post_tool_use_guard": True,
+            "host_observation_guard": True,
+            "subagent_stop_veto": True,
+        },
+        "fork_turns_none": True,
+        "max_spawned_threads": capacity,
+        "capacity_excludes_primary": True,
         "execution_ready": True,
         "missing": [],
-        "max_spawned_threads": capacity,
     }
 
 
@@ -175,6 +189,21 @@ def test_completed_open_thread_still_consumes_host_capacity_until_closed():
     payload["executions"] = [
         execution("U0", execution_id="exec-old", lifecycle="COMPLETED")
     ]
+    payload["accounting_refs"] = [
+        {
+            "ref": "host-capacity-observation:rc2-completed",
+            "kind": "host_capacity_observation",
+            "source": "post_tool_use:list_agents",
+            "turn_id": "turn-capacity-completed",
+            "tool_use_id": "tool-capacity-completed",
+            "resident_children": 1,
+            "settled_children": 1,
+            "active_children": 0,
+            "managed_resident_children": 1,
+            "unmanaged_resident_children": 0,
+            "response_digest": "a" * 64,
+        }
+    ]
     state.validate_state_payload(payload)
 
     occupied = scheduler.scheduler_decision(
@@ -182,20 +211,24 @@ def test_completed_open_thread_still_consumes_host_capacity_until_closed():
         capability_snapshot=host_snapshot(2),
         wakeup_reason="AGENT_COMPLETED",
     )
-    assert occupied["occupied_open_threads"] == 1
+    assert occupied["occupied_host_residents"] == 1
     assert occupied["launch_budget"] == 1
     assert len(occupied["actions"]) == 1
 
     payload["executions"][0]["lifecycle"] = "CLOSED"
+    observation = payload["accounting_refs"][0]
+    observation["resident_children"] = 0
+    observation["settled_children"] = 0
+    observation["managed_resident_children"] = 0
     state.validate_state_payload(payload)
     released = scheduler.scheduler_decision(
         payload,
         capability_snapshot=host_snapshot(2),
         wakeup_reason="CAPACITY_RELEASED",
     )
-    assert released["occupied_open_threads"] == 0
-    assert released["launch_budget"] == 2
-    assert len(released["actions"]) == 2
+    assert released["occupied_host_residents"] == 0
+    assert released["launch_budget"] == 1
+    assert len(released["actions"]) == 1
 
 
 def test_intermediate_writer_states_are_recoverable_without_widening_authority(tmp_path: Path):
@@ -269,9 +302,10 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
     observe_post = {
         **observe_common,
         "hook_event_name": "PostToolUse",
-        "tool_response": [
-            {"agent_name": "/root/sd_u1_a1", "status": "running"}
-        ],
+        "tool_response": json.dumps(
+            {"agents": [{"agent_name": "/root/sd_u1_a1", "agent_status": "running"}]},
+            separators=(",", ":"),
+        ),
     }
     assert guard.evaluate_pre_tool_use(observe_pre, temp_root=tmp_path) is None
     assert guard.evaluate_post_tool_use(observe_post, temp_root=tmp_path) is None
@@ -322,8 +356,10 @@ def test_public_architecture_and_orchestrate_bind_current_v4_contracts():
 def test_host_smoke_requires_trust_payload_capacity_and_writer_ack_probes():
     smoke = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
     probes = {item["id"]: item for item in smoke["required_probes"]}
-    assert set(probes) == {f"H{number:02d}" for number in range(11)}
-    assert "exact active lifecycle Hook definition hash captured" in probes["H00"]["requires"]
-    assert any("canonical digests match" in item for item in probes["H08"]["requires"])
-    assert any("closing the child releases capacity" in item for item in probes["H09"]["requires"])
-    assert any("WriterLease is HELD" in item for item in probes["H10"]["requires"])
+    assert set(probes) == {f"H{number:02d}" for number in range(21)}
+    assert "exact active lifecycle Hook digest" in probes["H00"]["requires"]
+    assert any("canonical authorized payload" in item for item in probes["H08"]["requires"])
+    assert any("settled-resident reclaim" in item for item in probes["H09"]["requires"])
+    assert any("WriterLease transition" in item for item in probes["H10"]["requires"])
+    assert probes["H18"]["operation"] == "mixed managed unmanaged Host occupancy"
+    assert probes["H20"]["platform"] == "windows"

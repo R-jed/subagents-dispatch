@@ -30,44 +30,39 @@ def test_v4_engineering_baseline_is_hardened_main_not_bare_v3_0_0():
     }
 
 
-def test_v3_post_release_spawn_guard_evidence_does_not_satisfy_v4_runtime_gate():
+def test_tracked_host_contract_cannot_self_attest_runtime_pass():
     smoke = load_json("host-smoke.json")
 
+    assert smoke["schema_version"] == "4.0.0-host-smoke-7"
+    assert smoke["gate_id"] == "v4-real-host-h00-h20"
     assert smoke["status"] == "PENDING"
-    assert smoke["blocks_phase"] == "phase8-supported-release"
-    inherited = smoke["inherited_evidence"]
-    assert len(inherited) == 1
-    assert inherited[0]["source"] == "PR #66"
-    assert inherited[0]["satisfies_runtime_gate"] is False
-    assert "real Host execution of PreToolUse for spawn_agent" in inherited[0]["does_not_prove"]
+    assert smoke["results"] == {}
+    assert "external exact-candidate campaign" in smoke["pass_policy"]
 
 
 def test_real_host_smoke_gate_covers_all_managed_lifecycle_boundaries():
     smoke = load_json("host-smoke.json")
     probes = {probe["id"]: probe for probe in smoke["required_probes"]}
 
-    assert set(probes) == {f"H{number:02d}" for number in range(11)}
+    assert set(probes) == {f"H{number:02d}" for number in range(21)}
     assert probes["H00"]["operation"] == "Hook trust and activation"
-    assert probes["H01"]["operation"] == "spawn_agent"
-    assert probes["H02"]["operation"] == "followup_task"
-    assert probes["H03"]["operation"] == "interrupt_agent"
-    assert probes["H04"]["operation"] == "SubagentStop"
-    assert probes["H05"]["operation"] == "managed child sibling followup"
-    assert probes["H06"]["operation"] == "managed child sibling interrupt"
-    assert probes["H07"]["operation"] == "missing or failed PostToolUse"
-    assert probes["H08"]["operation"] == "message payload representation compatibility"
-    assert probes["H09"]["operation"] == "open spawned-thread capacity and refill"
-    assert probes["H10"]["operation"] == "writable lifecycle acknowledgement"
-
-    for probe_id in ("H01", "H02", "H03"):
-        requirements = set(probes[probe_id]["requires"])
-        assert "PreToolUse observed" in requirements
-        assert "PostToolUse observed" in requirements
-        assert "same tool_use_id across PreToolUse and PostToolUse" in requirements
-    assert "exact active lifecycle Hook definition hash captured" in probes["H00"]["requires"]
-    assert any("canonical digests match" in item for item in probes["H08"]["requires"])
-    assert "closing the child releases capacity" in probes["H09"]["requires"]
-    assert any("WriterLease is HELD" in item for item in probes["H10"]["requires"])
+    assert probes["H01"]["operation"] == "spawn_agent Pre/Post"
+    assert probes["H02"]["operation"] == "followup_task Pre/Post"
+    assert probes["H03"]["operation"] == "interrupt_agent Pre/Post"
+    assert probes["H04"]["operation"] == "SubagentStop veto"
+    assert probes["H09"]["operation"] == "V2 residency capacity and refill"
+    assert probes["H18"]["operation"] == "mixed managed unmanaged Host occupancy"
+    assert probes["H19"]["operation"] == "candidate-bound Host evidence"
+    assert probes["H20"]["operation"] == "Windows effective path aliases"
+    assert probes["H20"]["platform"] == "windows"
+    assert smoke["required_environment_fields"] == [
+        "architecture",
+        "codex_version",
+        "host_build",
+        "platform",
+        "run_id",
+    ]
+    assert smoke["required_result_fields"] == ["environment_id", "evidence_ref", "status"]
 
 
 def test_offline_development_can_advance_while_supported_release_stays_blocked():
@@ -81,6 +76,6 @@ def test_offline_development_can_advance_while_supported_release_stays_blocked()
     assert status["phases"]["phase3"]["offline_verification"] == "PASS"
     assert status["phases"]["phase3"]["real_host_smoke"] == "PENDING_RELEASE_GATE"
     assert smoke["status"] == "PENDING"
+    assert smoke["results"] == {}
     assert status["phases"]["phase4"]["status"] == "PASS"
-    assert smoke["blocks_phase"] == "phase8-supported-release"
     assert "publication remain blocked" in status["release_rule"]

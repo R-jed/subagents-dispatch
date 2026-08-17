@@ -22,7 +22,7 @@ def test_runtime_module_docs_reflect_v4_cutover():
     assert "coexistence facade" not in orchestrate
     assert "Production Skills remain on V3" not in state
     assert "V4 Orchestrate production facade" in orchestrate
-    assert "This module owns the V4 schema" in state
+    assert "V4 state facade with RC3/RC4 correctness-bearing truth" in state
 
 
 def test_deferred_structural_debt_is_explicit():

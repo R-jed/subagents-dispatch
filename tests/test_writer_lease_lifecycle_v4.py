@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -139,12 +140,17 @@ def _observation_payloads(state, tmp_path: Path, *, execution_id: str, host_stat
         **common,
         "hook_event_name": "PostToolUse",
         "tool_input": {},
-        "tool_response": [
+        "tool_response": json.dumps(
             {
-                "agent_name": f"/root/{execution['native_task_name']}",
-                "status": _host_status(host_state),
-            }
-        ],
+                "agents": [
+                    {
+                        "agent_name": f"/root/{execution['native_task_name']}",
+                        "agent_status": _host_status(host_state),
+                    }
+                ]
+            },
+            separators=(",", ":"),
+        ),
     }
     return pre, post
 
@@ -356,9 +362,17 @@ def test_takeover_stays_blocked_when_observation_post_lacks_pre_basis(tmp_path: 
         "tool_name": "list_agents",
         "tool_input": {},
         "tool_use_id": "observe-unbound",
-        "tool_response": [
-            {"agent_name": f"/root/{execution['native_task_name']}", "status": "interrupted"}
-        ],
+        "tool_response": json.dumps(
+            {
+                "agents": [
+                    {
+                        "agent_name": f"/root/{execution['native_task_name']}",
+                        "agent_status": "interrupted",
+                    }
+                ]
+            },
+            separators=(",", ":"),
+        ),
     }
     stopped = guard.evaluate_post_tool_use(post, temp_root=tmp_path)
     assert stopped is not None and stopped["continue"] is False
