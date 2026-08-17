@@ -21,7 +21,7 @@ Every release gate must protect one concrete public capability, safety property,
 
 Record the exact candidate commit, tree, Plugin version, Marketplace ref, Python helper identity, Codex Host version used for smoke, and operating system. `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, README badges, `README_AI.md`, and the V4 changelog entry must agree on `4.0.0` before tagging.
 
-Use a versioned semantic-version tag only after all required release gates pass. The checklist does not claim platform-enforced tag immutability. Verify that the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch.
+Use a versioned semantic-version tag only after all required release gates pass. The checklist does not claim platform-enforced tag immutability. Evidence that a ref resolves to an expected commit does not by itself prove platform-enforced tag immutability. Verify that the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch.
 
 ## 2. Repository gates
 
@@ -81,7 +81,7 @@ subagents_dispatch_advisor
 
 For formal route evidence, preserve the distinction `Configured → Requested → Accepted → Observed`. Accepted route metadata must not be promoted to observed Host truth.
 
-Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged.
+Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands. All unrelated configuration semantics must remain unchanged, and other Codex state must remain unchanged.
 
 ## 3. State and migration gates
 
