@@ -27,12 +27,13 @@ def load_module(name: str, filename: str):
 
 def evidence() -> dict:
     lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
+    guarded = [*lifecycle, "list_agents"]
     return {
         "surface": "multi_agent_v2",
         "tools": lifecycle + ["list_agents", "wait_agent"],
         "hooks": {
-            "PreToolUse": lifecycle,
-            "PostToolUse": lifecycle,
+            "PreToolUse": guarded,
+            "PostToolUse": guarded,
             "SubagentStop": True,
         },
         "fork_turns_none": True,
@@ -50,7 +51,7 @@ def trust(**overrides) -> dict:
     return value
 
 
-def test_guard_proof_requires_execution_ready_host_and_current_trust():
+def test_guard_summary_requires_execution_ready_host_and_current_trust():
     module = load_module("rc2_guard_proof", "host_capabilities.py")
     snapshot = module.normalize_host_capabilities(evidence())
     proof = module.build_guard_coverage_proof(
@@ -60,11 +61,13 @@ def test_guard_proof_requires_execution_ready_host_and_current_trust():
     )
     assert proof == {
         "schema_version": "4.0",
+        "authority": "diagnostic_only",
         "session_id": "thread-proof",
         "manifest_sha256": "b" * 64,
         "trusted_current_definition": True,
         "pre_tool_use": True,
         "post_tool_use": True,
+        "host_observation_guard": True,
         "subagent_stop_veto": True,
         "evidence_ref": "host-smoke:H00",
     }
@@ -77,10 +80,10 @@ def test_guard_proof_requires_execution_ready_host_and_current_trust():
         )
 
 
-def test_guard_proof_rejects_incomplete_lifecycle_hook_snapshot():
+def test_guard_summary_rejects_incomplete_lifecycle_hook_snapshot():
     module = load_module("rc2_guard_proof_missing", "host_capabilities.py")
     raw = evidence()
-    raw["hooks"]["PostToolUse"] = ["spawn_agent", "followup_task"]
+    raw["hooks"]["PostToolUse"] = ["spawn_agent", "followup_task", "list_agents"]
     snapshot = module.normalize_host_capabilities(raw)
     assert snapshot["execution_ready"] is False
     with pytest.raises(module.HostCapabilityError, match="execution-ready"):
