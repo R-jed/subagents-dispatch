@@ -119,6 +119,20 @@ def _managed_target_in_v4(
     return isinstance(target, str) and control.target_is_managed(current, target)
 
 
+def _prepare_host_observation(
+    payload: Mapping[str, Any],
+    *,
+    temp_root: str | os.PathLike[str] | None,
+) -> dict[str, Any] | None:
+    try:
+        host_evidence.prepare_list_agents_pre_tool_use(payload, temp_root=temp_root)
+    except host_evidence.HostEvidenceError as exc:
+        return _block(str(exc))
+    except Exception:
+        return _block("Host lifecycle observation could not be prepared safely")
+    return None
+
+
 def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -127,9 +141,16 @@ def evaluate_pre_tool_use(
     if payload.get("hook_event_name") != PRE_TOOL_USE:
         return None
     tool_name = payload.get("tool_name")
+
+    if tool_name == OBSERVATION_TOOL:
+        session_id = _session_id(payload)
+        family, _ = _load_family(session_id, temp_root=temp_root)
+        if family != "v4":
+            return None
+        return _prepare_host_observation(payload, temp_root=temp_root)
+
     if tool_name not in LIFECYCLE_TOOLS:
         return None
-
     if _is_managed_agent_type(payload.get("agent_type")):
         return _block("managed child Agents cannot invoke lifecycle-control tools")
 
@@ -191,6 +212,10 @@ def evaluate_post_tool_use(
         return None
     tool_name = payload.get("tool_name")
     if tool_name == OBSERVATION_TOOL:
+        session_id = _session_id(payload)
+        family, _ = _load_family(session_id, temp_root=temp_root)
+        if family != "v4":
+            return None
         return _evaluate_host_observation(payload, temp_root=temp_root)
     if tool_name not in LIFECYCLE_TOOLS:
         return None
