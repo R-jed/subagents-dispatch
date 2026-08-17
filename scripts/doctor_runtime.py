@@ -55,3 +55,7 @@ for _name in dir(_core):
         continue
     if _name not in globals():
         globals()[_name] = getattr(_core, _name)
+
+
+if __name__ == "__main__":
+    _core.main()
