@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 import dispatch_control_v4 as control
 import dispatch_state_v4 as state
+import managed_execution_v4 as managed_execution
 import writer_lease_v4 as writer
 
 
@@ -147,6 +148,24 @@ def allocate_execution(
     }
 
 
+def build_managed_spawn_tool_input(
+    thread_id: str,
+    *,
+    execution_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Return the one canonical Host spawn payload for an ExecutionBinding."""
+    current = state.load_state(thread_id, temp_root=temp_root)
+    if current is None:
+        raise ExecutionLifecycleError("active V4 state is unavailable")
+    try:
+        return managed_execution.expected_spawn_input_for_execution(
+            current, execution_id=execution_id
+        )
+    except managed_execution.ManagedExecutionContractError as exc:
+        raise ExecutionLifecycleError(str(exc)) from exc
+
+
 def prepare_spawn(
     thread_id: str,
     *,
@@ -159,13 +178,23 @@ def prepare_spawn(
     if current is None:
         raise ExecutionLifecycleError("active V4 state is unavailable")
     execution = _execution(current, execution_id)
+    try:
+        expected = managed_execution.expected_spawn_input_for_execution(
+            current, execution_id=execution_id
+        )
+    except managed_execution.ManagedExecutionContractError as exc:
+        raise ExecutionLifecycleError(str(exc)) from exc
+    if dict(tool_input) != expected:
+        raise ExecutionLifecycleError(
+            "managed spawn tool_input does not match profile, fresh-context, or assignment contract"
+        )
     effect = "NONE" if execution["granted_authority"] == "none" else "RESERVE"
     return control.prepare_control(
         thread_id,
         control_id=control_id,
         execution_id=execution_id,
         operation="SPAWN",
-        tool_input=tool_input,
+        tool_input=expected,
         writer_effect=effect,
         temp_root=temp_root,
     )
