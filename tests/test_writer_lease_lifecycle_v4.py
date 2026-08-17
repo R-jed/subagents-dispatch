@@ -83,21 +83,6 @@ def allocate_writer(
     )
 
 
-def guard_proof(**overrides) -> dict:
-    proof = {
-        "schema_version": "4.0",
-        "session_id": "thread-p5",
-        "manifest_sha256": "a" * 64,
-        "trusted_current_definition": True,
-        "pre_tool_use": True,
-        "post_tool_use": True,
-        "subagent_stop_veto": True,
-        "evidence_ref": "test-host-attestation",
-    }
-    proof.update(overrides)
-    return proof
-
-
 def activate_writer(state, control, lifecycle, tmp_path: Path, *, execution_id: str = "exec-1"):
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
@@ -130,17 +115,68 @@ def activate_writer(state, control, lifecycle, tmp_path: Path, *, execution_id: 
     return prepared
 
 
+def _host_status(host_state: str):
+    if host_state == "completed":
+        return {"completed": None}
+    if host_state == "errored":
+        return {"errored": "test failure"}
+    return host_state
+
+
+def _observation_payloads(state, tmp_path: Path, *, execution_id: str, host_state: str, label: str):
+    current = state.load_state("thread-p5", temp_root=tmp_path)
+    assert current is not None
+    execution = next(item for item in current["executions"] if item["execution_id"] == execution_id)
+    tool_use_id = f"observe-{label}-{current['state_revision']}"
+    common = {
+        "session_id": "thread-p5",
+        "turn_id": f"turn-{label}",
+        "tool_name": "list_agents",
+        "tool_use_id": tool_use_id,
+    }
+    pre = {**common, "hook_event_name": "PreToolUse", "tool_input": {}}
+    post = {
+        **common,
+        "hook_event_name": "PostToolUse",
+        "tool_input": {},
+        "tool_response": [
+            {
+                "agent_name": f"/root/{execution['native_task_name']}",
+                "status": _host_status(host_state),
+            }
+        ],
+    }
+    return pre, post
+
+
 def observe(lifecycle, tmp_path: Path, *, execution_id: str, host_state: str):
-    basis = lifecycle.fresh_observation_basis(
-        "thread-p5", execution_id=execution_id, temp_root=tmp_path
+    state = lifecycle.state
+    guard = load_module(
+        f"p5_guard_{execution_id}_{host_state}",
+        "orchestration_guard.py",
     )
-    return lifecycle.persist_host_observation(
-        "thread-p5",
-        basis=basis,
+    pre, post = _observation_payloads(
+        state,
+        tmp_path,
+        execution_id=execution_id,
         host_state=host_state,
-        agent_id=f"agent-{execution_id}",
-        temp_root=tmp_path,
+        label=f"{execution_id}-{host_state}",
     )
+    assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
+    assert guard.evaluate_post_tool_use(post, temp_root=tmp_path) is None
+    current = state.load_state("thread-p5", temp_root=tmp_path)
+    assert current is not None
+    execution = next(item for item in current["executions"] if item["execution_id"] == execution_id)
+    proof = any(
+        event.get("kind") == "host_observation"
+        and event.get("tool_use_id") == post["tool_use_id"]
+        for event in current["accounting_refs"]
+    )
+    return {
+        "reconcile_status": "applied" if proof else "stale",
+        "lifecycle": execution["lifecycle"],
+        "state": current,
+    }
 
 
 def test_fresh_writer_reserves_atomically_and_second_writer_blocks(tmp_path: Path):
@@ -221,14 +257,13 @@ def test_interrupt_ack_alone_never_releases_or_transfers_writer(tmp_path: Path):
     lease = current["writer_lease"]
     assert lease["state"] == "REVOKING"
 
-    with pytest.raises(writer.WriterLeaseError, match="not settled|observation proof"):
+    with pytest.raises(writer.WriterLeaseError, match="not settled|observation"):
         lifecycle.takeover_to_main(
             "thread-p5",
             execution_id="exec-1",
             old_lease_id=lease["lease_id"],
             old_lease_epoch=lease["lease_epoch"],
             main_lease_id="lease-main",
-            guard_coverage=guard_proof(),
             temp_root=tmp_path,
         )
 
@@ -274,7 +309,6 @@ def test_fresh_same_epoch_interrupted_observation_allows_atomic_takeover(tmp_pat
         old_lease_id=old["lease_id"],
         old_lease_epoch=old["lease_epoch"],
         main_lease_id="lease-main",
-        guard_coverage=guard_proof(),
         temp_root=tmp_path,
     )
     assert main["owner_kind"] == "main"
@@ -282,11 +316,12 @@ def test_fresh_same_epoch_interrupted_observation_allows_atomic_takeover(tmp_pat
     assert main["lease_epoch"] == old["lease_epoch"] + 1
 
 
-def test_takeover_stays_blocked_when_guard_coverage_is_unproven(tmp_path: Path):
+def test_takeover_stays_blocked_when_observation_post_lacks_pre_basis(tmp_path: Path):
     state = load_module("p5_state_guard", "dispatch_state_v4.py")
     graph = load_module("p5_graph_guard", "work_graph_v4.py")
     control = load_module("p5_control_guard", "dispatch_control_v4.py")
     lifecycle = load_module("p5_lifecycle_guard", "execution_lifecycle_v4.py")
+    guard = load_module("p5_guard_unbound", "orchestration_guard.py")
     writer = lifecycle.writer
     install_graph(state, graph, tmp_path)
     allocate_writer(lifecycle, tmp_path)
@@ -311,24 +346,38 @@ def test_takeover_stays_blocked_when_guard_coverage_is_unproven(tmp_path: Path):
         tool_use_id="tool-interrupt-1",
         temp_root=tmp_path,
     )
-    observe(lifecycle, tmp_path, execution_id="exec-1", host_state="interrupted")
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
+    execution = current["executions"][0]
+    post = {
+        "session_id": "thread-p5",
+        "turn_id": "turn-unbound",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "list_agents",
+        "tool_input": {},
+        "tool_use_id": "observe-unbound",
+        "tool_response": [
+            {"agent_name": f"/root/{execution['native_task_name']}", "status": "interrupted"}
+        ],
+    }
+    stopped = guard.evaluate_post_tool_use(post, temp_root=tmp_path)
+    assert stopped is not None and stopped["continue"] is False
+    current = state.load_state("thread-p5", temp_root=tmp_path)
+    assert current is not None
+    assert current["executions"][0]["lifecycle"] == "RUNNING"
     lease = current["writer_lease"]
-
-    with pytest.raises(writer.WriterLeaseError, match="Guard coverage"):
+    with pytest.raises(writer.WriterLeaseError, match="not settled|observation"):
         lifecycle.takeover_to_main(
             "thread-p5",
             execution_id="exec-1",
             old_lease_id=lease["lease_id"],
             old_lease_epoch=lease["lease_epoch"],
             main_lease_id="lease-main",
-            guard_coverage=guard_proof(trusted_current_definition=False),
             temp_root=tmp_path,
         )
 
 
-def test_naked_guard_boolean_is_not_settlement_evidence(tmp_path: Path):
+def test_naked_guard_boolean_is_not_settlement_api(tmp_path: Path):
     state = load_module("p5_state_guard_bool", "dispatch_state_v4.py")
     graph = load_module("p5_graph_guard_bool", "work_graph_v4.py")
     control = load_module("p5_control_guard_bool", "dispatch_control_v4.py")
@@ -342,7 +391,7 @@ def test_naked_guard_boolean_is_not_settlement_evidence(tmp_path: Path):
     assert current is not None
     lease = current["writer_lease"]
 
-    with pytest.raises(writer.WriterLeaseError, match="structured Guard coverage proof"):
+    with pytest.raises(TypeError, match="guard_coverage"):
         writer.release_settled_execution_writer(
             "thread-p5",
             execution_id="exec-1",
@@ -353,24 +402,25 @@ def test_naked_guard_boolean_is_not_settlement_evidence(tmp_path: Path):
         )
 
 
-def test_stale_observation_cannot_settle_new_control_epoch(tmp_path: Path):
+def test_pre_captured_observation_cannot_settle_new_control_epoch(tmp_path: Path):
     state = load_module("p5_state_stale", "dispatch_state_v4.py")
     graph = load_module("p5_graph_stale", "work_graph_v4.py")
     control = load_module("p5_control_stale", "dispatch_control_v4.py")
     lifecycle = load_module("p5_lifecycle_stale", "execution_lifecycle_v4.py")
+    guard = load_module("p5_guard_stale", "orchestration_guard.py")
     install_graph(state, graph, tmp_path)
     allocate_writer(lifecycle, tmp_path)
     activate_writer(state, control, lifecycle, tmp_path)
-    old_basis = lifecycle.fresh_observation_basis(
-        "thread-p5", execution_id="exec-1", temp_root=tmp_path
-    )
-    lifecycle.persist_host_observation(
-        "thread-p5",
-        basis=old_basis,
+    observe(lifecycle, tmp_path, execution_id="exec-1", host_state="completed")
+
+    pre, delayed_post = _observation_payloads(
+        state,
+        tmp_path,
+        execution_id="exec-1",
         host_state="completed",
-        agent_id="agent-exec-1",
-        temp_root=tmp_path,
+        label="stale-before-followup",
     )
+    assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
 
     followup_input = {"target": "sd-u1-a1", "message": "focused correction"}
     lifecycle.prepare_same_child_followup(
@@ -394,19 +444,19 @@ def test_stale_observation_cannot_settle_new_control_epoch(tmp_path: Path):
         tool_use_id="tool-followup-1",
         temp_root=tmp_path,
     )
-    stale = lifecycle.persist_host_observation(
-        "thread-p5",
-        basis=old_basis,
-        host_state="completed",
-        agent_id="agent-exec-1",
-        temp_root=tmp_path,
-    )
-    assert stale["reconcile_status"] == "stale"
+    assert guard.evaluate_post_tool_use(delayed_post, temp_root=tmp_path) is None
+
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
     current_execution = current["executions"][0]
     assert current_execution["control_epoch"] == 1
     assert current_execution["followup_count"] == 1
+    assert not any(
+        event.get("kind") == "host_observation"
+        and event.get("tool_use_id") == delayed_post["tool_use_id"]
+        and event.get("control_epoch") == 1
+        for event in current["accounting_refs"]
+    )
 
 
 def test_delayed_running_observation_cannot_reopen_completed_same_epoch(tmp_path: Path):
@@ -417,25 +467,10 @@ def test_delayed_running_observation_cannot_reopen_completed_same_epoch(tmp_path
     install_graph(state, graph, tmp_path)
     allocate_writer(lifecycle, tmp_path)
     activate_writer(state, control, lifecycle, tmp_path)
-    basis = lifecycle.fresh_observation_basis(
-        "thread-p5", execution_id="exec-1", temp_root=tmp_path
-    )
-    completed = lifecycle.persist_host_observation(
-        "thread-p5",
-        basis=basis,
-        host_state="completed",
-        agent_id="agent-exec-1",
-        temp_root=tmp_path,
-    )
+    completed = observe(lifecycle, tmp_path, execution_id="exec-1", host_state="completed")
     assert completed["lifecycle"] == "COMPLETED"
 
-    delayed = lifecycle.persist_host_observation(
-        "thread-p5",
-        basis=basis,
-        host_state="running",
-        agent_id="agent-exec-1",
-        temp_root=tmp_path,
-    )
+    delayed = observe(lifecycle, tmp_path, execution_id="exec-1", host_state="running")
     assert delayed["reconcile_status"] == "stale"
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
@@ -533,7 +568,6 @@ def test_unknown_writer_never_auto_releases(tmp_path: Path):
             execution_id="exec-1",
             lease_id=lease["lease_id"],
             lease_epoch=lease["lease_epoch"],
-            guard_coverage=guard_proof(),
             temp_root=tmp_path,
         )
 
@@ -556,7 +590,6 @@ def test_stale_old_lease_release_cannot_clear_new_main_lease(tmp_path: Path):
         execution_id="exec-1",
         lease_id=old["lease_id"],
         lease_epoch=old["lease_epoch"],
-        guard_coverage=guard_proof(),
         temp_root=tmp_path,
     )
     main = writer.acquire_main_writer(
@@ -573,7 +606,6 @@ def test_stale_old_lease_release_cannot_clear_new_main_lease(tmp_path: Path):
             execution_id="exec-1",
             lease_id=old["lease_id"],
             lease_epoch=old["lease_epoch"],
-            guard_coverage=guard_proof(),
             temp_root=tmp_path,
         )
     current = state.load_state("thread-p5", temp_root=tmp_path)
