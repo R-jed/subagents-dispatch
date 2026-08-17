@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-2",
+  "schema_version": "4.0.0-phase-status-3",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -29,7 +29,9 @@
     },
     "phase5": {
       "name": "WriterLease and same-child lifecycle",
-      "status": "NOT_STARTED"
+      "status": "PASS",
+      "offline_verification": "PASS",
+      "ci_run": 31983106374
     },
     "phase6": {
       "name": "Orchestrate coexistence",
