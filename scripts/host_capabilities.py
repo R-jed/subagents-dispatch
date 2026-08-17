@@ -113,7 +113,9 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     lifecycle = set(LIFECYCLE_TOOLS)
     capabilities["pre_tool_use_guard"] = lifecycle.issubset(pre_tools)
     capabilities["post_tool_use_guard"] = lifecycle.issubset(post_tools)
-    capabilities["host_observation_guard"] = "list_agents" in post_tools
+    capabilities["host_observation_guard"] = (
+        "list_agents" in pre_tools and "list_agents" in post_tools
+    )
     capabilities["subagent_stop_veto"] = hooks["SubagentStop"] is True
 
     missing_capabilities = [
