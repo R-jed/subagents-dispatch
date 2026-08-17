@@ -1,6 +1,6 @@
 # RC3 Real Host Gate Additions
 
-The existing H00-H10 campaign remains mandatory. RC3 adds H11-H19.
+The existing H00-H10 campaign remains mandatory. RC3 adds H11-H20.
 
 ## H11 Managed Sol recursion containment
 
@@ -37,3 +37,7 @@ Create a mixture of managed and unmanaged open children. Verify scheduler admiss
 ## H19 Candidate-bound evidence
 
 Capture valid Host/release evidence for candidate A. Change the candidate identity without re-running the campaign. Candidate B must reject A's evidence.
+
+## H20 Windows effective path aliases
+
+On a Windows Host, verify canonical repository-relative scope enforcement against effective filesystem aliases that cannot be proven by platform-neutral lexical validation alone. Cover case-insensitive aliases and, where available, junction or reparse-point aliases that could identify the same effective target or escape an allowed subtree. Any unclassifiable alias remains fail-closed for write authority.
