@@ -101,37 +101,37 @@ plan-only creates no runtime state, lease, control, or Host action
 
 ## 4. Real Codex Host gates
 
-This gate is defined by `docs/v4/host-smoke.json`. Offline CI, source inspection, the official Plugin validator, prior V3 spawn-guard evidence, or model self-report cannot substitute for it.
+This gate is defined by `docs/v4/host-smoke.json`. Offline CI, source inspection, the official Plugin validator, prior V3 spawn-guard evidence, or model self-report cannot substitute for it. The tracked contract remains `PENDING` with empty embedded results; authoritative campaign results are external and candidate-bound.
 
-All H00-H10 probes must have real Codex Host evidence from the exact lifecycle Hook definition under test:
+All H00-H20 probes must have real Codex Host evidence from the exact lifecycle Hook definition and candidate under test:
 
 ```text
 H00 Hook trust and activation
-     exact active Hook-definition hash captured
+     exact active lifecycle Hook digest captured
      current Host trusts/enables that exact definition
 
-H01 spawn_agent
+H01 spawn_agent Pre/Post
      PreToolUse observed
      PostToolUse observed
      same tool_use_id across both
      sanitized tool_input shape and canonical digest remain compatible
 
-H02 followup_task
+H02 followup_task Pre/Post
      PreToolUse observed
      PostToolUse observed
      same tool_use_id across both
      sanitized tool_input shape and canonical digest remain compatible
 
-H03 interrupt_agent
+H03 interrupt_agent Pre/Post
      PreToolUse observed
      PostToolUse observed
      same tool_use_id across both
      sanitized tool_input shape and canonical digest remain compatible
 
-H04 SubagentStop
+H04 SubagentStop veto
      managed stop event observed
      continue:false prevents automatic continuation
-     continue:false still wins when another matching Hook requests continuation
+     veto remains effective when another matching Hook requests continuation
 
 H05 managed child sibling followup
      managed child caller context is observable
@@ -151,11 +151,13 @@ H08 message payload representation compatibility
      prepare-time and Hook-time sanitized key/type shape is compared
      exact authorized call preserves PendingControl canonical digest compatibility
 
-H09 open spawned-thread capacity and refill
-     Host capacity means concurrently open spawned threads excluding primary
-     completed/interrupted child behavior before close is observed
-     close releases capacity
-     refill remains inside V4 product ceiling of three managed children
+H09 V2 residency capacity and refill
+     Host capacity is derived from current Host residency observation
+     managed and unmanaged residents both consume Host capacity
+     completed/interrupted resident behavior before Host reclamation is observed
+     one observation authorizes at most one fresh spawn
+     settled-resident reclaim is a bounded Host attempt
+     refill remains inside the V4 product ceiling of three managed children
 
 H10 writable lifecycle acknowledgement
      writer SPAWN begins with matching RESERVED WriterLease
@@ -163,9 +165,44 @@ H10 writable lifecycle acknowledgement
      successful writable activation ends with HELD WriterLease
      interrupt ACK leaves WriterLease REVOKING until fresh settlement evidence
      missing PostToolUse never promotes or releases WriterLease
+
+H11 managed Sol child recursion
+     Solver child cannot create or control project children
+
+H12 managed Terra child recursion
+     Investigator child cannot create or control project children
+
+H13 physical profile runtime identity
+     each managed profile observes the expected model, effort, permissions, and tool surface
+
+H14 Luna Host leaf behavior
+     Luna Reader/Worker remain Host leaves under the managed V2 parent
+
+H15 fresh-context assignment completeness
+     fork_turns is none
+     assignment packet is self-contained
+     sibling context is not inherited
+
+H16 Luna same-child followup continuity
+     same-child correction preserves the intended child identity and bounded followup budget
+
+H17 duplicate, delayed, and out-of-order lifecycle events
+     replay and stale Hook observations fail closed or are ignored without reopening settled state
+
+H18 mixed managed and unmanaged Host occupancy
+     unmanaged resident children reduce available Host capacity
+     scheduler cannot over-admit from managed-count-only accounting
+
+H19 candidate-bound Host evidence
+     evidence captured for candidate A is rejected when evaluated against candidate B
+
+H20 Windows effective path aliases
+     Windows environment identity is explicit
+     alias, reparse, junction, and case behavior cannot widen an authorized write scope
+     uncertain effective-path resolution fails closed
 ```
 
-Only after H00-H10 pass may the staged `docs/v4/hooks.json` be promoted to production `hooks/hooks.json`. After promotion, rerun the entire repository matrix and repeat the relevant Host smoke against the exact promoted candidate.
+Only after H00-H20 pass may the staged `docs/v4/hooks.json` be promoted to production `hooks/hooks.json`. After promotion, rerun the entire repository matrix and repeat the relevant Host smoke against the exact promoted candidate.
 
 A generic non-blocking Hook command failure is not a successful Guard block. Internal Guard failures must use the Host's actual blocking path. Real Host evidence must distinguish tool rejection, Hook rejection, Host lifecycle acceptance, and later settlement observation.
 
@@ -210,7 +247,7 @@ Run:
 <python-3.11+> scripts/doctor.py --codex-home <isolated-home> --release-check --thread-id release-doctor
 ```
 
-The first command validates repository/package health. The second must remain non-zero while `docs/v4/host-smoke.json` is pending, and may turn green only after the production lifecycle Hook manifest and every required H00-H10 probe have current real Host evidence. Doctor must not edit Host Hook trust state to make the report green.
+The first command validates repository/package health. The second must remain non-zero while external candidate-bound release evidence is absent or invalid, and may turn green only after the production lifecycle Hook manifest, every required H00-H20 Host probe, and the fresh candidate-bound Final Review satisfy the release-evidence contract. Doctor must not edit Host Hook trust state to make the report green.
 
 After the exact release candidate is installed in Codex, record the exact rendered entry labels for Orchestrate and Doctor through Direct human Codex App observation. Verify both entries are distinguishable, post-selection presentation is correct, and unrelated tasks do not implicitly activate either Skill. If managed profiles were newly provisioned and the Host requires rediscovery, record `RESTART_REQUIRED` and start a fresh task before the route smoke. Do not infer literal slash syntax from repository names.
 
@@ -222,10 +259,12 @@ Final sequence:
 
 ```text
 repository matrix PASS
-real Host H00-H10 PASS
+real Host H00-H20 PASS
 promote staged V4 Hooks
 repository matrix PASS again
 repeat relevant Host smoke against promoted exact candidate
+fresh candidate-bound Advisor Final Review PASS
+external release evidence verifies exactly
 Doctor --release-check PASS
 human two-Skill App observation PASS
 merge approved candidate
