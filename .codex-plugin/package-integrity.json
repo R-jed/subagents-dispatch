@@ -40,7 +40,7 @@
     "scripts/execution_lifecycle_v4.py": "2dd4ce03ada1155316353b87bdadddba9dee87adb6d4b4ae3c81225f3eb40bfa",
     "scripts/execution_lifecycle_v4_core.py": "a42ef74682dfc49d4a98f05cf43386ea75324f51781f9262f5fdf7ddd431f141",
     "scripts/host_capabilities.py": "0c5bb103d18c33cb4ea2e6727550d9710e6060c93f8d91808418f3a328c09917",
-    "scripts/host_evidence_v4.py": "d3286611ddc1cb9c2cd16b493902eb522330ee80f2533f3b4c8d2df38942303a",
+    "scripts/host_evidence_v4.py": "86f5de8534f04f196107f5f27b9f128aafaff8ff69fad177078560c69988bb79",
     "scripts/inspect-agent-runtime.py": "4bd179811d6e2ed415243995a09866d4566bed5e466e42f2097ad349187c4453",
     "scripts/install-agents.py": "9065aca9f167c4f2b112c1c15c612e175f3e5a85ad9285ed1458bee63100b3f6",
     "scripts/legacy_migration.py": "eddb068caa8c3ee4cc76751bf19eeb73b620fbfe894a88110d892d3aa40152e2",
