@@ -40,4 +40,6 @@ Use explicit maintenance actions only when the user asks for them:
 
 A maintenance action must use the existing ownership-aware helper and then rerun the same deterministic Doctor diagnostics. Do not replace a refused ownership check with manual deletion, wildcard cleanup, or unrelated configuration edits.
 
+Runtime attestation remains a separate compatibility tool outside Doctor. Its dedicated verifier streams exactly one rollout, enforces bounded total-rollout and per-line input limits, and Oversized rollout input fails closed. Doctor does not expose or execute that workflow.
+
 Repository publication checks, candidate evidence, CI state, benchmark/calibration campaigns, and other maintainer workflows are outside the Doctor Skill. Use their dedicated repository tools instead.
