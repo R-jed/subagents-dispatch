@@ -388,8 +388,8 @@ def _command_hook_errors(entry: Any, *, matcher: str, script: str, label: str) -
     hook = nested[0]
     expected = {
         "type": "command",
-        "command": HOOK_COMMANDS["posix"].format(script),
-        "commandWindows": HOOK_COMMANDS["windows"].format(script.replace("/", "\\")),
+        "command": HOOK_COMMANDS["posix"].replace("{}", script),
+        "commandWindows": HOOK_COMMANDS["windows"].replace("{}", script.replace("/", "\\")),
         "timeout": 5,
         "async": False,
     }
