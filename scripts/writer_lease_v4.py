@@ -226,6 +226,21 @@ def persist_authoritative_host_observation(
     return outcome
 
 
+def _observation_receipt_present(current: Mapping[str, Any], tool_use_id: str) -> bool:
+    if state.accounting_filter_contains(
+        current,
+        kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
+        value=tool_use_id,
+    ):
+        return True
+    return any(
+        isinstance(event, Mapping)
+        and event.get("kind") == "host_observation_receipt"
+        and event.get("tool_use_id") == tool_use_id
+        for event in current.get("accounting_refs", [])
+    )
+
+
 def _has_current_observation_proof(
     current: Mapping[str, Any], *, execution: Mapping[str, Any], lease_epoch: int
 ) -> bool:
@@ -241,6 +256,7 @@ def _has_current_observation_proof(
         and bool(event.get("turn_id"))
         and isinstance(event.get("tool_use_id"), str)
         and bool(event.get("tool_use_id"))
+        and _observation_receipt_present(current, event["tool_use_id"])
         for event in current.get("accounting_refs", [])
     )
 
@@ -279,7 +295,7 @@ def _verify_settlement(
         current, execution=execution, lease_epoch=lease_epoch
     ):
         raise WriterLeaseError(
-            "writer settlement lacks authoritative current-epoch list_agents observation"
+            "writer settlement lacks authoritative current-epoch list_agents observation receipt"
         )
     return execution, lease
 
