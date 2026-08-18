@@ -238,16 +238,23 @@ V3.x unresolved-state block
 
 No child may create or control sibling project children. Peer messaging must not grant authority, transfer WriterLease, unlock dependencies, or complete acceptance.
 
-## 5. Doctor and human App gates
+## 5. Installed Doctor and human App gates
 
-Run:
+Run the installed-plugin Doctor against an isolated Codex home:
 
 ```text
 <python-3.11+> scripts/doctor.py --codex-home <isolated-home> --check --thread-id release-doctor
-<python-3.11+> scripts/doctor.py --codex-home <isolated-home> --release-check --thread-id release-doctor
 ```
 
-The first command validates repository/package health. The second must remain non-zero while external candidate-bound release evidence is absent or invalid, and may turn green only after the production lifecycle Hook manifest, every required H00-H20 Host probe, and the fresh candidate-bound Final Review satisfy the release-evidence contract. Doctor must not edit Host Hook trust state to make the report green.
+Doctor is a product-health diagnostic only. It validates the executing Plugin package, managed Agent installation, local Host integration configuration, thread-scoped orchestration safety, and legacy compatibility. It must remain read-only and offline by default, must not edit Host Hook trust state, and must not grant publication authority. A pre-cutover lifecycle Hook gap may be reported as `DEGRADED`; deterministic package or safety failures must remain `BLOCKED`.
+
+Release authority belongs to the dedicated candidate-bound verifier:
+
+```text
+<python-3.11+> scripts/release_evidence_v4.py --repo <candidate-root> --evidence <external-release-evidence>
+```
+
+The release verifier must remain non-zero while external candidate-bound evidence is absent or invalid, and may pass only after the production lifecycle Hook manifest, every required H00-H20 Host probe, and the fresh candidate-bound Final Review satisfy the release-evidence contract.
 
 After the exact release candidate is installed in Codex, record the exact rendered entry labels for Orchestrate and Doctor through Direct human Codex App observation. Verify both entries are distinguishable, post-selection presentation is correct, and unrelated tasks do not implicitly activate either Skill. If managed profiles were newly provisioned and the Host requires rediscovery, record `RESTART_REQUIRED` and start a fresh task before the route smoke. Do not infer literal slash syntax from repository names.
 
@@ -265,7 +272,7 @@ repository matrix PASS again
 repeat relevant Host smoke against promoted exact candidate
 fresh candidate-bound Advisor Final Review PASS
 external release evidence verifies exactly
-Doctor --release-check PASS
+installed Doctor --check has no BLOCKED product-health failure
 human two-Skill App observation PASS
 merge approved candidate
 create v4.0.0 versioned semantic-version tag
