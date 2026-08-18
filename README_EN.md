@@ -4,32 +4,116 @@
 
 <h1 align="center">subagents-dispatch</h1>
 
-<p align="center"><em>Give Codex a temporary team while keeping the control surface small.</em></p>
+<p align="center"><em>Give Codex a reliable team. Split the big jobs. Leave the tiny ones alone.</em></p>
 
 <p align="center">
   <a href="README.md">中文</a> · <a href="docs/plugin-installation.md">Install</a> · <a href="docs/architecture.md">Architecture</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.0.0-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/Codex-Native%20Subagents-111827.svg" alt="Codex Native Subagents">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
 </p>
 
 > **If you are an AI Agent, use [README_AI.md](README_AI.md).**
 
-V4 reduces the public surface to two explicit Skills: **Orchestrate** and **Doctor**. Orchestrate owns planning, execution, status, correction, continuation, cancellation, takeover, review, and integration. Doctor owns package integrity, fixed profiles, V4 state, WriterLease, PendingControl, Host capability evidence, Hook evidence, and release-readiness diagnostics.
+Give Codex a medium-sized task: change an API, add tests, trace the call path, then check whether the frontend is affected.
 
-The repository implementation and offline verification can be completed without Codex quota. The real Codex Host H00-H20 lifecycle-Hook smoke remains a release gate. The project does not mark that gate as passed or activate the V4 production three-event Hook manifest without real Host evidence.
+One Main can do all of that. But as the task grows, reading, investigating, editing, testing, and reviewing all pile into the same context. Eventually the context starts to look like rush hour.
+
+**subagents-dispatch gives Codex a temporary team when splitting the work is actually useful.**
+
+One subagent can read the code. Another can investigate wider impact. Another can implement a well-bounded change. Main keeps the goal, the judgment, and the final answer.
+
+Small task? Use zero subagents. Spinning up a committee just to look busy is not a feature.
+
+## Understand it in 30 seconds
+
+Suppose you ask:
+
+```text
+Add pagination to /api/users, add tests, and check whether the frontend callers are affected.
+```
+
+A sensible run might look like this:
+
+```text
+Main
+├─ read the API, tests, and call path
+├─ inspect frontend and cross-file impact in parallel
+├─ hand off a bounded implementation once the shape is clear
+└─ add an independent review when the change deserves one
+```
+
+Main gathers the results, checks the evidence, integrates the change, and decides whether the job is actually done.
+
+If Main looks at the task and realizes it can finish it in three minutes, Main just does it.
+
+## When it helps
+
+subagents-dispatch is most useful when a task has work that can be investigated separately, or when the implementation should wait until the impact is understood.
+
+Typical examples:
+
+- tracing several call paths at once
+- investigating before implementation
+- changes spanning frontend, backend, configuration, tests, or docs
+- handing one clearly bounded responsibility to another subagent
+- getting an independent review for a change with meaningful impact
+
+For tiny, strongly sequential tasks with all the context already available, Main is usually simpler.
+
+## Two things to remember
+
+| Entry | Use it for |
+|---|---|
+| **Orchestrate** | planning, delegation, execution, continuation, correction, takeover, review, and integration |
+| **Doctor** | checking installation, configuration, versions, and the runtime environment |
+
+For normal work, use **Orchestrate**. If the environment looks suspicious, call **Doctor**.
+
+Orchestrate can also show a plan without starting delegated work, so you can inspect the proposed split before anything runs.
+
+## It tries not to become a group chat
+
+Multi-agent systems can turn parallel work into coordination overhead very quickly. This project keeps a few deliberately boring rules:
+
+- small tasks may use zero subagents
+- start with at most 2 managed subagents, normally no more than 3
+- only one managed subagent writes to the canonical workspace at a time
+- each subagent gets only the context needed for its responsibility
+- investigation results need evidence before Main accepts them
+- unclear state stops progress instead of becoming permission by guesswork
+- Main remains responsible for the final result
+
+Less agent theater. More controlled parallel work.
+
+## Current fixed team
+
+| Work | Model | Good at |
+|---|---|---|
+| Reading | Luna Max | focused code reading and call-path tracing |
+| Implementation | Luna Max | bounded changes once the approach is clear |
+| Investigation | Terra High | broad read-only investigation and cross-file evidence |
+| Problem solving | Sol High | implementation that needs substantial technical judgment |
+| Review | Sol High | independent review of plans and final results |
+
+The lineup is fixed for now. There is no dynamic model or reasoning-effort switching. Fixed behavior is easier to understand and reproduce; if real evidence later supports a better combination, it can change then.
 
 ## Install
 
-After the V4 release is approved:
+Install through the Codex Plugin Marketplace:
 
 ```bash
 codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
+
+Start a fresh Codex session after installation and choose **Orchestrate** from the Skill menu.
+
+The first delegated task checks the five managed subagent profiles. If they are created during that task, Codex will ask for a restart because those profiles need to exist before the session starts. Open a fresh task and choose Orchestrate again. The bundled helpers require Python 3.11 or newer.
+
+See [Plugin Installation](docs/plugin-installation.md) for the full setup.
 
 Update:
 
@@ -38,107 +122,28 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Before removing the Plugin, use Doctor or `scripts/uninstall-agents.py` to remove only managed profiles whose ownership can be proven. Then run:
+Before uninstalling, use **Doctor** to remove only subagent profiles that can be proven to belong to this plugin. Then remove the plugin and marketplace source:
 
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-Do not bypass ownership checks with manual deletion. Python helpers require Python 3.11+. See [Plugin Installation](docs/plugin-installation.md).
+If Doctor says ownership is unclear, resolve the conflict first. Do not silence the warning by deleting files manually.
 
-## Two public Skills
+## Will it make Codex faster?
 
-| Skill | Responsibility |
-|---|---|
-| **Orchestrate** | plan-only, execution, status, correction, continuation, cancellation, takeover, review, and integration |
-| **Doctor** | package, profile, V4 state, Host capability, Hook evidence, and release-readiness diagnostics |
+Sometimes, especially when investigation can happen in parallel or the Main context would otherwise get crowded.
 
-Orchestrate plan-only mode creates no runtime state, acquires no WriterLease, prepares no PendingControl, and invokes no Host lifecycle tool.
+More agents do not automatically mean more speed. Small tasks can get slower, and coordination has a cost. The project has an experiment protocol for measuring correctness, rework, time, and token usage before making performance claims.
 
-## Fixed execution profiles
+This README does not advertise unproven speedups or token savings.
 
-V4.0.0 freezes the following profiles:
+The more important question is whether a complicated job can be split cleanly, brought back together safely, and still have one place where responsibility ends.
 
-| Profile | Model / effort | Authority |
-|---|---|---|
-| Reader | Luna Max | read-only |
-| Worker | Luna Max | bounded write |
-| Investigator | Terra High | read-only |
-| Solver | Sol High | bounded write and high-judgment work |
-| Advisor | Sol High | read-only review |
+For technical details:
 
-V4.0.0 does not perform dynamic reasoning-effort routing. The router selects only among the fixed capability profiles.
-
-## Scheduling and safety
-
-Core invariants:
-
-```text
-Main owns user intent, integration, and acceptance
-initial managed children <= 2
-normal managed children <= 3 and bounded by Host capacity
-dependencies unlock only from WorkUnit.ACCEPTED
-Host COMPLETED advances only to RESULT_READY
-at most one canonical managed writer
-fork_turns = none
-depth = 1
-UNKNOWN remains fail closed
-```
-
-Runtime truth separates WorkUnit state, ExecutionBinding, `control_epoch`, PendingControl, and WriterLease. WriterLease uses `RESERVED / HELD / REVOKING / UNKNOWN / RELEASED`. PendingControl uses `PREPARED / IN_FLIGHT / ACKED / UNKNOWN / CANCELLED`. A Host observation may mutate current state only while its execution, control epoch, and lease epoch still match.
-
-A child can receive one bounded correction or a distinct `CONTINUE` operation without creating a fresh Agent attempt. `CONTINUE` does not consume the correction budget. Interrupt acknowledgement alone cannot release WriterLease. Takeover additionally requires fresh current-generation settlement evidence, a completed authoritative `list_agents` Hook receipt, and no unresolved PendingControl.
-
-A V3.x `active.json` remains legacy migration evidence. Unresolved V3.x ownership, active writer, pending takeover, or corrupt state is never silently enrolled into V4.
-
-## Host Hook release gate
-
-The staged V4 lifecycle Hook manifest is `docs/v4/hooks.json`. Activation requires the H00-H20 real-Host evidence defined by `docs/v4/host-smoke.json`. The gate covers Hook trust and activation, lifecycle Pre/Post pairing, `SubagentStop` veto behavior, fixed-profile and fresh-context behavior, authoritative unfiltered root `list_agents` occupancy, duplicate/delayed/out-of-order delivery, candidate binding, mixed managed/unmanaged Host occupancy, and Windows effective-path aliases.
-
-H07 additionally requires stale capacity truth to be consumed before a lifecycle Host mutation crosses the tool boundary and requires failed or ambiguous PostToolUse to use the Host-supported result-rejection path. PostToolUse `continue:false` is not accepted as turn-stop evidence; managed-child stop/continuation behavior is validated at `SubagentStop`.
-
-Offline CI, Plugin validation, and source review do not substitute for this evidence. Doctor `--release-check` exits non-zero while the gate remains pending.
-
-## Configuration and runtime evidence
-
-Treat route and permission facts as separate evidence levels:
-
-```text
-Configured
-→ Requested
-→ Accepted
-→ Observed
-```
-
-Configuration proves intent. Host behavior that affects release readiness requires direct observation.
-
-## Performance
-
-The repository keeps a separate Experiment Plane for correctness, rework, wall-clock, Main/child token usage, total token usage, and coordination overhead. Luna Max / Terra High / Sol High is the V4.0.0 product policy and is not claimed to be globally cost-optimal for every workload.
-
-**This README does not claim that subagents-dispatch is proven faster or cheaper in total tokens.**
-
-## Repository layout
-
-```text
-.
-├── .agents/plugins/
-├── .codex-plugin/
-├── agent-profiles/
-├── contracts/
-├── docs/
-│   └── v4/
-├── hooks/
-├── skills/
-│   ├── orchestrate/
-│   └── doctor/
-├── scripts/
-├── evals/
-└── tests/
-```
-
-References: [AI Reference](README_AI.md) · [Plugin Installation](docs/plugin-installation.md) · [Architecture](docs/architecture.md) · [Native Subagent Runtime](docs/native-subagent-runtime.md) · [Runtime Attestation](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Composition Contract](contracts/composition.md) · [CHANGELOG](CHANGELOG.md)
+[Architecture](docs/architecture.md) · [Installation](docs/plugin-installation.md) · [Runtime Evidence](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Changelog](CHANGELOG.md) · [AI Reference](README_AI.md)
 
 ## License
 
