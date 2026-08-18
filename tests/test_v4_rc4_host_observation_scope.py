@@ -125,7 +125,7 @@ def test_post_tool_input_must_match_pre_binding(tmp_path: Path):
         "hook_event_name": "PostToolUse",
         "tool_input": {"path_prefix": "sd_u1_a1"},
         "tool_response": official_list_agents_wire(
-            [{"agent_name": "/root/sd_u1_a1", "agent_status": {"running": {}}}]
+            [{"agent_name": "/root/sd_u1_a1", "agent_status": "running"}]
         ),
     }
 
@@ -154,9 +154,9 @@ def test_filtered_list_agents_cannot_replace_full_capacity_truth(tmp_path: Path)
         "hook_event_name": "PostToolUse",
         "tool_response": official_list_agents_wire(
             [
-                {"agent_name": "/root", "agent_status": {"running": {}}},
-                {"agent_name": "/root/sd_u1_a1", "agent_status": {"running": {}}},
-                {"agent_name": "/root/manual_a", "agent_status": {"running": {}}},
+                {"agent_name": "/root", "agent_status": "running"},
+                {"agent_name": "/root/sd_u1_a1", "agent_status": "running"},
+                {"agent_name": "/root/manual_a", "agent_status": "running"},
                 {"agent_name": "/root/manual_b", "agent_status": {"completed": "done"}},
             ]
         ),
