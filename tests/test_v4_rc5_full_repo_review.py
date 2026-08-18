@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import importlib.util
+import io
+import json
+from pathlib import Path
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+GUARD = SCRIPTS / "orchestration_guard.py"
+STATE = SCRIPTS / "dispatch_state_v4.py"
+CONTROL = SCRIPTS / "dispatch_control_v4.py"
+MANAGED = SCRIPTS / "managed_execution_v4.py"
+WRITER = SCRIPTS / "writer_lease_v4.py"
+
+
+def load_module(name: str, path: Path):
+    scripts = str(SCRIPTS)
+    sys.path.insert(0, scripts)
+    try:
+        spec = importlib.util.spec_from_file_location(name, path)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(scripts)
+
+
+def _v4_state(state_module, tmp_path: Path) -> None:
+    payload = state_module.new_state(thread_id="root-thread")
+    payload["work_units"] = [
+        {
+            "unit_id": "U1",
+            "intent": "inspect",
+            "goal": "bounded read",
+            "output": "facts",
+            "depends_on": [],
+            "state": "EXECUTING",
+            "ownership": {"write": [], "forbidden": []},
+            "authority_ceiling": "none",
+            "write_scope_ceiling": [],
+            "done_when": "Main verifies facts",
+            "accepted_result_ref": None,
+            "accepted_execution_id": None,
+            "accepted_control_epoch": None,
+        }
+    ]
+    payload["executions"] = [
+        {
+            "execution_id": "exec-1",
+            "unit_id": "U1",
+            "team_plan_revision": None,
+            "attempt_no": 1,
+            "profile_id": "reader",
+            "agent_id": None,
+            "native_task_name": "sd_u1_a1",
+            "model": "gpt-5.6-luna",
+            "effort": "max",
+            "granted_authority": "none",
+            "granted_write_scope": [],
+            "workspace_id": "canonical",
+            "lifecycle": "SPAWN_PENDING",
+            "control_epoch": 0,
+            "followup_count": 0,
+            "failure_origin": "none",
+            "blocker": "none",
+            "quarantine_reason": None,
+        }
+    ]
+    payload["accounting_refs"].append(
+        {
+            "ref": "host-capacity-observation:old",
+            "kind": state_module.HOST_CAPACITY_OBSERVATION_KIND,
+            "source": "post_tool_use:list_agents",
+            "turn_id": "turn-observe",
+            "tool_use_id": "tool-observe",
+            "resident_children": 0,
+            "settled_children": 0,
+            "active_children": 0,
+            "managed_resident_children": 0,
+            "unmanaged_resident_children": 0,
+            "response_digest": "a" * 64,
+        }
+    )
+    state_module.write_state(payload, temp_root=tmp_path)
+
+
+def test_post_failure_rejects_result_with_host_supported_block(monkeypatch, capsys):
+    guard = load_module("rc5_guard_cli_red", GUARD)
+    payload = {
+        "hook_event_name": "PostToolUse",
+        "session_id": "root-thread",
+        "tool_name": "spawn_agent",
+        "tool_use_id": "tool-1",
+        "tool_input": {},
+        "tool_response": {},
+    }
+    fake_stdin = io.TextIOWrapper(io.BytesIO(json.dumps(payload).encode()), encoding="utf-8")
+    monkeypatch.setattr(guard.sys, "stdin", fake_stdin)
+    monkeypatch.setattr(
+        guard,
+        "evaluate_hook",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    guard.main()
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["decision"] == "block"
+    assert "continue" not in rendered
+    assert "boom" not in json.dumps(rendered)
+
+
+def test_managed_lifecycle_pre_consumes_authoritative_capacity_truth(tmp_path: Path):
+    state = load_module("rc5_state_capacity_red", STATE)
+    control = load_module("rc5_control_capacity_red", CONTROL)
+    guard = load_module("rc5_guard_capacity_red", GUARD)
+    managed = load_module("rc5_managed_capacity_red", MANAGED)
+    _v4_state(state, tmp_path)
+    current = state.load_state("root-thread", temp_root=tmp_path)
+    assert current is not None
+    tool_input = managed.expected_spawn_input_for_execution(current, execution_id="exec-1")
+    control.prepare_control(
+        "root-thread",
+        control_id="spawn:exec-1",
+        execution_id="exec-1",
+        operation="SPAWN",
+        tool_input=tool_input,
+        temp_root=tmp_path,
+    )
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "root-thread",
+        "turn_id": "turn-spawn",
+        "tool_name": "spawn_agent",
+        "tool_use_id": "tool-spawn",
+        "tool_input": tool_input,
+    }
+    assert guard.evaluate_pre_tool_use(payload, temp_root=tmp_path) is None
+    latest = state.load_state("root-thread", temp_root=tmp_path)
+    assert latest is not None
+    assert not any(
+        event.get("kind") == state.HOST_CAPACITY_OBSERVATION_KIND
+        for event in latest["accounting_refs"]
+    )
+
+
+def test_writer_settlement_source_requires_completed_observation_receipt():
+    text = WRITER.read_text(encoding="utf-8")
+    assert "host_observation_receipt" in text
+    assert "OBSERVATION_RECEIPT_FILTER_KIND" in text
+
+
+def test_packaged_runtime_contracts_use_only_v4_public_entrypoints():
+    guardrails = (ROOT / "contracts" / "guardrails.md").read_text(encoding="utf-8")
+    interaction = (ROOT / "contracts" / "interaction.md").read_text(encoding="utf-8")
+    assert "stable `dispatch`, `preview`, `status`, `steer`, `takeover`, and `doctor` Skills" not in guardrails
+    assert "The product's supported entrypoints are `Orchestrate` and `Doctor`" in guardrails
+    assert "The stable interaction Skill ids are `preview`, `status`, `steer`, and `takeover`" not in interaction
+    assert "Orchestrate control intents" in interaction
+
+
+def test_public_installation_and_reference_use_v4_surface_and_host_gate():
+    installation = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
+    ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
+    doctor = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
+    assert "six explicit Skill identities" not in installation
+    assert "two explicit Skill identities" in installation
+    assert "H01-H07" not in ai_reference
+    assert "H00-H20" in ai_reference
+    assert "H01-H07" not in doctor
+    assert "H00-H20" in doctor
+
+
+def test_writer_lifecycle_contract_matches_receipt_bound_settlement():
+    lifecycle = json.loads((ROOT / "docs" / "v4" / "writer-lifecycle.json").read_text(encoding="utf-8"))
+    required = lifecycle["settlement_theorem"]["requires"]
+    assert "completed authoritative list_agents Hook receipt" in required
+    assert "proven managed lifecycle Guard coverage" not in required
+    orchestrate = (ROOT / "skills" / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
+    assert "current managed lifecycle Guard coverage evidence" not in orchestrate
+    assert "completed authoritative list_agents Hook receipt" in orchestrate
+
+
+def test_h07_requires_post_result_rejection_and_pre_capacity_consumption():
+    smoke = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
+    h07 = next(item for item in smoke["required_probes"] if item["id"] == "H07")
+    joined = " ".join(h07["requires"])
+    assert "PostToolUse result rejection observed" in joined
+    assert "capacity truth consumed before lifecycle Host mutation" in joined
