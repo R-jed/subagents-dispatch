@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-host-smoke-7",
+  "schema_version": "4.0.0-host-smoke-8",
   "contract_kind": "machine-readable-host-campaign-contract",
   "gate_id": "v4-real-host-h00-h20",
   "status": "PENDING",
@@ -25,7 +25,7 @@
     {"id":"H04","operation":"SubagentStop veto","platform":"any","requires":["managed child stop observed","continue false prevents automatic continuation"]},
     {"id":"H05","operation":"managed child sibling followup block","platform":"any","requires":["managed child context observable","sibling lifecycle control blocked"]},
     {"id":"H06","operation":"managed child sibling interrupt block","platform":"any","requires":["managed child context observable","sibling lifecycle control blocked"]},
-    {"id":"H07","operation":"missing failed delayed PostToolUse","platform":"any","requires":["unacknowledged control remains fail closed","writer authority is not released"]},
+    {"id":"H07","operation":"failed delayed PostToolUse result rejection","platform":"any","requires":["PostToolUse result rejection observed","capacity truth consumed before lifecycle Host mutation","unacknowledged control remains fail closed","writer authority is not released"]},
     {"id":"H08","operation":"message Hook representation","platform":"any","requires":["spawn and followup sanitized shapes captured","canonical authorized payload remains compatible with Host Hook representation"]},
     {"id":"H09","operation":"V2 residency capacity and refill","platform":"any","requires":["resident capacity observed from unfiltered root list_agents tool_input {}","settled-resident reclaim behavior observed","event-driven refill remains within product ceiling"]},
     {"id":"H10","operation":"writable lifecycle acknowledgement","platform":"any","requires":["writable SPAWN ACK and WriterLease transition observed","interrupt ACK does not release unsettled writer"]},
