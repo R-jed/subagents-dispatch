@@ -220,6 +220,21 @@ def test_duplicate_posttooluse_is_idempotent_at_production_guard(tmp_path: Path)
     payload["team_plan_revision"] = 1
     payload["work_units"] = [unit(state_name="EXECUTING")]
     payload["executions"] = [execution("exec-1", lifecycle="SPAWN_PENDING")]
+    payload["accounting_refs"].append(
+        {
+            "ref": "host-capacity-observation:capacity-rc3",
+            "kind": state.HOST_CAPACITY_OBSERVATION_KIND,
+            "source": "post_tool_use:list_agents",
+            "turn_id": "turn-capacity-rc3",
+            "tool_use_id": "capacity-rc3",
+            "resident_children": 0,
+            "settled_children": 0,
+            "active_children": 0,
+            "managed_resident_children": 0,
+            "unmanaged_resident_children": 0,
+            "response_digest": "a" * 64,
+        }
+    )
     state.write_state(payload, temp_root=tmp_path)
     current = state.load_state("thread-rc3-truth", temp_root=tmp_path)
     assert current is not None
