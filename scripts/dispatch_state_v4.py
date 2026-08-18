@@ -313,6 +313,41 @@ def _filter_event(*, kind: str, ref: str, bits: int, count: int) -> dict[str, An
     }
 
 
+def _writer_settlement_receipt_tool_use_id(
+    payload: Mapping[str, Any], observations: list[dict[str, Any]]
+) -> str | None:
+    """Pin the exact Host receipt still required by the active execution writer."""
+    lease = payload.get("writer_lease")
+    if (
+        not isinstance(lease, Mapping)
+        or lease.get("owner_kind") != "execution"
+        or lease.get("state") not in {"HELD", "REVOKING"}
+    ):
+        return None
+    executions = [
+        item
+        for item in payload.get("executions", [])
+        if isinstance(item, Mapping) and item.get("execution_id") == lease.get("owner_id")
+    ]
+    if len(executions) != 1:
+        return None
+    execution = executions[0]
+    if execution.get("lifecycle") not in {"INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"}:
+        return None
+    matches = [
+        event
+        for event in observations
+        if event.get("source") == "post_tool_use:list_agents"
+        and event.get("execution_id") == execution.get("execution_id")
+        and event.get("control_epoch") == execution.get("control_epoch")
+        and event.get("lease_epoch") == lease.get("lease_epoch")
+        and event.get("lifecycle") == execution.get("lifecycle")
+        and isinstance(event.get("tool_use_id"), str)
+        and bool(event.get("tool_use_id"))
+    ]
+    return str(matches[-1]["tool_use_id"]) if matches else None
+
+
 def _compact_accounting_refs(payload: dict[str, Any]) -> None:
     events = payload.get("accounting_refs")
     if not isinstance(events, list):
@@ -363,14 +398,27 @@ def _compact_accounting_refs(payload: dict[str, Any]) -> None:
                 control_filter_bits = _filter_add(control_filter_bits, tool_use_id)
                 control_filter_count += 1
 
-    if len(receipts) > RECENT_OBSERVATION_RECEIPTS:
-        compacted = receipts[:-RECENT_OBSERVATION_RECEIPTS]
-        receipts = receipts[-RECENT_OBSERVATION_RECEIPTS:]
+    pinned_tool_use_id = _writer_settlement_receipt_tool_use_id(payload, observations)
+    pinned_receipt = next(
+        (
+            event
+            for event in reversed(receipts)
+            if pinned_tool_use_id is not None and event.get("tool_use_id") == pinned_tool_use_id
+        ),
+        None,
+    )
+    ordinary_receipts = [event for event in receipts if event is not pinned_receipt]
+    if len(ordinary_receipts) > RECENT_OBSERVATION_RECEIPTS:
+        compacted = ordinary_receipts[:-RECENT_OBSERVATION_RECEIPTS]
+        ordinary_receipts = ordinary_receipts[-RECENT_OBSERVATION_RECEIPTS:]
         for event in compacted:
             tool_use_id = event.get("tool_use_id")
             if isinstance(tool_use_id, str) and tool_use_id:
                 receipt_filter_bits = _filter_add(receipt_filter_bits, tool_use_id)
                 receipt_filter_count += 1
+    receipts = ordinary_receipts
+    if pinned_receipt is not None:
+        receipts.append(pinned_receipt)
 
     latest_observation: dict[tuple[Any, ...], dict[str, Any]] = {}
     observation_order: list[tuple[Any, ...]] = []
