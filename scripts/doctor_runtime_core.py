@@ -542,10 +542,12 @@ def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
         )
     return layer(
         "Host integration",
-        "OK",
-        "supplied Host capability evidence and installed lifecycle Hooks satisfy the runtime contract",
+        "UNKNOWN",
+        "supplied Host capability snapshot is compatible, but freshness/current-session provenance is unverified",
+        action="Use current-session authoritative Host observations before treating Host integration as verified.",
         configured_events=sorted(events),
         hook_mode=hook_mode,
+        capability_compatible=True,
         **evidence_details,
     )
 
