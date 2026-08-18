@@ -217,10 +217,10 @@ def test_managed_lifecycle_pre_consumes_authoritative_capacity_truth(tmp_path: P
     )
 
 
-def test_writer_settlement_source_requires_completed_observation_receipt():
+def test_writer_settlement_source_requires_exact_observation_receipt():
     text = WRITER.read_text(encoding="utf-8")
-    assert "host_observation_receipt" in text
-    assert "OBSERVATION_RECEIPT_FILTER_KIND" in text
+    assert 'event.get("kind") == "host_observation_receipt"' in text
+    assert "accounting_filter_contains" not in text
 
 
 def test_writer_settlement_rejects_partial_observation_until_receipt_exists(tmp_path: Path):
@@ -258,6 +258,41 @@ def test_writer_settlement_rejects_partial_observation_until_receipt_exists(tmp_
         temp_root=tmp_path,
     )
     assert released["state"] == "RELEASED"
+
+
+def test_writer_settlement_rejects_probabilistic_receipt_filter_match(tmp_path: Path):
+    state = load_module("rc5_state_bloom_gate", STATE)
+    writer = load_module("rc5_writer_bloom_gate", WRITER)
+    _settled_writer_state(state, tmp_path)
+
+    def add_filter_only(current: dict) -> None:
+        bits = state._filter_add(0, "observe-1")
+        current["accounting_refs"].append(
+            state._filter_event(
+                kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
+                ref=state.OBSERVATION_RECEIPT_FILTER_REF,
+                bits=bits,
+                count=1,
+            )
+        )
+
+    state.mutate_state("root-thread", add_filter_only, temp_root=tmp_path)
+    current = state.load_state("root-thread", temp_root=tmp_path)
+    assert current is not None
+    assert state.accounting_filter_contains(
+        current,
+        kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
+        value="observe-1",
+    )
+
+    with pytest.raises(writer.WriterLeaseError, match="observation receipt"):
+        writer.release_settled_execution_writer(
+            "root-thread",
+            execution_id="exec-1",
+            lease_id="lease-1",
+            lease_epoch=1,
+            temp_root=tmp_path,
+        )
 
 
 def test_packaged_runtime_contracts_use_only_v4_public_entrypoints():
