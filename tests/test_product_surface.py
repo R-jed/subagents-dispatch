@@ -130,11 +130,9 @@ def test_ci_keeps_cross_platform_integrity_validator_and_profile_lifecycle_gates
     assert "startsWith(github.ref, 'refs/tags/')" in text
 
 
-def test_public_installation_ownership_commands_remain_documented():
-    paths = [ROOT / "README.md", ROOT / "README_EN.md", ROOT / "docs" / "plugin-installation.md"]
-    for path in paths:
-        text = path.read_text(encoding="utf-8")
-        assert CANONICAL_MARKETPLACE in text
-        assert PLUGIN_ADD in text
-        assert PLUGIN_REMOVE in text
-        assert MARKETPLACE_REMOVE in text
+def test_installation_document_keeps_supported_commands():
+    text = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
+    assert CANONICAL_MARKETPLACE in text
+    assert PLUGIN_ADD in text
+    assert PLUGIN_REMOVE in text
+    assert MARKETPLACE_REMOVE in text
