@@ -11,7 +11,6 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.0.0-green.svg" alt="版本">
   <img src="https://img.shields.io/badge/Codex-Native%20Subagents-111827.svg" alt="Codex 原生子代理">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="许可证"></a>
 </p>
@@ -64,8 +63,6 @@ Main
 
 ## 你只需要记住两个入口
 
-V4 把以前分散的入口收成两个：
-
 | 入口 | 什么时候用 |
 |---|---|
 | **Orchestrate** | 让它规划、分工、执行、继续、纠正、接管、复核或整合 |
@@ -77,7 +74,7 @@ Orchestrate 也支持只看计划。你可以先让它说准备怎么分工，�
 
 ## 它会克制自己
 
-多 Agent 很容易从“并行工作”滑向“多人群聊”。V4 给自己定了几条很朴素的规矩：
+多 Agent 很容易从“并行工作”滑向“多人群聊”。这个项目给自己定了几条很朴素的规矩：
 
 - 小任务允许 0 个子代理
 - 一开始最多叫 2 个，正常工作时最多 3 个
@@ -91,8 +88,6 @@ Orchestrate 也支持只看计划。你可以先让它说准备怎么分工，�
 
 ## 当前固定阵容
 
-V4.0.0 先把阵容固定下来，不做动态模型和思考强度切换：
-
 | 工作 | 模型 | 擅长什么 |
 |---|---|---|
 | 阅读 | Luna Max | 窄范围读代码、追调用链 |
@@ -101,11 +96,11 @@ V4.0.0 先把阵容固定下来，不做动态模型和思考强度切换：
 | 解题 | Sol High | 需要较多技术判断的实现 |
 | 复核 | Sol High | 独立检查方案和最终结果 |
 
-固定配置的好处很简单：行为更容易理解，也更容易复现。以后如果真实数据证明某个组合值得调整，再调整。
+目前先把阵容固定下来，不做动态模型和思考强度切换。这样行为更容易理解，也更容易复现。以后如果真实数据证明某个组合值得调整，再调整。
 
 ## 安装
 
-正式发布后，通过 Codex 插件市场安装：
+通过 Codex 插件市场安装：
 
 ```bash
 codex plugin marketplace add R-jed/subagents-dispatch
@@ -140,15 +135,9 @@ codex plugin marketplace remove subagents-dispatch
 
 但“开更多 Agent”本身不会自动变快。小任务可能更慢，协调也有成本。项目已经准备了实验协议去比较正确性、返工、耗时和 Token，等真实重复实验够多再谈数字。
 
-**本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token。**
+这里不会提前宣传“更快”或者“更省 Token”。
 
 我们更关心另一件事：复杂任务能不能分得清、收得回来、最后有人真正负责。
-
-## V4 现在到哪了
-
-V4.0.0 的仓库实现和离线验证已经推进到发布候选阶段。正式发布前还需要完成真实 Codex 环境里的生命周期验证。
-
-这项验证没过之前，项目不会把发布状态提前写成“已验证”。想看具体工程进度，可以去 [发布清单](docs/release-checklist.md) 和 [V4 文档](docs/v4/)。README 到这里就不继续开设计评审会了。
 
 想继续往下看技术细节：
 
