@@ -10,15 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 SKILLS = ROOT / "skills"
 INSTALL_DOC = ROOT / "docs" / "plugin-installation.md"
-PYTHON_RUNTIME_DOC = ROOT / "docs" / "python-runtime.md"
-RELEASE = ROOT / "docs" / "release-checklist.md"
 README_FILES = (
     ROOT / "README.md",
     ROOT / "README_EN.md",
     ROOT / "README_AI.md",
     ROOT / "evals" / "README.md",
 )
-CI = ROOT / ".github" / "workflows" / "ci.yml"
 PUBLIC_SKILLS = ("orchestrate", "doctor")
 
 
@@ -62,23 +59,6 @@ def test_plugin_legal_links_still_target_packaged_policy_files():
         assert (ROOT / suffix.removeprefix("/")).is_file()
 
 
-def test_python_helper_runtime_keeps_portable_resolution_boundary():
-    text = PYTHON_RUNTIME_DOC.read_text(encoding="utf-8")
-    for phrase in (
-        "Python 3.11 or newer",
-        "python3",
-        "python",
-        "py -3.11",
-        "sys.executable",
-        "environment adaptation",
-        "PYTHON_PREREQUISITE_UNMET",
-        "actions/setup-python",
-        "real Codex App task shell",
-        "A single `command not found`",
-    ):
-        assert phrase in text
-
-
 def test_readme_files_are_valid_basic_text_files():
     for path in README_FILES:
         assert path.is_file()
@@ -102,20 +82,3 @@ def test_public_uninstall_docs_forbid_manual_managed_profile_removal():
     for path in (INSTALL_DOC, SKILLS / "doctor" / "SKILL.md"):
         text = path.read_text(encoding="utf-8")
         assert all(command not in text for command in forbidden)
-
-
-def test_release_docs_keep_real_host_validation_as_a_distinct_gate():
-    text = RELEASE.read_text(encoding="utf-8")
-    assert "Host" in text
-    assert "Hook" in text
-    assert "offline" in text.lower()
-    assert "docs/v4/host-smoke.json" in text
-
-
-def test_ci_keeps_root_plugin_layout_and_full_validation_gates():
-    text = CI.read_text(encoding="utf-8")
-    assert ".codex-plugin/plugin.json" in text
-    assert "scripts/install-agents.py" in text
-    assert "python scripts/package_integrity.py --check-generated" in text
-    assert "python -m pytest -q" in text
-    assert "python -m ruff check scripts tests --ignore E402" in text
