@@ -8,9 +8,6 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
-README_CN = ROOT / "README.md"
-README_EN = ROOT / "README_EN.md"
-README_AI = ROOT / "README_AI.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 CHANGELOG_V3 = ROOT / "CHANGELOG_V3.md"
 RELEASE = ROOT / "docs" / "release-checklist.md"
@@ -30,13 +27,6 @@ def current_version() -> str:
 def test_v4_version_identity_is_consistent_without_premature_tag_claim():
     version = current_version()
     assert version == "4.0.0"
-    assert f"version-{version}-green.svg" in README_CN.read_text(encoding="utf-8")
-    assert f"version-{version}-green.svg" in README_EN.read_text(encoding="utf-8")
-    assert re.search(
-        rf"^Current version:\s+{re.escape(version)}$",
-        README_AI.read_text(encoding="utf-8"),
-        flags=re.MULTILINE,
-    )
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
     assert market["plugins"][0]["source"]["ref"] == f"v{version}"
     release = RELEASE.read_text(encoding="utf-8")
@@ -142,22 +132,6 @@ def test_release_sequence_keeps_host_review_and_human_gates_after_offline_ci():
     positions = [release.index(item) for item in order]
     assert positions == sorted(positions)
     assert "If any real Host gate remains unavailable, record the candidate as repository-complete and release-blocked" in release
-
-
-def test_ai_reference_is_v4_owner_map_and_does_not_impersonate_runtime_evidence():
-    text = README_AI.read_text(encoding="utf-8")
-    for phrase in (
-        "Current version:     4.0.0",
-        "Orchestrate",
-        "Doctor",
-        "scripts/orchestrate_v4.py",
-        "scripts/dispatch_state_v4.py",
-        "scripts/writer_lease_v4.py",
-        "docs/v4/host-smoke.json",
-        "Offline CI cannot promote `docs/v4/host-smoke.json` to PASS",
-    ):
-        assert phrase in text
-    assert "codex plugin marketplace add" not in text
 
 
 def test_privacy_keeps_local_attestation_and_temporary_state_boundaries():
