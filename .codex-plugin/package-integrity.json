@@ -63,7 +63,7 @@
     "scripts/validate_team_ledger.py": "85fb3b5c755cf863b2c52502851691a7d1ee7196a3b1a459a5326b9af6c5512e",
     "scripts/validate_team_plan.py": "03c91c984a638dde2abde996515f10923e56230e90c1883be5c6d2560ff2f816",
     "scripts/work_graph_v4.py": "b3303a76ece3e5252308f174ba2d5eca91700f4b0fb6e54c9a30e72d6864c80d",
-    "scripts/writer_lease_v4.py": "014b28d0dcb8b7f04eb9a512b85bbe94dbb8938428ec92ac9fc485afcc435834",
+    "scripts/writer_lease_v4.py": "895566d725dc92ef1c6570c5f6a9c55a18b87cfdb941522dfcf6bb0a036178ac",
     "scripts/writer_lease_v4_core.py": "215ebf34cd225968a7658c39cac9eb8723db45d1160b87f859a0540aec7c8235",
     "skills/doctor/SKILL.md": "75cdb61b9523a39056650bad4b1660f2f4f91f52d62eedf79989c684bdc99946",
     "skills/doctor/agents/openai.yaml": "0811c7d17fec437db183f4bf2b40596e20aa038447da82195cd08c71c6e93b3b",
