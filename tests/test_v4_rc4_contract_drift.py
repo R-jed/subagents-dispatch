@@ -63,10 +63,22 @@ def test_orchestrate_contract_describes_current_two_skill_surface_without_coexis
 
 def test_scheduler_contract_names_authoritative_host_occupancy_rules():
     contract = load_json("scheduler.json")
-    assert contract["host_occupancy_truth"] == "latest_authoritative_list_agents_observation"
+    assert (
+        contract["host_occupancy_truth"]
+        == "latest_authoritative_unfiltered_root_list_agents_observation"
+    )
+    assert contract["authoritative_list_agents_tool_input"] == {}
     assert contract["one_host_observation_fresh_spawn_max"] == 1
     assert contract["mixed_managed_unmanaged_occupancy"] is True
     assert contract["settled_resident_reclaim"] == "one_bounded_host_attempt"
+
+
+def test_host_campaign_requires_unfiltered_root_occupancy_and_input_binding():
+    smoke = load_json("host-smoke.json")
+    probes = {probe["id"]: probe for probe in smoke["required_probes"]}
+    assert any("unfiltered root list_agents" in item for item in probes["H09"]["requires"])
+    assert any("tool_input binding" in item for item in probes["H17"]["requires"])
+    assert any("filtered path_prefix" in item for item in probes["H18"]["requires"])
 
 
 def test_technical_debt_release_policy_tracks_current_h00_h20_gate():
