@@ -183,7 +183,8 @@ def test_legacy_invented_bare_list_wire_fails_closed(tmp_path: Path):
     ]
     result = guard.evaluate_post_tool_use(legacy, temp_root=tmp_path)
     assert result is not None
-    assert result["continue"] is False
+    assert result["decision"] == "block"
+    assert "continue" not in result
 
 
 def test_list_agents_post_without_pre_fails_closed(tmp_path: Path):
@@ -195,7 +196,8 @@ def test_list_agents_post_without_pre_fails_closed(tmp_path: Path):
         list_agents_post(status={"completed": "done"}), temp_root=tmp_path
     )
     assert result is not None
-    assert result["continue"] is False
+    assert result["decision"] == "block"
+    assert "continue" not in result
     current = state.load_state("thread-host", temp_root=tmp_path)
     assert current is not None
     assert current["executions"][0]["lifecycle"] == "RUNNING"
