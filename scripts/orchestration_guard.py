@@ -133,12 +133,44 @@ def _prepare_host_observation(
     return None
 
 
+def _consume_capacity_before_fresh_spawn(
+    session_id: str,
+    *,
+    temp_root: str | os.PathLike[str] | None,
+) -> dict[str, Any] | None:
+    """Atomically consume one current occupancy truth before a managed fresh spawn."""
+    consumed = False
+
+    def mutate(current: dict[str, Any]) -> None:
+        nonlocal consumed
+        matches = [
+            event
+            for event in current.get("accounting_refs", [])
+            if isinstance(event, Mapping)
+            and event.get("kind") == state_v4.HOST_CAPACITY_OBSERVATION_KIND
+        ]
+        if len(matches) > 1:
+            raise GuardStateError("multiple current Host capacity observations are unsafe")
+        if not matches:
+            return
+        current["accounting_refs"].remove(matches[0])
+        consumed = True
+
+    try:
+        state_v4.mutate_state(session_id, mutate, temp_root=temp_root)
+    except Exception:
+        return _block("Host capacity truth could not be consumed safely before lifecycle mutation")
+    if not consumed:
+        return _block("fresh managed spawn requires current authoritative Host capacity truth")
+    return None
+
+
 def _invalidate_capacity_before_lifecycle(
     session_id: str,
     *,
     temp_root: str | os.PathLike[str] | None,
 ) -> dict[str, Any] | None:
-    """Consume prior occupancy truth before any lifecycle call crosses the Host boundary."""
+    """Invalidate prior occupancy truth before a non-fresh lifecycle mutation."""
     try:
         host_evidence.invalidate_host_capacity_observation(session_id, temp_root=temp_root)
     except Exception:
@@ -172,7 +204,17 @@ def evaluate_pre_tool_use(
     family, current = _load_family(session_id, temp_root=temp_root)
 
     if family == "v4":
-        capacity_block = _invalidate_capacity_before_lifecycle(session_id, temp_root=temp_root)
+        managed_fresh_spawn = tool_name == "spawn_agent" and _is_managed_agent_type(
+            tool_input.get("agent_type")
+        )
+        if managed_fresh_spawn:
+            capacity_block = _consume_capacity_before_fresh_spawn(
+                session_id, temp_root=temp_root
+            )
+        else:
+            capacity_block = _invalidate_capacity_before_lifecycle(
+                session_id, temp_root=temp_root
+            )
         if capacity_block is not None:
             return capacity_block
 
