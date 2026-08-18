@@ -26,15 +26,15 @@ The packaged launchers try supported platform commands and verify the interprete
 
 The Plugin ships five fixed managed Agent profiles, but those profile files live in the active Codex home and have a lifecycle separate from the Plugin package.
 
-When an explicit Orchestrate task first decides that a child is useful, it checks whether the exact selected managed profile is available to the current Host task.
+When an explicit Orchestrate task first decides that a child is useful, it requires the exact selected managed profile. If the managed files are safely absent, Orchestrate may provision only the five subagents-dispatch profile files, its ownership manifest, and installer lock. It does not edit credentials, MCP configuration, repositories, Hook trust, or unrelated Agent profiles.
 
-If the managed files are safely absent, Orchestrate may provision only the five subagents-dispatch profile files, its ownership manifest, and installer lock. It does not edit credentials, MCP configuration, repositories, Hook trust, or unrelated Agent profiles.
+Current V4 does not have an authoritative in-task registry observation that can prove a newly written custom-Agent profile became selectable in the already-running task. After provisioning in that task, Orchestrate therefore returns `RESTART_REQUIRED` and does not probe readiness by making a speculative `spawn_agent` call or substituting a generic Agent type. Start one fresh Codex task and submit the original request again. The fresh task must expose and honor the exact managed `agent_type` before delegated execution can proceed.
 
-Profile file creation does not by itself prove that the current Host task can select the newly installed custom Agent. After provisioning, Orchestrate checks readiness again. If the current task cannot expose or select the exact required profile, Orchestrate returns `RESTART_REQUIRED`, does not call `spawn_agent` with a substitute Agent type, and asks you to start one fresh Codex task and submit the original request again.
+The real Host campaign records the Host's actual profile visibility and selector behavior. If future Host evidence provides a reliable in-task readiness boundary, a later product version may remove this conservative restart without weakening exact-profile guarantees.
 
-Whether a newly created profile becomes visible without a fresh task is treated as Host behavior and is verified in the real Host campaign. The Plugin does not assume hot reload or mandatory restart from configuration files alone.
+If you want the first real development task to avoid the initialization interruption, use **Doctor** once in the first post-install session and explicitly request managed-profile repair or preparation. Then start a fresh work session and use Orchestrate normally.
 
-If the files are symlinked, conflicting, modified without proven ownership, or otherwise unsafe, automatic provisioning stops. Use Doctor for the exact diagnosis. Plan-only and other non-spawning Orchestrate controls do not provision profiles merely to make their output more detailed.
+If the profile files are symlinked, conflicting, modified without proven ownership, or otherwise unsafe, automatic provisioning stops. Use Doctor for the exact diagnosis. Plan-only and other non-spawning Orchestrate controls do not provision profiles merely to make their output more detailed.
 
 ## Writer boundary
 
@@ -68,7 +68,7 @@ Orchestration state
 Legacy compatibility
 ```
 
-Doctor preserves `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` rather than rewriting missing evidence into success.
+Doctor preserves `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` instead of rewriting missing evidence into success. Top-level health reflects confirmed problems or warnings, while verification completeness separately records whether diagnostic facts remain `UNKNOWN`.
 
 Doctor changes local state only after explicit user intent. Supported owned maintenance actions are:
 
