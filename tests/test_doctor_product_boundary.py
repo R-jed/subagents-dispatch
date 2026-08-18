@@ -125,6 +125,40 @@ def test_default_diagnosis_invokes_only_local_managed_profile_check(monkeypatch,
     assert all("codex" not in Path(call[0]).name.lower() for call in calls)
 
 
+def test_missing_managed_profiles_are_degraded_and_repairable(monkeypatch, tmp_path: Path):
+    doctor = load_module("doctor_product_missing_profiles", "doctor_runtime_core.py")
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            "",
+            "Not installed: managed Agent profile is missing (/tmp/profile.toml).",
+        )
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+    result = doctor.diagnose_managed_agents(tmp_path / "home")
+    assert result["status"] == "WARN"
+    assert "repair" in result["action"].lower()
+
+
+def test_unsafe_managed_profile_ownership_is_blocked(monkeypatch, tmp_path: Path):
+    doctor = load_module("doctor_product_unsafe_profiles", "doctor_runtime_core.py")
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            "",
+            "Refusing symlinked Agent profile destination: /tmp/profile.toml",
+        )
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+    result = doctor.diagnose_managed_agents(tmp_path / "home")
+    assert result["status"] == "FAIL"
+    assert "ownership or filesystem safety" in result["summary"]
+
+
 def test_safety_critical_unknown_state_is_blocked(monkeypatch, tmp_path: Path):
     doctor = load_module("doctor_product_unknown_state", "doctor_runtime_core.py")
     payload = {
