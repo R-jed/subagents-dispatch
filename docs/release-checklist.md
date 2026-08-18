@@ -19,7 +19,7 @@ Every release gate must protect one concrete public capability, safety property,
 
 ## 1. Candidate identity
 
-Record the exact candidate commit, tree, Plugin version, Marketplace ref, Python helper identity, Codex Host version used for smoke, and operating system. `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, README badges, `README_AI.md`, and the V4 changelog entry must agree on `4.0.0` before tagging.
+Record the exact candidate commit, tree, Plugin version, Marketplace ref, Python helper identity, Codex Host version used for smoke, and operating system. `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, and the V4 changelog entry must agree on `4.0.0` before tagging.
 
 Use a versioned semantic-version tag only after all required release gates pass. The checklist does not claim platform-enforced tag immutability. Evidence that a ref resolves to an expected commit does not by itself prove platform-enforced tag immutability. Verify that the Marketplace entry resolves the Plugin source from the same tag rather than a mutable branch.
 
