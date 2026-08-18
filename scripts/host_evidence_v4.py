@@ -17,7 +17,6 @@ import writer_lease_v4 as writer
 PRE_TOOL_USE = "PreToolUse"
 POST_TOOL_USE = "PostToolUse"
 OBSERVATION_TOOL = "list_agents"
-RESERVED_AGENT_PREFIX = "subagents_dispatch_"
 PREPARE_KIND = "host_observation_prepare"
 RECEIPT_KIND = "host_observation_receipt"
 CAPACITY_KIND = state.HOST_CAPACITY_OBSERVATION_KIND
@@ -76,12 +75,28 @@ def _hook_identity(payload: Mapping[str, Any], *, expected_event: str) -> tuple[
     tool_use_id = payload.get("tool_use_id")
     if not _nonempty(session_id) or not _nonempty(turn_id) or not _nonempty(tool_use_id):
         raise HostEvidenceError("Host observation requires session_id, turn_id, and tool_use_id")
-    caller_agent_type = payload.get("agent_type")
-    if isinstance(caller_agent_type, str) and caller_agent_type.startswith(RESERVED_AGENT_PREFIX):
-        raise HostEvidenceError("managed child cannot author authoritative root Host evidence")
-    if payload.get("subagent") is not None:
-        raise HostEvidenceError("subagent Hook context cannot author root Host evidence")
+    if (
+        payload.get("agent_id") is not None
+        or payload.get("agent_type") is not None
+        or payload.get("subagent") is not None
+    ):
+        raise HostEvidenceError("only root Main may author authoritative root Host evidence")
     return str(session_id), str(turn_id), str(tool_use_id)
+
+
+def _authoritative_tool_input_digest(payload: Mapping[str, Any]) -> str:
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, Mapping) or len(tool_input) != 0:
+        raise HostEvidenceError(
+            "authoritative Host capacity observation requires unfiltered list_agents tool_input {}"
+        )
+    encoded = json.dumps(
+        dict(tool_input),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _prepare_ref(tool_use_id: str) -> str:
@@ -126,8 +141,9 @@ def prepare_list_agents_pre_tool_use(
     *,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Bind one list_agents invocation to the current execution observation bases."""
+    """Bind one unfiltered root list_agents invocation to current execution bases."""
     session_id, turn_id, tool_use_id = _hook_identity(payload, expected_event=PRE_TOOL_USE)
+    tool_input_digest = _authoritative_tool_input_digest(payload)
     prepared: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
@@ -152,6 +168,7 @@ def prepare_list_agents_pre_tool_use(
             "kind": PREPARE_KIND,
             "turn_id": turn_id,
             "tool_use_id": tool_use_id,
+            "tool_input_digest": tool_input_digest,
             "bases": bases,
         }
         current["accounting_refs"].append(event)
@@ -263,8 +280,9 @@ def ingest_list_agents_post_tool_use(
     *,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Reconcile one genuine list_agents result against its PreToolUse-captured basis."""
+    """Reconcile one genuine unfiltered root list_agents result against its Pre basis."""
     session_id, turn_id, tool_use_id = _hook_identity(payload, expected_event=POST_TOOL_USE)
+    tool_input_digest = _authoritative_tool_input_digest(payload)
     response = _strict_response(payload.get("tool_response"))
     response_digest = _response_digest(response)
     current = state.load_state(session_id, temp_root=temp_root)
@@ -285,6 +303,8 @@ def ingest_list_agents_post_tool_use(
         ):
             return []
         raise HostEvidenceError("list_agents PostToolUse has no matching PreToolUse basis")
+    if prepared.get("tool_input_digest") != tool_input_digest:
+        raise HostEvidenceError("list_agents PostToolUse tool_input does not match prepared input")
 
     bases = prepared.get("bases")
     if not isinstance(bases, list) or not all(isinstance(item, Mapping) for item in bases):
@@ -349,6 +369,8 @@ def ingest_list_agents_post_tool_use(
             ):
                 return
             raise HostEvidenceError("list_agents observation preparation disappeared before receipt")
+        if prep.get("tool_input_digest") != tool_input_digest:
+            raise HostEvidenceError("list_agents preparation input binding changed before receipt")
         latest["accounting_refs"].remove(prep)
         latest["accounting_refs"].append(
             {
