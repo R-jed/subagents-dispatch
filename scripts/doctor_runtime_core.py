@@ -766,11 +766,13 @@ def diagnose(args: argparse.Namespace, codex_home: Path) -> dict[str, Any]:
     by_name = {item["name"]: item for item in layers}
     ordered = [by_name[name] for name in LAYER_ORDER]
     blocked = any(item["status"] == "FAIL" for item in ordered)
-    degraded = any(item["status"] in {"WARN", "UNKNOWN"} for item in ordered)
+    warned = any(item["status"] == "WARN" for item in ordered)
+    unverified = any(item["status"] == "UNKNOWN" for item in ordered)
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "healthy": not blocked,
-        "status": "BLOCKED" if blocked else "DEGRADED" if degraded else "HEALTHY",
+        "status": "BLOCKED" if blocked else "DEGRADED" if warned else "HEALTHY",
+        "verification": "UNVERIFIED" if unverified else "VERIFIED",
         "layers": ordered,
     }
 
@@ -788,7 +790,13 @@ def render_text(report: Mapping[str, Any], actions: list[str]) -> str:
     if actions:
         lines.extend(["", "Actions applied"])
         lines.extend(f"[OK] {action}" for action in actions)
-    lines.extend(["", f"Overall: {report.get('status', 'BLOCKED')}"])
+    lines.extend(
+        [
+            "",
+            f"Health: {report.get('status', 'BLOCKED')}",
+            f"Verification: {report.get('verification', 'UNVERIFIED')}",
+        ]
+    )
     return "\n".join(lines)
 
 
