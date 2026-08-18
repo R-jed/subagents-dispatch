@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
+import subprocess
 import sys
 
 import pytest
@@ -248,3 +250,92 @@ def test_noop_update_refreshes_marketplace_without_reinstall(
     assert report["from_version"] == "3.0.1"
     assert report["to_version"] == "3.0.1"
     assert not any(call[0:2] == ("plugin", "add") for call in calls)
+
+
+def prepare_updated_package(root: Path, version: str) -> None:
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True)
+    for name in ("package_integrity.py", "install-agents.py", "doctor.py"):
+        (scripts / name).write_text("# test marker\n", encoding="utf-8")
+    manifest = root / ".codex-plugin" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps({"name": "subagents-dispatch", "version": version}),
+        encoding="utf-8",
+    )
+
+
+def current_doctor_report() -> dict:
+    return {
+        "schema_version": 5,
+        "healthy": True,
+        "status": "DEGRADED",
+        "layers": [
+            {"name": "Plugin package", "status": "OK"},
+            {"name": "Managed Agents", "status": "OK"},
+            {"name": "Host integration", "status": "WARN"},
+            {"name": "Orchestration state", "status": "OK"},
+            {"name": "Legacy compatibility", "status": "OK"},
+        ],
+    }
+
+
+def test_post_update_verifier_accepts_current_product_doctor_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = load_module()
+    root = tmp_path / "updated-plugin"
+    prepare_updated_package(root, "4.0.0")
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    report = current_doctor_report()
+
+    def fake_run_python(_python, script, args, *, timeout=90, env=None):
+        stdout = json.dumps(report) if script.name == "doctor.py" else ""
+        return subprocess.CompletedProcess([str(script), *args], 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(module, "_run_python", fake_run_python)
+
+    module._verify_new_package(
+        root,
+        codex_home=codex_home,
+        codex_bin="/fake/codex",
+        expected_version="4.0.0",
+    )
+
+
+def test_post_update_verifier_rejects_stale_pre_refactor_doctor_layers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = load_module()
+    root = tmp_path / "updated-plugin"
+    prepare_updated_package(root, "4.0.0")
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    stale = {
+        "schema_version": 5,
+        "healthy": True,
+        "layers": [
+            {"name": "Plugin", "status": "OK"},
+            {"name": "Plugin installation", "status": "OK"},
+            {"name": "Skills", "status": "OK"},
+            {"name": "Spawn guard package", "status": "OK"},
+            {"name": "Managed Agent profiles", "status": "OK"},
+        ],
+    }
+
+    def fake_run_python(_python, script, args, *, timeout=90, env=None):
+        stdout = json.dumps(stale) if script.name == "doctor.py" else ""
+        return subprocess.CompletedProcess([str(script), *args], 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(module, "_run_python", fake_run_python)
+
+    with pytest.raises(module.UpdateError, match="layer contract is unsupported"):
+        module._verify_new_package(
+            root,
+            codex_home=codex_home,
+            codex_bin="/fake/codex",
+            expected_version="4.0.0",
+        )

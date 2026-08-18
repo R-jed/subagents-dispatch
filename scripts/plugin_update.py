@@ -449,23 +449,32 @@ def _verify_new_package(
         raise UpdateError("updated Plugin Doctor returned invalid JSON") from exc
     if not isinstance(report, dict) or not isinstance(report.get("layers"), list):
         raise UpdateError("updated Plugin Doctor report is invalid")
-    required = {
-        "Plugin": "OK",
-        "Plugin installation": "OK",
-        "Skills": "OK",
-        "Spawn guard package": "OK",
-    }
+    if report.get("schema_version") != 5 or report.get("healthy") is not True:
+        raise UpdateError("updated Plugin Doctor did not report a healthy product state")
     observed = {
         item.get("name"): item.get("status")
         for item in report["layers"]
         if isinstance(item, dict)
     }
-    for name, expected in required.items():
-        if observed.get(name) != expected:
-            raise UpdateError(f"updated Plugin Doctor did not verify {name}")
-    profiles = observed.get("Managed Agent profiles")
-    if profiles not in {"OK", "WARN"}:
+    expected_layers = {
+        "Plugin package",
+        "Managed Agents",
+        "Host integration",
+        "Orchestration state",
+        "Legacy compatibility",
+    }
+    if set(observed) != expected_layers:
+        raise UpdateError("updated Plugin Doctor layer contract is unsupported")
+    if observed["Plugin package"] != "OK":
+        raise UpdateError("updated Plugin Doctor did not verify the Plugin package")
+    if observed["Managed Agents"] != "OK":
         raise UpdateError("updated Plugin Doctor did not verify managed Agent profiles")
+    if observed["Host integration"] not in {"WARN", "UNKNOWN"}:
+        raise UpdateError("updated Plugin Doctor reported an unsafe Host integration state")
+    if observed["Orchestration state"] != "OK":
+        raise UpdateError("updated Plugin Doctor reported an unsafe orchestration state")
+    if observed["Legacy compatibility"] not in {"OK", "WARN"}:
+        raise UpdateError("updated Plugin Doctor reported unsafe legacy compatibility")
     if package_version(root) != expected_version:
         raise UpdateError("updated package version changed during post-update verification")
 

@@ -46,6 +46,20 @@ EXPECTED_PROFILES = {
     "advisor": ("gpt-5.6-sol", "high"),
 }
 REQUIRED_HOOK_EVENTS = {"PreToolUse", "PostToolUse", "SubagentStop"}
+COMPATIBILITY_HOOK_EVENTS = {"PreToolUse"}
+LIFECYCLE_MATCHER = "spawn_agent|followup_task|interrupt_agent|list_agents"
+COMPATIBILITY_MATCHER = "spawn_agent"
+SUBAGENT_STOP_MATCHER = (
+    "subagents_dispatch_reader|subagents_dispatch_worker|"
+    "subagents_dispatch_investigator|subagents_dispatch_solver|"
+    "subagents_dispatch_advisor"
+)
+GUARD_SCRIPT = "scripts/orchestration_guard.py"
+COMPATIBILITY_GUARD_SCRIPT = "scripts/spawn_guard.py"
+HOOK_COMMANDS = {
+    "posix": '"${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/{}"',
+    "windows": '"%PLUGIN_ROOT%\\hooks\\run-python.cmd" "%PLUGIN_ROOT%\\{}"',
+}
 LAYER_ORDER = (
     "Plugin package",
     "Managed Agents",
@@ -361,40 +375,131 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
     )
 
 
-def _hook_events() -> tuple[set[str], str | None]:
+def _command_hook_errors(entry: Any, *, matcher: str, script: str, label: str) -> list[str]:
+    if not isinstance(entry, Mapping):
+        return [f"{label} entry must be an object"]
+    if set(entry) != {"matcher", "hooks"}:
+        return [f"{label} entry fields are invalid"]
+    if entry.get("matcher") != matcher:
+        return [f"{label} matcher is invalid"]
+    nested = entry.get("hooks")
+    if not isinstance(nested, list) or len(nested) != 1 or not isinstance(nested[0], Mapping):
+        return [f"{label} must contain exactly one command Hook"]
+    hook = nested[0]
+    expected = {
+        "type": "command",
+        "command": HOOK_COMMANDS["posix"].replace("{}", script),
+        "commandWindows": HOOK_COMMANDS["windows"].replace("{}", script.replace("/", "\\")),
+        "timeout": 5,
+        "async": False,
+    }
+    if dict(hook) != expected:
+        return [f"{label} command binding is invalid"]
+    return []
+
+
+def _local_hook_contract() -> tuple[str, set[str], list[str]]:
     try:
         hooks = _read_json(HOOKS).get("hooks")
     except DoctorError as exc:
-        return set(), str(exc)
+        return "invalid", set(), [str(exc)]
     if not isinstance(hooks, Mapping):
-        return set(), "hooks/hooks.json does not contain a Hook map"
-    return set(str(name) for name in hooks), None
+        return "invalid", set(), ["hooks/hooks.json does not contain a Hook map"]
+
+    events = {str(name) for name in hooks}
+    errors: list[str] = []
+    if events == COMPATIBILITY_HOOK_EVENTS:
+        pre = hooks.get("PreToolUse")
+        if not isinstance(pre, list) or len(pre) != 1:
+            errors.append("PreToolUse compatibility Hook must have exactly one entry")
+        else:
+            errors.extend(
+                _command_hook_errors(
+                    pre[0],
+                    matcher=COMPATIBILITY_MATCHER,
+                    script=COMPATIBILITY_GUARD_SCRIPT,
+                    label="PreToolUse compatibility Hook",
+                )
+            )
+        mode = "compatibility"
+    elif events == REQUIRED_HOOK_EVENTS:
+        for event in ("PreToolUse", "PostToolUse"):
+            entries = hooks.get(event)
+            if not isinstance(entries, list) or len(entries) != 1:
+                errors.append(f"{event} lifecycle Hook must have exactly one entry")
+                continue
+            errors.extend(
+                _command_hook_errors(
+                    entries[0],
+                    matcher=LIFECYCLE_MATCHER,
+                    script=GUARD_SCRIPT,
+                    label=f"{event} lifecycle Hook",
+                )
+            )
+        stop = hooks.get("SubagentStop")
+        if not isinstance(stop, list) or len(stop) != 1:
+            errors.append("SubagentStop lifecycle Hook must have exactly one entry")
+        else:
+            errors.extend(
+                _command_hook_errors(
+                    stop[0],
+                    matcher=SUBAGENT_STOP_MATCHER,
+                    script=GUARD_SCRIPT,
+                    label="SubagentStop lifecycle Hook",
+                )
+            )
+        mode = "lifecycle"
+    else:
+        mode = "invalid"
+        errors.append("installed Hook event set is unsupported")
+
+    scripts = (
+        ROOT / "hooks" / "run-python.sh",
+        ROOT / "hooks" / "run-python.cmd",
+        ROOT / (COMPATIBILITY_GUARD_SCRIPT if mode == "compatibility" else GUARD_SCRIPT),
+    )
+    if mode != "invalid":
+        for path in scripts:
+            if path.is_symlink() or not path.is_file():
+                errors.append(f"required Hook runtime path is unavailable or unsafe: {path.relative_to(ROOT)}")
+    return ("invalid" if errors else mode), events, errors
 
 
 def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
-    events, hook_error = _hook_events()
-    if hook_error is not None:
-        return layer("Host integration", "FAIL", hook_error)
+    hook_mode, events, hook_errors = _local_hook_contract()
     missing_events = sorted(REQUIRED_HOOK_EVENTS - events)
+    if hook_mode == "invalid":
+        return layer(
+            "Host integration",
+            "FAIL",
+            "installed lifecycle Hook contract is invalid",
+            action="Restore the canonical Plugin package before relying on delegated execution.",
+            configured_events=sorted(events),
+            missing_events=missing_events,
+            hook_errors=hook_errors,
+            host_evidence_supplied=host_evidence is not None,
+        )
 
     if host_evidence is None:
-        if missing_events:
+        if hook_mode == "compatibility":
             return layer(
                 "Host integration",
                 "WARN",
-                "local lifecycle Hook configuration is incomplete",
+                "installed Hook contract provides compatibility spawn guarding only",
                 action="Use a package with the complete production lifecycle Hook set before relying on delegated execution.",
                 configured_events=sorted(events),
                 missing_events=missing_events,
-                live_host_observed=False,
+                hook_mode=hook_mode,
+                host_evidence_supplied=False,
             )
         return layer(
             "Host integration",
             "UNKNOWN",
-            "local lifecycle Hooks are configured; live Host capability evidence was not supplied",
+            "installed lifecycle Hooks validate; no explicit Host capability snapshot was supplied",
             configured_events=sorted(events),
             missing_events=[],
-            live_host_observed=False,
+            hook_mode=hook_mode,
+            host_evidence_supplied=False,
         )
 
     try:
@@ -408,33 +513,40 @@ def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
     except host_capabilities.HostCapabilityError as exc:
         return layer("Host integration", "FAIL", f"Host evidence is invalid: {exc}")
 
-    if missing_events:
+    evidence_details = {
+        "host_evidence_supplied": True,
+        "host_evidence_source": str(host_evidence),
+        "host_evidence_freshness_verified": False,
+        "host": snapshot,
+    }
+    if hook_mode != "lifecycle":
         return layer(
             "Host integration",
             "FAIL",
-            "Host capabilities are evidenced but the installed lifecycle Hook configuration is incomplete",
+            "supplied Host capabilities cannot compensate for incomplete installed lifecycle Hooks",
             action="Install a package with the complete production lifecycle Hook set.",
             configured_events=sorted(events),
             missing_events=missing_events,
-            live_host_observed=True,
-            host=snapshot,
+            hook_mode=hook_mode,
+            **evidence_details,
         )
     if snapshot["execution_ready"] is not True:
         return layer(
             "Host integration",
             "FAIL",
-            "the current Host is missing required managed-orchestration capabilities",
+            "supplied Host capability evidence is missing required managed-orchestration capabilities",
             missing=snapshot["missing"],
-            live_host_observed=True,
-            host=snapshot,
+            configured_events=sorted(events),
+            hook_mode=hook_mode,
+            **evidence_details,
         )
     return layer(
         "Host integration",
         "OK",
-        "required Host capabilities and local lifecycle Hooks are evidenced",
+        "supplied Host capability evidence and installed lifecycle Hooks satisfy the runtime contract",
         configured_events=sorted(events),
-        live_host_observed=True,
-        host=snapshot,
+        hook_mode=hook_mode,
+        **evidence_details,
     )
 
 

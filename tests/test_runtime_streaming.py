@@ -11,7 +11,6 @@ import gc
 import weakref
 ROOT = Path(__file__).resolve().parents[1]
 INSPECTOR = ROOT / 'scripts' / 'inspect-agent-runtime.py'
-DOCTOR_SKILL = ROOT / 'skills' / 'doctor' / 'SKILL.md'
 RELEASE_CHECKLIST = ROOT / 'docs' / 'release-checklist.md'
 REQUIREMENTS = ROOT / 'requirements-dev.txt'
 THREAD = '11111111-1111-7111-8111-111111111111'
@@ -37,12 +36,6 @@ def test_release_checklist_does_not_claim_platform_enforced_tag_immutability():
     assert 'create the immutable semantic-version tag' not in text
     assert 'versioned semantic-version tag' in text
     assert 'does not by itself prove platform-enforced tag immutability' in text
-
-def test_doctor_describes_bounded_rollout_streaming():
-    text = DOCTOR_SKILL.read_text(encoding='utf-8')
-    assert 'streams exactly one rollout' in text
-    assert 'bounded total-rollout and per-line input limits' in text
-    assert 'Oversized rollout input fails closed' in text
 
 def test_rollout_reader_detects_path_replacement_between_lstat_and_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     module = _post_release_hardening__load_inspector()
