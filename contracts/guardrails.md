@@ -18,7 +18,7 @@ Children do not create further project Subagents or background Agent teams. Dele
 
 A stronger model does not gain broader user authority.
 
-User control commands such as preview, status, steer, and takeover operate inside the same authority envelope. They do not create new permission or scope merely because the user is controlling orchestration.
+Orchestrate control intents such as plan-only, status, steer, takeover, cancel, continue, and correction operate inside the same authority envelope. They do not create new permission or scope merely because the user is controlling orchestration.
 
 ## 2. Prompt-injection boundary
 
@@ -84,7 +84,7 @@ Do not claim cross-session locking unless a real mechanism has been observed and
 
 ## 4. Adaptive fan-out still requires discipline
 
-Explicit user selection/invocation of the Dispatch Skill authorizes adaptive delegation for the requested task under the user's existing scope and permissions.
+Explicit user selection/invocation of the Orchestrate Skill authorizes adaptive delegation for the requested task under the user's existing scope and permissions.
 
 Project policy does not impose an ordinary numeric child ceiling. The main session may use as many simultaneously useful children as the task genuinely supports and the native runtime allows, provided every child has a distinct ready responsibility and the overall orchestration remains within the ordinary compute shape implied by the task.
 
@@ -115,7 +115,7 @@ Ask before materially expanding:
 Routine first-use provisioning is not a separate consent prompt when all of the following are true:
 
 ```text
-explicit Dispatch task
+explicit Orchestrate task
 + real delegation is already justified
 + the managed profiles are cleanly absent
 + mutation is limited to the five fixed subagents-dispatch profiles, its ownership manifest, and installer lock
@@ -133,13 +133,13 @@ Later-phase authorization follows section 2B. Consent for material expansion sti
 
 ## 6. Explicit invocation only
 
-The product's supported entrypoints are explicit user selection/invocation of the stable `dispatch`, `preview`, `status`, `steer`, `takeover`, and `doctor` Skills. Exact interaction inputs are owned by `interaction.md`; each `SKILL.md` remains a thin adapter to the canonical contracts.
+The product's supported entrypoints are `Orchestrate` and `Doctor`. Orchestrate contains plan-only, status, steer, takeover, cancel, continue, correction, execution, and review control intents inside one public Skill. Dispatch, Preview, Status, Steer, and Takeover are retired public Skill identities. Exact control semantics are owned by `interaction.md`; each current `SKILL.md` remains a thin adapter to the canonical contracts.
 
 In the Codex App, the user opens the Skill menu with `/` and selects the Plugin Skill. The exact slash/menu label rendered by a particular App build is Host/UI evidence and is not derived here from package metadata.
 
 Do not silently add subagents-dispatch orchestration to an unrelated task through implicit Skill invocation.
 
-Explicit Dispatch selection/invocation is the signal that the user wants adaptive delegation for this task. Explicit selection of another Skill authorizes only that Skill's documented intent. When real delegation is required, explicit Dispatch invocation also authorizes the narrowly bounded routine first-use provisioning defined above. Normal task permissions and external-impact boundaries still apply.
+Explicit Orchestrate selection/invocation is the signal that the user wants adaptive delegation or orchestration control for this task. Explicit Doctor selection authorizes only Doctor's documented diagnostic or explicitly requested lifecycle intent. When real delegation is required, explicit Orchestrate invocation also authorizes the narrowly bounded routine first-use provisioning defined above. Normal task permissions and external-impact boundaries still apply.
 
 ## 7. First-use readiness before delegated execution
 
@@ -151,14 +151,14 @@ After understanding that delegation is useful, but before starting delegated wor
 2. if it is unavailable, run the bundled non-mutating installer `--check`;
 3. if `--check` reports a clean `Not installed` state, automatically provision only the plugin-owned managed paths and run `--check` again;
 4. if the profiles are exact but the current task still lacks the role, enter `RESTART_REQUIRED` without attempting `spawn_agent`;
-5. ask the user to start one fresh Codex task/session and rerun the original request through Dispatch;
+5. ask the user to start one fresh Codex task/session and rerun the original request through Orchestrate;
 6. on the fresh task, check exact role availability again before delegated execution.
 
 `RESTART_REQUIRED` is a pre-dispatch readiness outcome. It is not `UNKNOWN`, `FAILED`, or any other Recovery/Agent lifecycle state because no child attempt has been created yet.
 
 When `--check` reports a symlink, collision, invalid ownership metadata, modified/unowned profile, or another non-clean failure, automatic provisioning stops. Do not overwrite or repair that state under routine first-use authority. Report the exact issue and direct the user to Doctor when useful.
 
-Preview, status, and other non-spawning control operations do not provision missing roles merely to make their output more detailed.
+Plan-only, status, and other non-spawning Orchestrate control operations do not provision missing roles merely to make their output more detailed.
 
 The five profiles use Codex's native custom-Agent TOML mechanism. The bundled installer is a project-specific lifecycle and ownership layer. It manages only the five current project profiles, `.subagents-dispatch-agents.json`, and `.subagents-dispatch-agents.lock`. The persistent lock serializes installers targeting the same Codex home so one failed rollback cannot erase a successful peer. It does not modify credentials, MCP configuration, repositories, `config.toml`, or unrelated Agent profiles.
 
@@ -213,7 +213,7 @@ local
 
 Keep runtime route, actual child permission state, and permission-source provenance as separate assurance dimensions. Actual child sandbox/profile can be verified from Host evidence even when the Host does not expose which internal source supplied them. A source or source-selection claim additionally requires a concrete Host-observed source identity, source permission evidence, and direct selection evidence. The source kinds in `policy.json` are candidate vocabulary, not observed Host precedence. Never derive provenance from matching permission values. Missing provenance remains `UNKNOWN` without erasing independently observed permission state.
 
-The inspector is explicit and read-only. It emits only allowlisted route, identity, permission, and runtime-version metadata from `session_meta` and `turn_context`. It does not emit prompts, assistant output, tool payloads, reasoning, source contents, or rollout paths. Ordinary Dispatch does not run it or scan Codex sessions.
+The inspector is explicit and read-only. It emits only allowlisted route, identity, permission, and runtime-version metadata from `session_meta` and `turn_context`. It does not emit prompts, assistant output, tool payloads, reasoning, source contents, or rollout paths. Ordinary Orchestrate does not run it or scan Codex sessions.
 
 Do not run runtime-evidence diagnostics for every ordinary child. Use `../scripts/runtime-evidence.py` only when the claim materially depends on runtime observation, for example:
 
