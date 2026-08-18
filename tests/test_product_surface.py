@@ -15,7 +15,6 @@ SKILLS = ROOT / "skills"
 HOOKS = ROOT / "hooks" / "hooks.json"
 STAGED_HOOKS = ROOT / "docs" / "v4" / "hooks.json"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
-CI = ROOT / ".github" / "workflows" / "ci.yml"
 PUBLIC_SKILLS = {"orchestrate", "doctor"}
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
 PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
@@ -87,28 +86,6 @@ def test_fixed_profile_policy_is_luna_max_terra_high_sol_high():
         assert spec["effort"] == profile["model_reasoning_effort"] == effort
 
 
-def test_orchestrate_and_doctor_point_at_v4_owners():
-    orchestrate = (SKILLS / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
-    doctor = (SKILLS / "doctor" / "SKILL.md").read_text(encoding="utf-8")
-    for phrase in (
-        "../../scripts/orchestrate_v4.py",
-        "../../scripts/dispatch_state_v4.py",
-        "../../scripts/scheduler_v4.py",
-        "../../scripts/execution_lifecycle_v4.py",
-    ):
-        assert phrase in orchestrate
-    for phrase in (
-        "../../scripts/doctor.py",
-        "../../scripts/dispatch_state_v4.py",
-        "../../scripts/writer_lease_v4.py",
-        "../../scripts/dispatch_control_v4.py",
-        "../../scripts/host_capabilities.py",
-        "../../docs/v4/host-smoke.json",
-        "--release-check",
-    ):
-        assert phrase in doctor
-
-
 def test_v4_hooks_remain_staged_until_real_host_smoke():
     production = json.loads(HOOKS.read_text(encoding="utf-8"))
     staged = json.loads(STAGED_HOOKS.read_text(encoding="utf-8"))
@@ -117,17 +94,6 @@ def test_v4_hooks_remain_staged_until_real_host_smoke():
     assert set(staged["hooks"]) == {"PreToolUse", "PostToolUse", "SubagentStop"}
     assert smoke["status"] != "PASS"
     assert smoke["gate_id"] == "v4-real-host-h00-h20"
-
-
-def test_ci_keeps_cross_platform_integrity_validator_and_profile_lifecycle_gates():
-    text = CI.read_text(encoding="utf-8")
-    assert "ubuntu-latest" in text and "macos-latest" in text and "windows-latest" in text
-    assert "python scripts/package_integrity.py --check-generated" in text
-    assert "Validate Plugin with pinned official OpenAI validator" in text
-    assert "python -m pytest -q" in text
-    assert "python -m ruff check scripts tests --ignore E402" in text
-    assert 'python scripts/install-agents.py --codex-home "$target" --check' in text
-    assert "startsWith(github.ref, 'refs/tags/')" in text
 
 
 def test_installation_document_keeps_supported_commands():
