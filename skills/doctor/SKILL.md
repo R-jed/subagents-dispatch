@@ -21,7 +21,7 @@ Orchestration state
 Legacy compatibility
 ```
 
-`Plugin package` verifies the executing package identity and the exact two-Skill public surface. `Managed Agents` verifies the five fixed Reader, Worker, Investigator, Solver, and Advisor profiles and whether the active Codex home has the owned profiles installed exactly.
+`Plugin package` verifies the executing package identity, the exact two-Skill public surface, and the read-only Codex Plugin inventory when available, including canonical source, enabled state, installed version, and package/cache skew. Missing Plugin inventory remains `UNKNOWN` rather than being guessed. `Managed Agents` verifies the five fixed Reader, Worker, Investigator, Solver, and Advisor profiles and whether the active Codex home has the owned profiles installed exactly.
 
 `Host integration` validates the installed production Hook event set, matchers, command bindings, synchronous execution settings, and required Hook scripts. An explicit `--host-evidence` file is a caller-supplied capability snapshot. Doctor validates its shape and capabilities but does not infer that the file is fresh or that it describes the current session. Without supplied capability evidence, validated full lifecycle Hooks remain `UNKNOWN`; the compatibility-only spawn guard is reported as `WARN`.
 
