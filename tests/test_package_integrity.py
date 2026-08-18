@@ -10,6 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRITY = ROOT / "scripts" / "package_integrity.py"
 MANIFEST = ROOT / ".codex-plugin" / "package-integrity.json"
+NON_BOOTSTRAP_RUNTIME = Path("scripts/host_capabilities.py")
 
 
 def load_integrity():
@@ -47,16 +48,17 @@ def test_committed_integrity_manifest_is_generated_from_runtime_scope():
 
 def test_verifier_detects_missing_modified_and_symlinked_runtime_files(tmp_path: Path):
     module, package_root = copy_manifest_package(tmp_path)
-    victim = package_root / "scripts" / "doctor_core.py"
+    victim = package_root / NON_BOOTSTRAP_RUNTIME
+    relative = NON_BOOTSTRAP_RUNTIME.as_posix()
     original = victim.read_text(encoding="utf-8")
     victim.unlink()
-    assert "scripts/doctor_core.py" in module.verify_package(package_root)["missing"]
+    assert relative in module.verify_package(package_root)["missing"]
     victim.write_text(original + "\n# mutation\n", encoding="utf-8")
-    assert "scripts/doctor_core.py" in module.verify_package(package_root)["mismatched"]
+    assert relative in module.verify_package(package_root)["mismatched"]
     if sys.platform != "win32":
         victim.unlink()
         victim.symlink_to("policy.py")
-        assert "scripts/doctor_core.py" in module.verify_package(package_root)["unsafe"]
+        assert relative in module.verify_package(package_root)["unsafe"]
 
 
 def test_verifier_normalizes_text_line_endings(tmp_path: Path):
@@ -69,7 +71,7 @@ def test_verifier_normalizes_text_line_endings(tmp_path: Path):
 
 def test_doctor_integrity_bootstrap_fails_before_internal_imports(tmp_path: Path):
     _, package_root = copy_manifest_package(tmp_path)
-    (package_root / "scripts" / "doctor_core.py").unlink()
+    (package_root / NON_BOOTSTRAP_RUNTIME).unlink()
     result = subprocess.run(
         [sys.executable, str(package_root / "scripts" / "doctor.py"), "--check"],
         text=True,
@@ -83,6 +85,6 @@ def test_doctor_integrity_bootstrap_fails_before_internal_imports(tmp_path: Path
 
 def test_update_bootstrap_can_repair_non_bootstrap_damage(tmp_path: Path):
     module, package_root = copy_manifest_package(tmp_path)
-    (package_root / "scripts" / "doctor_core.py").unlink()
+    (package_root / NON_BOOTSTRAP_RUNTIME).unlink()
     assert module.verify_package(package_root)["ok"] is False
     assert module.verify_package(package_root, profile="update-bootstrap")["ok"] is True
