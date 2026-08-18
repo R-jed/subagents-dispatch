@@ -374,8 +374,10 @@ def test_takeover_stays_blocked_when_observation_post_lacks_pre_basis(tmp_path: 
             separators=(",", ":"),
         ),
     }
-    stopped = guard.evaluate_post_tool_use(post, temp_root=tmp_path)
-    assert stopped is not None and stopped["continue"] is False
+    blocked = guard.evaluate_post_tool_use(post, temp_root=tmp_path)
+    assert blocked is not None
+    assert blocked["decision"] == "block"
+    assert "continue" not in blocked
     current = state.load_state("thread-p5", temp_root=tmp_path)
     assert current is not None
     assert current["executions"][0]["lifecycle"] == "RUNNING"
