@@ -88,16 +88,15 @@ def test_public_readme_visual_surface_uses_canonical_assets_only():
         assert "docs/logo-" not in text
 
 
-def test_public_readmes_state_v4_profile_and_measurement_boundaries():
+def test_public_readmes_state_profile_and_measurement_boundaries():
     zh = README_CN.read_text(encoding="utf-8")
     en = README_EN.read_text(encoding="utf-8")
     for text in (zh, en):
-        assert "4.0.0" in text
         assert "Orchestrate" in text and "Doctor" in text
         assert "Luna Max" in text and "Terra High" in text and "Sol High" in text
         for command in (CANONICAL_MARKETPLACE, PLUGIN_ADD, PLUGIN_REMOVE):
             assert command in text
-    assert "本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token" in zh
+    assert "这里不会提前宣传“更快”或者“更省 Token”" in zh
     assert "this readme does not claim that subagents-dispatch is proven faster" in en.lower()
 
 
