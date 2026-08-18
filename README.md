@@ -132,7 +132,9 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 安装完成后启动一个新的 Codex 会话，在 Skill 菜单里选择 **Orchestrate**。
 
-第一次真正需要子代理时，插件会检查自己的五个固定 Agent profile。如果缺失且路径安全，插件只会创建自己拥有的配置。新建 profile 能否在当前任务中立即被 Host 发现属于 Host 行为；如果当前任务看不到它们，Orchestrate 会返回 `RESTART_REQUIRED`，不会尝试用别的 Agent 顶替。开一个新的 Codex 任务后重新提交原请求即可。相关辅助功能需要 Python 3.11 或更高版本。
+第一次真正需要子代理时，插件会检查自己的五个固定 Agent profile。如果缺失且路径安全，插件只会创建自己拥有的配置。当前 V4 无法从已经运行中的 task 获得权威证据，证明刚创建的 custom Agent profile 已经进入这个 task 的 Agent registry，因此这次任务会保守返回 `RESTART_REQUIRED`，不会尝试用别的 Agent 顶替。重新开一个 Codex 任务后提交原请求即可，这个步骤只发生在 profile 首次创建或需要重新激活时。
+
+如果你希望第一条正式开发任务不被这个初始化步骤打断，可以在安装后的首次会话里先选择 **Doctor**，明确要求它修复或准备 managed Agent profiles，然后启动一个新的正式工作会话。相关辅助功能需要 Python 3.11 或更高版本。
 
 完整说明见 [安装文档](docs/plugin-installation.md)。
 
