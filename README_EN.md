@@ -134,7 +134,9 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 Start a fresh Codex session after installation and choose **Orchestrate** from the Skill menu.
 
-The first delegated task checks the five managed Agent profiles. If profiles are safely absent, the Plugin creates only the files it owns. Whether newly created profiles are visible to the current task is a Host behavior. If the current task cannot see them, Orchestrate returns `RESTART_REQUIRED` and does not substitute another Agent. Start one fresh Codex task and submit the original request again. The bundled helpers require Python 3.11 or newer.
+The first delegated task checks the five managed Agent profiles. If they are safely absent, the Plugin creates only the files it owns. Current V4 has no authoritative observation from an already-running task that proves newly written custom-Agent profiles have entered that task's Agent registry, so that task conservatively returns `RESTART_REQUIRED` and never substitutes another Agent. Start one fresh Codex task and submit the original request again. This activation step occurs only when managed profiles are first created or need to be reactivated.
+
+If you want the first real development task to avoid that initialization interruption, use **Doctor** once after installation and explicitly ask it to repair or prepare the managed Agent profiles, then start a fresh work session. The bundled helpers require Python 3.11 or newer.
 
 See [Plugin Installation](docs/plugin-installation.md) for the full setup.
 
