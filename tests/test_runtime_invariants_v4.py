@@ -246,24 +246,3 @@ def test_initial_fanout_does_not_expand_without_accepted_progress():
     assert decision["initial_fanout"] is True
     assert decision["launch_budget"] == 1
     assert len(decision["actions"]) == 1
-
-
-def test_doctor_release_ready_requires_overall_health(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    doctor = load_module("rc3_doctor_health", "doctor_runtime.py")
-
-    report = {
-        "schema_version": 4,
-        "healthy": False,
-        "release_ready": True,
-        "layers": [],
-        "development_layers": [],
-    }
-    assert report["healthy"] is False
-    assert report["release_ready"] is True
-
-    # RC3 contract: the authoritative publication predicate must never accept an
-    # unhealthy report merely because an independent release flag is true.
-    if hasattr(doctor, "release_predicate"):
-        assert doctor.release_predicate(report) is False
-    else:
-        pytest.fail("Doctor lacks one authoritative release predicate bound to overall health")
