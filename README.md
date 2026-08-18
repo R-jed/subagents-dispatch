@@ -4,7 +4,7 @@
 
 <h1 align="center">subagents-dispatch</h1>
 
-<p align="center"><em>给 Codex 一支按需组建的小队，同时把控制面保持简单。</em></p>
+<p align="center"><em>给 Codex 一支靠谱的小队。大任务分头做，小任务别折腾。</em></p>
 
 <p align="center">
   <a href="README_EN.md">English</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a>
@@ -18,18 +18,105 @@
 
 > **如果你是 AI Agent，请跳转到 [README_AI.md](README_AI.md)。**
 
-V4 把公开入口收敛为两个 Skill：**Orchestrate** 和 **Doctor**。Orchestrate 负责规划、执行、状态、纠正、继续、取消、接管、复核和整合。Doctor 负责安装、固定 profile、V4 state、WriterLease、PendingControl、Host 能力、Hook 证据与发布就绪诊断。
+你给 Codex 一个稍大的任务：改 API、补测试、追调用链，再顺手看看前端会不会受影响。
 
-当前分支已经完成 V4 仓库实现与离线验证工作。真实 Codex Host 的 H00 到 H20 lifecycle Hook smoke 仍是发布门。没有真机证据时，项目不会把这项状态标成通过，也不会启用需要该证据才能成立的生产三面 Hook。
+一个 Main 从头包到尾当然能做。只是任务一长，读代码、查资料、写实现、跑测试、做复核全塞进同一个上下文，脑子很快就会挤成早高峰。
+
+**subagents-dispatch 会在值得分工的时候，临时给 Codex 组一支小队。**
+
+有人读代码，有人查影响，有人动手实现，有人负责复核。Main 仍然掌握目标、判断和最终结果。任务很小的时候，它可以一个子代理都不叫。为了显得忙而拉一群 Agent 开会，不算生产力。
+
+## 30 秒看懂
+
+比如你说：
+
+```text
+给 /api/users 加分页，补测试，再检查前端调用有没有受影响。
+```
+
+一次合理的分工可能是：
+
+```text
+Main
+├─ 先读 API、测试和调用链
+├─ 同时检查前端和跨文件影响
+├─ 边界清楚后安排实现
+└─ 变更比较大时再做一次独立复核
+```
+
+最后由 Main 把结果收回来，检查证据，整合代码，再决定任务到底算不算完成。
+
+如果 Main 看两眼就发现这事三分钟能做完，那它自己做。Dispatch 没有“必须多开几个子代理”的业绩指标。
+
+## 它适合什么时候用
+
+当任务里有几块可以分头调查的工作，或者实现前需要先把影响范围摸清，subagents-dispatch 通常会比较有价值。
+
+例如：
+
+- 要同时追多条调用链
+- 要先调查再实现
+- 改动跨前后端、配置、测试或文档
+- 有一块工作很适合独立交给另一个子代理
+- 变更影响较大，希望有人单独复核
+
+任务很小、步骤强串行、上下文已经齐全时，Main 自己做通常更省事。
+
+## 你只需要记住两个入口
+
+V4 把以前分散的入口收成两个：
+
+| 入口 | 什么时候用 |
+|---|---|
+| **Orchestrate** | 让它规划、分工、执行、继续、纠正、接管、复核或整合 |
+| **Doctor** | 安装后不确定哪里有问题，或者想检查版本、配置和运行环境 |
+
+日常干活选 **Orchestrate**。感觉环境有点不对劲，叫 **Doctor**。
+
+Orchestrate 也支持只看计划。你可以先让它说准备怎么分工，再决定要不要真的开工。
+
+## 它会克制自己
+
+多 Agent 很容易从“并行工作”滑向“多人群聊”。V4 给自己定了几条很朴素的规矩：
+
+- 小任务允许 0 个子代理
+- 一开始最多叫 2 个，正常工作时最多 3 个
+- 同一个工作区同时只让一个受管理的子代理写代码
+- 子代理只拿完成自己那份工作需要的上下文
+- 调查结果要有证据，Main 会复核后再接受
+- 状态说不清时先停住，不拿猜测当授权
+- 最终交付仍由 Main 负责
+
+这些限制会让它少一点“看起来很聪明”的热闹，多一点真正可控的并行。
+
+## 当前固定阵容
+
+V4.0.0 先把阵容固定下来，不做动态模型和思考强度切换：
+
+| 工作 | 模型 | 擅长什么 |
+|---|---|---|
+| 阅读 | Luna Max | 窄范围读代码、追调用链 |
+| 实现 | Luna Max | 做法已经明确的有界修改 |
+| 调研 | Terra High | 大范围只读调查、跨文件找证据 |
+| 解题 | Sol High | 需要较多技术判断的实现 |
+| 复核 | Sol High | 独立检查方案和最终结果 |
+
+固定配置的好处很简单：行为更容易理解，也更容易复现。以后如果真实数据证明某个组合值得调整，再调整。
 
 ## 安装
 
-正式发布后使用 Codex Plugin Marketplace：
+正式发布后，通过 Codex Plugin Marketplace 安装：
 
 ```bash
 codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
+
+安装完成后启动一个新的 Codex 会话，在 Skill 菜单里选择 **Orchestrate**。
+
+第一次真正需要子代理时，插件会检查自己的五个固定 Agent 配置。如果这些配置刚刚被创建，当前任务会提示重新启动。开一个新的 Codex 任务，再选一次 Orchestrate 即可。相关辅助功能需要 Python 3.11 或更高版本。
+
+完整安装说明见 [Plugin Installation](docs/plugin-installation.md)。
 
 更新：
 
@@ -38,107 +125,34 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-卸载时先通过 Doctor 或 `scripts/uninstall-agents.py` 清理能够证明属于本插件的 managed profiles，再执行：
+卸载时，先通过 **Doctor** 清理能够确认属于本插件的 Agent 配置，然后再移除插件和 Marketplace：
 
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-不要用手工删除绕过 ownership 校验。完整流程见 [Plugin Installation](docs/plugin-installation.md)。Python helper 需要 Python 3.11+。
+如果 Doctor 报告配置归属不清楚，先处理冲突。不要直接手工删文件把警报按掉。
 
-## 两个公开 Skill
+## 它能让 Codex 更快吗
 
-| Skill | 责任 |
-|---|---|
-| **Orchestrate** | 统一处理 plan-only、执行、状态、纠正、继续、取消、接管、复核和整合 |
-| **Doctor** | 检查包完整性、profile、V4 state、Host 能力、Hook 证据和 release readiness |
+有可能，尤其是调查可以并行、主上下文很容易被塞满的时候。
 
-Orchestrate 的 `plan-only` 不创建运行态、不申请 WriterLease、不准备 PendingControl，也不调用 Host lifecycle tool。
-
-## 固定执行 profile
-
-V4.0.0 固定使用：
-
-| Profile | 模型 / effort | 权限 |
-|---|---|---|
-| Reader | Luna Max | 只读 |
-| Worker | Luna Max | 有界写 |
-| Investigator | Terra High | 只读 |
-| Solver | Sol High | 有界写与高判断 |
-| Advisor | Sol High | 只读复核 |
-
-V4.0.0 不做动态 reasoning-effort routing。路由器只选择已经冻结的 capability profile。
-
-## 调度与安全边界
-
-核心规则：
-
-```text
-Main 持有用户目标、集成和验收
-初始 managed child <= 2
-正常 managed child <= 3，且受 Host capacity 约束
-依赖只从 WorkUnit.ACCEPTED 解锁
-Host COMPLETED 只推进到 RESULT_READY
-canonical managed writer 同时最多 1 个
-fork_turns = none
-depth = 1
-UNKNOWN 保持 fail closed
-```
-
-运行态分离 WorkUnit 真值、ExecutionBinding、`control_epoch`、PendingControl 和 WriterLease。WriterLease 使用 `RESERVED / HELD / REVOKING / UNKNOWN / RELEASED`。PendingControl 使用 `PREPARED / IN_FLIGHT / ACKED / UNKNOWN / CANCELLED`。旧 Host observation 只有在 execution、control epoch 和 lease epoch 都仍匹配时才能生效。
-
-同一个 child 可以做有界 correction 或 `CONTINUE`。correction 不消耗 fresh Agent attempt，但有单独预算。`CONTINUE` 不消耗 correction budget。中断调用成功本身不能释放 WriterLease，接管还需要当前代际的 fresh Host settlement evidence、完整的权威 `list_agents` Hook receipt，并且不能存在未解决 PendingControl。
-
-V3.x `active.json` 只作为 legacy migration evidence。未解决的 V3.x ownership、active writer、pending takeover 或 corrupt state 不会被静默迁移到 V4。
-
-## Host Hook 发布门
-
-V4 的 staged lifecycle Hook 位于 `docs/v4/hooks.json`。正式激活需要 `docs/v4/host-smoke.json` 的 H00 到 H20 真机证据。该门覆盖 Hook trust/activation、生命周期 Pre/Post pairing、`SubagentStop` veto、固定 profile 与 fresh-context 行为、根级未过滤 `list_agents` 容量真值、重复/延迟/乱序事件、候选绑定、混合 managed/unmanaged Host occupancy，以及 Windows effective-path aliases。
-
-H07 还要求生命周期 Host mutation 发生前已经消费旧容量真值；Post 失败或歧义时必须通过 Host 支持的结果拒绝语义保持 fail closed。`PostToolUse` 的 `continue:false` 不作为 turn-stop 证明，managed child 的停止/续跑边界由 `SubagentStop` 验证。
-
-离线 CI、插件校验和源码审查不能替代这项 Host 证据。Doctor 的 `--release-check` 会在该门仍待验证时返回非零。
-
-## 配置与运行时证据
-
-模型、effort、权限和 Host lifecycle 需要区分：
-
-```text
-Configured
-→ Requested
-→ Accepted
-→ Observed
-```
-
-配置只能证明配置意图。真正影响 release readiness 的 Host 行为需要直接观察。
-
-## 关于性能
-
-项目保留独立 Experiment Plane 来比较正确性、返工、wall-clock、Main / child token、总 token 和协调开销。固定 Luna Max / Terra High / Sol High 是 V4.0.0 的产品策略，不宣称为所有 workload 的全局成本最优。
+但“开更多 Agent”本身不会自动变快。小任务可能更慢，协调也有成本。项目已经准备了实验协议去比较正确性、返工、耗时和 Token，等真实重复实验够多再谈数字。
 
 **本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token。**
 
-## 项目结构
+我们更关心另一件事：复杂任务能不能分得清、收得回来、最后有人真正负责。
 
-```text
-.
-├── .agents/plugins/          # Marketplace registration
-├── .codex-plugin/            # Plugin manifest + integrity manifest
-├── agent-profiles/           # five fixed managed profiles
-├── contracts/                # runtime contracts and compatibility/reference owners
-├── docs/
-│   └── v4/                   # frozen V4 architecture, Host smoke and phase evidence
-├── hooks/                    # current production Hook manifest and launchers
-├── skills/
-│   ├── orchestrate/
-│   └── doctor/
-├── scripts/                  # V4 state, scheduler, control, lifecycle, Doctor and installers
-├── evals/                    # Experiment Plane fixtures
-└── tests/                    # regression and adversarial tests
-```
+## V4 现在到哪了
 
-主要入口：[AI Reference](README_AI.md) · [安装](docs/plugin-installation.md) · [架构](docs/architecture.md) · [Runtime Attestation](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [CHANGELOG](CHANGELOG.md)
+V4.0.0 的仓库实现和离线验证已经推进到发布候选阶段。正式发布前还需要完成真实 Codex 环境里的生命周期验证。
+
+这项验证没过之前，项目不会把发布状态提前写成“已验证”。想看具体工程进度，可以去 [Release Checklist](docs/release-checklist.md) 和 [V4 docs](docs/v4/)。README 到这里就不继续开设计评审会了。
+
+想继续往下看技术细节：
+
+[架构](docs/architecture.md) · [安装](docs/plugin-installation.md) · [运行时证据](docs/runtime-attestation.md) · [实验方法](docs/experiment-protocol.md) · [更新记录](CHANGELOG.md) · [AI Reference](README_AI.md)
 
 ## License
 
