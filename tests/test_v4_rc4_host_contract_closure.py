@@ -216,7 +216,8 @@ def test_legacy_invented_bare_list_host_wire_is_rejected(tmp_path: Path):
     assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
     result = guard.evaluate_post_tool_use(post, temp_root=tmp_path)
     assert result is not None
-    assert result["continue"] is False
+    assert result["decision"] == "block"
+    assert "continue" not in result
 
 
 def test_execution_binding_rejects_host_invalid_native_task_name():
