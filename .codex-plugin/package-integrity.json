@@ -65,7 +65,7 @@
     "scripts/work_graph_v4.py": "b3303a76ece3e5252308f174ba2d5eca91700f4b0fb6e54c9a30e72d6864c80d",
     "scripts/writer_lease_v4.py": "895566d725dc92ef1c6570c5f6a9c55a18b87cfdb941522dfcf6bb0a036178ac",
     "scripts/writer_lease_v4_core.py": "215ebf34cd225968a7658c39cac9eb8723db45d1160b87f859a0540aec7c8235",
-    "skills/doctor/SKILL.md": "9fe3e0067d3984b1b706b1f22968730c671f4923ea18170e607c2b8f11c8b678",
+    "skills/doctor/SKILL.md": "be271f7dd01aaecb08ce2249ab54626f6d0adfa74ffe9eae5912735797e1c7ec",
     "skills/doctor/agents/openai.yaml": "0811c7d17fec437db183f4bf2b40596e20aa038447da82195cd08c71c6e93b3b",
     "skills/orchestrate/SKILL.md": "c9706945b3685168440accc435332729cba8031b365334c72b8fcd45ec797d3a",
     "skills/orchestrate/agents/openai.yaml": "5208099f78cbda15f0cd11e66d7812d5881edd1b1a422f2061ed8ba2899c03ee"
