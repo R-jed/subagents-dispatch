@@ -1,7 +1,7 @@
 interface:
   display_name: "Subagents Dispatch: Orchestrate"
-  short_description: "Plan and control V4 Subagent orchestration"
-  default_prompt: "Use the Orchestrate skill to plan or execute this task with fixed V4 profiles, acceptance-gated dependencies, and one-writer safety."
+  short_description: "Coordinate complex coding tasks with Codex subagents"
+  default_prompt: "Use Orchestrate to decide whether this task benefits from delegation, coordinate bounded Codex subagents when useful, verify their results, and keep Main responsible for integration."
 
 policy:
   allow_implicit_invocation: false

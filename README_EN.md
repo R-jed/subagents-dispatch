@@ -27,6 +27,14 @@ One subagent can read the code. Another can investigate wider impact. Another ca
 
 Small task? Use zero subagents. Spinning up a committee just to look busy is not a feature.
 
+## Codex already has Subagents. Why use this Plugin?
+
+Codex provides Native Subagents. This Plugin adds an engineering coordination policy around them.
+
+It decides when delegation is worth the overhead, turns work into responsibilities with dependencies and done conditions, limits pointless fan-out, prevents managed writers from colliding in one mutable workspace, and requires Main to accept evidence before dependent work unlocks. When Host state is unclear, it preserves `UNKNOWN` instead of turning a guess into authority.
+
+The useful distinction is therefore not whether another Agent can be spawned. It is whether a complex engineering task can be split cleanly, run with controlled parallelism, brought back together safely, and still end with one accountable owner.
+
 ## Understand it in 30 seconds
 
 Suppose you ask:
@@ -51,7 +59,7 @@ If Main looks at the task and realizes it can finish it in three minutes, Main j
 
 ## When it helps
 
-subagents-dispatch is most useful when a task has work that can be investigated separately, or when the implementation should wait until the impact is understood.
+subagents-dispatch is most useful when a task has work that can be investigated separately, or when implementation should wait until the impact is understood.
 
 Typical examples:
 
@@ -67,12 +75,27 @@ For tiny, strongly sequential tasks with all the context already available, Main
 
 | Entry | Use it for |
 |---|---|
-| **Orchestrate** | planning, delegation, execution, continuation, correction, takeover, review, and integration |
-| **Doctor** | checking installation, configuration, versions, and the runtime environment |
+| **Orchestrate** | deciding whether to delegate, then planning, execution, continuation, correction, takeover, review, and integration |
+| **Doctor** | checking Plugin health, Agent configuration, Host integration, runtime state, and explicitly requested safe maintenance |
 
 For normal work, use **Orchestrate**. If the environment looks suspicious, call **Doctor**.
 
-Orchestrate can also show a plan without starting delegated work, so you can inspect the proposed split before anything runs.
+Orchestrate can show a plan without starting delegated work. You can simply say:
+
+```text
+Show me how you would split this work first.
+```
+
+During a run, natural control requests can stay in the same Skill:
+
+```text
+What is the current status?
+Pause U2.
+I will take over this part.
+Continue the interrupted work.
+```
+
+There is no need to remember a row of separate control Skills.
 
 ## It tries not to become a group chat
 
@@ -80,13 +103,13 @@ Multi-agent systems can turn parallel work into coordination overhead very quick
 
 - small tasks may use zero subagents
 - start with at most 2 managed subagents, normally no more than 3
-- only one managed subagent writes to the canonical workspace at a time
+- only one managed writer may mutate the same workspace at a time
 - each subagent gets only the context needed for its responsibility
 - investigation results need evidence before Main accepts them
 - unclear state stops progress instead of becoming permission by guesswork
 - Main remains responsible for the final result
 
-Less agent theater. More controlled parallel work.
+Single-writer is a workspace boundary. A future Host that can reliably isolate writers into separate worktrees or workspaces could support multiple independent writer domains when the work is also semantically independent. The current product manages one canonical workspace, so one writer remains the safer default. See [Writer Boundary](docs/writer-boundary.md).
 
 ## Current fixed team
 
@@ -111,7 +134,9 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 Start a fresh Codex session after installation and choose **Orchestrate** from the Skill menu.
 
-The first delegated task checks the five managed subagent profiles. If they are created during that task, Codex will ask for a restart because those profiles need to exist before the session starts. Open a fresh task and choose Orchestrate again. The bundled helpers require Python 3.11 or newer.
+The first delegated task checks the five managed Agent profiles. If they are safely absent, the Plugin creates only the files it owns. Current V4 has no authoritative observation from an already-running task that proves newly written custom-Agent profiles have entered that task's Agent registry, so that task conservatively returns `RESTART_REQUIRED` and never substitutes another Agent. Start one fresh Codex task and submit the original request again. This activation step occurs only when managed profiles are first created or need to be reactivated.
+
+If you want the first real development task to avoid that initialization interruption, use **Doctor** once after installation and explicitly ask it to repair or prepare the managed Agent profiles, then start a fresh work session. The bundled helpers require Python 3.11 or newer.
 
 See [Plugin Installation](docs/plugin-installation.md) for the full setup.
 
@@ -122,7 +147,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-Before uninstalling, use **Doctor** to remove only subagent profiles that can be proven to belong to this plugin. Then remove the plugin and marketplace source:
+Before uninstalling, use **Doctor** to remove only Agent profiles that can be proven to belong to this Plugin. Then remove the Plugin and Marketplace source:
 
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
@@ -135,15 +160,15 @@ If Doctor says ownership is unclear, resolve the conflict first. Do not silence 
 
 Sometimes, especially when investigation can happen in parallel or the Main context would otherwise get crowded.
 
-More agents do not automatically mean more speed. Small tasks can get slower, and coordination has a cost. The project has an experiment protocol for measuring correctness, rework, time, and token usage before making performance claims.
+More agents do not automatically mean more speed. Small tasks can get slower, and coordination has a cost. The project has an experiment protocol for measuring correctness, rework, user intervention, time, and token usage before making performance claims.
 
-This README does not advertise unproven speedups or token savings.
+This README does not advertise unproven speedups or token savings. Product evaluation looks at correctness and safety first, then rework, coordination burden, context efficiency, latency, and tokens. See [Product Success Criteria](docs/product-success.md).
 
 The more important question is whether a complicated job can be split cleanly, brought back together safely, and still have one place where responsibility ends.
 
 For technical details:
 
-[Architecture](docs/architecture.md) · [Installation](docs/plugin-installation.md) · [Runtime Evidence](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Changelog](CHANGELOG.md) · [AI Reference](README_AI.md)
+[Architecture](docs/architecture.md) · [Installation](docs/plugin-installation.md) · [Writer Boundary](docs/writer-boundary.md) · [Product Success Criteria](docs/product-success.md) · [Runtime Evidence](docs/runtime-attestation.md) · [Experiment Protocol](docs/experiment-protocol.md) · [Changelog](CHANGELOG.md) · [AI Reference](README_AI.md)
 
 ## License
 
