@@ -52,7 +52,7 @@
     "scripts/release_evidence_v4.py": "8dfbb863daca1d955cd816f335d9773db3b302b310c01774e2b31bf027a1c191",
     "scripts/review-artifact.py": "3f5ee696806249e01fc81914d5da87ba0dee6ad84eb5704f0f7e0014fd23b87d",
     "scripts/runtime-evidence.py": "1bda857f2abb1adac7ae9d776d325d24ad7fd23947dd944003f86d3268d24597",
-    "scripts/scheduler_v4.py": "22f40cc5584814bc71228ef64bcf8da64f365a927eec3e0cdea01fc9d74ad",
+    "scripts/scheduler_v4.py": "22f40cc5584814bc71228ef64bcf8da64f365a927eec0033e0cdea01fc9d74ad",
     "scripts/score-behavioral-evals.py": "889ed33a5fdecc1635569762ee2026d3fdd2c36224ee282de8662a36007e9d38",
     "scripts/spawn_guard.py": "6e6ffcbe6a43a1375ca8073fd113199eb5012e5d36833400de53227557a046f2",
     "scripts/uninstall-agents.py": "a7fd037c95717b50b03ac8713e904df8f7553c4de55d234ef79c77f15e1c7508",
