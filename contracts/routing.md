@@ -76,7 +76,7 @@ Delegation is optional and value-driven. Keep a responsibility in the main sessi
 
 Keep work in the main session when a child would mostly duplicate context, add handoff overhead, or provide no useful isolation, parallelism, capability uplift, read-heavy investigation, or independent judgment.
 
-A task being large, many-file, expensive, or "complex" does not by itself justify delegation. Project policy does not map task size to a fixed child count or ordinary numeric child ceiling.
+A task being large, many-file, expensive, or "complex" does not by itself justify delegation. Routing does not map task size to a target child count. V4 execution remains bounded by the scheduler's initial two-child and product three-child ceilings, plus any lower current Host capacity.
 
 ## 3. Select by capability need
 
@@ -256,7 +256,7 @@ A failed Luna attempt never directly means "use Terra" or "use a stronger model.
 
 ## 8. Adaptive scheduling
 
-Main manages a ready frontier. Project policy does not define an ordinary numeric child ceiling or a target team size.
+Main manages a ready frontier. Routing does not define a target team size. V4 execution remains bounded by the scheduler's initial two-child and product three-child ceilings, plus any lower current Host capacity.
 
 A responsibility belongs on the ready frontier only when it can make meaningful progress now. With TeamPlan, structural dependency readiness comes from the validated DAG; Main still decides semantic safety, semantic readiness, coverage, and delegation value.
 
@@ -290,7 +290,7 @@ understand current work
 
 Do not speculate ahead by spawning work that depends on unresolved decisions. Do not create multiple owners for the same unchanged responsibility unless independent cross-checking is itself an explicit requirement. Do not keep Agents busy merely because the host has spare capacity.
 
-Native Codex capacity is the upper bound on concurrency, not a target. If the runtime exposes less capacity or only barrier-style completion, adapt to the observed host surface rather than simulating a scheduler with busy polling.
+Native Codex capacity is an additional upper bound on concurrency, not a target. If the runtime exposes less capacity or only barrier-style completion, adapt to the observed host surface rather than simulating a scheduler with busy polling.
 
 Read-only independent work is the preferred place to exploit parallelism. A canonical physical checkout has one active writing actor inside the current orchestration. Concurrent writers require genuinely isolated workspaces or worktrees plus semantic independence or explicit dependency/integration order.
 
