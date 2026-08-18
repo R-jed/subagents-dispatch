@@ -20,7 +20,7 @@
 
 V4 reduces the public surface to two explicit Skills: **Orchestrate** and **Doctor**. Orchestrate owns planning, execution, status, correction, continuation, cancellation, takeover, review, and integration. Doctor owns package integrity, fixed profiles, V4 state, WriterLease, PendingControl, Host capability evidence, Hook evidence, and release-readiness diagnostics.
 
-The repository implementation and offline verification can be completed without Codex quota. The real Codex Host H01-H07 lifecycle-Hook smoke remains a release gate. The project does not mark that gate as passed or activate the V4 production three-event Hook manifest without real Host evidence.
+The repository implementation and offline verification can be completed without Codex quota. The real Codex Host H00-H20 lifecycle-Hook smoke remains a release gate. The project does not mark that gate as passed or activate the V4 production three-event Hook manifest without real Host evidence.
 
 ## Install
 
@@ -88,13 +88,15 @@ UNKNOWN remains fail closed
 
 Runtime truth separates WorkUnit state, ExecutionBinding, `control_epoch`, PendingControl, and WriterLease. WriterLease uses `RESERVED / HELD / REVOKING / UNKNOWN / RELEASED`. PendingControl uses `PREPARED / IN_FLIGHT / ACKED / UNKNOWN / CANCELLED`. A Host observation may mutate current state only while its execution, control epoch, and lease epoch still match.
 
-A child can receive one bounded correction or a distinct `CONTINUE` operation without creating a fresh Agent attempt. `CONTINUE` does not consume the correction budget. Interrupt acknowledgement alone cannot release WriterLease. Takeover additionally requires fresh current-generation settlement evidence.
+A child can receive one bounded correction or a distinct `CONTINUE` operation without creating a fresh Agent attempt. `CONTINUE` does not consume the correction budget. Interrupt acknowledgement alone cannot release WriterLease. Takeover additionally requires fresh current-generation settlement evidence, a completed authoritative `list_agents` Hook receipt, and no unresolved PendingControl.
 
 A V3.x `active.json` remains legacy migration evidence. Unresolved V3.x ownership, active writer, pending takeover, or corrupt state is never silently enrolled into V4.
 
 ## Host Hook release gate
 
-The staged V4 lifecycle Hook manifest is `docs/v4/hooks.json`. Activation requires the H01-H07 real-Host evidence defined by `docs/v4/host-smoke.json`, including Pre/Post coverage for `spawn_agent`, `followup_task`, and `interrupt_agent`, stable `tool_use_id`, `SubagentStop` veto behavior, sibling-control rejection, and fail-closed handling when PostToolUse is missing.
+The staged V4 lifecycle Hook manifest is `docs/v4/hooks.json`. Activation requires the H00-H20 real-Host evidence defined by `docs/v4/host-smoke.json`. The gate covers Hook trust and activation, lifecycle Pre/Post pairing, `SubagentStop` veto behavior, fixed-profile and fresh-context behavior, authoritative unfiltered root `list_agents` occupancy, duplicate/delayed/out-of-order delivery, candidate binding, mixed managed/unmanaged Host occupancy, and Windows effective-path aliases.
+
+H07 additionally requires stale capacity truth to be consumed before a lifecycle Host mutation crosses the tool boundary and requires failed or ambiguous PostToolUse to use the Host-supported result-rejection path. PostToolUse `continue:false` is not accepted as turn-stop evidence; managed-child stop/continuation behavior is validated at `SubagentStop`.
 
 Offline CI, Plugin validation, and source review do not substitute for this evidence. Doctor `--release-check` exits non-zero while the gate remains pending.
 
