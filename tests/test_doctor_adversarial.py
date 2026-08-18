@@ -60,6 +60,55 @@ def run_doctor(home: Path, temp_root: Path, *extra: str) -> subprocess.Completed
     )
 
 
+def lifecycle_hooks() -> dict:
+    lifecycle_matcher = "spawn_agent|followup_task|interrupt_agent|list_agents"
+    guard = {
+        "type": "command",
+        "command": '"${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/scripts/orchestration_guard.py"',
+        "commandWindows": '"%PLUGIN_ROOT%\\hooks\\run-python.cmd" "%PLUGIN_ROOT%\\scripts\\orchestration_guard.py"',
+        "timeout": 5,
+        "async": False,
+    }
+    return {
+        "hooks": {
+            "PreToolUse": [{"matcher": lifecycle_matcher, "hooks": [dict(guard)]}],
+            "PostToolUse": [{"matcher": lifecycle_matcher, "hooks": [dict(guard)]}],
+            "SubagentStop": [
+                {
+                    "matcher": (
+                        "subagents_dispatch_reader|subagents_dispatch_worker|"
+                        "subagents_dispatch_investigator|subagents_dispatch_solver|"
+                        "subagents_dispatch_advisor"
+                    ),
+                    "hooks": [dict(guard)],
+                }
+            ],
+        }
+    }
+
+
+def host_evidence() -> dict:
+    lifecycle = ["spawn_agent", "followup_task", "interrupt_agent", "list_agents"]
+    return {
+        "surface": "multi_agent_v2",
+        "tools": [
+            "spawn_agent",
+            "send_message",
+            "followup_task",
+            "wait_agent",
+            "list_agents",
+            "interrupt_agent",
+        ],
+        "hooks": {
+            "PreToolUse": lifecycle,
+            "PostToolUse": lifecycle,
+            "SubagentStop": True,
+        },
+        "fork_turns_none": True,
+        "max_spawned_threads": 4,
+    }
+
+
 def test_default_doctor_does_not_create_missing_codex_home(tmp_path: Path):
     home = tmp_path / "missing-codex-home"
     assert not home.exists()
@@ -108,8 +157,8 @@ def test_doctor_uninstall_refuses_modified_owned_profile_without_partial_deletio
     } == other_profiles
 
 
-def test_complete_local_hooks_without_live_host_evidence_remain_unknown(monkeypatch, tmp_path: Path):
-    doctor = load_doctor_core("doctor_adversarial_hooks_unknown")
+def test_empty_lifecycle_hook_entries_fail_instead_of_looking_configured(monkeypatch, tmp_path: Path):
+    doctor = load_doctor_core("doctor_adversarial_empty_hooks")
     hooks = tmp_path / "hooks.json"
     hooks.write_text(
         json.dumps(
@@ -127,28 +176,60 @@ def test_complete_local_hooks_without_live_host_evidence_remain_unknown(monkeypa
 
     result = doctor.diagnose_host_integration(None)
 
+    assert result["status"] == "FAIL"
+    assert result["details"]["host_evidence_supplied"] is False
+    assert result["details"]["hook_errors"]
+
+
+def test_valid_local_lifecycle_hooks_without_host_snapshot_remain_unknown(monkeypatch, tmp_path: Path):
+    doctor = load_doctor_core("doctor_adversarial_hooks_unknown")
+    hooks = tmp_path / "hooks.json"
+    hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
+    monkeypatch.setattr(doctor, "HOOKS", hooks)
+
+    result = doctor.diagnose_host_integration(None)
+
     assert result["status"] == "UNKNOWN"
-    assert result["details"]["live_host_observed"] is False
+    assert result["details"]["hook_mode"] == "lifecycle"
+    assert result["details"]["host_evidence_supplied"] is False
     assert result["details"]["missing_events"] == []
 
 
-def test_invalid_explicit_host_evidence_fails_closed_even_with_complete_local_hooks(
-    monkeypatch, tmp_path: Path
-):
+def test_wrong_lifecycle_hook_command_fails_closed(monkeypatch, tmp_path: Path):
+    doctor = load_doctor_core("doctor_adversarial_wrong_hook_command")
+    payload = lifecycle_hooks()
+    payload["hooks"]["PreToolUse"][0]["hooks"][0]["command"] = "python unsafe.py"
+    hooks = tmp_path / "hooks.json"
+    hooks.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(doctor, "HOOKS", hooks)
+
+    result = doctor.diagnose_host_integration(None)
+
+    assert result["status"] == "FAIL"
+    assert any("command binding" in item for item in result["details"]["hook_errors"])
+
+
+def test_supplied_host_snapshot_is_not_promoted_to_fresh_current_host_truth(monkeypatch, tmp_path: Path):
+    doctor = load_doctor_core("doctor_adversarial_host_snapshot_provenance")
+    hooks = tmp_path / "hooks.json"
+    hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
+    evidence = tmp_path / "host.json"
+    evidence.write_text(json.dumps(host_evidence()), encoding="utf-8")
+    monkeypatch.setattr(doctor, "HOOKS", hooks)
+
+    result = doctor.diagnose_host_integration(evidence)
+
+    assert result["status"] == "OK"
+    assert result["details"]["host_evidence_supplied"] is True
+    assert result["details"]["host_evidence_freshness_verified"] is False
+    assert result["details"]["host_evidence_source"] == str(evidence)
+    assert "current Host" not in result["summary"]
+
+
+def test_invalid_explicit_host_evidence_fails_closed_with_valid_local_hooks(monkeypatch, tmp_path: Path):
     doctor = load_doctor_core("doctor_adversarial_host_evidence")
     hooks = tmp_path / "hooks.json"
-    hooks.write_text(
-        json.dumps(
-            {
-                "hooks": {
-                    "PreToolUse": [],
-                    "PostToolUse": [],
-                    "SubagentStop": [],
-                }
-            }
-        ),
-        encoding="utf-8",
-    )
+    hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
     evidence = tmp_path / "host.json"
     evidence.write_text('{"surface":"multi_agent_v2"}', encoding="utf-8")
     monkeypatch.setattr(doctor, "HOOKS", hooks)
