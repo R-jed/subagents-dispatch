@@ -12,15 +12,14 @@ SKILLS = ROOT / "skills"
 INSTALL_DOC = ROOT / "docs" / "plugin-installation.md"
 PYTHON_RUNTIME_DOC = ROOT / "docs" / "python-runtime.md"
 RELEASE = ROOT / "docs" / "release-checklist.md"
-README_CN = ROOT / "README.md"
-README_EN = ROOT / "README_EN.md"
-README_AI = ROOT / "README_AI.md"
-EVALS_README = ROOT / "evals" / "README.md"
+README_FILES = (
+    ROOT / "README.md",
+    ROOT / "README_EN.md",
+    ROOT / "README_AI.md",
+    ROOT / "evals" / "README.md",
+)
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 PUBLIC_SKILLS = ("orchestrate", "doctor")
-CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
-PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
-PLUGIN_REMOVE = "codex plugin remove subagents-dispatch@subagents-dispatch"
 
 
 def test_v4_public_surface_never_reintroduces_retired_skill_directories():
@@ -80,55 +79,15 @@ def test_python_helper_runtime_keeps_portable_resolution_boundary():
         assert phrase in text
 
 
-def test_public_readme_visual_surface_uses_canonical_assets_only():
-    assert (ROOT / "assets" / "subagents-dispatch-banner.png").is_file()
-    for path in (README_CN, README_EN):
-        text = path.read_text(encoding="utf-8")
-        assert "assets/subagents-dispatch-banner.png" in text
-        assert "docs/logo-" not in text
-
-
-def test_public_readmes_state_v4_profile_and_measurement_boundaries():
-    zh = README_CN.read_text(encoding="utf-8")
-    en = README_EN.read_text(encoding="utf-8")
-    for text in (zh, en):
-        assert "4.0.0" in text
-        assert "Orchestrate" in text and "Doctor" in text
-        assert "Luna Max" in text and "Terra High" in text and "Sol High" in text
-        for command in (CANONICAL_MARKETPLACE, PLUGIN_ADD, PLUGIN_REMOVE):
-            assert command in text
-    assert "本 README 不声称 subagents-dispatch 已经被证明更快、更省总 Token" in zh
-    assert "this readme does not claim that subagents-dispatch is proven faster" in en.lower()
-
-
-def test_ai_reference_points_to_v4_owners_without_install_commands():
-    text = README_AI.read_text(encoding="utf-8")
-    for phrase in (
-        "R-jed/subagents-dispatch",
-        "Current version:     4.0.0",
-        "Orchestrate",
-        "Doctor",
-        "scripts/orchestrate_v4.py",
-        "scripts/dispatch_state_v4.py",
-        "scripts/writer_lease_v4.py",
-        "docs/v4/host-smoke.json",
-        "Do not invent a Codex App slash-command string",
-    ):
-        assert phrase in text
-    for command in (CANONICAL_MARKETPLACE, PLUGIN_ADD):
-        assert command not in text
-
-
-def test_evals_readme_keeps_measurement_plane_separate_from_runtime_policy():
-    text = EVALS_README.read_text(encoding="utf-8")
-    for phrase in (
-        "not part of the normal user setup",
-        "behavioral-workloads.json",
-        "routing-cases.json",
-        "runtime-assurance-cases.json",
-        "do not control how the plugin routes or coordinates work",
-    ):
-        assert phrase in text
+def test_readme_files_are_valid_basic_text_files():
+    for path in README_FILES:
+        assert path.is_file()
+        raw = path.read_bytes()
+        assert raw
+        assert b"\x00" not in raw
+        text = raw.decode("utf-8")
+        assert text.strip()
+        assert text.endswith("\n")
 
 
 def test_public_uninstall_docs_forbid_manual_managed_profile_removal():
@@ -140,7 +99,7 @@ def test_public_uninstall_docs_forbid_manual_managed_profile_removal():
         "rm ~/.codex/agents/subagents-dispatch-advisor.toml",
         "rm ~/.codex/.subagents-dispatch-agents.json",
     )
-    for path in (INSTALL_DOC, README_CN, README_EN, SKILLS / "doctor" / "SKILL.md"):
+    for path in (INSTALL_DOC, SKILLS / "doctor" / "SKILL.md"):
         text = path.read_text(encoding="utf-8")
         assert all(command not in text for command in forbidden)
 

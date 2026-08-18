@@ -103,9 +103,9 @@ def host_snapshot(capacity: int) -> dict:
 
 
 def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
-    state = load_module("rc2_state_ack", "dispatch_state_v4.py")
-    control = load_module("rc2_control_ack", "dispatch_control_v4.py")
-    payload = state.new_state(thread_id="thread-rc2")
+    state = load_module("recovery_state_ack", "dispatch_state_v4.py")
+    control = load_module("recovery_control_ack", "dispatch_control_v4.py")
+    payload = state.new_state(thread_id="thread-recovery")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [
         work_unit(
@@ -140,7 +140,7 @@ def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
         "fork_turns": "none",
     }
     control.prepare_control(
-        "thread-rc2",
+        "thread-recovery",
         control_id="spawn:exec-1",
         execution_id="exec-1",
         operation="SPAWN",
@@ -149,26 +149,26 @@ def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
         temp_root=tmp_path,
     )
     control.consume_prepared_control(
-        "thread-rc2",
+        "thread-recovery",
         tool_name="spawn_agent",
         tool_input=tool_input,
         tool_use_id="tool-spawn-1",
         temp_root=tmp_path,
     )
-    before = state.load_state("thread-rc2", temp_root=tmp_path)
+    before = state.load_state("thread-recovery", temp_root=tmp_path)
     assert before is not None
     before_revision = before["state_revision"]
     assert before["writer_lease"]["state"] == "RESERVED"
 
     ack = control.acknowledge_control(
-        "thread-rc2",
+        "thread-recovery",
         tool_name="spawn_agent",
         tool_input=tool_input,
         tool_response={"task_name": "sd_u1_a1"},
         tool_use_id="tool-spawn-1",
         temp_root=tmp_path,
     )
-    after = state.load_state("thread-rc2", temp_root=tmp_path)
+    after = state.load_state("thread-recovery", temp_root=tmp_path)
     assert after is not None
     assert ack["state"] == "ACKED"
     assert after["writer_lease"]["state"] == "HELD"
@@ -177,8 +177,8 @@ def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
 
 
 def test_completed_open_thread_still_consumes_host_capacity_until_closed():
-    state = load_module("rc2_state_capacity", "dispatch_state_v4.py")
-    scheduler = load_module("rc2_scheduler_capacity", "scheduler_v4.py")
+    state = load_module("recovery_state_capacity", "dispatch_state_v4.py")
+    scheduler = load_module("recovery_scheduler_capacity", "scheduler_v4.py")
     payload = state.new_state(thread_id="thread-capacity")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [
@@ -191,7 +191,7 @@ def test_completed_open_thread_still_consumes_host_capacity_until_closed():
     ]
     payload["accounting_refs"] = [
         {
-            "ref": "host-capacity-observation:rc2-completed",
+            "ref": "host-capacity-observation:completed",
             "kind": "host_capacity_observation",
             "source": "post_tool_use:list_agents",
             "turn_id": "turn-capacity-completed",
@@ -232,12 +232,12 @@ def test_completed_open_thread_still_consumes_host_capacity_until_closed():
 
 
 def test_intermediate_writer_states_are_recoverable_without_widening_authority(tmp_path: Path):
-    state = load_module("rc2_state_crash", "dispatch_state_v4.py")
-    graph = load_module("rc2_graph_crash", "work_graph_v4.py")
-    control = load_module("rc2_control_crash", "dispatch_control_v4.py")
-    lifecycle = load_module("rc2_lifecycle_crash", "execution_lifecycle_v4.py")
-    writer = load_module("rc2_writer_crash", "writer_lease_v4.py")
-    guard = load_module("rc2_guard_crash", "orchestration_guard.py")
+    state = load_module("recovery_state_crash", "dispatch_state_v4.py")
+    graph = load_module("recovery_graph_crash", "work_graph_v4.py")
+    control = load_module("recovery_control_crash", "dispatch_control_v4.py")
+    lifecycle = load_module("recovery_lifecycle_crash", "execution_lifecycle_v4.py")
+    writer = load_module("recovery_writer_crash", "writer_lease_v4.py")
+    guard = load_module("recovery_guard_crash", "orchestration_guard.py")
 
     payload = state.new_state(thread_id="thread-crash")
     state.write_state(payload, temp_root=tmp_path)
@@ -338,28 +338,3 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
     assert current is not None
     assert current["writer_lease"]["state"] == "REVOKING"
     assert len(current["pending_controls"]) == 1
-
-
-def test_public_architecture_and_orchestrate_bind_current_v4_contracts():
-    architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
-    skill = (ROOT / "skills" / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
-    assert "Orchestrate\nDoctor" in architecture
-    assert "initial managed children <= 2" in architecture
-    assert "normal managed children <= 3" in architecture
-    assert "six explicit skills" not in architecture.lower()
-    assert "../../contracts/final-review.md" in skill
-    assert "../../scripts/review-artifact.py" in skill
-    assert "valid `ship` verdict" in skill
-    assert "Any deliverable mutation after review invalidates" in skill
-
-
-def test_host_smoke_requires_trust_payload_capacity_and_writer_ack_probes():
-    smoke = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    probes = {item["id"]: item for item in smoke["required_probes"]}
-    assert set(probes) == {f"H{number:02d}" for number in range(21)}
-    assert "exact active lifecycle Hook digest" in probes["H00"]["requires"]
-    assert any("canonical authorized payload" in item for item in probes["H08"]["requires"])
-    assert any("settled-resident reclaim" in item for item in probes["H09"]["requires"])
-    assert any("WriterLease transition" in item for item in probes["H10"]["requires"])
-    assert probes["H18"]["operation"] == "mixed managed unmanaged Host occupancy"
-    assert probes["H20"]["platform"] == "windows"

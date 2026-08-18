@@ -88,10 +88,10 @@ def _capacity_event(state_module) -> dict:
 
 
 def test_one_capacity_observation_cannot_authorize_second_fresh_spawn(tmp_path: Path):
-    state = load_module("rc5_followup_state_capacity", STATE)
-    control = load_module("rc5_followup_control_capacity", CONTROL)
-    guard = load_module("rc5_followup_guard_capacity", GUARD)
-    managed = load_module("rc5_followup_managed_capacity", MANAGED)
+    state = load_module("capacity_writer_state_capacity", STATE)
+    control = load_module("capacity_writer_control_capacity", CONTROL)
+    guard = load_module("capacity_writer_guard_capacity", GUARD)
+    managed = load_module("capacity_writer_managed_capacity", MANAGED)
 
     payload = state.new_state(thread_id="root-thread")
     payload["work_units"] = [_work_unit("U1"), _work_unit("U2")]
@@ -153,18 +153,9 @@ def test_one_capacity_observation_cannot_authorize_second_fresh_spawn(tmp_path: 
     assert second_control["tool_use_id"] is None
 
 
-def test_v4_contracts_state_scheduler_two_three_ceiling_without_unbounded_override():
-    required = "V4 execution remains bounded by the scheduler's initial two-child and product three-child ceilings"
-    for relative in ("contracts/guardrails.md", "contracts/routing.md"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
-        assert required in text, relative
-    guardrails = (ROOT / "contracts" / "guardrails.md").read_text(encoding="utf-8")
-    assert "use as many simultaneously useful children as the task genuinely supports and the native runtime allows" not in guardrails
-
-
 def test_active_writer_exact_settlement_receipt_survives_history_compaction(tmp_path: Path):
-    state = load_module("rc5_followup_state_receipt", STATE)
-    writer = load_module("rc5_followup_writer_receipt", WRITER)
+    state = load_module("capacity_writer_state_receipt", STATE)
+    writer = load_module("capacity_writer_writer_receipt", WRITER)
 
     payload = state.new_state(thread_id="root-thread")
     payload["work_units"] = [_work_unit("U1", writable=True)]

@@ -51,6 +51,16 @@ def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) 
     }
 
 
+def trust(**overrides) -> dict:
+    value = {
+        "manifest_sha256": "b" * 64,
+        "trusted_current_definition": True,
+        "evidence_ref": "host-smoke:H00",
+    }
+    value.update(overrides)
+    return value
+
+
 def test_complete_evidence_normalizes_to_execution_ready_snapshot():
     module = load_module()
     snapshot = module.normalize_host_capabilities(evidence())
@@ -172,3 +182,46 @@ def test_required_hook_tool_set_is_exact_lifecycle_surface():
         "followup_task",
         "interrupt_agent",
     )
+
+
+def test_guard_coverage_proof_requires_execution_ready_host_and_current_trust():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(evidence(capacity=3))
+    proof = module.build_guard_coverage_proof(
+        snapshot,
+        session_id="thread-proof",
+        trust_evidence=trust(),
+    )
+    assert proof == {
+        "schema_version": "4.0",
+        "authority": "diagnostic_only",
+        "session_id": "thread-proof",
+        "manifest_sha256": "b" * 64,
+        "trusted_current_definition": True,
+        "pre_tool_use": True,
+        "post_tool_use": True,
+        "host_observation_guard": True,
+        "subagent_stop_veto": True,
+        "evidence_ref": "host-smoke:H00",
+    }
+
+    with pytest.raises(module.HostCapabilityError, match="not proven trusted"):
+        module.build_guard_coverage_proof(
+            snapshot,
+            session_id="thread-proof",
+            trust_evidence=trust(trusted_current_definition=False),
+        )
+
+
+def test_guard_coverage_proof_rejects_incomplete_lifecycle_hook_snapshot():
+    module = load_module()
+    payload = evidence(capacity=3)
+    payload["hooks"]["PostToolUse"] = ["spawn_agent", "followup_task", "list_agents"]
+    snapshot = module.normalize_host_capabilities(payload)
+    assert snapshot["execution_ready"] is False
+    with pytest.raises(module.HostCapabilityError, match="execution-ready"):
+        module.build_guard_coverage_proof(
+            snapshot,
+            session_id="thread-proof",
+            trust_evidence=trust(),
+        )

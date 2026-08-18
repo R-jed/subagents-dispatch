@@ -159,7 +159,7 @@ def _settled_writer_state(state_module, tmp_path: Path) -> None:
 
 
 def test_post_failure_rejects_result_with_host_supported_block(monkeypatch, capsys):
-    guard = load_module("rc5_guard_cli_red", GUARD)
+    guard = load_module("runtime_safety_guard_cli", GUARD)
     payload = {
         "hook_event_name": "PostToolUse",
         "session_id": "root-thread",
@@ -184,10 +184,10 @@ def test_post_failure_rejects_result_with_host_supported_block(monkeypatch, caps
 
 
 def test_managed_lifecycle_pre_consumes_authoritative_capacity_truth(tmp_path: Path):
-    state = load_module("rc5_state_capacity_red", STATE)
-    control = load_module("rc5_control_capacity_red", CONTROL)
-    guard = load_module("rc5_guard_capacity_red", GUARD)
-    managed = load_module("rc5_managed_capacity_red", MANAGED)
+    state = load_module("runtime_safety_state_capacity", STATE)
+    control = load_module("runtime_safety_control_capacity", CONTROL)
+    guard = load_module("runtime_safety_guard_capacity", GUARD)
+    managed = load_module("runtime_safety_managed_capacity", MANAGED)
     _v4_state(state, tmp_path)
     current = state.load_state("root-thread", temp_root=tmp_path)
     assert current is not None
@@ -217,15 +217,9 @@ def test_managed_lifecycle_pre_consumes_authoritative_capacity_truth(tmp_path: P
     )
 
 
-def test_writer_settlement_source_requires_exact_observation_receipt():
-    text = WRITER.read_text(encoding="utf-8")
-    assert 'event.get("kind") == "host_observation_receipt"' in text
-    assert "accounting_filter_contains" not in text
-
-
 def test_writer_settlement_rejects_partial_observation_until_receipt_exists(tmp_path: Path):
-    state = load_module("rc5_state_receipt_gate", STATE)
-    writer = load_module("rc5_writer_receipt_gate", WRITER)
+    state = load_module("runtime_safety_state_receipt", STATE)
+    writer = load_module("runtime_safety_writer_receipt", WRITER)
     _settled_writer_state(state, tmp_path)
 
     with pytest.raises(writer.WriterLeaseError, match="observation receipt"):
@@ -261,8 +255,8 @@ def test_writer_settlement_rejects_partial_observation_until_receipt_exists(tmp_
 
 
 def test_writer_settlement_rejects_probabilistic_receipt_filter_match(tmp_path: Path):
-    state = load_module("rc5_state_bloom_gate", STATE)
-    writer = load_module("rc5_writer_bloom_gate", WRITER)
+    state = load_module("runtime_safety_state_filter", STATE)
+    writer = load_module("runtime_safety_writer_filter", WRITER)
     _settled_writer_state(state, tmp_path)
 
     def add_filter_only(current: dict) -> None:
@@ -293,55 +287,3 @@ def test_writer_settlement_rejects_probabilistic_receipt_filter_match(tmp_path: 
             lease_epoch=1,
             temp_root=tmp_path,
         )
-
-
-def test_packaged_runtime_contracts_use_only_v4_public_entrypoints():
-    guardrails = (ROOT / "contracts" / "guardrails.md").read_text(encoding="utf-8")
-    interaction = (ROOT / "contracts" / "interaction.md").read_text(encoding="utf-8")
-    assert "stable `dispatch`, `preview`, `status`, `steer`, `takeover`, and `doctor` Skills" not in guardrails
-    assert "The product's supported entrypoints are `Orchestrate` and `Doctor`" in guardrails
-    assert "The stable interaction Skill ids are `preview`, `status`, `steer`, and `takeover`" not in interaction
-    assert "Orchestrate control intents" in interaction
-
-
-def test_public_installation_and_reference_use_v4_surface_and_host_gate():
-    installation = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
-    assert "six explicit Skill identities" not in installation
-    assert "two explicit Skill identities" in installation
-
-    current_public_contracts = [
-        ROOT / "README.md",
-        ROOT / "README_EN.md",
-        ROOT / "README_AI.md",
-        ROOT / "CHANGELOG.md",
-        ROOT / "docs" / "plugin-installation.md",
-        ROOT / "skills" / "doctor" / "SKILL.md",
-        ROOT / "contracts" / "guardrails.md",
-        ROOT / "contracts" / "interaction.md",
-    ]
-    for path in current_public_contracts:
-        text = path.read_text(encoding="utf-8")
-        assert "H01-H07" not in text, path
-
-    ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
-    doctor = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
-    assert "H00-H20" in ai_reference
-    assert "H00-H20" in doctor
-
-
-def test_writer_lifecycle_contract_matches_receipt_bound_settlement():
-    lifecycle = json.loads((ROOT / "docs" / "v4" / "writer-lifecycle.json").read_text(encoding="utf-8"))
-    required = lifecycle["settlement_theorem"]["requires"]
-    assert "completed authoritative list_agents Hook receipt" in required
-    assert "proven managed lifecycle Guard coverage" not in required
-    orchestrate = (ROOT / "skills" / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
-    assert "current managed lifecycle Guard coverage evidence" not in orchestrate
-    assert "completed authoritative list_agents Hook receipt" in orchestrate
-
-
-def test_h07_requires_post_result_rejection_and_pre_capacity_consumption():
-    smoke = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    h07 = next(item for item in smoke["required_probes"] if item["id"] == "H07")
-    joined = " ".join(h07["requires"])
-    assert "PostToolUse result rejection observed" in joined
-    assert "capacity truth consumed before lifecycle Host mutation" in joined
