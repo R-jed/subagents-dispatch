@@ -7,13 +7,13 @@
 <p align="center"><em>给 Codex 一支靠谱的小队。大任务分头做，小任务别折腾。</em></p>
 
 <p align="center">
-  <a href="README_EN.md">English</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a>
+  <a href="README_EN.md">英文版</a> · <a href="docs/plugin-installation.md">安装</a> · <a href="docs/architecture.md">架构</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.0.0-green.svg" alt="Version">
-  <img src="https://img.shields.io/badge/Codex-Native%20Subagents-111827.svg" alt="Codex Native Subagents">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/version-4.0.0-green.svg" alt="版本">
+  <img src="https://img.shields.io/badge/Codex-Native%20Subagents-111827.svg" alt="Codex 原生子代理">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="许可证"></a>
 </p>
 
 > **如果你是 AI Agent，请跳转到 [README_AI.md](README_AI.md)。**
@@ -46,7 +46,7 @@ Main
 
 最后由 Main 把结果收回来，检查证据，整合代码，再决定任务到底算不算完成。
 
-如果 Main 看两眼就发现这事三分钟能做完，那它自己做。Dispatch 没有“必须多开几个子代理”的业绩指标。
+如果 Main 看两眼就发现这事三分钟能做完，那它自己做。这个项目没有“必须多开几个子代理”的业绩指标。
 
 ## 它适合什么时候用
 
@@ -105,18 +105,18 @@ V4.0.0 先把阵容固定下来，不做动态模型和思考强度切换：
 
 ## 安装
 
-正式发布后，通过 Codex Plugin Marketplace 安装：
+正式发布后，通过 Codex 插件市场安装：
 
 ```bash
 codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-安装完成后启动一个新的 Codex 会话，在 Skill 菜单里选择 **Orchestrate**。
+安装完成后启动一个新的 Codex 会话，在技能菜单里选择 **Orchestrate**。
 
-第一次真正需要子代理时，插件会检查自己的五个固定 Agent 配置。如果这些配置刚刚被创建，当前任务会提示重新启动。开一个新的 Codex 任务，再选一次 Orchestrate 即可。相关辅助功能需要 Python 3.11 或更高版本。
+第一次真正需要子代理时，插件会检查自己的五个固定子代理配置。如果这些配置刚刚被创建，当前任务会提示重新启动。开一个新的 Codex 任务，再选一次 Orchestrate 即可。相关辅助功能需要 Python 3.11 或更高版本。
 
-完整安装说明见 [Plugin Installation](docs/plugin-installation.md)。
+完整说明见 [安装文档](docs/plugin-installation.md)。
 
 更新：
 
@@ -125,7 +125,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-卸载时，先通过 **Doctor** 清理能够确认属于本插件的 Agent 配置，然后再移除插件和 Marketplace：
+卸载时，先通过 **Doctor** 清理能够确认属于本插件的子代理配置，然后再移除插件和插件市场：
 
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
@@ -148,12 +148,12 @@ codex plugin marketplace remove subagents-dispatch
 
 V4.0.0 的仓库实现和离线验证已经推进到发布候选阶段。正式发布前还需要完成真实 Codex 环境里的生命周期验证。
 
-这项验证没过之前，项目不会把发布状态提前写成“已验证”。想看具体工程进度，可以去 [Release Checklist](docs/release-checklist.md) 和 [V4 docs](docs/v4/)。README 到这里就不继续开设计评审会了。
+这项验证没过之前，项目不会把发布状态提前写成“已验证”。想看具体工程进度，可以去 [发布清单](docs/release-checklist.md) 和 [V4 文档](docs/v4/)。README 到这里就不继续开设计评审会了。
 
 想继续往下看技术细节：
 
-[架构](docs/architecture.md) · [安装](docs/plugin-installation.md) · [运行时证据](docs/runtime-attestation.md) · [实验方法](docs/experiment-protocol.md) · [更新记录](CHANGELOG.md) · [AI Reference](README_AI.md)
+[架构](docs/architecture.md) · [安装](docs/plugin-installation.md) · [运行时证据](docs/runtime-attestation.md) · [实验方法](docs/experiment-protocol.md) · [更新记录](CHANGELOG.md) · [AI 参考说明](README_AI.md)
 
-## License
+## 许可证
 
 [MIT](LICENSE)
