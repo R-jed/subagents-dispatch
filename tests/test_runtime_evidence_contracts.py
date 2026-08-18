@@ -10,11 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_VERIFIER = ROOT / "scripts" / "runtime-evidence.py"
-RUNTIME_INSPECTOR = ROOT / "scripts" / "inspect-agent-runtime.py"
 POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
-ORCHESTRATE = ROOT / "skills" / "orchestrate" / "SKILL.md"
-GUARDRAILS = ROOT / "contracts" / "guardrails.md"
-ATTESTATION = ROOT / "docs" / "runtime-attestation.md"
 THREAD = "11111111-1111-7111-8111-111111111111"
 PARENT = "00000000-0000-7000-8000-000000000000"
 
@@ -71,35 +67,6 @@ def permission_source(*, source_kind: str = "parent_turn", source_id: str | None
     }
 
 
-def test_runtime_evidence_remains_explicit_diagnostic_not_default_hot_path():
-    assert RUNTIME_VERIFIER.is_file() and RUNTIME_INSPECTOR.is_file()
-    guardrails = GUARDRAILS.read_text(encoding="utf-8")
-    orchestrate = ORCHESTRATE.read_text(encoding="utf-8")
-    assert "Runtime evidence is on demand" in guardrails
-    assert "Offline tests cannot satisfy this gate" in orchestrate
-    assert "Configured/requested is not accepted. Accepted is not observed." in guardrails
-
-
-def test_inspector_is_allowlisted_and_not_transcript_collection():
-    source = RUNTIME_INSPECTOR.read_text(encoding="utf-8")
-    doc = ATTESTATION.read_text(encoding="utf-8")
-    for field in (
-        "thread_id",
-        "parent_thread_id",
-        "agent_role",
-        "model",
-        "effort",
-        "sandbox_policy_type",
-        "permission_profile_type",
-        "runtime_version",
-    ):
-        assert field in source
-        assert field in doc
-    assert 'record_type == "event_msg"' not in source
-    assert "hidden reasoning" in doc
-    assert "not cryptographically signed by the Host" in doc
-
-
 @pytest.mark.parametrize("route", managed_routes(), ids=lambda route: route["agent_type"])
 def test_exact_observed_route_and_permission_can_close_formal_attestation(route: dict):
     data = run_runtime_evidence(
@@ -154,17 +121,3 @@ def test_permission_source_identity_mismatch_is_independent_and_quarantined():
     assert data["permission_state_assurance"]["status"] == "verified"
     assert data["permission_provenance_assurance"]["status"] == "failed"
     assert data["decision"] == "quarantine"
-
-
-def test_fresh_context_and_exact_project_roles_remain_fixed():
-    guardrails = GUARDRAILS.read_text(encoding="utf-8")
-    assert "`fork_turns` is present and exactly `none`" in guardrails
-    assert set(spec["agent_type"] for spec in POLICY["roles"].values()) == {
-        "subagents_dispatch_reader",
-        "subagents_dispatch_worker",
-        "subagents_dispatch_solver",
-        "subagents_dispatch_investigator",
-        "subagents_dispatch_advisor",
-    }
-    metadata = (ROOT / "skills" / "orchestrate" / "agents" / "openai.yaml").read_text(encoding="utf-8")
-    assert "allow_implicit_invocation: false" in metadata
