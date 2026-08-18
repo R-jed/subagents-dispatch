@@ -20,7 +20,7 @@
 
 V4 把公开入口收敛为两个 Skill：**Orchestrate** 和 **Doctor**。Orchestrate 负责规划、执行、状态、纠正、继续、取消、接管、复核和整合。Doctor 负责安装、固定 profile、V4 state、WriterLease、PendingControl、Host 能力、Hook 证据与发布就绪诊断。
 
-当前分支已经完成 V4 仓库实现与离线验证工作。真实 Codex Host 的 H01 到 H07 lifecycle Hook smoke 仍是发布门。没有真机证据时，项目不会把这项状态标成通过，也不会启用需要该证据才能成立的生产三面 Hook。
+当前分支已经完成 V4 仓库实现与离线验证工作。真实 Codex Host 的 H00 到 H20 lifecycle Hook smoke 仍是发布门。没有真机证据时，项目不会把这项状态标成通过，也不会启用需要该证据才能成立的生产三面 Hook。
 
 ## 安装
 
@@ -88,13 +88,15 @@ UNKNOWN 保持 fail closed
 
 运行态分离 WorkUnit 真值、ExecutionBinding、`control_epoch`、PendingControl 和 WriterLease。WriterLease 使用 `RESERVED / HELD / REVOKING / UNKNOWN / RELEASED`。PendingControl 使用 `PREPARED / IN_FLIGHT / ACKED / UNKNOWN / CANCELLED`。旧 Host observation 只有在 execution、control epoch 和 lease epoch 都仍匹配时才能生效。
 
-同一个 child 可以做有界 correction 或 `CONTINUE`。correction 不消耗 fresh Agent attempt，但有单独预算。`CONTINUE` 不消耗 correction budget。中断调用成功本身不能释放 WriterLease，接管还需要当前代际的 fresh Host settlement evidence。
+同一个 child 可以做有界 correction 或 `CONTINUE`。correction 不消耗 fresh Agent attempt，但有单独预算。`CONTINUE` 不消耗 correction budget。中断调用成功本身不能释放 WriterLease，接管还需要当前代际的 fresh Host settlement evidence、完整的权威 `list_agents` Hook receipt，并且不能存在未解决 PendingControl。
 
 V3.x `active.json` 只作为 legacy migration evidence。未解决的 V3.x ownership、active writer、pending takeover 或 corrupt state 不会被静默迁移到 V4。
 
 ## Host Hook 发布门
 
-V4 的 staged lifecycle Hook 位于 `docs/v4/hooks.json`。正式激活需要 `docs/v4/host-smoke.json` 的 H01 到 H07 真机证据，覆盖 `spawn_agent`、`followup_task`、`interrupt_agent` 的 Pre/Post Hook、`tool_use_id` 一致性、`SubagentStop` veto、child sibling control 阻断，以及缺失 PostToolUse 时的 fail-closed 行为。
+V4 的 staged lifecycle Hook 位于 `docs/v4/hooks.json`。正式激活需要 `docs/v4/host-smoke.json` 的 H00 到 H20 真机证据。该门覆盖 Hook trust/activation、生命周期 Pre/Post pairing、`SubagentStop` veto、固定 profile 与 fresh-context 行为、根级未过滤 `list_agents` 容量真值、重复/延迟/乱序事件、候选绑定、混合 managed/unmanaged Host occupancy，以及 Windows effective-path aliases。
+
+H07 还要求生命周期 Host mutation 发生前已经消费旧容量真值；Post 失败或歧义时必须通过 Host 支持的结果拒绝语义保持 fail closed。`PostToolUse` 的 `continue:false` 不作为 turn-stop 证明，managed child 的停止/续跑边界由 `SubagentStop` 验证。
 
 离线 CI、插件校验和源码审查不能替代这项 Host 证据。Doctor 的 `--release-check` 会在该门仍待验证时返回非零。
 
@@ -124,7 +126,7 @@ Configured
 ├── .agents/plugins/          # Marketplace registration
 ├── .codex-plugin/            # Plugin manifest + integrity manifest
 ├── agent-profiles/           # five fixed managed profiles
-├── contracts/                # hardened V3.x contracts retained as compatibility/reference owners
+├── contracts/                # runtime contracts and compatibility/reference owners
 ├── docs/
 │   └── v4/                   # frozen V4 architecture, Host smoke and phase evidence
 ├── hooks/                    # current production Hook manifest and launchers
