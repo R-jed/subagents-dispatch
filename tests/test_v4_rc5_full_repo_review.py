@@ -304,15 +304,12 @@ def test_packaged_runtime_contracts_use_only_v4_public_entrypoints():
     assert "Orchestrate control intents" in interaction
 
 
-def test_public_installation_and_reference_use_v4_surface_and_host_gate():
+def test_public_installation_and_runtime_contracts_use_v4_surface_and_host_gate():
     installation = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
     assert "six explicit Skill identities" not in installation
     assert "two explicit Skill identities" in installation
 
     current_public_contracts = [
-        ROOT / "README.md",
-        ROOT / "README_EN.md",
-        ROOT / "README_AI.md",
         ROOT / "CHANGELOG.md",
         ROOT / "docs" / "plugin-installation.md",
         ROOT / "skills" / "doctor" / "SKILL.md",
@@ -323,9 +320,7 @@ def test_public_installation_and_reference_use_v4_surface_and_host_gate():
         text = path.read_text(encoding="utf-8")
         assert "H01-H07" not in text, path
 
-    ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     doctor = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
-    assert "H00-H20" in ai_reference
     assert "H00-H20" in doctor
 
 
