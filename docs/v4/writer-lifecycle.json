@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-writer-lifecycle-1",
+  "schema_version": "4.0.0-writer-lifecycle-2",
   "writer_lease": {
     "scope": "canonical_workspace",
     "states": ["RESERVED", "HELD", "REVOKING", "UNKNOWN", "RELEASED"],
@@ -17,7 +17,7 @@
       "matching control_epoch",
       "matching lease_epoch",
       "no unresolved PendingControl",
-      "proven managed lifecycle Guard coverage"
+      "completed authoritative list_agents Hook receipt"
     ],
     "interrupt_ack_alone_releases_writer": false
   },
@@ -32,6 +32,7 @@
       "WriterLease REVOKING",
       "interrupt PendingControl ACK",
       "fresh current-epoch Host observation",
+      "completed authoritative list_agents Hook receipt",
       "execution INTERRUPTED",
       "atomic WriterLease transfer to Main"
     ],
