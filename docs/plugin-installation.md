@@ -153,4 +153,4 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
-The packaged Hook is part of the Plugin tree and disappears with the Plugin package. Supported removal commands must leave unrelated Codex configuration and unrelated Agent profiles unchanged.
+The supported Plugin and Marketplace removal commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. They must leave unrelated configuration semantics and unrelated Agent profiles unchanged. The packaged Hook is part of the Plugin tree and disappears with the Plugin package.
