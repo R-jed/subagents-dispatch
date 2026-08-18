@@ -55,7 +55,7 @@ scripts/orchestration_guard.py
 -> staged V4 lifecycle Guard implementation
 
 docs/v4/host-smoke.json
--> H01-H07 real Host release gate
+-> H00-H20 real Host release gate
 ```
 
 ## Fixed profiles
@@ -103,7 +103,7 @@ interrupt ACK alone cannot release WriterLease
 stale execution/control/lease observations are discarded
 ```
 
-The production `hooks/hooks.json` remains the hardened V3.x spawn boundary until H01-H07 pass. `docs/v4/hooks.json` is staged configuration only. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
+The production `hooks/hooks.json` remains the hardened V3.x spawn boundary until H00-H20 pass against the exact promoted candidate. `docs/v4/hooks.json` is staged configuration only. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
 
 Each `skills/<id>/SKILL.md` is a thin explicit adapter. `policy.allow_implicit_invocation` is false for both public Skills.
 
