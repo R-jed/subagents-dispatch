@@ -19,6 +19,8 @@ Main always owns the user goal, scope, integration, WorkUnit acceptance, and fin
 
 Before the first child spawn, require the exact selected managed profile and never substitute a generic Agent type. When a required profile is cleanly absent, use the bounded plugin-owned provisioning path and return `RESTART_REQUIRED` for that task. Current V4 has no authoritative in-task registry observation that can prove a newly written custom-Agent profile became selectable in the already-running task, so it does not probe by attempting a speculative spawn. The fresh task must use the exact managed `agent_type`; if the Host cannot expose or honor that selector, report the Host limitation and stop.
 
+Delegated execution also requires the installed Host/Hook surface to satisfy the lifecycle capabilities needed by the selected operation. A missing or `UNKNOWN` required capability stops delegated execution. Local or staged configuration alone does not prove that the current Host discovered, trusted, or executed the required lifecycle Hook.
+
 Plan, status, steer, takeover, cancel, continue, correction, execution, review, and integration semantics are owned by `../../contracts/interaction.md`, `../../contracts/recovery.md`, `../../contracts/team-plan.md`, and `../../contracts/final-review.md`. Use those contracts rather than reproducing their state machines in the Skill prompt.
 
 A V3.x orchestration capsule is legacy evidence. Do not silently enroll it into V4. Surface legacy blockers through `Doctor`; plan-only remains available because it creates no runtime state.
