@@ -86,7 +86,7 @@ Do not claim cross-session locking unless a real mechanism has been observed and
 
 Explicit user selection/invocation of the Orchestrate Skill authorizes adaptive delegation for the requested task under the user's existing scope and permissions.
 
-Project policy does not impose an ordinary numeric child ceiling. The main session may use as many simultaneously useful children as the task genuinely supports and the native runtime allows, provided every child has a distinct ready responsibility and the overall orchestration remains within the ordinary compute shape implied by the task.
+Routing does not map task size to a target child count. V4 execution remains bounded by the scheduler's initial two-child and product three-child ceilings, plus any lower current Host capacity. Within those ceilings, Main selects only simultaneously useful children with distinct ready responsibilities and keeps the overall orchestration within the ordinary compute shape implied by the task.
 
 This freedom is not a target. Delegation is optional and value-driven. There is no minimum Subagent count, so zero children is a valid derived outcome when no responsibility gains enough distinct value from delegation. Native capacity is a ceiling, never a reason to fill slots.
 
