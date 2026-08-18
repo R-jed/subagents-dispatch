@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -117,7 +118,7 @@ def test_default_doctor_does_not_create_missing_codex_home(tmp_path: Path):
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "[WARN] Managed Agents:" in result.stdout
-    assert "Overall: DEGRADED" in result.stdout
+    assert "Health: DEGRADED" in result.stdout
     assert not home.exists()
 
 
@@ -131,7 +132,7 @@ def test_modified_owned_profile_blocks_doctor_end_to_end(tmp_path: Path):
 
     assert result.returncode != 0
     assert "[FAIL] Managed Agents: managed Agent profile ownership or filesystem safety check failed" in result.stdout
-    assert "Overall: BLOCKED" in result.stdout
+    assert "Health: BLOCKED" in result.stdout
     assert profile.read_bytes().endswith(b"# adversarial user change\n")
 
 
@@ -193,6 +194,38 @@ def test_valid_local_lifecycle_hooks_without_host_snapshot_remain_unknown(monkey
     assert result["details"]["hook_mode"] == "lifecycle"
     assert result["details"]["host_evidence_supplied"] is False
     assert result["details"]["missing_events"] == []
+
+
+def test_missing_host_observation_changes_verification_without_degrading_health(monkeypatch, tmp_path: Path):
+    doctor = load_doctor_core("doctor_adversarial_health_axes")
+    hooks = tmp_path / "hooks.json"
+    hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
+    monkeypatch.setattr(doctor, "HOOKS", hooks)
+    monkeypatch.setattr(
+        doctor,
+        "diagnose_plugin_package",
+        lambda: doctor.layer("Plugin package", "OK", "ok"),
+    )
+    monkeypatch.setattr(
+        doctor,
+        "diagnose_managed_agents",
+        lambda _home: doctor.layer("Managed Agents", "OK", "ok"),
+    )
+    monkeypatch.setattr(
+        doctor,
+        "diagnose_state",
+        lambda _temp, _thread, _home: (
+            doctor.layer("Orchestration state", "OK", "ok"),
+            doctor.layer("Legacy compatibility", "OK", "ok"),
+        ),
+    )
+    args = SimpleNamespace(thread_id="thread", temp_root=tmp_path, host_evidence=None)
+
+    result = doctor.diagnose(args, tmp_path)
+
+    assert result["status"] == "HEALTHY"
+    assert result["verification"] == "UNVERIFIED"
+    assert result["healthy"] is True
 
 
 def test_wrong_lifecycle_hook_command_fails_closed(monkeypatch, tmp_path: Path):
