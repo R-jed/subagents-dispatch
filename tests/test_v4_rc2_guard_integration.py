@@ -79,6 +79,21 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
         "owner_id": "exec-1",
         "state": "RESERVED",
     }
+    payload["accounting_refs"].append(
+        {
+            "ref": "host-capacity-observation:capacity-rc2",
+            "kind": state.HOST_CAPACITY_OBSERVATION_KIND,
+            "source": "post_tool_use:list_agents",
+            "turn_id": "turn-capacity-rc2",
+            "tool_use_id": "capacity-rc2",
+            "resident_children": 0,
+            "settled_children": 0,
+            "active_children": 0,
+            "managed_resident_children": 0,
+            "unmanaged_resident_children": 0,
+            "response_digest": "a" * 64,
+        }
+    )
     state.write_state(payload, temp_root=tmp_path)
 
     current = state.load_state("thread-guard", temp_root=tmp_path)
