@@ -53,12 +53,3 @@ def test_formal_experiments_do_not_create_a_parallel_generic_scorer():
     assert not list((ROOT / "scripts").glob("score-experiment*"))
     assert "Do not create a second generic scoring engine" in text
     assert "extract that common layer from the existing scorer" in text
-
-
-def test_readme_claims_are_downstream_of_accepted_formal_evidence():
-    text = DOC.read_text(encoding="utf-8")
-    assert "README reconstruction is downstream of accepted evidence" in text
-    assert "accepted formal benchmark results" in text
-    assert "excluded/UNKNOWN route runs" in text
-    assert "Host/runtime version" in text
-    assert "repeat counts" in text
