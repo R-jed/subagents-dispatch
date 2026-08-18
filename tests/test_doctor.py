@@ -77,18 +77,20 @@ def test_doctor_reports_product_layers_and_keeps_pre_cutover_hook_gap_degraded(t
     assert "[OK] Managed Agents: 5/5 managed Agent profiles are installed exactly" in result.stdout
     assert "[WARN] Host integration:" in result.stdout
     assert "[OK] Orchestration state: no thread-scoped orchestration state is active" in result.stdout
-    assert "Overall: DEGRADED" in result.stdout
+    assert "Health: DEGRADED" in result.stdout
+    assert "Verification: VERIFIED" in result.stdout
 
 
-def test_doctor_json_contains_only_product_health_contract(tmp_path: Path):
+def test_doctor_json_separates_health_from_verification_completeness(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--json", "--check")
     assert result.returncode == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
-    assert payload["schema_version"] == 5
+    assert payload["schema_version"] == 6
     assert payload["healthy"] is True
     assert payload["status"] == "DEGRADED"
+    assert payload["verification"] == "VERIFIED"
     assert [item["name"] for item in payload["layers"]] == [
         "Plugin package",
         "Managed Agents",
@@ -141,7 +143,7 @@ def test_unresolved_v3_state_blocks_plugin_health_and_is_not_silently_migrated(t
     assert result.returncode != 0
     assert "[FAIL] Orchestration state: unresolved legacy orchestration state blocks managed execution" in result.stdout
     assert "[FAIL] Legacy compatibility: legacy orchestration state will not be silently migrated" in result.stdout
-    assert "Overall: BLOCKED" in result.stdout
+    assert "Health: BLOCKED" in result.stdout
 
 
 def test_corrupt_state_fails_closed_without_traceback(tmp_path: Path):
@@ -154,7 +156,7 @@ def test_corrupt_state_fails_closed_without_traceback(tmp_path: Path):
     result = run_doctor(home, tmp_path, "--check")
     assert result.returncode != 0
     assert "[FAIL] Orchestration state: thread state is unsafe or corrupt" in result.stdout
-    assert "Overall: BLOCKED" in result.stdout
+    assert "Health: BLOCKED" in result.stdout
     assert "Traceback" not in result.stdout + result.stderr
 
 
