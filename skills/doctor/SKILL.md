@@ -1,42 +1,45 @@
 ---
 name: doctor
-description: Diagnose the V4 package, two-Skill public surface, fixed profiles, state, Work Graph, WriterLease, PendingControl, Host capabilities, Hook evidence, and release readiness.
+description: Diagnose and explicitly maintain the installed subagents-dispatch Plugin, managed Agent profiles, Host integration, orchestration state, and legacy compatibility.
 ---
 
 # Doctor
 
-Diagnosis is read-only by default. Run `../../scripts/doctor.py --check` as the deterministic diagnostic owner and show its user-facing output verbatim. Do not rewrite statuses, hide `UNKNOWN`, or claim release readiness when the Host smoke gate is pending.
+Use `../../scripts/doctor.py --check` as the deterministic diagnostic owner and display its user-facing output verbatim. Do not reinterpret statuses or hide `UNKNOWN`.
 
-Before the report starts, `../../scripts/package_integrity.py` verifies the shipped runtime package against `.codex-plugin/package-integrity.json`. A bootstrap integrity failure terminates diagnosis safely.
+Normal diagnosis is read-only and offline. It must not refresh the Marketplace, install or remove profiles, change Hook trust, mutate orchestration state, spawn children, or modify unrelated Codex configuration.
 
-The V4 report has exactly eleven layers, in this order:
+Before diagnostics start, `../../scripts/doctor.py` verifies the shipped runtime package against `.codex-plugin/package-integrity.json`. An integrity failure stops safely.
+
+The user-facing report has five layers:
 
 ```text
-Plugin
-Public Skills
-Fixed execution profiles
-V4 state
-Legacy V3.x state
-Work Graph
-WriterLease
-PendingControl
-Host capabilities
-Lifecycle Hook coverage
-Release readiness
+Plugin package
+Managed Agents
+Host integration
+Orchestration state
+Legacy compatibility
 ```
 
-Public Skills must resolve to exactly `Orchestrate` and `Doctor`. Fixed execution profiles are Luna Max, Terra High, and Sol High; dynamic reasoning-effort routing is outside V4.0.0.
+`Plugin package` verifies the executing package identity and the exact two-Skill public surface. `Managed Agents` verifies the five fixed Reader, Worker, Investigator, Solver, and Advisor profiles and whether the active Codex home has the owned profiles installed exactly.
 
-Treat V4 state as thread-scoped, bounded and fail-closed. A valid legacy V3.x capsule is migration evidence only. Never silently rewrite or enroll it into V4. Unresolved V3.x ownership, active writers, pending takeover, corrupt state, `WriterLease.UNKNOWN`, or unresolved `PendingControl.UNKNOWN` must remain visible.
+`Host integration` checks the installed production lifecycle Hook configuration. When explicit Host capability evidence is available it may verify the current Host surface through `../../scripts/host_capabilities.py`. Missing live Host evidence remains `UNKNOWN`. Local Hook configuration never impersonates observed Host behavior.
 
-Host capability evidence is explicit input. Missing Host evidence stays `UNKNOWN`. Packaged `docs/v4/hooks.json` proves only the staged V4 Hook configuration. It does not prove Host discovery, Hook trust, `PreToolUse`/`PostToolUse` coverage, `SubagentStop` veto behavior, or `tool_use_id` continuity.
+`Orchestration state` diagnoses the current thread-scoped V4 state. `WriterLease.UNKNOWN`, `PendingControl.UNKNOWN`, unknown execution lifecycle, corrupt state, or unresolved legacy active ownership remain fail closed. Ordinary in-flight controls may be reported as `WARN` without being rewritten.
 
-Use `../../scripts/doctor.py --release-check` only when evaluating a V4.0.0 release candidate. This must exit non-zero while `../../docs/v4/host-smoke.json` is pending. Offline CI cannot promote the real Host gate to PASS.
+`Legacy compatibility` reports legacy managed-profile and V3 orchestration state separately. Doctor never silently migrates active or ambiguous legacy state into V4.
 
-Use deterministic owners rather than reproducing their logic: `../../contracts/policy.json`, `../../scripts/dispatch_state_v4.py`, `../../scripts/work_graph_v4.py`, `../../scripts/writer_lease_v4.py`, `../../scripts/dispatch_control_v4.py`, `../../scripts/host_capabilities.py`, `../../scripts/orchestration_guard.py`, `../../scripts/install-agents.py`, `../../scripts/uninstall-agents.py`, and `../../docs/v4/host-smoke.json`.
+Use explicit maintenance actions only when the user asks for them:
 
-Only explicit user intent may run lifecycle mutations. `--repair` may reconcile the five managed profiles. `--migrate-legacy` applies only to proven-owned legacy managed-profile installation state. It never migrates a live V3.x orchestration capsule. `--cleanup-stale` may remove only stale terminal legacy state through the hardened compatibility helper; active or corrupt state remains fail closed.
+- repair owned managed Agent profiles;
+- migrate only proven-owned legacy managed-profile installation state;
+- clean only stale terminal legacy orchestration state;
+- uninstall only profiles proven owned by the Plugin;
+- check for Plugin updates through `../../scripts/check-plugin-update.py`;
+- update the Plugin through the package-integrity-protected `../../scripts/doctor.py --update` path.
 
-Experiment Plane remains separate from the eleven production layers. Existing explicit runtime attestation remains available through `../../scripts/runtime-evidence.py`: a formal live-route check requires `requires_permission_observation=true`, preserves permission-source provenance separately, and streams exactly one rollout when the caller explicitly supplies that evidence. The verifier enforces bounded total-rollout and per-line input limits. Oversized rollout input fails closed. These compatibility checks never satisfy the H00-H20 Host-smoke gate.
+A maintenance action must use the existing ownership-aware helper and then rerun the same deterministic Doctor diagnostics. Do not replace a refused ownership check with manual deletion, wildcard cleanup, or unrelated configuration edits.
 
-Update checking is an explicit network/cache-refresh operation. Ordinary diagnosis never refreshes the Marketplace during ordinary diagnosis. Use `../../scripts/check-plugin-update.py` to check availability. Availability checking must not install anything and must not run `codex plugin add`. Use `../../scripts/plugin_update.py` only through the package-integrity-protected `../../scripts/doctor.py --update` path for an explicit update. Never edit Hook trust or Host configuration to make Doctor green.
+Runtime attestation remains a separate compatibility tool outside Doctor. Its dedicated verifier streams exactly one rollout, enforces bounded total-rollout and per-line input limits, and Oversized rollout input fails closed. Doctor does not expose or execute that workflow.
+
+Repository publication checks, candidate evidence, CI state, benchmark/calibration campaigns, and other maintainer workflows are outside the Doctor Skill. Use their dedicated repository tools instead.

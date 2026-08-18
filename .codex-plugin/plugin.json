@@ -11,7 +11,7 @@
   "interface": {
     "displayName": "subagents-dispatch",
     "shortDescription": "Bounded Main-led Subagent orchestration and diagnostics.",
-    "longDescription": "subagents-dispatch V4 exposes two explicit Skills. Orchestrate plans, executes, observes, corrects, resumes, takes over, verifies, and integrates bounded Subagent work through the V4 Work Graph, PendingControl, and WriterLease model. Doctor validates package integrity, the fixed Luna Max / Terra High / Sol High profiles, V4 state, legacy-state isolation, Host capability evidence, staged lifecycle Hooks, and release readiness.",
+    "longDescription": "subagents-dispatch V4 exposes two explicit Skills. Orchestrate plans, executes, observes, corrects, resumes, takes over, verifies, and integrates bounded Subagent work through the V4 Work Graph, PendingControl, and WriterLease model. Doctor diagnoses the installed Plugin package, managed Agent profiles, Host integration, orchestration state, and legacy compatibility, with explicit ownership-aware maintenance only when requested.",
     "developerName": "R-jed",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
@@ -24,7 +24,7 @@
     "screenshots": [],
     "defaultPrompt": [
       "Use the Orchestrate skill to complete this task with bounded delegation only where it adds value.",
-      "Use the Doctor skill to diagnose this subagents-dispatch installation and V4 release readiness."
+      "Use the Doctor skill to diagnose this subagents-dispatch installation and configuration."
     ]
   }
 }

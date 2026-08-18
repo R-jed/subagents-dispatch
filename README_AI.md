@@ -20,7 +20,7 @@ The V4 public surface contains exactly two explicit Skills:
 | Skill id | Display label | Responsibility |
 | --- | --- | --- |
 | `orchestrate` | Orchestrate | plan-only, execute, inspect, correct, continue, cancel, take over, review, and integrate |
-| `doctor` | Doctor | diagnose package, fixed profiles, V4 state, Host capabilities, Hook evidence, and release readiness |
+| `doctor` | Doctor | diagnose and explicitly maintain the installed Plugin, managed profiles, Host integration, orchestration state, and legacy compatibility |
 
 Do not invent a Codex App slash-command string from repository identifiers. Exact App labels and presentation are Host/UI facts requiring direct observation.
 
