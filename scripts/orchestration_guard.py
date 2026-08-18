@@ -133,6 +133,19 @@ def _prepare_host_observation(
     return None
 
 
+def _invalidate_capacity_before_lifecycle(
+    session_id: str,
+    *,
+    temp_root: str | os.PathLike[str] | None,
+) -> dict[str, Any] | None:
+    """Consume prior occupancy truth before any lifecycle call crosses the Host boundary."""
+    try:
+        host_evidence.invalidate_host_capacity_observation(session_id, temp_root=temp_root)
+    except Exception:
+        return _block("Host capacity truth could not be consumed safely before lifecycle mutation")
+    return None
+
+
 def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     *,
@@ -157,6 +170,11 @@ def evaluate_pre_tool_use(
     tool_input = _tool_input(payload)
     session_id = _session_id(payload)
     family, current = _load_family(session_id, temp_root=temp_root)
+
+    if family == "v4":
+        capacity_block = _invalidate_capacity_before_lifecycle(session_id, temp_root=temp_root)
+        if capacity_block is not None:
+            return capacity_block
 
     if tool_name == "spawn_agent" and _is_managed_agent_type(tool_input.get("agent_type")):
         if family == "v3" or family == "none":
@@ -197,9 +215,9 @@ def _evaluate_host_observation(
     try:
         host_evidence.ingest_list_agents_post_tool_use(payload, temp_root=temp_root)
     except host_evidence.HostEvidenceError:
-        return _stop("Host lifecycle observation is invalid or unbound; execution stopped")
+        return _block("Host lifecycle observation is invalid or unbound; tool result rejected")
     except Exception:
-        return _stop("Host lifecycle observation could not be persisted safely; execution stopped")
+        return _block("Host lifecycle observation could not be persisted safely; tool result rejected")
     return None
 
 
@@ -211,7 +229,7 @@ def _invalidate_capacity(
     try:
         host_evidence.invalidate_host_capacity_observation(session_id, temp_root=temp_root)
     except Exception:
-        return _stop("Host capacity truth could not be invalidated safely; execution stopped")
+        return _block("Host capacity truth could not be invalidated safely; tool result rejected")
     return None
 
 
@@ -232,7 +250,7 @@ def evaluate_post_tool_use(
     if tool_name not in LIFECYCLE_TOOLS:
         return None
     if _is_managed_agent_type(payload.get("agent_type")):
-        return _stop("managed child lifecycle call reached PostToolUse unexpectedly")
+        return _block("managed child lifecycle call reached PostToolUse unexpectedly")
 
     session_id = _session_id(payload)
     family, current = _load_family(session_id, temp_root=temp_root)
@@ -271,7 +289,9 @@ def evaluate_post_tool_use(
                 )
             except Exception:
                 pass
-        return _stop("managed lifecycle acknowledgement is ambiguous; control quarantined")
+        return _block(
+            "managed lifecycle acknowledgement is ambiguous; control quarantined and tool result rejected"
+        )
     return _invalidate_capacity(session_id, temp_root=temp_root)
 
 
@@ -309,6 +329,10 @@ def _pre_fail_closed(message: str) -> None:
     raise SystemExit(BLOCKING_EXIT_CODE)
 
 
+def _post_fail_closed(message: str) -> None:
+    _emit_and_exit(_block(message))
+
+
 def _stop_fail_closed(message: str) -> None:
     _emit_and_exit(_stop(message))
 
@@ -328,8 +352,13 @@ def main() -> None:
     try:
         result = evaluate_hook(payload, temp_root=_runtime_temp_root())
     except Exception:
-        if event in {POST_TOOL_USE, SUBAGENT_STOP}:
-            _stop_fail_closed("subagents-dispatch orchestration guard unavailable; execution stopped")
+        if event == POST_TOOL_USE:
+            _post_fail_closed(
+                "subagents-dispatch orchestration guard unavailable; tool result rejected"
+            )
+            return
+        if event == SUBAGENT_STOP:
+            _stop_fail_closed("subagents-dispatch orchestration guard unavailable; child stopped")
             return
         _pre_fail_closed("subagents-dispatch orchestration guard unavailable; lifecycle call blocked")
         return
