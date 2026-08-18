@@ -209,7 +209,7 @@ def test_wrong_lifecycle_hook_command_fails_closed(monkeypatch, tmp_path: Path):
     assert any("command binding" in item for item in result["details"]["hook_errors"])
 
 
-def test_supplied_host_snapshot_is_not_promoted_to_fresh_current_host_truth(monkeypatch, tmp_path: Path):
+def test_supplied_unbound_host_snapshot_remains_unknown(monkeypatch, tmp_path: Path):
     doctor = load_doctor_core("doctor_adversarial_host_snapshot_provenance")
     hooks = tmp_path / "hooks.json"
     hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
@@ -219,11 +219,11 @@ def test_supplied_host_snapshot_is_not_promoted_to_fresh_current_host_truth(monk
 
     result = doctor.diagnose_host_integration(evidence)
 
-    assert result["status"] == "OK"
+    assert result["status"] == "UNKNOWN"
+    assert result["details"]["capability_compatible"] is True
     assert result["details"]["host_evidence_supplied"] is True
     assert result["details"]["host_evidence_freshness_verified"] is False
     assert result["details"]["host_evidence_source"] == str(evidence)
-    assert "current Host" not in result["summary"]
 
 
 def test_invalid_explicit_host_evidence_fails_closed_with_valid_local_hooks(monkeypatch, tmp_path: Path):
