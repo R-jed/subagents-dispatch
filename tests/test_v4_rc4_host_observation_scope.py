@@ -132,7 +132,8 @@ def test_post_tool_input_must_match_pre_binding(tmp_path: Path):
     result = guard.evaluate_post_tool_use(post, temp_root=tmp_path)
 
     assert result is not None
-    assert result["continue"] is False
+    assert result["decision"] == "block"
+    assert "continue" not in result
     current = state.load_state(thread_id, temp_root=tmp_path)
     assert current is not None
     assert not any(
