@@ -35,7 +35,7 @@
     "scripts/dispatch_state_v4_core.py": "4a4592b76c62330b578b55e8db7dd43ef6d8ae4549a05319b0878f9e288d946e",
     "scripts/doctor.py": "e4f9032e63f65c89f43a500454ebef88a855452dd8ee5e786fc0f03188fbf51c",
     "scripts/doctor_core.py": "bf2e0b2c7da1f59fcdbda69b4d29ea5def9f08a40cfd2b1cdff01b86b86df931",
-    "scripts/doctor_runtime.py": "af2b87e68b7321acc8a8a17c36ba4e6fdae897b2bd30a5cc8c60b617ced46497",
+    "scripts/doctor_runtime.py": "111575747328b9350f3dde0d35d1720ba3d68ef54c003324fa6ad82032be86bf",
     "scripts/doctor_runtime_core.py": "0e7aabe928923a772dfad10b34d735dc23f3e38c23f82b6e7e409837e9876bc5",
     "scripts/execution_lifecycle_v4.py": "2dd4ce03ada1155316353b87bdadddba9dee87adb6d4b4ae3c81225f3eb40bfa",
     "scripts/execution_lifecycle_v4_core.py": "a42ef74682dfc49d4a98f05cf43386ea75324f51781f9262f5fdf7ddd431f141",
@@ -65,7 +65,7 @@
     "scripts/work_graph_v4.py": "b3303a76ece3e5252308f174ba2d5eca91700f4b0fb6e54c9a30e72d6864c80d",
     "scripts/writer_lease_v4.py": "895566d725dc92ef1c6570c5f6a9c55a18b87cfdb941522dfcf6bb0a036178ac",
     "scripts/writer_lease_v4_core.py": "215ebf34cd225968a7658c39cac9eb8723db45d1160b87f859a0540aec7c8235",
-    "skills/doctor/SKILL.md": "5a505866d116bb69b68bf1e2841a82e3314cdf99c94a5e66b3ecf9d8707b0441",
+    "skills/doctor/SKILL.md": "b27795b414dc4b5f1111189dea8c71209737f5cc0468deec5ebad98f75b38902",
     "skills/doctor/agents/openai.yaml": "0811c7d17fec437db183f4bf2b40596e20aa038447da82195cd08c71c6e93b3b",
     "skills/orchestrate/SKILL.md": "c9706945b3685168440accc435332729cba8031b365334c72b8fcd45ec797d3a",
     "skills/orchestrate/agents/openai.yaml": "5208099f78cbda15f0cd11e66d7812d5881edd1b1a422f2061ed8ba2899c03ee"
