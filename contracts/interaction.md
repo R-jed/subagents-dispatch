@@ -1,25 +1,28 @@
 # Interaction Control
 
-This file owns the user-visible control semantics for an active Dispatch workflow. It defines Preview, Status, Steer, Takeover, and the Dispatch Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Orchestrate workflow. It defines plan-only Preview, Status, Steer, Takeover, cancel, continue, correction, and the Dispatch Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
 `routing.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
 
-The stable interaction Skill ids are `preview`, `status`, `steer`, and `takeover`, with corresponding display names Preview, Status, Steer, and Takeover under the subagents-dispatch Plugin. This contract defines their inputs after explicit selection/invocation; it does not invent the exact slash entry rendered by a particular Codex App build.
+Orchestrate control intents include Preview, Status, Steer, Takeover, cancel, continue, and correction. Preview, Status, Steer, and Takeover are conceptual control names in this contract, not public Skill ids. `Orchestrate` is the single public orchestration Skill; `Doctor` is the only other public Skill. This contract defines conceptual control inputs after explicit Orchestrate selection/invocation and does not invent the exact slash entry rendered by a particular Codex App build.
 
 ## Control intents
 
-The explicit interaction Skills accept these conceptual inputs:
+The Orchestrate control intents accept these conceptual inputs:
 
 ```text
 Preview: <task>
 Status: optional <unit_id> zoom
 Steer: optional <unit_id> plus <guidance>
 Takeover: optional <unit_id> plus optional <guidance>
+Cancel: optional <unit_id>
+Continue: optional <unit_id> plus optional <guidance>
+Correction: optional <unit_id> plus <guidance>
 ```
 
 An explicit unit id resolves by exact match only. Without an explicit id, exactly one eligible unit auto-resolves; zero eligible units reports none, and multiple eligible units return the eligible unit ids as candidates and require a user choice. Never guess from recency, prose similarity, an unrelated session, or an ineligible unit. When one lightweight delegated responsibility exists without TeamPlan, Main still gives it a stable unit id and may surface that id in Status output.
 
-If there is no current dispatch state in the conversation, Status reports that there are no current delegated responsibilities. Steer and Takeover stop with an exact target-not-found/current-state-unavailable message. They do not reconstruct an old task from memory, invent an Agent id, or search unrelated sessions to guess the target.
+If there is no current V4 orchestration state in the conversation, Status reports that there are no current delegated responsibilities. Steer, Takeover, Cancel, Continue, and Correction stop with an exact target-not-found/current-state-unavailable message when they require an active target. They do not reconstruct an old task from memory, invent an Agent id, or search unrelated sessions to guess the target.
 
 Control intents never widen the original user scope, permissions, mutation authority, external-impact authorization, or quality gates.
 
@@ -134,11 +137,11 @@ acceptance
 external impact
 ```
 
-If the requested guidance would materially change one of those facts, do not label it steering. Return the change to Main and use the ordinary TeamPlan revision, reroute, takeover, or user-authorization path as appropriate.
+If the requested guidance would materially change one of those facts, do not label it steering. Return the change to Main and use the ordinary TeamPlan revision, reroute, takeover, correction, or user-authorization path as appropriate.
 
 If the target cannot be resolved to one current child, report the ambiguity or missing target instead of guessing.
 
-`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Dispatch-resume path and preserves its existing identity and accounting.
+`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Orchestrate continue/resume path and preserves its existing identity and accounting.
 
 ## Takeover
 
@@ -171,13 +174,21 @@ When takeover includes `: <guidance>`, treat that suffix as guidance for Main af
 
 A takeover does not reset the unit's history or erase valid evidence. With TeamPlan, a pure takeover stays in Recovery state: TeamPlan keeps the last valid delegated role and does not create an invalid `role: main`. Revise TeamPlan only when takeover also changes structural truth such as dependency, ownership scope, deliverable, scope, or acceptance.
 
+## Cancel, Continue, and Correction
+
+Cancel targets an existing orchestration responsibility and preserves all safety and ownership boundaries while stopping further managed work for that target. It does not erase accepted evidence or fabricate Host settlement.
+
+Continue resumes the same interrupted child only through the current managed lifecycle protocol. It preserves native identity, execution generation, authority ceiling, and WriterLease semantics and does not consume the focused-correction followup budget.
+
+Correction sends one focused same-child followup when the responsibility remains the same and the bounded recovery policy permits it. A material change to goal, output, scope, authority, or acceptance is a recompiled responsibility, not a correction.
+
 ## Dispatch Receipt
 
 `receipt.md` is the single source of truth for receipt accounting and presentation. Derive every axis from unique stable event references; repeated Status or reconciliation of the same event is idempotent. Keep materialized passes, focused follow-ups, retries, semantic rework, reviewer attempts, review rounds, and recovery as distinct facts.
 
 An ordinary delegated terminal response emits the applicable Dispatch, Control, Review, and exceptional Recovery axes after Main's result or blocker summary, whether the requested work completed successfully or ended blocked/partial. This also applies to `UNKNOWN` and takeover-pending outcomes.
 
-Explicit Dispatch with zero materialized children emits the minimal receipt defined by `receipt.md` and creates no persistent state. Preview and Status-only requests emit no terminal Dispatch Receipt.
+Explicit Orchestrate with zero materialized children emits the minimal receipt defined by `receipt.md` and creates no persistent state. Plan-only Preview and Status-only Orchestrate intents emit no terminal Dispatch Receipt.
 
 The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and never exposes the internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
 
