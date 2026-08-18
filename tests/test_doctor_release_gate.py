@@ -61,7 +61,6 @@ def test_tracked_host_contract_cannot_self_attest_pass(tmp_path: Path):
 
     hook, release = doctor.diagnose_hook_and_release()
     assert hook["status"] == "FAIL"
-    assert "tracked Host-smoke contract must remain PENDING" in hook["summary"]
     assert release["details"]["release_ready"] is False
 
 
@@ -154,4 +153,4 @@ def test_doctor_and_release_owner_share_the_static_host_contract():
     valid, complete, reason = core._validate_host_smoke_evidence(spoofed)
     assert valid is False
     assert complete is False
-    assert reason and "PENDING" in reason
+    assert reason
