@@ -166,7 +166,7 @@ def test_post_tool_use_acknowledges_exact_control(tmp_path: Path):
     )
 
 
-def test_post_payload_drift_stops_and_quarantines_control(tmp_path: Path):
+def test_post_payload_drift_rejects_result_and_quarantines_control(tmp_path: Path):
     state_module = load_module("guard_state_drift", STATE_V4)
     control = load_module("guard_control_drift", CONTROL_V4)
     guard = load_module("guard_under_test_drift", GUARD)
@@ -184,9 +184,10 @@ def test_post_payload_drift_stops_and_quarantines_control(tmp_path: Path):
 
     changed = dict(original)
     changed["message"] = "changed after pre hook"
-    stopped = guard.evaluate_post_tool_use(post_payload(changed), temp_root=tmp_path)
-    assert stopped is not None
-    assert stopped["continue"] is False
+    blocked = guard.evaluate_post_tool_use(post_payload(changed), temp_root=tmp_path)
+    assert blocked is not None
+    assert blocked["decision"] == "block"
+    assert "continue" not in blocked
     current = state_module.load_state("root-thread", temp_root=tmp_path)
     assert current is not None
     assert current["pending_controls"][0]["state"] == "UNKNOWN"
@@ -235,7 +236,7 @@ def test_unrelated_root_lifecycle_call_passes_through_without_dispatch_state(tmp
     assert result is None
 
 
-def test_cli_post_failure_stops_instead_of_failing_open(monkeypatch, capsys):
+def test_cli_post_failure_rejects_result_instead_of_failing_open(monkeypatch, capsys):
     guard = load_module("guard_under_test_cli", GUARD)
     payload = {
         "hook_event_name": "PostToolUse",
@@ -256,5 +257,6 @@ def test_cli_post_failure_stops_instead_of_failing_open(monkeypatch, capsys):
     guard.main()
     captured = capsys.readouterr()
     rendered = json.loads(captured.out)
-    assert rendered["continue"] is False
+    assert rendered["decision"] == "block"
+    assert "continue" not in rendered
     assert "boom" not in captured.out
