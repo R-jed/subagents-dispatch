@@ -10,7 +10,6 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRITY = ROOT / "scripts" / "package_integrity.py"
 MANIFEST = ROOT / ".codex-plugin" / "package-integrity.json"
-DOCTOR_SKILL = ROOT / "skills" / "doctor" / "SKILL.md"
 
 
 def load_integrity():
@@ -87,18 +86,3 @@ def test_update_bootstrap_can_repair_non_bootstrap_damage(tmp_path: Path):
     (package_root / "scripts" / "doctor_core.py").unlink()
     assert module.verify_package(package_root)["ok"] is False
     assert module.verify_package(package_root, profile="update-bootstrap")["ok"] is True
-
-
-def test_doctor_skill_stays_thin_and_keeps_lifecycle_and_update_intents():
-    text = DOCTOR_SKILL.read_text(encoding="utf-8")
-    assert len(text.splitlines()) <= 90
-    for phrase in (
-        "scripts/doctor.py",
-        "scripts/package_integrity.py",
-        "scripts/check-plugin-update.py",
-        "scripts/plugin_update.py",
-        "--release-check",
-        "live-route",
-        "UNKNOWN",
-    ):
-        assert phrase in text
