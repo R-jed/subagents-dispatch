@@ -17,7 +17,7 @@ The canonical mutable workspace has at most one active managed writing actor. A 
 
 Main always owns the user goal, scope, integration, WorkUnit acceptance, and final response. Host completion alone does not unlock dependencies. Accept results only after checking relevant evidence and do not duplicate an already-owned responsibility.
 
-Before the first child spawn, verify that the exact selected managed profile is available to the current Host task. When a required profile is cleanly absent, use the bounded plugin-owned provisioning path. If the current Host cannot expose or select the exact installed profile, report the readiness or Host limitation and stop. Do not silently substitute a generic Agent type. A fresh Codex task may be required when newly provisioned profiles are not visible to the current task.
+Before the first child spawn, require the exact selected managed profile and never substitute a generic Agent type. When a required profile is cleanly absent, use the bounded plugin-owned provisioning path and return `RESTART_REQUIRED` for that task. Current V4 has no authoritative in-task registry observation that can prove a newly written custom-Agent profile became selectable in the already-running task, so it does not probe by attempting a speculative spawn. The fresh task must use the exact managed `agent_type`; if the Host cannot expose or honor that selector, report the Host limitation and stop.
 
 Plan, status, steer, takeover, cancel, continue, correction, execution, review, and integration semantics are owned by `../../contracts/interaction.md`, `../../contracts/recovery.md`, `../../contracts/team-plan.md`, and `../../contracts/final-review.md`. Use those contracts rather than reproducing their state machines in the Skill prompt.
 
