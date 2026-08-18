@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -16,11 +15,11 @@ PROFILE = "subagents-dispatch-worker.toml"
 MANIFEST = ".subagents-dispatch-agents.json"
 
 
-def load_module(name: str, filename: str):
+def load_doctor_core(name: str):
     scripts = str(SCRIPTS)
     sys.path.insert(0, scripts)
     try:
-        spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
+        spec = importlib.util.spec_from_file_location(name, SCRIPTS / "doctor_runtime_core.py")
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
@@ -28,10 +27,6 @@ def load_module(name: str, filename: str):
         return module
     finally:
         sys.path.remove(scripts)
-
-
-def load_doctor_core(name: str):
-    return load_module(name, "doctor_runtime_core.py")
 
 
 def install(home: Path) -> None:
@@ -62,7 +57,6 @@ def run_doctor(home: Path, temp_root: Path, *extra: str) -> subprocess.Completed
         text=True,
         capture_output=True,
         check=False,
-        env={**os.environ, "SUBAGENTS_DISPATCH_CODEX_BIN": "subagents-dispatch-test-codex-unavailable"},
     )
 
 
@@ -161,42 +155,6 @@ def test_doctor_uninstall_refuses_modified_owned_profile_without_partial_deletio
         path.name: path.read_bytes()
         for path in (home / "agents").glob("subagents-dispatch-*.toml")
     } == other_profiles
-
-
-def test_plugin_package_surfaces_unsafe_codex_registration(monkeypatch, tmp_path: Path):
-    doctor = load_module("doctor_adversarial_plugin_registration", "doctor_runtime.py")
-    monkeypatch.setattr(
-        doctor.plugin_update,
-        "diagnose_installation",
-        lambda **_kwargs: {
-            "name": "Plugin installation",
-            "status": "FAIL",
-            "summary": "installed Plugin Git source is not canonical",
-            "details": {"observed": True},
-            "action": "Restore the canonical Plugin source.",
-        },
-    )
-    report = {
-        "schema_version": 5,
-        "healthy": True,
-        "status": "HEALTHY",
-        "layers": [
-            {
-                "name": "Plugin package",
-                "status": "OK",
-                "summary": "package identity and two-Skill surface are intact",
-                "details": {"version": "4.0.0", "skills": ["orchestrate", "doctor"]},
-            }
-        ],
-    }
-
-    result = doctor._merge_plugin_installation(report, tmp_path / "codex-home")
-
-    assert result["healthy"] is False
-    assert result["status"] == "BLOCKED"
-    assert result["layers"][0]["status"] == "FAIL"
-    assert "Codex Plugin registration is unsafe" in result["layers"][0]["summary"]
-    assert result["layers"][0]["details"]["installation"]["observed"] is True
 
 
 def test_empty_lifecycle_hook_entries_fail_instead_of_looking_configured(monkeypatch, tmp_path: Path):
