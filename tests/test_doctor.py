@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -57,7 +56,6 @@ def run_doctor(home: Path, temp_root: Path, *extra: str) -> subprocess.Completed
         text=True,
         capture_output=True,
         check=False,
-        env={**os.environ, "SUBAGENTS_DISPATCH_CODEX_BIN": "subagents-dispatch-test-codex-unavailable"},
     )
 
 
@@ -75,7 +73,7 @@ def test_doctor_reports_product_layers_and_keeps_pre_cutover_hook_gap_degraded(t
     ]
     positions = [result.stdout.index(f"] {name}:") for name in order]
     assert positions == sorted(positions)
-    assert "[UNKNOWN] Plugin package:" in result.stdout
+    assert "[OK] Plugin package:" in result.stdout
     assert "[OK] Managed Agents: 5/5 managed Agent profiles are installed exactly" in result.stdout
     assert "[WARN] Host integration:" in result.stdout
     assert "[OK] Orchestration state: no thread-scoped orchestration state is active" in result.stdout
