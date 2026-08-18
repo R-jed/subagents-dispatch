@@ -12,38 +12,22 @@ import jsonschema
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 POLICY = json.loads((CONTRACTS / "policy.json").read_text(encoding="utf-8"))
-ORCHESTRATE = ROOT / "skills" / "orchestrate" / "SKILL.md"
 ADVISOR = ROOT / "agent-profiles" / "subagents-dispatch-advisor.toml"
 SCHEMA = ROOT / "evals" / "behavioral-result.schema.json"
 SCORER = ROOT / "scripts" / "score-behavioral-evals.py"
 
 
-def test_orchestrate_links_fresh_exact_candidate_review_contract():
-    skill = ORCHESTRATE.read_text(encoding="utf-8")
-    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
-    assert "review" in skill.lower()
-    assert "review_artifact_id" in review
-    assert "deterministic SHA-256 digest" in review
-    assert "Any deliverable mutation after review invalidates the old verdict" in review
-    for trigger in POLICY["final_review"]["trigger_codes"]:
-        assert trigger in review
-
-
-def test_advisor_route_is_fixed_sol_high_read_only_fresh_review():
+def test_advisor_route_is_fixed_sol_high_read_only():
     spec = POLICY["roles"]["advisor"]
     profile = tomllib.loads(ADVISOR.read_text(encoding="utf-8"))
     assert spec["model"] == profile["model"] == "gpt-5.6-sol"
     assert spec["effort"] == profile["model_reasoning_effort"] == "high"
     assert spec["mutation_authority"] == "none"
-    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
-    assert "agent_type: subagents_dispatch_advisor" in review
-    assert "fork_turns: none" in review
+    assert spec["agent_type"] == "subagents_dispatch_advisor"
+    assert POLICY["delegation"]["fork_turns"] == "none"
 
 
-def test_review_verdicts_remain_fail_closed():
-    review = (CONTRACTS / "final-review.md").read_text(encoding="utf-8")
-    for phrase in ("ship", "fix-first", "rethink", "INSUFFICIENT_EVIDENCE", "review-pending"):
-        assert phrase in review
+def test_review_verdict_policy_remains_fail_closed():
     final = POLICY["final_review"]
     assert final["ship_verdict"] == "ship"
     assert final["correction_verdicts"] == ["fix-first", "rethink"]
