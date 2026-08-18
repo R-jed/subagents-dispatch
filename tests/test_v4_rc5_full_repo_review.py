@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -89,6 +91,73 @@ def _v4_state(state_module, tmp_path: Path) -> None:
     state_module.write_state(payload, temp_root=tmp_path)
 
 
+def _settled_writer_state(state_module, tmp_path: Path) -> None:
+    payload = state_module.new_state(thread_id="root-thread")
+    payload["work_units"] = [
+        {
+            "unit_id": "U1",
+            "intent": "implement",
+            "goal": "bounded write",
+            "output": "patch",
+            "depends_on": [],
+            "state": "RESULT_READY",
+            "ownership": {"write": ["src/a.py"], "forbidden": []},
+            "authority_ceiling": "bounded-source-write",
+            "write_scope_ceiling": ["src/a.py"],
+            "done_when": "tests pass",
+            "accepted_result_ref": None,
+            "accepted_execution_id": None,
+            "accepted_control_epoch": None,
+        }
+    ]
+    payload["executions"] = [
+        {
+            "execution_id": "exec-1",
+            "unit_id": "U1",
+            "team_plan_revision": None,
+            "attempt_no": 1,
+            "profile_id": "worker",
+            "agent_id": "agent-1",
+            "native_task_name": "sd_u1_a1",
+            "model": "gpt-5.6-luna",
+            "effort": "max",
+            "granted_authority": "bounded-source-write",
+            "granted_write_scope": ["src/a.py"],
+            "workspace_id": "canonical",
+            "lifecycle": "COMPLETED",
+            "control_epoch": 0,
+            "followup_count": 0,
+            "failure_origin": "none",
+            "blocker": "none",
+            "quarantine_reason": None,
+        }
+    ]
+    payload["writer_lease"] = {
+        "lease_id": "lease-1",
+        "lease_epoch": 1,
+        "workspace_id": "canonical",
+        "unit_id": "U1",
+        "owner_kind": "execution",
+        "owner_id": "exec-1",
+        "state": "HELD",
+    }
+    payload["accounting_refs"].append(
+        {
+            "ref": "host-observation:exec-1:0:1:COMPLETED:observe-1",
+            "kind": "host_observation",
+            "source": "post_tool_use:list_agents",
+            "execution_id": "exec-1",
+            "control_epoch": 0,
+            "lease_epoch": 1,
+            "lifecycle": "COMPLETED",
+            "turn_id": "turn-observe",
+            "tool_use_id": "observe-1",
+            "agent_name": "/root/sd_u1_a1",
+        }
+    )
+    state_module.write_state(payload, temp_root=tmp_path)
+
+
 def test_post_failure_rejects_result_with_host_supported_block(monkeypatch, capsys):
     guard = load_module("rc5_guard_cli_red", GUARD)
     payload = {
@@ -152,6 +221,43 @@ def test_writer_settlement_source_requires_completed_observation_receipt():
     text = WRITER.read_text(encoding="utf-8")
     assert "host_observation_receipt" in text
     assert "OBSERVATION_RECEIPT_FILTER_KIND" in text
+
+
+def test_writer_settlement_rejects_partial_observation_until_receipt_exists(tmp_path: Path):
+    state = load_module("rc5_state_receipt_gate", STATE)
+    writer = load_module("rc5_writer_receipt_gate", WRITER)
+    _settled_writer_state(state, tmp_path)
+
+    with pytest.raises(writer.WriterLeaseError, match="observation receipt"):
+        writer.release_settled_execution_writer(
+            "root-thread",
+            execution_id="exec-1",
+            lease_id="lease-1",
+            lease_epoch=1,
+            temp_root=tmp_path,
+        )
+
+    def add_receipt(current: dict) -> None:
+        current["accounting_refs"].append(
+            {
+                "ref": "host-observation-receipt:observe-1",
+                "kind": "host_observation_receipt",
+                "source": "post_tool_use:list_agents",
+                "turn_id": "turn-observe",
+                "tool_use_id": "observe-1",
+                "response_digest": "b" * 64,
+            }
+        )
+
+    state.mutate_state("root-thread", add_receipt, temp_root=tmp_path)
+    released = writer.release_settled_execution_writer(
+        "root-thread",
+        execution_id="exec-1",
+        lease_id="lease-1",
+        lease_epoch=1,
+        temp_root=tmp_path,
+    )
+    assert released["state"] == "RELEASED"
 
 
 def test_packaged_runtime_contracts_use_only_v4_public_entrypoints():
