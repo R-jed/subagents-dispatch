@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -57,6 +58,7 @@ def run_doctor(home: Path, temp_root: Path, *extra: str) -> subprocess.Completed
         text=True,
         capture_output=True,
         check=False,
+        env={**os.environ, "SUBAGENTS_DISPATCH_CODEX_BIN": "subagents-dispatch-test-codex-unavailable"},
     )
 
 
@@ -155,6 +157,27 @@ def test_doctor_uninstall_refuses_modified_owned_profile_without_partial_deletio
         path.name: path.read_bytes()
         for path in (home / "agents").glob("subagents-dispatch-*.toml")
     } == other_profiles
+
+
+def test_plugin_package_surfaces_unsafe_codex_registration(monkeypatch, tmp_path: Path):
+    doctor = load_doctor_core("doctor_adversarial_plugin_registration")
+    monkeypatch.setattr(
+        doctor.plugin_update,
+        "diagnose_installation",
+        lambda **_kwargs: {
+            "name": "Plugin installation",
+            "status": "FAIL",
+            "summary": "installed Plugin Git source is not canonical",
+            "details": {"observed": True},
+            "action": "Restore the canonical Plugin source.",
+        },
+    )
+
+    result = doctor.diagnose_plugin_package(tmp_path / "codex-home")
+
+    assert result["status"] == "FAIL"
+    assert "Codex Plugin registration is unsafe" in result["summary"]
+    assert result["details"]["installation"]["observed"] is True
 
 
 def test_empty_lifecycle_hook_entries_fail_instead_of_looking_configured(monkeypatch, tmp_path: Path):
