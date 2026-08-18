@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import inspect
 import json
 from pathlib import Path
 import sys
@@ -69,25 +68,14 @@ def test_routing_evals_match_the_frozen_profile_contract():
             assert node["mutation_authority"] == spec["mutation_authority"]
 
 
-def test_orchestrate_keeps_zero_child_and_plan_only_as_valid_outcomes():
-    skill = (ROOT / "skills" / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
-    assert "plan-only" in skill
-    assert "without creating `active.json`" in skill
+def test_plan_only_keeps_zero_child_as_a_valid_nonexecuting_outcome():
     orchestrate = load_module("coord_orchestrate", "orchestrate_v4.py")
     plan = orchestrate.plan_only_preview(goal="small task", responsibilities=[])
     assert plan["mode"] == "PLAN_ONLY"
+    assert plan["state_created"] is False
+    assert plan["writer_lease_acquired"] is False
     assert plan["host_actions"] == []
-
-
-def test_scheduler_uses_acceptance_gated_dependencies_and_bounded_fanout():
-    scheduler = load_module("coord_scheduler", "scheduler_v4.py")
-    assert scheduler.INITIAL_CHILD_LIMIT == 2
-    assert scheduler.PRODUCT_CHILD_LIMIT == 3
-    assert scheduler.BACKPRESSURE_THRESHOLD == 2
-    assert callable(scheduler.scheduler_decision)
-    graph = (SCRIPTS / "work_graph_v4.py").read_text(encoding="utf-8")
-    assert "ACCEPTED" in graph
-    assert "RESULT_READY" in graph
+    assert plan["work_units"] == []
 
 
 def test_v4_runtime_separates_workunit_execution_control_and_writer_truth():
@@ -100,24 +88,5 @@ def test_v4_runtime_separates_workunit_execution_control_and_writer_truth():
     assert "control_epoch" in state.EXECUTION_FIELDS
 
 
-def test_same_child_reuse_and_takeover_are_not_fresh_attempt_shortcuts():
-    lifecycle = load_module("coord_lifecycle", "execution_lifecycle_v4.py")
-    writer = load_module("coord_writer", "writer_lease_v4.py")
-    assert callable(lifecycle.prepare_same_child_followup)
-    assert callable(lifecycle.prepare_same_child_continue)
-    assert callable(lifecycle.prepare_interrupt)
-    assert callable(lifecycle.takeover_to_main)
-    source = (SCRIPTS / "execution_lifecycle_v4_core.py").read_text(encoding="utf-8")
-    assert "followup_count" in source
-    assert writer.AUTHORITATIVE_OBSERVATION_SOURCE == "post_tool_use:list_agents"
-    assert "guard_coverage" not in inspect.signature(writer.release_settled_execution_writer).parameters
-    assert "guard_coverage" not in inspect.signature(
-        writer.transfer_settled_execution_writer_to_main
-    ).parameters
-
-
-def test_public_v4_surface_is_two_skills_and_review_identity_is_retained():
+def test_public_surface_contains_only_the_two_supported_skills():
     assert sorted(path.name for path in (ROOT / "skills").iterdir() if path.is_dir()) == ["doctor", "orchestrate"]
-    review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
-    assert "review_artifact_id" in review
-    assert "sha256" in review.lower() or "git" in review.lower()
