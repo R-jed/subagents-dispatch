@@ -21,7 +21,7 @@ Orchestration state
 Legacy compatibility
 ```
 
-`Plugin package` verifies the executing package identity, the exact two-Skill public surface, and the read-only Codex Plugin inventory when available, including canonical source, enabled state, installed version, and package/cache skew. Missing Plugin inventory remains `UNKNOWN` rather than being guessed. `Managed Agents` verifies the five fixed Reader, Worker, Investigator, Solver, and Advisor profiles and whether the active Codex home has the owned profiles installed exactly.
+`Plugin package` verifies the executing package identity and the exact two-Skill public surface. `Managed Agents` verifies the five fixed Reader, Worker, Investigator, Solver, and Advisor profiles and whether the active Codex home has the owned profiles installed exactly.
 
 `Host integration` validates the installed production Hook event set, matchers, command bindings, synchronous execution settings, and required Hook scripts. An explicit `--host-evidence` file is a caller-supplied capability snapshot. Doctor validates its shape and capabilities but does not infer that the file is fresh or that it describes the current session. Without supplied capability evidence, validated full lifecycle Hooks remain `UNKNOWN`; the compatibility-only spawn guard is reported as `WARN`.
 
@@ -35,10 +35,10 @@ Use explicit maintenance actions only when the user asks for them:
 - migrate only proven-owned legacy managed-profile installation state;
 - clean only stale terminal legacy orchestration state;
 - uninstall only profiles proven owned by the Plugin;
-- check for Plugin updates through `../../scripts/check-plugin-update.py`;
+- inspect the Codex Plugin installation source/version and check update availability through `../../scripts/check-plugin-update.py`;
 - update the Plugin through the package-integrity-protected `../../scripts/doctor.py --update` path.
 
-Profile and legacy maintenance actions use the existing ownership-aware helpers and then rerun the same deterministic Doctor diagnostics. Plugin update is a separate protected path: it refreshes the configured Marketplace, installs only the canonical versioned Plugin release, verifies package integrity and managed Agent profiles, runs the updated Doctor contract, and requires a fresh Codex session when the installed package changes. Do not replace a refused ownership check with manual deletion, wildcard cleanup, or unrelated configuration edits.
+The explicit update check may refresh the configured Marketplace and access the network. It does not install a Plugin, mutate managed profiles, or change Hook trust. Profile and legacy maintenance actions use the existing ownership-aware helpers and then rerun the same deterministic Doctor diagnostics. Plugin update is a separate protected path: it refreshes the configured Marketplace, installs only the canonical versioned Plugin release, verifies package integrity and managed Agent profiles, runs the updated Doctor contract, and requires a fresh Codex session when the installed package changes. Do not replace a refused ownership check with manual deletion, wildcard cleanup, or unrelated configuration edits.
 
 Runtime attestation remains a separate compatibility tool outside Doctor. Its dedicated verifier streams exactly one rollout, enforces bounded total-rollout and per-line input limits, and oversized rollout input fails closed. Doctor does not expose or execute that workflow.
 
