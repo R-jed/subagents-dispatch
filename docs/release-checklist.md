@@ -213,7 +213,7 @@ fresh writer activation reserves WriterLease before the Host call
 second managed writer is blocked
 followup for an old writer cannot bypass the current lease
 interrupt ACK alone does not release WriterLease
-fresh same-generation INTERRUPTED evidence may settle a writer only with current structured Guard coverage proof
+fresh same-generation INTERRUPTED evidence may settle a writer only with the matching completed authoritative list_agents Hook receipt
 takeover transfers WriterLease atomically to Main
 stale lease identity cannot release a newer lease
 ```
