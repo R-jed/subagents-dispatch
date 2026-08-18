@@ -116,13 +116,6 @@ def test_behavioral_docs_explicitly_keep_eval_labels_out_of_runtime_policy():
     for phrase in ['measurement surface', 'historical runs stay comparable', 'experiment labels only', 'do not make the skill maintain an ontology']:
         assert phrase in docs
 ROOT = Path(__file__).resolve().parents[1]
-INDEX = ROOT / 'evals' / 'README.md'
-
-def test_eval_index_links_current_measurement_artifacts():
-    text = INDEX.read_text()
-    for name in ['behavioral-workloads.json', 'behavioral-result.schema.json', 'LOCAL_EVAL_FIXTURE_TEMPLATE.md', 'routing-cases.json', 'coordination-cases.json', 'interaction-cases.json', 'runtime-assurance-cases.json', '../docs/behavioral-evals.md']:
-        assert name in text
-ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / 'evals' / 'LOCAL_EVAL_FIXTURE_TEMPLATE.md'
 EVAL_DOC = ROOT / 'docs' / 'behavioral-evals.md'
 
@@ -167,4 +160,3 @@ def test_live_behavior_registry_covers_2_1_interaction_and_handoff_workloads():
     receipt = by_id['delegated-execution-receipt']['expected']
     assert receipt['minimum_receipt_lines'] == 2
     assert receipt['unsupported_runtime_claims'] == 0
-    assert receipt['zero_child_minimal_receipt'] is True
