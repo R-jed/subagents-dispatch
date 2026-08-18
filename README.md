@@ -25,6 +25,14 @@
 
 有人读代码，有人查影响，有人动手实现，有人负责复核。Main 仍然掌握目标、判断和最终结果。任务很小的时候，它可以一个子代理都不叫。为了显得忙而拉一群 Agent 开会，不算生产力。
 
+## Codex 已经有 Subagents，为什么还需要它
+
+Codex 提供原生 Subagents。这个插件提供的是一套面向工程任务的协调策略。
+
+它会判断什么时候值得分工，把工作拆成有完成条件和依赖关系的职责，限制无意义的并发，在同一个可变工作区避免多个写入者互相踩文件，并要求 Main 验收结果后再解锁后续工作。Host 状态说不清时会保留 `UNKNOWN`，不会把猜测当成授权。
+
+所以它关注的重点不是“能不能再开一个 Agent”，而是复杂任务能不能分得清、并行得稳、收得回来，并且最后还有一个明确负责的人。
+
 ## 30 秒看懂
 
 比如你说：
@@ -65,12 +73,27 @@ Main
 
 | 入口 | 什么时候用 |
 |---|---|
-| **Orchestrate** | 让它规划、分工、执行、继续、纠正、接管、复核或整合 |
-| **Doctor** | 安装后不确定哪里有问题，或者想检查版本、配置和运行环境 |
+| **Orchestrate** | 让它判断是否需要分工，并负责规划、执行、继续、纠正、接管、复核和整合 |
+| **Doctor** | 检查插件、Agent 配置、Host 集成和运行状态，或者执行你明确要求的安全维护 |
 
 日常干活选 **Orchestrate**。感觉环境有点不对劲，叫 **Doctor**。
 
-Orchestrate 也支持只看计划。你可以先让它说准备怎么分工，再决定要不要真的开工。
+Orchestrate 也支持只看计划。你可以直接说：
+
+```text
+先只告诉我你准备怎么分工。
+```
+
+任务运行后，也可以自然地控制它：
+
+```text
+现在进度怎么样？
+U2 先停一下。
+这部分我自己接手。
+继续刚才被打断的工作。
+```
+
+这些控制都留在同一个 Orchestrate 入口里，不需要记一排额外 Skill。
 
 ## 它会克制自己
 
@@ -78,13 +101,13 @@ Orchestrate 也支持只看计划。你可以先让它说准备怎么分工，�
 
 - 小任务允许 0 个子代理
 - 一开始最多叫 2 个，正常工作时最多 3 个
-- 同一个工作区同时只让一个受管理的子代理写代码
+- 同一个可变工作区同时只有一个受管理的写入者
 - 子代理只拿完成自己那份工作需要的上下文
 - 调查结果要有证据，Main 会复核后再接受
 - 状态说不清时先停住，不拿猜测当授权
 - 最终交付仍由 Main 负责
 
-这些限制会让它少一点“看起来很聪明”的热闹，多一点真正可控的并行。
+这里的单写入者是工作区边界。未来如果 Host 能可靠地把不同写入者隔离到独立 worktree 或 workspace，并且这些工作在语义上也互不冲突，就可以形成多个独立写入域。当前版本只管理一个 canonical workspace，因此保持一个写入者更稳妥。详细说明见 [写入者边界](docs/writer-boundary.md)。
 
 ## 当前固定阵容
 
@@ -107,9 +130,9 @@ codex plugin marketplace add R-jed/subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-安装完成后启动一个新的 Codex 会话，在技能菜单里选择 **Orchestrate**。
+安装完成后启动一个新的 Codex 会话，在 Skill 菜单里选择 **Orchestrate**。
 
-第一次真正需要子代理时，插件会检查自己的五个固定子代理配置。如果这些配置刚刚被创建，当前任务会提示重新启动。开一个新的 Codex 任务，再选一次 Orchestrate 即可。相关辅助功能需要 Python 3.11 或更高版本。
+第一次真正需要子代理时，插件会检查自己的五个固定 Agent profile。如果缺失且路径安全，插件只会创建自己拥有的配置。新建 profile 能否在当前任务中立即被 Host 发现属于 Host 行为；如果当前任务看不到它们，Orchestrate 会返回 `RESTART_REQUIRED`，不会尝试用别的 Agent 顶替。开一个新的 Codex 任务后重新提交原请求即可。相关辅助功能需要 Python 3.11 或更高版本。
 
 完整说明见 [安装文档](docs/plugin-installation.md)。
 
@@ -120,7 +143,7 @@ codex plugin marketplace upgrade subagents-dispatch
 codex plugin add subagents-dispatch@subagents-dispatch
 ```
 
-卸载时，先通过 **Doctor** 清理能够确认属于本插件的子代理配置，然后再移除插件和插件市场：
+卸载时，先通过 **Doctor** 清理能够确认属于本插件的 Agent profile，然后再移除插件和插件市场：
 
 ```bash
 codex plugin remove subagents-dispatch@subagents-dispatch
@@ -133,15 +156,15 @@ codex plugin marketplace remove subagents-dispatch
 
 有可能，尤其是调查可以并行、主上下文很容易被塞满的时候。
 
-但“开更多 Agent”本身不会自动变快。小任务可能更慢，协调也有成本。项目已经准备了实验协议去比较正确性、返工、耗时和 Token，等真实重复实验够多再谈数字。
+但“开更多 Agent”本身不会自动变快。小任务可能更慢，协调也有成本。项目已经准备了实验协议去比较正确性、返工、人工干预、耗时和 Token，等真实重复实验够多再谈数字。
 
-这里不会提前宣传“更快”或者“更省 Token”。
+这里不会提前宣传“更快”或者“更省 Token”。产品实验会先看正确性和安全，再看返工、协调负担、上下文效率、耗时与 Token。判断框架见 [产品成功标准](docs/product-success.md)。
 
 我们更关心另一件事：复杂任务能不能分得清、收得回来、最后有人真正负责。
 
 想继续往下看技术细节：
 
-[架构](docs/architecture.md) · [安装](docs/plugin-installation.md) · [运行时证据](docs/runtime-attestation.md) · [实验方法](docs/experiment-protocol.md) · [更新记录](CHANGELOG.md) · [AI 参考说明](README_AI.md)
+[架构](docs/architecture.md) · [安装](docs/plugin-installation.md) · [写入者边界](docs/writer-boundary.md) · [产品成功标准](docs/product-success.md) · [运行时证据](docs/runtime-attestation.md) · [实验方法](docs/experiment-protocol.md) · [更新记录](CHANGELOG.md) · [AI 参考说明](README_AI.md)
 
 ## 许可证
 
