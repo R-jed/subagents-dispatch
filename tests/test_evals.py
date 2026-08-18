@@ -160,3 +160,4 @@ def test_live_behavior_registry_covers_2_1_interaction_and_handoff_workloads():
     receipt = by_id['delegated-execution-receipt']['expected']
     assert receipt['minimum_receipt_lines'] == 2
     assert receipt['unsupported_runtime_claims'] == 0
+    assert receipt['zero_child_minimal_receipt'] is True
