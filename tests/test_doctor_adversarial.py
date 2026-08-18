@@ -16,11 +16,11 @@ PROFILE = "subagents-dispatch-worker.toml"
 MANIFEST = ".subagents-dispatch-agents.json"
 
 
-def load_doctor_core(name: str):
+def load_module(name: str, filename: str):
     scripts = str(SCRIPTS)
     sys.path.insert(0, scripts)
     try:
-        spec = importlib.util.spec_from_file_location(name, SCRIPTS / "doctor_runtime_core.py")
+        spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
@@ -28,6 +28,10 @@ def load_doctor_core(name: str):
         return module
     finally:
         sys.path.remove(scripts)
+
+
+def load_doctor_core(name: str):
+    return load_module(name, "doctor_runtime_core.py")
 
 
 def install(home: Path) -> None:
@@ -160,7 +164,7 @@ def test_doctor_uninstall_refuses_modified_owned_profile_without_partial_deletio
 
 
 def test_plugin_package_surfaces_unsafe_codex_registration(monkeypatch, tmp_path: Path):
-    doctor = load_doctor_core("doctor_adversarial_plugin_registration")
+    doctor = load_module("doctor_adversarial_plugin_registration", "doctor_runtime.py")
     monkeypatch.setattr(
         doctor.plugin_update,
         "diagnose_installation",
@@ -172,12 +176,27 @@ def test_plugin_package_surfaces_unsafe_codex_registration(monkeypatch, tmp_path
             "action": "Restore the canonical Plugin source.",
         },
     )
+    report = {
+        "schema_version": 5,
+        "healthy": True,
+        "status": "HEALTHY",
+        "layers": [
+            {
+                "name": "Plugin package",
+                "status": "OK",
+                "summary": "package identity and two-Skill surface are intact",
+                "details": {"version": "4.0.0", "skills": ["orchestrate", "doctor"]},
+            }
+        ],
+    }
 
-    result = doctor.diagnose_plugin_package(tmp_path / "codex-home")
+    result = doctor._merge_plugin_installation(report, tmp_path / "codex-home")
 
-    assert result["status"] == "FAIL"
-    assert "Codex Plugin registration is unsafe" in result["summary"]
-    assert result["details"]["installation"]["observed"] is True
+    assert result["healthy"] is False
+    assert result["status"] == "BLOCKED"
+    assert result["layers"][0]["status"] == "FAIL"
+    assert "Codex Plugin registration is unsafe" in result["layers"][0]["summary"]
+    assert result["layers"][0]["details"]["installation"]["observed"] is True
 
 
 def test_empty_lifecycle_hook_entries_fail_instead_of_looking_configured(monkeypatch, tmp_path: Path):
