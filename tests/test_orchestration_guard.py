@@ -75,6 +75,27 @@ def v4_state(state_module, tmp_path: Path) -> None:
     state_module.write_state(payload, temp_root=tmp_path)
 
 
+def add_capacity_observation(state_module, tmp_path: Path, *, tool_use_id: str) -> None:
+    def mutate(current: dict) -> None:
+        current["accounting_refs"].append(
+            {
+                "ref": f"host-capacity-observation:{tool_use_id}",
+                "kind": state_module.HOST_CAPACITY_OBSERVATION_KIND,
+                "source": "post_tool_use:list_agents",
+                "turn_id": f"turn-{tool_use_id}",
+                "tool_use_id": tool_use_id,
+                "resident_children": 0,
+                "settled_children": 0,
+                "active_children": 0,
+                "managed_resident_children": 0,
+                "unmanaged_resident_children": 0,
+                "response_digest": "a" * 64,
+            }
+        )
+
+    state_module.mutate_state("root-thread", mutate, temp_root=tmp_path)
+
+
 def canonical_spawn(state_module, tmp_path: Path, *, module_name: str) -> dict:
     managed = load_module(module_name, MANAGED)
     current = state_module.load_state("root-thread", temp_root=tmp_path)
@@ -116,6 +137,7 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
     v4_state(state_module, tmp_path)
     tool_input = canonical_spawn(state_module, tmp_path, module_name="guard_managed_v4")
 
+    add_capacity_observation(state_module, tmp_path, tool_use_id="capacity-missing-control")
     with pytest.raises(guard.control.ControlError, match="PREPARED"):
         guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path)
 
@@ -127,6 +149,7 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
         tool_input=tool_input,
         temp_root=tmp_path,
     )
+    add_capacity_observation(state_module, tmp_path, tool_use_id="capacity-valid-control")
     assert guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path) is None
     current = state_module.load_state("root-thread", temp_root=tmp_path)
     assert current is not None
@@ -135,6 +158,7 @@ def test_v4_managed_spawn_requires_and_consumes_prepared_control(tmp_path: Path)
 
     second = pre_payload(tool_input)
     second["tool_use_id"] = "tool-2"
+    add_capacity_observation(state_module, tmp_path, tool_use_id="capacity-replay")
     with pytest.raises(guard.control.ControlError, match="PREPARED"):
         guard.evaluate_pre_tool_use(second, temp_root=tmp_path)
 
@@ -153,6 +177,7 @@ def test_post_tool_use_acknowledges_exact_control(tmp_path: Path):
         tool_input=tool_input,
         temp_root=tmp_path,
     )
+    add_capacity_observation(state_module, tmp_path, tool_use_id="capacity-post-ack")
     assert guard.evaluate_pre_tool_use(pre_payload(tool_input), temp_root=tmp_path) is None
     assert guard.evaluate_post_tool_use(post_payload(tool_input), temp_root=tmp_path) is None
 
@@ -180,6 +205,7 @@ def test_post_payload_drift_rejects_result_and_quarantines_control(tmp_path: Pat
         tool_input=original,
         temp_root=tmp_path,
     )
+    add_capacity_observation(state_module, tmp_path, tool_use_id="capacity-drift")
     assert guard.evaluate_pre_tool_use(pre_payload(original), temp_root=tmp_path) is None
 
     changed = dict(original)
