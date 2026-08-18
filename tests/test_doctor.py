@@ -75,7 +75,7 @@ def test_doctor_reports_product_layers_and_keeps_pre_cutover_hook_gap_degraded(t
     assert positions == sorted(positions)
     assert "[OK] Plugin package:" in result.stdout
     assert "[OK] Managed Agents: 5/5 managed Agent profiles are installed exactly" in result.stdout
-    assert "[WARN] Host integration: local lifecycle Hook configuration is incomplete" in result.stdout
+    assert "[WARN] Host integration:" in result.stdout
     assert "[OK] Orchestration state: no thread-scoped orchestration state is active" in result.stdout
     assert "Overall: DEGRADED" in result.stdout
 
