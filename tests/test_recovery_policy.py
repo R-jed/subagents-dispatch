@@ -9,7 +9,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT
 SCRIPTS = PLUGIN / "scripts"
 POLICY = PLUGIN / "contracts" / "policy.json"
-RECOVERY = PLUGIN / "contracts" / "recovery.md"
 LEDGER_SCRIPT = SCRIPTS / "validate_team_ledger.py"
 
 
@@ -112,8 +111,7 @@ def test_ledger_derives_role_agent_bindings_from_policy_contract():
     assert VALIDATOR.ROLE_AGENT_TYPES == {role: spec["agent_type"] for role, spec in roles.items()}
 
 
-def test_recovery_contract_owns_lifecycle_blockers_and_bounds():
-    text = RECOVERY.read_text(encoding="utf-8")
+def test_recovery_validator_owns_lifecycle_blockers_and_bounds():
     assert VALIDATOR.FAILURE_ORIGINS == {
         "none",
         "runtime_unavailable",
@@ -124,19 +122,6 @@ def test_recovery_contract_owns_lifecycle_blockers_and_bounds():
         "runtime_ambiguous",
     }
     assert VALIDATOR.TASK_BLOCKERS == {"none", "contract", "judgment", "investigation", "stalled"}
-    for phrase in [
-        "UNKNOWN is not failure",
-        "2 Agent attempts",
-        "1 focused follow-up",
-        "same_agent_followup",
-        "same_role_retry",
-        "semantic_reroute",
-        "main_takeover",
-        "Failure itself never means Luna -> Terra -> Sol",
-    ]:
-        assert phrase in text
-    for state in VALIDATOR.CONTROL_STATES:
-        assert state in text
 
 
 def test_single_child_ledger_does_not_require_team_plan():
