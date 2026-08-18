@@ -227,12 +227,7 @@ def persist_authoritative_host_observation(
 
 
 def _observation_receipt_present(current: Mapping[str, Any], tool_use_id: str) -> bool:
-    if state.accounting_filter_contains(
-        current,
-        kind=state.OBSERVATION_RECEIPT_FILTER_KIND,
-        value=tool_use_id,
-    ):
-        return True
+    """Require an exact retained receipt; probabilistic history never grants authority."""
     return any(
         isinstance(event, Mapping)
         and event.get("kind") == "host_observation_receipt"
@@ -295,7 +290,7 @@ def _verify_settlement(
         current, execution=execution, lease_epoch=lease_epoch
     ):
         raise WriterLeaseError(
-            "writer settlement lacks authoritative current-epoch list_agents observation receipt"
+            "writer settlement lacks exact authoritative current-epoch list_agents observation receipt"
         )
     return execution, lease
 
