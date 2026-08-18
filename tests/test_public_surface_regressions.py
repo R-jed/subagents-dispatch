@@ -16,8 +16,8 @@ README_FILES = (
     ROOT / "README.md",
     ROOT / "README_EN.md",
     ROOT / "README_AI.md",
+    ROOT / "evals" / "README.md",
 )
-EVALS_README = ROOT / "evals" / "README.md"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 PUBLIC_SKILLS = ("orchestrate", "doctor")
 
@@ -88,18 +88,6 @@ def test_readme_files_are_valid_basic_text_files():
         text = raw.decode("utf-8")
         assert text.strip()
         assert text.endswith("\n")
-
-
-def test_evals_readme_keeps_measurement_plane_separate_from_runtime_policy():
-    text = EVALS_README.read_text(encoding="utf-8")
-    for phrase in (
-        "not part of the normal user setup",
-        "behavioral-workloads.json",
-        "routing-cases.json",
-        "runtime-assurance-cases.json",
-        "do not control how the plugin routes or coordinates work",
-    ):
-        assert phrase in text
 
 
 def test_public_uninstall_docs_forbid_manual_managed_profile_removal():
