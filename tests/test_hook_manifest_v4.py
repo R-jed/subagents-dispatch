@@ -17,13 +17,45 @@ def _handlers(events: dict, event_name: str) -> list[dict]:
     ]
 
 
+def _matcher_tokens(events: dict, event_name: str) -> set[str]:
+    return {
+        token
+        for group in events[event_name]
+        for token in str(group.get("matcher", "")).split("|")
+        if token
+    }
+
+
 def test_staged_hook_manifest_covers_managed_lifecycle_boundaries():
     events = json.loads(STAGED.read_text(encoding="utf-8"))["hooks"]
     assert set(events) == {"PreToolUse", "PostToolUse", "SubagentStop"}
 
-    guarded = "spawn_agent|followup_task|interrupt_agent|list_agents"
-    assert any(group.get("matcher") == guarded for group in events["PreToolUse"])
-    assert any(group.get("matcher") == guarded for group in events["PostToolUse"])
+    pre = _matcher_tokens(events, "PreToolUse")
+    post = _matcher_tokens(events, "PostToolUse")
+    for identity in {
+        "spawn_agent",
+        "followup_task",
+        "interrupt_agent",
+        "list_agents",
+        "send_message",
+        "collaboration\\.spawn_agent",
+        "collaboration\\.followup_task",
+        "collaboration\\.interrupt_agent",
+        "collaboration\\.list_agents",
+        "collaboration\\.send_message",
+    }:
+        assert identity in pre
+    for identity in {
+        "spawn_agent",
+        "followup_task",
+        "interrupt_agent",
+        "list_agents",
+        "collaboration\\.spawn_agent",
+        "collaboration\\.followup_task",
+        "collaboration\\.interrupt_agent",
+        "collaboration\\.list_agents",
+    }:
+        assert identity in post
 
     managed_roles = {
         "subagents_dispatch_reader",

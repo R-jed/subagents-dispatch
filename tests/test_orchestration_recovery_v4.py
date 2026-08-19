@@ -92,6 +92,7 @@ def host_snapshot(capacity: int) -> dict:
             "pre_tool_use_guard": True,
             "post_tool_use_guard": True,
             "host_observation_guard": True,
+            "peer_message_guard": True,
             "subagent_stop_veto": True,
         },
         "fork_turns_none": True,

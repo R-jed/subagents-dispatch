@@ -23,6 +23,8 @@ Record the exact candidate commit, tree, Plugin version, Marketplace ref, packag
 
 `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, and the V4 changelog entry must agree on `4.0.0` before tagging. Use a versioned semantic-version tag only after all release gates pass. Verify that Marketplace installation resolves the exact tagged candidate rather than a mutable branch.
 
+The checklist does not claim platform-enforced tag immutability. Evidence that a ref resolves to an expected commit does not by itself prove platform-enforced tag immutability.
+
 ## 2. Repository gates
 
 The exact candidate must pass the canonical GitHub Actions matrix:
@@ -67,6 +69,8 @@ skills/doctor
 ```
 
 For route evidence preserve `Configured -> Requested -> Accepted -> Observed`. Never promote accepted routing metadata or child prose into observed runtime truth.
+
+Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged.
 
 ## 3. State and migration gates
 

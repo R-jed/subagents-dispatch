@@ -32,6 +32,17 @@ def load_module(name: str, path: Path):
         sys.path.remove(scripts)
 
 
+def _context() -> dict:
+    return {
+        "interfaces": [],
+        "invariants": [],
+        "decision_boundary": "Escalate material decisions to Main.",
+        "accepted_evidence_refs": [],
+        "do_not_redo": [],
+        "stop_boundary": "Stop and report blockers to Main.",
+    }
+
+
 def _v4_state(state_module, tmp_path: Path) -> None:
     payload = state_module.new_state(thread_id="root-thread")
     payload["work_units"] = [
@@ -46,6 +57,7 @@ def _v4_state(state_module, tmp_path: Path) -> None:
             "authority_ceiling": "none",
             "write_scope_ceiling": [],
             "done_when": "Main verifies facts",
+            "responsibility_context": _context(),
             "accepted_result_ref": None,
             "accepted_execution_id": None,
             "accepted_control_epoch": None,
@@ -105,6 +117,7 @@ def _settled_writer_state(state_module, tmp_path: Path) -> None:
             "authority_ceiling": "bounded-source-write",
             "write_scope_ceiling": ["src/a.py"],
             "done_when": "tests pass",
+            "responsibility_context": _context(),
             "accepted_result_ref": None,
             "accepted_execution_id": None,
             "accepted_control_epoch": None,
