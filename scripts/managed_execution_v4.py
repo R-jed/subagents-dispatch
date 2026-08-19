@@ -13,16 +13,11 @@ import json
 from typing import Any, Mapping
 
 import dispatch_state_v4 as state
+import policy as policy_contract
 
 
 MANAGED_FORK_TURNS = "none"
-PROFILE_AGENT_TYPES = {
-    "reader": "subagents_dispatch_reader",
-    "worker": "subagents_dispatch_worker",
-    "investigator": "subagents_dispatch_investigator",
-    "solver": "subagents_dispatch_solver",
-    "advisor": "subagents_dispatch_advisor",
-}
+PROFILE_AGENT_TYPES = policy_contract.profile_agent_types()
 
 
 class ManagedExecutionContractError(RuntimeError):
@@ -79,22 +74,39 @@ def _profile_agent_type(execution: Mapping[str, Any]) -> str:
 def assignment_packet(
     current: Mapping[str, Any], *, execution: Mapping[str, Any]
 ) -> dict[str, Any]:
+    """Build the one canonical five-section responsibility record."""
     unit = _unit(current, str(execution.get("unit_id")))
     return {
-        "schema_version": "4.0",
-        "unit_id": unit["unit_id"],
-        "execution_id": execution["execution_id"],
-        "attempt_no": execution["attempt_no"],
-        "intent": unit["intent"],
-        "goal": unit["goal"],
-        "output": unit["output"],
-        "done_when": unit["done_when"],
-        "authority": execution["granted_authority"],
-        "write_scope": list(execution["granted_write_scope"]),
-        "forbidden_scope": list(unit["ownership"]["forbidden"]),
-        "evidence_boundary": "Use only supplied or independently inspected evidence for this WorkUnit; report uncertainty to Main.",
-        "decision_boundary": "Do not widen scope, change architecture, or reinterpret acceptance without Main.",
-        "delegation_boundary": "Do not create or control further subagents.",
+        "objective": {
+            "intent": unit["intent"],
+            "goal": unit["goal"],
+            "output": unit["output"],
+        },
+        "ownership": {
+            "unit_id": unit["unit_id"],
+            "execution_id": execution["execution_id"],
+            "attempt_no": execution["attempt_no"],
+            "team_plan_revision": execution.get("team_plan_revision"),
+            "mutation_authority": execution["granted_authority"],
+            "write_scope": list(execution["granted_write_scope"]),
+        },
+        "interfaces": {
+            "decision_boundary": (
+                "Do not widen scope, change architecture, or reinterpret acceptance "
+                "without the main session."
+            ),
+        },
+        "constraints": {
+            "forbidden_scope": list(unit["ownership"]["forbidden"]),
+            "evidence_boundary": (
+                "Use only supplied or independently inspected evidence for this WorkUnit; "
+                "report uncertainty to the main session."
+            ),
+            "delegation_boundary": "Do not create or control further subagents.",
+        },
+        "verification": {
+            "acceptance": unit["done_when"],
+        },
     }
 
 
