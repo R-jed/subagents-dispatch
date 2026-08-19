@@ -1,38 +1,42 @@
-# Responsibility Packet Projection
+# Responsibility Record
 
-This file defines the compact prompt shape for one selected delegated responsibility. It is a serialization projection of the responsibility semantics owned by `routing.md`; it does not create a second task state, scheduler, authority model, or acceptance model.
+This file owns the one serialized responsibility record sent to a managed child. `routing.md` owns delegation value, role selection, semantic coverage, and the meaning of the responsibility. This file defines how that truth is represented for one concrete ExecutionBinding.
 
-Use it only after Main has decided that delegation adds value and selected the role under `routing.md` and `policy.json`. A small Main-only task needs no packet.
+The record has exactly five top-level sections:
 
-For an ordinary single delegated responsibility, send the smallest self-contained packet that preserves all material truth:
-
-```text
-OBJECTIVE
-<observable outcome and why this responsibility exists>
-
-OWNERSHIP
-scope: <exact read/write scope>
-mutation_authority: none | declared-output-only | bounded-source-write
-<unit/task identity only when the runtime already assigned it>
-
-INTERFACES
-<interfaces and invariants that must remain true>
-decision_rights: <material choices this child may make, or none>
-
-CONSTRAINTS
-<settled constraints and excluded scope>
-valid_evidence: <accepted facts/refs that remain valid, or none>
-do_not_redo: <accepted discovery that must not be repeated, or none>
-stop_when: <contract, judgment, investigation, stalled, scope, or safety boundary>
-
-VERIFICATION
-acceptance: <observable acceptance condition>
-checks: <exact checks/evidence expected from this responsibility>
-<integration_after only when dependency order materially matters>
+```json
+{
+  "objective": {
+    "intent": "inspect",
+    "goal": "trace the current API contract",
+    "output": "bounded evidence for the main session"
+  },
+  "ownership": {
+    "unit_id": "U1",
+    "execution_id": "exec-1",
+    "attempt_no": 1,
+    "team_plan_revision": null,
+    "mutation_authority": "none",
+    "write_scope": []
+  },
+  "interfaces": {
+    "decision_boundary": "Do not widen scope, change architecture, or reinterpret acceptance without the main session."
+  },
+  "constraints": {
+    "forbidden_scope": [],
+    "evidence_boundary": "Use only supplied or independently inspected evidence for this WorkUnit; report uncertainty to the main session.",
+    "delegation_boundary": "Do not create or control further subagents."
+  },
+  "verification": {
+    "acceptance": "the relevant contract is evidenced"
+  }
+}
 ```
 
-Request the normal compact return defined by `routing.md`: status, summary, changed-file refs when applicable, verification, new evidence, remaining problem, blocker, and material decisions when applicable. Child output remains a claim until Main verifies the actual artifact and relevant checks.
+For one delegated responsibility with no delegated dependency, `team_plan_revision` is `null`. When TeamPlan is active, the same field carries the positive revision that already owns the multi-responsibility structural truth. A retry keeps the same stable `unit_id` and receives a new `execution_id` and `attempt_no` under the existing recovery rules.
 
-Do not add empty ceremony. Omit optional lines that have no task meaning. Do not omit a material invariant, decision boundary, mutation boundary, accepted evidence dependency, or acceptance condition merely to shorten the packet.
+The record does not create a second task state, authority model, scheduler, acceptance model, evidence store, or retry protocol. Runtime identity and authority facts come from persisted V4 state. `scripts/managed_execution_v4.py` implements this exact record and deterministically renders it as the managed Host `message`.
 
-When several delegated responsibilities remain unresolved concurrently, or machine-checkable dependency/integration order becomes material, use `team-plan.md` for graph truth and place the relevant TeamPlan identity/dependency facts into the same five sections. When recovery state matters, use `recovery.md`; do not invent retry semantics inside the packet.
+Do not maintain another child-packet template in `routing.md`, `team-plan.md`, Agent profiles, or Skills. When a responsibility needs more task meaning, first represent that meaning in the canonical WorkUnit/routing truth and then project the relevant fields through this record instead of inventing another wire format.
+
+Child results use the compact return semantics owned by `routing.md`. A child result remains a claim until the main session verifies the actual artifact and relevant evidence.
