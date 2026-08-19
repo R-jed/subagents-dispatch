@@ -96,7 +96,10 @@ scripts/host_capabilities.py
 -> semantic Host capability normalization plus exact exposed lifecycle/observation/peer-message Hook coverage
 
 scripts/orchestration_guard.py
--> staged V4 lifecycle, peer-message containment and Host-observation Guard implementation
+-> active V4 lifecycle, peer-message containment and Host-observation Guard implementation
+
+hooks/hooks.json
+-> authoritative installed V4 lifecycle Hook manifest for the exact real-Host candidate
 
 docs/v4/host-smoke.json
 -> H00-H20 real Host release gate
@@ -124,12 +127,12 @@ scripts/legacy_migration.py
 -> proven-owned legacy profile/state migration and cleanup support
 
 scripts/spawn_guard.py
--> current production compatibility spawn boundary until lifecycle Hook cutover
+-> retained V3.x compatibility implementation; inactive in the V4 real-Host candidate unless a later explicit compatibility path proves a consumer
 ```
 
 A V3.x orchestration capsule is legacy evidence. Never silently rewrite it into V4. An unresolved legacy writer, pending takeover, corrupt legacy state, WriterLease.UNKNOWN, or unresolved PendingControl remains fail closed.
 
-Historical RC stage specifications belong under `docs/history/`, not the active `contracts/` owner set.
+Historical RC stage specifications belong under `docs/history/`, not the active `contracts/` owner set. `docs/v4/hooks.json` is a non-runtime campaign reference copy whose `hooks` object is regression-locked to authoritative `hooks/hooks.json`.
 
 ## Safety invariants
 
@@ -148,7 +151,7 @@ every exposed lifecycle/observation Host identity requires exact Hook coverage
 managed child peer messaging is blocked when the Host exposes send_message
 ```
 
-The physical production file `hooks/hooks.json` remains the hardened V3.x compatibility file until lifecycle Hook cutover. The pre-Host RC Plugin manifest explicitly selects `docs/v4/hooks.json`, so real H00-H20 feasibility probes exercise the exact staged lifecycle definition while production cutover remains pending. Doctor resolves the effective Hook selection from the Plugin manifest. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
+The exact real-Host release candidate uses the default Plugin Hook path `hooks/hooks.json`. H00-H20 exercise that same artifact that would ship if the release gates pass. There is no post-campaign Hook-copy step. Any material mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
 
 Each `skills/<id>/SKILL.md` is a thin explicit adapter. `policy.allow_implicit_invocation` is false for both public Skills.
 
