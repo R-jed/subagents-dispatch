@@ -188,6 +188,40 @@ def test_malformed_or_partial_evidence_is_rejected():
         module.normalize_host_capabilities(payload)
 
 
+def test_unclassified_flattened_collaboration_identity_is_rejected():
+    module = load_module()
+    payload = evidence()
+    payload["tools"].append("multi_agent_spawn")
+
+    with pytest.raises(module.HostCapabilityError, match="unclassified collaboration"):
+        module.normalize_host_capabilities(payload)
+
+
+def test_namespaced_identity_requires_exact_hook_coverage():
+    module = load_module()
+    payload = evidence()
+    payload["tools"].append("collaboration.spawn_agent")
+
+    snapshot = module.normalize_host_capabilities(payload)
+
+    assert snapshot["execution_ready"] is False
+    assert snapshot["capabilities"]["pre_tool_use_guard"] is False
+    assert snapshot["capabilities"]["post_tool_use_guard"] is False
+
+
+def test_namespaced_identity_can_pass_when_exactly_guarded():
+    module = load_module()
+    payload = evidence()
+    payload["tools"].append("collaboration.spawn_agent")
+    payload["hooks"]["PreToolUse"].append("collaboration.spawn_agent")
+    payload["hooks"]["PostToolUse"].append("collaboration.spawn_agent")
+
+    snapshot = module.normalize_host_capabilities(payload)
+
+    assert snapshot["execution_ready"] is True
+    assert snapshot["missing"] == []
+
+
 def test_required_hook_tool_set_is_exact_lifecycle_surface():
     module = load_module()
     assert module.required_lifecycle_hook_tools() == (
