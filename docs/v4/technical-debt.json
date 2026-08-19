@@ -1,35 +1,21 @@
 {
-  "schema_version": "4.0.0-technical-debt-1",
+  "schema_version": "4.0.0-technical-debt-2",
   "status": "OPEN",
   "items": [
     {
       "id": "TD-V4-STATE-STORAGE-DECOUPLE",
       "priority": "P2",
       "status": "DEFERRED_POST_HOST_VALIDATION",
-      "current_condition": "dispatch_state_v4 imports legacy dispatch_state for hardened storage, locking, path, timestamp, and atomic-write helpers",
+      "current_condition": "dispatch_state_v4_core imports legacy dispatch_state for hardened storage, locking, path, timestamp, and atomic-write helpers",
       "risk_of_now": "Refactoring the storage boundary before real Host validation would invalidate a large already-green state and lifecycle surface without resolving any current release blocker",
       "target": "Extract schema-neutral storage primitives behind a dedicated module so V4 state no longer depends on the full V3 state implementation",
       "acceptance": [
-        "V4 state imports only schema-neutral storage primitives",
+        "V4 state core imports only schema-neutral storage primitives",
         "legacy V3.x state uses an explicit compatibility adapter",
         "state path, lock, atomic replace, private-file, symlink, bounded-size, and crash-window tests remain green",
         "no change to state v4 schema or Host lifecycle semantics"
       ]
-    },
-    {
-      "id": "TD-V4-DOCTOR-COMPAT-DECOUPLE",
-      "priority": "P2",
-      "status": "DEFERRED_POST_HOST_VALIDATION",
-      "current_condition": "doctor_runtime_core imports doctor_core as a compatibility provider for mature Host/runtime/permission evidence diagnostics",
-      "risk_of_now": "Splitting the compatibility core before real Host evidence is available would create broad diagnostic churn while the release gate still depends on those evidence paths",
-      "target": "Extract reusable Host, runtime-route, permission, and legacy diagnostics into narrowly scoped modules, then retire the V3 six-Skill Doctor core from the V4 runtime dependency graph",
-      "acceptance": [
-        "V4 Doctor no longer imports doctor_core",
-        "legacy-only diagnostics remain available through an explicit compatibility module",
-        "package-integrity bootstrap behavior remains unchanged",
-        "Doctor --check and --release-check retain fail-closed release semantics"
-      ]
     }
   ],
-  "release_policy": "These structural items are tracked debt and are not substitutes for the real Host H00-H20 gate. They remain deferred while the exact RC is awaiting external candidate-bound Host validation."
+  "release_policy": "This structural item is tracked debt and is not a substitute for the real Host H00-H20 gate. It remains deferred while the exact RC is awaiting external candidate-bound Host validation."
 }
