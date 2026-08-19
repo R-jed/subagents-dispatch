@@ -3,7 +3,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents|send_message|collaboration\\.spawn_agent|collaboration\\.followup_task|collaboration\\.interrupt_agent|collaboration\\.list_agents|collaboration\\.send_message",
+        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents|send_message|collaborationspawn_agent|collaborationfollowup_task|collaborationinterrupt_agent|collaborationlist_agents|collaborationsend_message",
         "hooks": [
           {
             "type": "command",
@@ -17,7 +17,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents|send_message|collaboration\\.spawn_agent|collaboration\\.followup_task|collaboration\\.interrupt_agent|collaboration\\.list_agents|collaboration\\.send_message",
+        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents|send_message|collaborationspawn_agent|collaborationfollowup_task|collaborationinterrupt_agent|collaborationlist_agents|collaborationsend_message",
         "hooks": [
           {
             "type": "command",
