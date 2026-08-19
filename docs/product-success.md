@@ -44,6 +44,24 @@ high-judgment changes that may justify independent review
 
 A product can be useful even if it deliberately does little on some strata. In particular, small and strongly sequential tasks should not be forced into delegation merely to improve a utilization metric.
 
+## Registered simplification comparisons
+
+Two architecture comparisons should be measured before either becomes a new product default.
+
+### Progressive fanout versus one-child-first
+
+Compare the current value-driven progressive fanout policy with a treatment that starts at most one child and opens a second independent lane only after evidence shows that the additional concurrency is still worthwhile.
+
+Measure correctness and safety first, then repeated discovery, parent idle time, user intervention, wall-clock latency, integration work, and attributable token use. Segment results by workload stratum. A one-child-first policy should not replace the current ceiling merely because it uses fewer Agents; it must improve the overall engineering tradeoff without suppressing valuable parallel read-heavy work.
+
+### Compact responsibility packet versus expanded packet
+
+Compare the five-section `contracts/responsibility-packet.md` projection with the expanded canonical responsibility representation on matched delegated tasks.
+
+Measure contract omissions, scope violations, clarification or retry frequency, verification success, parent repair work, child input size, latency, and attributable token use. The compact form is successful only when it preserves material task truth and acceptance quality while reducing coordination/context burden. If a task needs TeamPlan, recovery, handoff, or other specialized state, those canonical contracts remain available in both arms rather than being removed for the experiment.
+
+These comparisons are registered hypotheses, not current product claims. Freeze task sets, treatment definitions, and decision thresholds before a formal campaign. Do not use repository test counts as evidence that either treatment improves developer outcomes.
+
 ## Threshold discipline
 
 Do not invent public percentage thresholds before exploratory data exists.

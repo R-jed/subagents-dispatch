@@ -1,4 +1,4 @@
-"""Canonical Reader calibration identity and contract helpers."""
+"""Canonical calibration identity and contract helpers."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from typing import Any
 ROLE_CONTRACT_SCHEMA = "subagents-dispatch-calibration-role-contract-v1"
 CALIBRATION_FRESH_CONTEXT = "fork_turns:none"
 CALIBRATION_DELEGATION_DEPTH = 1
-CALIBRATION_PERMISSION_REQUIREMENTS = "host-inherited"
 PRODUCTION_AGENT_TYPES = {
     "subagents_dispatch_reader",
     "subagents_dispatch_worker",
@@ -31,6 +30,11 @@ def role_contract_digest(
     developer_instructions: str,
     mutation_authority: str,
 ) -> str:
+    permission_contract = (
+        "sandbox:read-only"
+        if mutation_authority == "none"
+        else "sandbox:host-inherited"
+    )
     return canonical_json_hash(
         {
             "schema_marker": ROLE_CONTRACT_SCHEMA,
@@ -40,7 +44,7 @@ def role_contract_digest(
             "mutation_authority": mutation_authority,
             "fresh_context": CALIBRATION_FRESH_CONTEXT,
             "delegation_depth": CALIBRATION_DELEGATION_DEPTH,
-            "permission_requirements_fingerprint": CALIBRATION_PERMISSION_REQUIREMENTS,
+            "permission_requirements_fingerprint": permission_contract,
         }
     )
 

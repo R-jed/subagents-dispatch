@@ -333,13 +333,19 @@ def _load_role_template(role: str, policy: dict[str, Any]) -> tuple[Path, dict[s
     required = {"name", "description", "model", "model_reasoning_effort", "developer_instructions"}
     if not required <= set(data):
         _core.fail(f"canonical {role} profile is missing required contract fields")
-    expected = (spec["agent_type"], spec["model"], spec["effort"])
-    observed = (data["name"], data["model"], data["model_reasoning_effort"])
+    expected_sandbox = "read-only" if spec["mutation_authority"] == "none" else None
+    if spec.get("sandbox_mode") != expected_sandbox:
+        _core.fail(f"policy role {role!r} has an inconsistent sandbox contract")
+    expected = (spec["agent_type"], spec["model"], spec["effort"], expected_sandbox)
+    observed = (data["name"], data["model"], data["model_reasoning_effort"], data.get("sandbox_mode"))
     if observed != expected:
         _core.fail(f"canonical {role} profile does not match the current policy route")
-    if "sandbox_mode" in data:
-        _core.fail(f"canonical {role} profile must inherit Host permissions")
     return template_path, data
+
+
+def _load_reader_template() -> dict[str, Any]:
+    policy = _core._load_json(POLICY, "policy contract")
+    return _load_role_template("reader", policy)[1]
 
 
 def _render_role_profile(template_path: Path, agent_type: str, model: str, effort: str) -> bytes:
@@ -455,6 +461,7 @@ def parse_args() -> argparse.Namespace:
 _core.MANIFEST_SCHEMA = MANIFEST_SCHEMA
 _core._path_inventory = _path_inventory
 _core._load_policy = _load_policy
+_core._load_template = _load_reader_template
 _core._validated_campaign = _validated_campaign
 _core._profile_records = _profile_records
 _core._host_home_identity = _host_home_identity

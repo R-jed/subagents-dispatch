@@ -31,7 +31,8 @@
       "agent_type": "subagents_dispatch_reader",
       "model": "gpt-5.6-luna",
       "effort": "max",
-      "mutation_authority": "none"
+      "mutation_authority": "none",
+      "sandbox_mode": "read-only"
     },
     "worker": {
       "profile_file": "subagents-dispatch-worker.toml",
@@ -52,14 +53,16 @@
       "agent_type": "subagents_dispatch_investigator",
       "model": "gpt-5.6-terra",
       "effort": "high",
-      "mutation_authority": "none"
+      "mutation_authority": "none",
+      "sandbox_mode": "read-only"
     },
     "advisor": {
       "profile_file": "subagents-dispatch-advisor.toml",
       "agent_type": "subagents_dispatch_advisor",
       "model": "gpt-5.6-sol",
       "effort": "high",
-      "mutation_authority": "none"
+      "mutation_authority": "none",
+      "sandbox_mode": "read-only"
     }
   },
   "final_review": {

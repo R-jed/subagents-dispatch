@@ -7,11 +7,13 @@ description: Coordinate complex coding tasks with Codex Native Subagents when de
 
 Use this Skill as the single explicit orchestration entrypoint. `Doctor` is the only other public Skill.
 
-First decide whether delegation helps the requested task. Small, tightly coupled, or already well-understood work may stay entirely in Main. Do not create children merely because capacity exists.
+First decide whether delegation helps the requested task. Small, tightly coupled, or already well-understood work may stay entirely in Main. Do not create children merely because capacity exists. When a task is clearly Main-only, keep it there without eagerly loading the deeper orchestration contracts or provisioning managed profiles.
 
-For plan-only requests, return a provisional responsibility/dependency shape without creating orchestration state, provisioning Agent profiles, acquiring WriterLease, or invoking Host lifecycle tools.
+For plan-only requests, read `../../contracts/policy.json` and `../../contracts/routing.md`, then return a provisional responsibility/dependency shape without creating orchestration state, provisioning Agent profiles, acquiring WriterLease, or invoking Host lifecycle tools.
 
-For delegated execution, use the fixed profiles and routing rules owned by `../../contracts/policy.json` and `../../contracts/routing.md`. Do not dynamically change model or reasoning effort. New project children use `fork_turns: none`, delegation depth remains one, initial managed fanout is at most two, and ordinary managed fanout is at most three plus any lower Host capacity.
+When delegation may add value, read `../../contracts/policy.json` and `../../contracts/routing.md` before selecting roles or responsibilities. Do not dynamically change model or reasoning effort. New project children use `fork_turns: none`, delegation depth remains one, initial managed fanout is at most two, and ordinary managed fanout is at most three plus any lower Host capacity.
+
+Before spawning one selected responsibility, read `../../contracts/responsibility-packet.md` and project the canonical responsibility into its compact five-section packet. This packet is only a prompt serialization of routing truth; it does not create another task state or authority model. If two or more delegated responsibilities remain unresolved concurrently, or dependency/integration order becomes material, then also read `../../contracts/team-plan.md` and use its graph as the canonical multi-responsibility truth.
 
 The canonical mutable workspace has at most one active managed writing actor. A writing child requires the canonical WriterLease before its Host call. `UNKNOWN`, unresolved PendingControl, or ambiguous writer settlement never authorizes a conflicting write or ownership transfer. Separate worktrees or workspaces are outside the current V4 writer domain unless a future contract explicitly proves their isolation.
 
@@ -21,7 +23,7 @@ Before the first child spawn, require the exact selected managed profile and nev
 
 Delegated execution also requires the installed Host/Hook surface to satisfy the lifecycle capabilities needed by the selected operation. A missing or `UNKNOWN` required capability stops delegated execution. Local or staged configuration alone does not prove that the current Host discovered, trusted, or executed the required lifecycle Hook.
 
-Plan, status, steer, takeover, cancel, continue, correction, execution, review, and integration semantics are owned by `../../contracts/interaction.md`, `../../contracts/recovery.md`, `../../contracts/team-plan.md`, and `../../contracts/final-review.md`. Use those contracts rather than reproducing their state machines in the Skill prompt.
+Load control contracts only when their state becomes relevant. Read `../../contracts/interaction.md` for status, steer, takeover, cancel, continue, or correction requests. Read `../../contracts/recovery.md` when an attempt is interrupted, blocked, retried, reactivated, or has uncertain lifecycle truth. Read `../../contracts/final-review.md` only when its trigger policy applies. Use those contracts directly rather than reproducing their state machines in this Skill.
 
 A V3.x orchestration capsule is legacy evidence. Do not silently enroll it into V4. Surface legacy blockers through `Doctor`; plan-only remains available because it creates no runtime state.
 

@@ -212,7 +212,7 @@ def test_both_generation_lock_files_remain_after_migration(tmp_path: Path):
     check = _installer_concurrency__run_installer(home, '--check')
     assert check.returncode == 0, check.stdout + check.stderr
 
-def test_profile_drift_after_manifest_publication_rolls_back_previous_state(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+def test_profile_drift_after_manifest_publication_preserves_external_drift_and_backup(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     home = tmp_path / 'codex-home'
     installer = load_installer()
     installer.install(home, False)
@@ -227,17 +227,21 @@ def test_profile_drift_after_manifest_publication_rolls_back_previous_state(tmp_
     manifest_path.write_text(json.dumps(previous_manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     previous_manifest_bytes = manifest_path.read_bytes()
     original_write_manifest = installer.write_manifest
+    expected_drift = (installer.PROFILE_SOURCE / profile_name).read_bytes() + b'\n# external publication-window drift\n'
 
     def publish_then_drift(path: Path, payload: dict) -> None:
         original_write_manifest(path, payload)
         profile.write_bytes(profile.read_bytes() + b'\n# external publication-window drift\n')
     installer.write_manifest = publish_then_drift
-    with pytest.raises(SystemExit, match='Installed Agent profile is missing, unsafe, or differs'):
+    with pytest.raises(SystemExit, match='ROLLBACK INCOMPLETE'):
         installer.install(home, False)
     output = capsys.readouterr().out
     assert 'Managed Agent profiles installed under:' not in output
-    assert profile.read_bytes() == previous_profile
+    assert profile.read_bytes() == expected_drift
     assert manifest_path.read_bytes() == previous_manifest_bytes
+    backups = list(profile.parent.glob(f'.{profile.name}.backup-*'))
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == previous_profile
     for filename in installer.PROFILE_FILES:
         if filename == profile_name:
             continue
