@@ -22,11 +22,11 @@ def current_version() -> str:
     return version
 
 
-def test_release_version_identity_matches_marketplace_source():
-    version = current_version()
-    assert version == "4.0.0"
+def test_release_version_identity_uses_exact_marketplace_checkout_as_plugin_source():
+    assert current_version() == "4.0.0"
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
-    assert market["plugins"][0]["source"]["ref"] == f"v{version}"
+    source = market["plugins"][0]["source"]
+    assert source == {"source": "local", "path": "./"}
 
 
 def test_latest_changelog_matches_release_version_and_keeps_v3_history():
