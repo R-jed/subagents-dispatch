@@ -47,6 +47,21 @@ def _authority_rank(value: str) -> int:
         raise ExecutionLifecycleError("invalid mutation authority") from exc
 
 
+def _validate_fresh_plan_binding(current: Mapping[str, Any], unit: Mapping[str, Any]) -> None:
+    """Allow null TeamPlan revision only for one dependency-free WorkUnit."""
+    if current.get("team_plan_revision") is not None:
+        return
+    work_units = current.get("work_units", [])
+    if len(work_units) != 1 or work_units[0].get("unit_id") != unit.get("unit_id"):
+        raise ExecutionLifecycleError(
+            "fresh execution without TeamPlan requires exactly one WorkUnit"
+        )
+    if unit.get("depends_on"):
+        raise ExecutionLifecycleError(
+            "fresh execution without TeamPlan cannot carry delegated dependencies"
+        )
+
+
 def allocate_execution(
     thread_id: str,
     *,
@@ -74,8 +89,7 @@ def allocate_execution(
         unit = _unit(current, unit_id)
         if unit["state"] != "READY":
             raise ExecutionLifecycleError("fresh execution requires READY WorkUnit")
-        if current["team_plan_revision"] is None:
-            raise ExecutionLifecycleError("fresh execution requires TeamPlan revision")
+        _validate_fresh_plan_binding(current, unit)
         if any(item["execution_id"] == execution_id for item in current["executions"]):
             raise ExecutionLifecycleError("execution_id is already present")
         if any(item["native_task_name"] == native_task_name for item in current["executions"]):
