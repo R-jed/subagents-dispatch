@@ -95,7 +95,9 @@ def test_public_doctor_rejects_maintainer_and_experiment_flags(tmp_path: Path, f
 
 
 def test_default_diagnosis_invokes_only_local_managed_profile_check(monkeypatch, tmp_path: Path):
-    doctor = load_module("doctor_product_default_side_effects", "doctor_runtime_core.py")
+    runtime = load_module("doctor_product_default_runtime", "doctor_runtime.py")
+    runtime.configure_core()
+    doctor = runtime.core
     calls: list[list[str]] = []
 
     def fake_run(command, **kwargs):
