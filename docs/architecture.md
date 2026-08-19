@@ -116,7 +116,10 @@ scripts/host_capabilities.py
 -> Host capability normalization and exact exposed tool-identity Hook coverage
 
 scripts/orchestration_guard.py
--> staged V4 lifecycle, peer-message containment and Host-observation Guard
+-> active V4 lifecycle, peer-message containment and Host-observation Guard
+
+hooks/hooks.json
+-> authoritative installed lifecycle Hook manifest for the exact real-Host candidate
 
 docs/v4/host-smoke.json
 -> real Host release gate
@@ -191,7 +194,7 @@ If the Host exposes `send_message`, every model-visible peer-message identity mu
 
 ## Lifecycle Guard and release gate
 
-The V4 three-sided Guard under test is `docs/v4/hooks.json`:
+The exact V4 real-Host candidate uses the default Plugin Hook path `hooks/hooks.json`:
 
 ```text
 PreToolUse   -> authorize managed lifecycle calls, bind Host observation, block managed-child peer messaging
@@ -199,9 +202,13 @@ PostToolUse  -> bind exact lifecycle/Host observation results without inventing 
 SubagentStop -> prevent autonomous continuation of managed leaf Agents
 ```
 
-During the pre-Host RC phase, `.codex-plugin/plugin.json` explicitly selects this staged definition so isolated H00-H20 probes exercise it on the real target Host. The physical `hooks/hooks.json` file remains the hardened V3.x compatibility file until cutover. Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build loads the selected Hook source, trusts it, invokes every exposed identity with the expected serialized `tool_name`, or supplies reliable outcome semantics.
+`docs/v4/hooks.json` is a non-runtime campaign reference copy. Tests require its `hooks` object to stay exactly equivalent to the active manifest, and package integrity protects both files during this campaign window. Runtime discovery, Doctor diagnostics, H00 evidence, and release authority bind to `hooks/hooks.json`.
 
-`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact candidate before production-file cutover and publication. H00 first proves the selected staged Hook source and trust state. The first feasibility wave then settles identity coverage, PostToolUse outcome reliability, message representation, profile selectors/tool surface, peer-message containment, and assignment completeness before spending the full campaign budget.
+Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build loads the active Hook source, trusts it, invokes every exposed identity with the expected serialized `tool_name`, or supplies reliable outcome semantics.
+
+`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact candidate before publication. H00 first proves the active `hooks/hooks.json` digest and trust state. The first feasibility wave then settles identity coverage, PostToolUse outcome reliability, message representation, profile selectors/tool surface, peer-message containment, and assignment completeness before spending the full campaign budget.
+
+There is no post-campaign Hook-copy or promotion step. Any material candidate mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated.
 
 ## Final Review
 
@@ -215,7 +222,7 @@ V3.x live state is legacy evidence and is never silently rewritten into V4 state
 
 The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata only, not raw prompts, child transcripts, reasoning traces, source copies, or full Host output.
 
-`dispatch_state.py`, `spawn_guard.py`, and legacy migration remain compatibility owners until the planned post-cutover sunset. The shared storage primitives are not extracted from the V3 module before the Host feasibility gate because doing so would widen the state-storage regression surface.
+`dispatch_state.py`, `spawn_guard.py`, and legacy migration remain compatibility owners while proven consumers remain. `spawn_guard.py` is retained compatibility code and is not the active Hook implementation for the exact V4 real-Host candidate. The shared storage primitives are not extracted from the V3 module before the Host feasibility gate because doing so would widen the state-storage regression surface.
 
 ## V4.0.0 exclusions
 
