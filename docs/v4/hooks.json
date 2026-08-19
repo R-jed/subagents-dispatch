@@ -1,5 +1,5 @@
 {
-  "description": "Staged V4 managed lifecycle, peer-message containment, and Host-observation Hook manifest. The pre-Host RC Plugin manifest selects this definition for isolated real-Host validation; promote it to hooks/hooks.json only after H00-H20 pass.",
+  "description": "Non-runtime V4 Hook reference for the H00-H20 campaign. The authoritative installed candidate manifest is hooks/hooks.json; tests require this hooks object to remain exactly equivalent.",
   "hooks": {
     "PreToolUse": [
       {
