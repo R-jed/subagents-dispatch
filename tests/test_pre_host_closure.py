@@ -168,19 +168,19 @@ def test_exact_namespaced_and_peer_coverage_can_be_execution_ready():
     evidence["hooks"]["PreToolUse"].extend(
         [
             "send_message",
-            "collaboration.spawn_agent",
-            "collaboration.followup_task",
-            "collaboration.interrupt_agent",
-            "collaboration.list_agents",
-            "collaboration.send_message",
+            "collaborationspawn_agent",
+            "collaborationfollowup_task",
+            "collaborationinterrupt_agent",
+            "collaborationlist_agents",
+            "collaborationsend_message",
         ]
     )
     evidence["hooks"]["PostToolUse"].extend(
         [
-            "collaboration.spawn_agent",
-            "collaboration.followup_task",
-            "collaboration.interrupt_agent",
-            "collaboration.list_agents",
+            "collaborationspawn_agent",
+            "collaborationfollowup_task",
+            "collaborationinterrupt_agent",
+            "collaborationlist_agents",
         ]
     )
 
@@ -190,38 +190,37 @@ def test_exact_namespaced_and_peer_coverage_can_be_execution_ready():
     assert snapshot["missing"] == []
 
 
-def test_managed_child_peer_message_and_namespaced_lifecycle_are_blocked():
+def test_managed_child_peer_message_and_flattened_namespace_lifecycle_are_blocked():
     guard = load_module("pre_host_guard", "orchestration_guard.py")
     caller = "subagents_dispatch_reader"
 
-    peer = guard.evaluate_pre_tool_use(
-        {
-            "hook_event_name": "PreToolUse",
-            "session_id": "root-thread",
-            "tool_name": "send_message",
-            "tool_use_id": "tool-peer",
-            "tool_input": {"target": "/root/sibling", "message": "change direction"},
-            "agent_type": caller,
-        }
-    )
-    assert peer is not None
-    assert peer["decision"] == "block"
+    for tool_name, tool_input in (
+        (
+            "collaborationsend_message",
+            {"target": "/root/sibling", "message": "change direction"},
+        ),
+        (
+            "collaborationspawn_agent",
+            {"task_name": "nested", "message": "x", "agent_type": "default"},
+        ),
+    ):
+        result = guard.evaluate_pre_tool_use(
+            {
+                "hook_event_name": "PreToolUse",
+                "session_id": "root-thread",
+                "tool_name": tool_name,
+                "tool_use_id": f"tool-{tool_name}",
+                "tool_input": tool_input,
+                "agent_type": caller,
+            }
+        )
+        assert result is not None
+        assert result["decision"] == "block"
 
-    namespaced = guard.evaluate_pre_tool_use(
-        {
-            "hook_event_name": "PreToolUse",
-            "session_id": "root-thread",
-            "tool_name": "collaboration.spawn_agent",
-            "tool_use_id": "tool-alias",
-            "tool_input": {"task_name": "nested", "message": "x", "agent_type": "default"},
-            "agent_type": caller,
-        }
-    )
-    assert namespaced is not None
-    assert namespaced["decision"] == "block"
+    assert guard._tool_leaf_name("collaboration.spawn_agent") is None
 
 
-def test_staged_manifest_covers_peer_message_and_known_collaboration_aliases():
+def test_staged_manifest_covers_exact_hook_serialized_collaboration_identities():
     payload = json.loads((ROOT / "docs" / "v4" / "hooks.json").read_text(encoding="utf-8"))
     pre_matchers = "|".join(item["matcher"] for item in payload["hooks"]["PreToolUse"])
     post_matchers = "|".join(item["matcher"] for item in payload["hooks"]["PostToolUse"])
@@ -232,31 +231,35 @@ def test_staged_manifest_covers_peer_message_and_known_collaboration_aliases():
         "interrupt_agent",
         "list_agents",
         "send_message",
-        "collaboration.spawn_agent",
-        "collaboration.followup_task",
-        "collaboration.interrupt_agent",
-        "collaboration.list_agents",
-        "collaboration.send_message",
+        "collaborationspawn_agent",
+        "collaborationfollowup_task",
+        "collaborationinterrupt_agent",
+        "collaborationlist_agents",
+        "collaborationsend_message",
     ):
-        assert identity.replace(".", "\\.") in pre_matchers or identity in pre_matchers
+        assert identity in pre_matchers
 
     for identity in (
         "spawn_agent",
         "followup_task",
         "interrupt_agent",
         "list_agents",
-        "collaboration.spawn_agent",
-        "collaboration.followup_task",
-        "collaboration.interrupt_agent",
-        "collaboration.list_agents",
+        "collaborationspawn_agent",
+        "collaborationfollowup_task",
+        "collaborationinterrupt_agent",
+        "collaborationlist_agents",
     ):
-        assert identity.replace(".", "\\.") in post_matchers or identity in post_matchers
+        assert identity in post_matchers
+
+    assert "collaboration\\." not in pre_matchers
+    assert "collaboration\\." not in post_matchers
 
 
 def test_host_contract_requires_exact_identity_peer_and_assignment_semantics():
     payload = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
     probes = {item["id"]: item for item in payload["required_probes"]}
 
+    assert any("hook" in value.lower() and "identity" in value.lower() for value in probes["H00"]["requires"])
     assert any("identity" in value.lower() or "alias" in value.lower() for value in probes["H01"]["requires"])
     assert any("send_message" in value for value in probes["H14"]["requires"])
     assert any("interfaces" in value.lower() or "invariants" in value.lower() for value in probes["H15"]["requires"])
