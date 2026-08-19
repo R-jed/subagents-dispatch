@@ -279,6 +279,18 @@ def test_current_docs_have_no_retired_dispatch_or_doctor_release_owner_drift():
         assert supporting_owner in ai_index
 
 
+def test_machine_status_docs_keep_release_authority_and_debt_current():
+    phase = json.loads((ROOT / "docs" / "v4" / "phase-status.json").read_text(encoding="utf-8"))
+    debt = json.loads((ROOT / "docs" / "v4" / "technical-debt.json").read_text(encoding="utf-8"))
+
+    assert "Doctor --release-check" not in phase["release_rule"]
+    assert "does not grant publication authority" in phase["release_rule"]
+    assert all(item["id"] != "TD-V4-DOCTOR-COMPAT-DECOUPLE" for item in debt["items"])
+    state_debt = next(item for item in debt["items"] if item["id"] == "TD-V4-STATE-STORAGE-DECOUPLE")
+    assert "dispatch_state_v4_core" in state_debt["current_condition"]
+    assert "doctor_core" not in json.dumps(debt)
+
+
 def test_rc3_integrity_closure_is_history_not_active_contract():
     assert not (ROOT / "contracts" / "rc3-integrity-closure.md").exists()
     assert (ROOT / "docs" / "history" / "rc3-integrity-closure.md").is_file()
