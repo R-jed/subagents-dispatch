@@ -19,7 +19,7 @@ Formal calibration and benchmark campaigns remain Experiment Plane work unless a
 
 ## 1. Candidate identity
 
-Record the exact candidate commit, tree, Plugin version, Marketplace ref, package-integrity manifest, production Hook digest, profile contract digest, Host contract digest, Codex Host version/build, and operating systems used for smoke.
+Record the exact candidate commit, tree, Plugin version, Marketplace ref, package-integrity manifest, active `hooks/hooks.json` digest, profile contract digest, Host contract digest, Codex Host version/build, and operating systems used for smoke.
 
 `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, and the V4 changelog entry must agree on `4.0.0` before tagging. Use a versioned semantic-version tag only after all release gates pass. Verify that Marketplace installation resolves the exact tagged candidate rather than a mutable branch.
 
@@ -70,7 +70,7 @@ skills/doctor
 
 For route evidence preserve `Configured -> Requested -> Accepted -> Observed`. Never promote accepted routing metadata or child prose into observed runtime truth.
 
-Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged. In addition, all unrelated configuration semantics must remain unchanged.
+Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged.
 
 ## 3. State and migration gates
 
@@ -90,7 +90,9 @@ V3.x active or corrupt state is never silently migrated
 plan-only creates no runtime state, lease, control, or Host action
 ```
 
-The physical production V3.x compatibility spawn Guard remains in `hooks/hooks.json` until lifecycle Hook cutover. `dispatch_state.py`, legacy migration, and the tests that still protect compatibility or shared storage remain active dependencies during this window.
+The exact real-Host candidate already carries the V4 lifecycle Guard at the default Plugin Hook path `hooks/hooks.json`. `scripts/spawn_guard.py`, `dispatch_state.py`, legacy migration, and tests that still protect compatibility or shared storage remain retained compatibility dependencies, but `spawn_guard.py` is not the active Hook implementation for this candidate.
+
+`docs/v4/hooks.json` is a non-runtime campaign reference copy. Tests require its `hooks` object to remain exactly equivalent to active `hooks/hooks.json`; Host evidence and release authority bind to `hooks/hooks.json`.
 
 ## 4. Real Codex Host gate
 
@@ -98,9 +100,9 @@ The machine-readable authority is `docs/v4/host-smoke.json`. Its exact required 
 
 Offline CI, source inspection, the official Plugin validator, prior V3 spawn-guard evidence, or model self-report cannot substitute for this gate. The tracked contract remains `PENDING` with empty embedded results; authoritative campaign results remain external and candidate-bound.
 
-During the pre-Host RC phase, `.codex-plugin/plugin.json` must explicitly select `./docs/v4/hooks.json`. Package integrity must include that selected staged file. The physical `hooks/hooks.json` compatibility file remains unchanged until cutover. Before recording H00 evidence, verify on the target Host that the enabled Plugin reports the staged Hook source and that the exact staged definition is trusted. If the Host loads the default compatibility Hook instead, H00 has not started.
+Before recording H00 evidence, install the exact candidate and verify that the target Host discovers and trusts the active default Plugin Hook source `hooks/hooks.json`. Capture the exact active Hook digest, Host build, model-visible collaboration identities, and Hook-serialized `tool_name` identities separately. If the observed Hook digest differs from the candidate digest, H00 has not started.
 
-Before spending the full campaign budget, run the feasibility wave against the exact staged `docs/v4/hooks.json` definition:
+Before spending the full campaign budget, run this feasibility wave against the exact candidate:
 
 ```text
 H00  exact Hook trust + complete exposed collaboration tool identities
@@ -116,26 +118,24 @@ If any exposed lifecycle or observation identity is not intercepted exactly, sto
 
 If the Host exposes `send_message` to a managed child, every exposed peer-message identity must hit PreToolUse and be blocked before peer delivery. Peer messaging may not become a side channel for sibling control.
 
-If H08 cannot bind the authorized plaintext responsibility to the actual Hook representation without weakening PendingControl integrity, stop and redesign the binding. Do not use string heuristics or simply omit message semantics from authorization.
+If H08 cannot bind the authorized plaintext responsibility to the actual Hook representation without weakening PendingControl integrity, stop and redesign the binding. Do not use string heuristics or omit message semantics from authorization.
 
 If H07 cannot reliably distinguish a successful lifecycle operation from a failed one, stop. Do not infer success from arbitrary response text and do not ACK a control merely because PostToolUse fired.
 
 Only after the feasibility wave passes should the remaining H00-H20 probes be completed. Every probe must be bound to one declared environment and the exact candidate identity required by the external release-evidence contract. H20 must run on Windows.
 
-## 5. Lifecycle Hook cutover
+## 5. Candidate stability after Host evidence
 
-Only after all H00-H20 probes pass against the staged definition may `docs/v4/hooks.json` be promoted to production `hooks/hooks.json`.
+The H00-H20 campaign validates the same active `hooks/hooks.json` artifact that would ship if every release gate passes. There is no post-campaign Hook-copy or Hook-promotion step.
 
-Promotion mutates the candidate. Therefore:
+Any material mutation after Host evidence changes the candidate. Therefore:
 
-1. copy the staged lifecycle definition to `hooks/hooks.json` and remove the temporary Plugin manifest `hooks` override when the default production path becomes authoritative;
-2. refresh package integrity and exact candidate identity;
-3. rerun the complete four-platform repository matrix;
-4. repeat every Host probe affected by the promoted candidate/Hook identity;
-5. ensure installed Doctor resolves and accepts the production lifecycle Hook contract;
-6. keep any ambiguous Host behavior fail closed.
+1. refresh package integrity and exact candidate identity;
+2. rerun the complete four-platform repository matrix;
+3. repeat every Host probe affected by the changed candidate or Hook identity;
+4. keep any ambiguous Host behavior fail closed.
 
-With production lifecycle Hooks active verify representative flows:
+Representative flows that must remain covered by repository or Host evidence as applicable include:
 
 ```text
 plan-only
@@ -160,7 +160,7 @@ Writer safety must still prove:
 fresh writer activation reserves WriterLease before Host call
 second managed writer is blocked
 followup cannot bypass a newer lease
-interrupt ACK alone does not release WriterLease
+interrupt ACK alone does not release unsettled writer
 settlement requires exact current Host observation + retained receipt
 takeover transfers WriterLease atomically to Main
 stale lease identity cannot release a newer lease
@@ -168,7 +168,7 @@ stale lease identity cannot release a newer lease
 
 ## 6. Final Review and release evidence
 
-After the promoted candidate is deterministic and relevant Host probes pass, run a fresh independent Final Review under `contracts/final-review.md` against the exact candidate.
+After the exact candidate is deterministic and H00-H20 pass, run a fresh independent Final Review under `contracts/final-review.md` against that exact candidate.
 
 Any subsequent mutation invalidates that verdict.
 
@@ -196,10 +196,7 @@ Final sequence:
 
 ```text
 repository matrix PASS
-real staged-Host H00-H20 PASS
-promote staged lifecycle Hooks
-repository matrix PASS again
-repeat affected Host probes against promoted exact candidate
+real Host H00-H20 PASS against exact active hooks/hooks.json candidate
 fresh exact-candidate Advisor Final Review PASS
 external release evidence verifies exactly
 installed Doctor has no BLOCKED product-health failure
