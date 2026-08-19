@@ -84,7 +84,7 @@ fork_turns: none
 
 Fresh context is required even when the main session is already Sol, Sol Solver implemented part of the work, or Sol Advisor previously answered a planning question. Those uses provide capability, not independent acceptance of the final integrated candidate.
 
-Give the reviewer compressed facts, the actual candidate, acceptance conditions, verification results, and known residual risks. A Handoff Capsule may contribute Main-accepted facts/evidence, but the final reviewer still receives the exact current candidate and must not rely on stale capsule state. Do not pass raw child transcripts, dead-end narration, or tell the reviewer that another actor already believes the candidate is correct.
+Give the reviewer compressed facts, the actual candidate, acceptance conditions, verification results, and known residual risks. A Handoff Capsule may contribute main-session-accepted facts/evidence, but the final reviewer still receives the exact current candidate and must not rely on stale capsule state. Do not pass raw child transcripts, dead-end narration, or tell the reviewer that another actor already believes the candidate is correct.
 
 Return:
 
@@ -107,7 +107,7 @@ Completion requires:
 - reviewed artifact id matches current candidate;
 - required deterministic/reproducible verification still passes;
 - artifact verification still matches after review;
-- main session still finds the user acceptance conditions satisfied.
+- the main session still finds the user acceptance conditions satisfied.
 
 ### fix-first
 
@@ -125,6 +125,6 @@ Keep the candidate at review-pending. Gather only the missing evidence when poss
 
 A required quality state does not authorize unlimited compute.
 
-The first ordinary fresh review after explicit user selection/invocation of Dispatch may fit inside the normal bounded orchestration envelope. Repeated correction/re-review loops can become material compute expansion and require renewed consent under `guardrails.md`.
+The first ordinary fresh review after explicit user selection/invocation of Orchestrate may fit inside the normal bounded orchestration envelope. Repeated correction/re-review loops can become material compute expansion and require renewed consent under `guardrails.md`.
 
 If required review is outside the current consent envelope and the user declines it, report that independent assurance remains incomplete. Do not silently downgrade the review requirement.
