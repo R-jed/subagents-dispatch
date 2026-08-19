@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-6",
+  "schema_version": "4.0.0-phase-status-7",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -62,5 +62,5 @@
     }
   },
   "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
-  "release_rule": "V4.0.0 publication requires an external candidate-bound H00-H20 Host campaign PASS, production lifecycle Hook promotion and relevant exact-candidate Host retest, a fresh candidate-bound Advisor Final Review PASS, verified external release evidence, Doctor --release-check PASS, and human App observation. The tracked docs/v4/host-smoke.json remains a PENDING static contract and cannot self-attest runtime PASS."
+  "release_rule": "V4.0.0 publication requires an external candidate-bound H00-H20 Host campaign PASS, production lifecycle Hook promotion and relevant exact-candidate Host retest, a fresh candidate-bound Advisor Final Review PASS, verified external release evidence, an installed Doctor product-health check with no blocking diagnosis, and human App observation. The Doctor check is product-health evidence only and does not grant publication authority. The tracked docs/v4/host-smoke.json remains a PENDING static contract and cannot self-attest runtime PASS."
 }
