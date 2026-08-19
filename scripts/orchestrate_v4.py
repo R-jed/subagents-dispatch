@@ -15,40 +15,19 @@ from typing import Any, Mapping
 
 import dispatch_state_v4 as state
 import execution_lifecycle_v4 as lifecycle
+import policy as policy_contract
 import scheduler_v4 as scheduler
 
 
+_PROFILE_SPECS = policy_contract.profile_contracts()
 FIXED_PROFILES = {
-    "reader": {
-        "model": "gpt-5.6-luna",
-        "effort": "max",
-        "authority_ceiling": "none",
-        "semantic_role": "work",
-    },
-    "worker": {
-        "model": "gpt-5.6-luna",
-        "effort": "max",
-        "authority_ceiling": "bounded-source-write",
-        "semantic_role": "work",
-    },
-    "investigator": {
-        "model": "gpt-5.6-terra",
-        "effort": "high",
-        "authority_ceiling": "none",
-        "semantic_role": "work",
-    },
-    "solver": {
-        "model": "gpt-5.6-sol",
-        "effort": "high",
-        "authority_ceiling": "bounded-source-write",
-        "semantic_role": "work",
-    },
-    "advisor": {
-        "model": "gpt-5.6-sol",
-        "effort": "high",
-        "authority_ceiling": "none",
-        "semantic_role": "review",
-    },
+    role: {
+        "model": spec["model"],
+        "effort": spec["effort"],
+        "authority_ceiling": spec["mutation_authority"],
+        "semantic_role": spec["semantic_role"],
+    }
+    for role, spec in _PROFILE_SPECS.items()
 }
 
 
