@@ -147,6 +147,31 @@ def critical_path_lengths(payload: Mapping[str, Any]) -> dict[str, int]:
     return {unit_id: length(unit_id) for unit_id in by_id}
 
 
+def install_single_work_unit(
+    thread_id: str,
+    *,
+    unit: Mapping[str, Any],
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Install one dependency-free WorkUnit without creating TeamPlan truth."""
+    supplied = copy.deepcopy(dict(unit))
+    if supplied.get("depends_on") != []:
+        raise WorkGraphError("single WorkUnit path cannot carry a dependency")
+    if supplied.get("state") != "READY":
+        raise WorkGraphError("single WorkUnit path requires a READY WorkUnit")
+
+    def mutate(current: dict[str, Any]) -> None:
+        if current["team_plan_revision"] is not None:
+            raise WorkGraphError("single WorkUnit path cannot attach to TeamPlan")
+        if current["work_units"] or current["executions"]:
+            raise WorkGraphError("single WorkUnit can only be installed into an empty orchestration")
+        if current["writer_lease"] is not None or current["pending_controls"]:
+            raise WorkGraphError("single WorkUnit requires no lease or PendingControl")
+        current["work_units"] = [supplied]
+
+    return state.mutate_state(thread_id, mutate, temp_root=temp_root)
+
+
 def install_work_graph(
     thread_id: str,
     *,
@@ -274,6 +299,7 @@ def reopen_rejected_work_unit(
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Reopen a rejected unit for one remaining fresh Agent attempt."""
+
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
         if unit["state"] != "REJECTED":
