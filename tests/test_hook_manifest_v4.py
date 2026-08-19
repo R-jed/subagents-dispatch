@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 STAGED = ROOT / "docs" / "v4" / "hooks.json"
 ACTIVE = ROOT / "hooks" / "hooks.json"
 
@@ -24,6 +25,14 @@ def _matcher_tokens(events: dict, event_name: str) -> set[str]:
         for token in str(group.get("matcher", "")).split("|")
         if token
     }
+
+
+def test_pre_host_plugin_selects_exact_staged_hook_definition():
+    manifest = json.loads(PLUGIN.read_text(encoding="utf-8"))
+    assert manifest["hooks"] == "./docs/v4/hooks.json"
+    selected = ROOT / manifest["hooks"].removeprefix("./")
+    assert selected.resolve() == STAGED.resolve()
+    assert selected.is_file()
 
 
 def test_staged_hook_manifest_covers_managed_lifecycle_boundaries():
@@ -84,7 +93,7 @@ def test_staged_hook_manifest_covers_managed_lifecycle_boundaries():
         )
 
 
-def test_active_manifest_keeps_legacy_spawn_guard_until_cutover():
+def test_production_file_keeps_legacy_spawn_guard_until_cutover():
     active = json.loads(ACTIVE.read_text(encoding="utf-8"))["hooks"]
     assert set(active) == {"PreToolUse"}
     assert any(group.get("matcher") == "spawn_agent" for group in active["PreToolUse"])
