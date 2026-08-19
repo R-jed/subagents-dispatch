@@ -20,6 +20,7 @@ STATIC_FILES = (
     PurePosixPath(".codex-plugin/plugin.json"),
     PurePosixPath(".agents/plugins/marketplace.json"),
     PurePosixPath("docs/python-runtime.md"),
+    PurePosixPath("docs/v4/hooks.json"),
 )
 RUNTIME_DIRECTORIES = (
     PurePosixPath("agent-profiles"),
