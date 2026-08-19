@@ -54,10 +54,9 @@ def test_plugin_manifest_is_v4_two_skill_identity_and_validator_compatible():
         assert path.is_file()
 
 
-def test_marketplace_release_identity_is_v4_pinned():
-    plugin = json.loads(PLUGIN.read_text(encoding="utf-8"))
+def test_marketplace_plugin_source_is_exact_checkout_root():
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
-    assert market["plugins"][0]["source"]["ref"] == f"v{plugin['version']}" == "v4.0.0"
+    assert market["plugins"][0]["source"] == {"source": "local", "path": "./"}
 
 
 def test_fixed_profile_policy_is_luna_max_terra_high_sol_high():
