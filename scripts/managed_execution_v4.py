@@ -17,7 +17,8 @@ import policy as policy_contract
 
 
 MANAGED_FORK_TURNS = "none"
-PROFILE_AGENT_TYPES = policy_contract.profile_agent_types()
+_PROFILE_SPECS = policy_contract.profile_contracts()
+PROFILE_AGENT_TYPES = {role: spec["agent_type"] for role, spec in _PROFILE_SPECS.items()}
 
 
 class ManagedExecutionContractError(RuntimeError):
@@ -59,16 +60,16 @@ def _unit(current: Mapping[str, Any], unit_id: str) -> Mapping[str, Any]:
 
 def _profile_agent_type(execution: Mapping[str, Any]) -> str:
     profile_id = execution.get("profile_id")
-    if profile_id not in state.PROFILE_CONTRACT or profile_id not in PROFILE_AGENT_TYPES:
+    if profile_id not in _PROFILE_SPECS:
         raise ManagedExecutionContractError("execution has unsupported managed profile")
-    model, effort, profile_authority = state.PROFILE_CONTRACT[profile_id]
-    if execution.get("model") != model or execution.get("effort") != effort:
+    spec = _PROFILE_SPECS[str(profile_id)]
+    if execution.get("model") != spec["model"] or execution.get("effort") != spec["effort"]:
         raise ManagedExecutionContractError("execution model/effort drift from fixed profile")
     if state.AUTHORITY_RANK.get(execution.get("granted_authority"), 99) > state.AUTHORITY_RANK.get(
-        profile_authority, -1
+        spec["mutation_authority"], -1
     ):
         raise ManagedExecutionContractError("execution authority exceeds fixed profile")
-    return PROFILE_AGENT_TYPES[profile_id]
+    return spec["agent_type"]
 
 
 def assignment_packet(
