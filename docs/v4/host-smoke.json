@@ -3,7 +3,7 @@
   "contract_kind": "machine-readable-host-campaign-contract",
   "gate_id": "v4-real-host-h00-h20",
   "status": "PENDING",
-  "activation_manifest": "docs/v4/hooks.json",
+  "activation_manifest": "hooks/hooks.json",
   "production_manifest": "hooks/hooks.json",
   "required_environment_fields": [
     "architecture",
@@ -18,7 +18,7 @@
     "status"
   ],
   "required_probes": [
-    {"id":"H00","operation":"Hook trust and activation","platform":"any","requires":["exact active lifecycle Hook digest","current Host trusts the exact promoted definition","model-visible collaboration tool identities recorded exactly","Hook-serialized tool_name identities recorded separately from model-visible tool identities","every exposed collaboration identity maps to an explicitly supported semantic tool and exact Hook identity; any unknown namespace or flattening stops execution readiness for Host adaptation"]},
+    {"id":"H00","operation":"Hook trust and activation","platform":"any","requires":["exact active lifecycle Hook digest","current Host trusts the exact candidate definition","model-visible collaboration tool identities recorded exactly","Hook-serialized tool_name identities recorded separately from model-visible tool identities","every exposed collaboration identity maps to an explicitly supported semantic tool and exact Hook identity; any unknown namespace or flattening stops execution readiness for Host adaptation"]},
     {"id":"H01","operation":"spawn_agent Pre/Post","platform":"any","requires":["PreToolUse and PostToolUse observed","same tool_use_id","Hook input compatible with PendingControl","every exposed spawn_agent model identity maps to and is intercepted through the exact Hook-serialized identity"]},
     {"id":"H02","operation":"followup_task Pre/Post","platform":"any","requires":["PreToolUse and PostToolUse observed","same tool_use_id","same-child target preserved","every exposed followup_task identity or namespace alias is intercepted"]},
     {"id":"H03","operation":"interrupt_agent Pre/Post","platform":"any","requires":["PreToolUse and PostToolUse observed","same tool_use_id","writer revoke remains fail closed","every exposed interrupt_agent identity or namespace alias is intercepted"]},
