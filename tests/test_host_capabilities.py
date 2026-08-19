@@ -222,7 +222,7 @@ def test_namespaced_model_identity_can_pass_with_exact_flattened_hook_coverage()
     assert snapshot["missing"] == []
 
 
-def test_dotted_model_identity_does_not_count_as_hook_identity():
+def test_dotted_compatibility_identity_does_not_count_as_exact_hook_coverage():
     module = load_module()
     payload = evidence()
     payload["tools"].append("collaboration.spawn_agent")
@@ -232,7 +232,7 @@ def test_dotted_model_identity_does_not_count_as_hook_identity():
     snapshot = module.normalize_host_capabilities(payload)
 
     assert snapshot["execution_ready"] is False
-    assert module.canonical_hook_tool_name("collaboration.spawn_agent") is None
+    assert module.canonical_hook_tool_name("collaboration.spawn_agent") == "spawn_agent"
     assert module.canonical_hook_tool_name("collaborationspawn_agent") == "spawn_agent"
 
 
