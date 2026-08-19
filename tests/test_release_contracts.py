@@ -11,8 +11,8 @@ MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 CHANGELOG = ROOT / "CHANGELOG.md"
 CHANGELOG_V3 = ROOT / "CHANGELOG_V3.md"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
-STAGED_HOOKS = ROOT / "docs" / "v4" / "hooks.json"
-PRODUCTION_HOOKS = ROOT / "hooks" / "hooks.json"
+REFERENCE_HOOKS = ROOT / "docs" / "v4" / "hooks.json"
+ACTIVE_HOOKS = ROOT / "hooks" / "hooks.json"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -36,16 +36,18 @@ def test_latest_changelog_matches_release_version_and_keeps_v3_history():
     assert CHANGELOG_V3.is_file()
 
 
-def test_host_release_gate_remains_external_and_staged_before_promotion():
+def test_host_release_gate_binds_pending_campaign_to_active_candidate_hook():
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
     assert smoke["status"] == "PENDING"
     assert smoke["gate_id"] == "v4-real-host-h00-h20"
     assert smoke["results"] == {}
+    assert smoke["activation_manifest"] == "hooks/hooks.json"
+    assert smoke["production_manifest"] == "hooks/hooks.json"
     assert [probe["id"] for probe in smoke["required_probes"]] == [
         f"H{number:02d}" for number in range(21)
     ]
 
-    staged = json.loads(STAGED_HOOKS.read_text(encoding="utf-8"))
-    production = json.loads(PRODUCTION_HOOKS.read_text(encoding="utf-8"))
-    assert {"PreToolUse", "PostToolUse", "SubagentStop"}.issubset(staged["hooks"])
-    assert set(production["hooks"]) == {"PreToolUse"}
+    active = json.loads(ACTIVE_HOOKS.read_text(encoding="utf-8"))
+    reference = json.loads(REFERENCE_HOOKS.read_text(encoding="utf-8"))
+    assert set(active["hooks"]) == {"PreToolUse", "PostToolUse", "SubagentStop"}
+    assert reference["hooks"] == active["hooks"]
