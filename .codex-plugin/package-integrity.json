@@ -57,7 +57,7 @@
     "scripts/score-behavioral-evals.py": "889ed33a5fdecc1635569762ee2026d3fdd2c36224ee282de8662a36007e9d38",
     "scripts/spawn_guard.py": "6e6ffcbe6a43a1375ca8073fd113199eb5012e5d36833400de53227557a046f2",
     "scripts/uninstall-agents.py": "a7fd037c95717b50b03ac8713e904df8f7553c4de55d234ef79c77f15e1c7508",
-    "scripts/validate-experiment-campaign.py": "e12ae1b22f567d3475f54022b57811fa0a996938e4923bea0d7224e24677b2f1",
+    "scripts/validate-experiment-campaign.py": "b74d17d47c588405623792cf3ec169510dad359e56fd006ad00b8891e5aa021a",
     "scripts/validate-experiment-run.py": "66d4d1f430b7a30e2f27e97c9e0eeb61d70f795e4faadae36c39cbbf8c04ab4e",
     "scripts/validate_experiment_campaign_core.py": "49a5e4e3f73614ba611b3c10691120ba46729e4fb0869c87534e3d5ceff91722",
     "scripts/validate_team_ledger.py": "85fb3b5c755cf863b2c52502851691a7d1ee7196a3b1a459a5326b9af6c5512e",
