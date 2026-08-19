@@ -70,7 +70,7 @@ skills/doctor
 
 For route evidence preserve `Configured -> Requested -> Accepted -> Observed`. Never promote accepted routing metadata or child prose into observed runtime truth.
 
-Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged.
+Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged. In addition, all unrelated configuration semantics must remain unchanged.
 
 ## 3. State and migration gates
 

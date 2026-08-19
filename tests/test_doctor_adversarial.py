@@ -113,7 +113,9 @@ def host_evidence() -> dict:
 def test_default_doctor_does_not_create_missing_codex_home(tmp_path: Path):
     home = tmp_path / "missing-codex-home"
     assert not home.exists()
+
     result = run_doctor(home, tmp_path, "--check")
+
     assert result.returncode == 0, result.stdout + result.stderr
     assert "[WARN] Managed Agents:" in result.stdout
     assert "Health: DEGRADED" in result.stdout
@@ -125,7 +127,9 @@ def test_modified_owned_profile_blocks_doctor_end_to_end(tmp_path: Path):
     install(home)
     profile = home / "agents" / PROFILE
     profile.write_bytes(profile.read_bytes() + b"\n# adversarial user change\n")
+
     result = run_doctor(home, tmp_path, "--check")
+
     assert result.returncode != 0
     assert "[FAIL] Managed Agents: managed Agent profile ownership or filesystem safety check failed" in result.stdout
     assert "Health: BLOCKED" in result.stdout
@@ -142,7 +146,9 @@ def test_doctor_uninstall_refuses_modified_owned_profile_without_partial_deletio
         path.name: path.read_bytes()
         for path in (home / "agents").glob("subagents-dispatch-*.toml")
     }
+
     result = run_doctor(home, tmp_path, "--uninstall-managed")
+
     assert result.returncode != 0
     assert "managed profile uninstall failed" in result.stderr
     assert (home / MANIFEST).read_bytes() == manifest_before
@@ -155,9 +161,22 @@ def test_doctor_uninstall_refuses_modified_owned_profile_without_partial_deletio
 def test_empty_lifecycle_hook_entries_fail_instead_of_looking_configured(monkeypatch, tmp_path: Path):
     doctor = load_doctor_core("doctor_adversarial_empty_hooks")
     hooks = tmp_path / "hooks.json"
-    hooks.write_text(json.dumps({"hooks": {"PreToolUse": [], "PostToolUse": [], "SubagentStop": []}}), encoding="utf-8")
+    hooks.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [],
+                    "PostToolUse": [],
+                    "SubagentStop": [],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(doctor, "HOOKS", hooks)
+
     result = doctor.diagnose_host_integration(None)
+
     assert result["status"] == "FAIL"
     assert result["details"]["host_evidence_supplied"] is False
     assert result["details"]["hook_errors"]
@@ -168,7 +187,9 @@ def test_valid_local_lifecycle_hooks_without_host_snapshot_remain_unknown(monkey
     hooks = tmp_path / "hooks.json"
     hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
     monkeypatch.setattr(doctor, "HOOKS", hooks)
+
     result = doctor.diagnose_host_integration(None)
+
     assert result["status"] == "UNKNOWN"
     assert result["details"]["hook_mode"] == "lifecycle"
     assert result["details"]["host_evidence_supplied"] is False
@@ -180,8 +201,16 @@ def test_missing_host_observation_changes_verification_without_degrading_health(
     hooks = tmp_path / "hooks.json"
     hooks.write_text(json.dumps(lifecycle_hooks()), encoding="utf-8")
     monkeypatch.setattr(doctor, "HOOKS", hooks)
-    monkeypatch.setattr(doctor, "diagnose_plugin_package", lambda: doctor.layer("Plugin package", "OK", "ok"))
-    monkeypatch.setattr(doctor, "diagnose_managed_agents", lambda _home: doctor.layer("Managed Agents", "OK", "ok"))
+    monkeypatch.setattr(
+        doctor,
+        "diagnose_plugin_package",
+        lambda: doctor.layer("Plugin package", "OK", "ok"),
+    )
+    monkeypatch.setattr(
+        doctor,
+        "diagnose_managed_agents",
+        lambda _home: doctor.layer("Managed Agents", "OK", "ok"),
+    )
     monkeypatch.setattr(
         doctor,
         "diagnose_state",
@@ -191,7 +220,9 @@ def test_missing_host_observation_changes_verification_without_degrading_health(
         ),
     )
     args = SimpleNamespace(thread_id="thread", temp_root=tmp_path, host_evidence=None)
+
     result = doctor.diagnose(args, tmp_path)
+
     assert result["status"] == "HEALTHY"
     assert result["verification"] == "UNVERIFIED"
     assert result["healthy"] is True
@@ -204,7 +235,9 @@ def test_wrong_lifecycle_hook_command_fails_closed(monkeypatch, tmp_path: Path):
     hooks = tmp_path / "hooks.json"
     hooks.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setattr(doctor, "HOOKS", hooks)
+
     result = doctor.diagnose_host_integration(None)
+
     assert result["status"] == "FAIL"
     assert any("command binding" in item for item in result["details"]["hook_errors"])
 
@@ -216,7 +249,9 @@ def test_supplied_unbound_host_snapshot_remains_unknown(monkeypatch, tmp_path: P
     evidence = tmp_path / "host.json"
     evidence.write_text(json.dumps(host_evidence()), encoding="utf-8")
     monkeypatch.setattr(doctor, "HOOKS", hooks)
+
     result = doctor.diagnose_host_integration(evidence)
+
     assert result["status"] == "UNKNOWN"
     assert result["details"]["capability_compatible"] is True
     assert result["details"]["host_evidence_supplied"] is True
@@ -231,6 +266,8 @@ def test_invalid_explicit_host_evidence_fails_closed_with_valid_local_hooks(monk
     evidence = tmp_path / "host.json"
     evidence.write_text('{"surface":"multi_agent_v2"}', encoding="utf-8")
     monkeypatch.setattr(doctor, "HOOKS", hooks)
+
     result = doctor.diagnose_host_integration(evidence)
+
     assert result["status"] == "FAIL"
     assert "Host evidence is invalid" in result["summary"]
