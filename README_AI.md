@@ -39,6 +39,15 @@ contracts/responsibility-packet.md
 contracts/team-plan.md
 -> multi-responsibility dependency and integration truth
 
+contracts/guardrails.md
+-> user authority, depth, mutation, writer, consent, prompt-injection and external-action boundaries
+
+contracts/handoff.md
+-> optional main-session-accepted evidence bridge between responsibilities
+
+contracts/evidence-artifact.md
+-> complete inspectable evidence provenance kept out of compact child context when needed
+
 contracts/interaction.md
 -> Orchestrate user-control semantics
 
@@ -51,6 +60,8 @@ contracts/final-review.md
 
 One dependency-free delegated responsibility may keep `team_plan_revision = null`. TeamPlan becomes structural truth only when multiple unresolved delegated responsibilities or material dependency/integration order require it. Do not invent another responsibility packet, task state, or scheduler for the compact path.
 
+A managed WorkUnit may carry bounded `responsibility_context` for concrete interfaces, invariants, decision boundary, accepted evidence refs, `do_not_redo`, and stop boundary. The five-section responsibility record is the only child wire representation. Managed spawn fails closed if that context is missing or malformed.
+
 ## V4 runtime owners
 
 ```text
@@ -61,7 +72,7 @@ scripts/dispatch_state_v4.py
 -> bounded session-scoped state v4 and stale-observation protection
 
 scripts/work_graph_v4.py
--> WorkUnit installation, dependency and acceptance truth
+-> WorkUnit construction/installation, responsibility context, dependency and acceptance truth
 
 scripts/scheduler_v4.py
 -> sole wakeup-driven admission, Host capacity, fanout, critical path and backpressure owner
@@ -75,14 +86,17 @@ scripts/execution_lifecycle_v4.py
 scripts/writer_lease_v4.py
 -> canonical managed WriterLease protocol
 
+scripts/managed_execution_v4.py
+-> exact five-section responsibility projection and managed spawn payload derivation
+
 scripts/host_evidence_v4.py
 -> paired current Host lifecycle and capacity evidence
 
 scripts/host_capabilities.py
--> semantic Host capability normalization
+-> semantic Host capability normalization plus exact exposed lifecycle/observation/peer-message Hook coverage
 
 scripts/orchestration_guard.py
--> staged V4 lifecycle Guard implementation
+-> staged V4 lifecycle, peer-message containment and Host-observation Guard implementation
 
 docs/v4/host-smoke.json
 -> H00-H20 real Host release gate
@@ -115,6 +129,8 @@ scripts/spawn_guard.py
 
 A V3.x orchestration capsule is legacy evidence. Never silently rewrite it into V4. An unresolved legacy writer, pending takeover, corrupt legacy state, WriterLease.UNKNOWN, or unresolved PendingControl remains fail closed.
 
+Historical RC stage specifications belong under `docs/history/`, not the active `contracts/` owner set.
+
 ## Safety invariants
 
 ```text
@@ -128,6 +144,8 @@ fork_turns = none
 depth = 1
 interrupt ACK alone cannot release WriterLease
 stale execution/control/lease observations are discarded
+every exposed lifecycle/observation Host identity requires exact Hook coverage
+managed child peer messaging is blocked when the Host exposes send_message
 ```
 
 The production `hooks/hooks.json` remains the hardened V3.x compatibility boundary until H00-H20 pass against the exact promoted candidate. `docs/v4/hooks.json` is staged configuration only. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.

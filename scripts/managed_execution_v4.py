@@ -19,6 +19,14 @@ import policy as policy_contract
 MANAGED_FORK_TURNS = "none"
 _PROFILE_SPECS = policy_contract.profile_contracts()
 PROFILE_AGENT_TYPES = {role: spec["agent_type"] for role, spec in _PROFILE_SPECS.items()}
+RESPONSIBILITY_CONTEXT_FIELDS = {
+    "interfaces",
+    "invariants",
+    "decision_boundary",
+    "accepted_evidence_refs",
+    "do_not_redo",
+    "stop_boundary",
+}
 
 
 class ManagedExecutionContractError(RuntimeError):
@@ -72,11 +80,50 @@ def _profile_agent_type(execution: Mapping[str, Any]) -> str:
     return spec["agent_type"]
 
 
+def _nonempty(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _string_list(value: Any, *, label: str) -> list[str]:
+    if not isinstance(value, list) or not all(_nonempty(item) for item in value):
+        raise ManagedExecutionContractError(f"responsibility context {label} must be strings")
+    if len(value) != len(set(value)):
+        raise ManagedExecutionContractError(f"responsibility context {label} must be unique")
+    return list(value)
+
+
+def _responsibility_context(unit: Mapping[str, Any]) -> dict[str, Any]:
+    raw = unit.get("responsibility_context")
+    if not isinstance(raw, Mapping) or set(raw) != RESPONSIBILITY_CONTEXT_FIELDS:
+        raise ManagedExecutionContractError("managed WorkUnit requires complete responsibility context")
+    interfaces = _string_list(raw.get("interfaces"), label="interfaces")
+    invariants = _string_list(raw.get("invariants"), label="invariants")
+    accepted_evidence_refs = _string_list(
+        raw.get("accepted_evidence_refs"), label="accepted_evidence_refs"
+    )
+    do_not_redo = _string_list(raw.get("do_not_redo"), label="do_not_redo")
+    decision_boundary = raw.get("decision_boundary")
+    stop_boundary = raw.get("stop_boundary")
+    if not _nonempty(decision_boundary) or not _nonempty(stop_boundary):
+        raise ManagedExecutionContractError(
+            "responsibility context requires decision_boundary and stop_boundary"
+        )
+    return {
+        "interfaces": interfaces,
+        "invariants": invariants,
+        "decision_boundary": str(decision_boundary),
+        "accepted_evidence_refs": accepted_evidence_refs,
+        "do_not_redo": do_not_redo,
+        "stop_boundary": str(stop_boundary),
+    }
+
+
 def assignment_packet(
     current: Mapping[str, Any], *, execution: Mapping[str, Any]
 ) -> dict[str, Any]:
     """Build the one canonical five-section responsibility record."""
     unit = _unit(current, str(execution.get("unit_id")))
+    context = _responsibility_context(unit)
     return {
         "objective": {
             "intent": unit["intent"],
@@ -92,18 +139,20 @@ def assignment_packet(
             "write_scope": list(execution["granted_write_scope"]),
         },
         "interfaces": {
-            "decision_boundary": (
-                "Do not widen scope, change architecture, or reinterpret acceptance "
-                "without the main session."
-            ),
+            "interfaces": context["interfaces"],
+            "invariants": context["invariants"],
+            "decision_boundary": context["decision_boundary"],
         },
         "constraints": {
             "forbidden_scope": list(unit["ownership"]["forbidden"]),
+            "accepted_evidence_refs": context["accepted_evidence_refs"],
+            "do_not_redo": context["do_not_redo"],
             "evidence_boundary": (
                 "Use only supplied or independently inspected evidence for this WorkUnit; "
                 "report uncertainty to the main session."
             ),
             "delegation_boundary": "Do not create or control further subagents.",
+            "stop_boundary": context["stop_boundary"],
         },
         "verification": {
             "acceptance": unit["done_when"],

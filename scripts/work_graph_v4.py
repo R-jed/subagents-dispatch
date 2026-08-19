@@ -23,6 +23,13 @@ class WorkGraphError(RuntimeError):
 TERMINAL_UNIT_STATES = {"ACCEPTED", "CANCELLED"}
 FRESH_RETRY_EXECUTION_STATES = {"COMPLETED", "FAILED", "CLOSED"}
 ACTIVE_OR_AMBIGUOUS_EXECUTION_STATES = {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
+DEFAULT_DECISION_BOUNDARY = (
+    "Do not widen scope, change architecture, or reinterpret acceptance without the main session."
+)
+DEFAULT_STOP_BOUNDARY = (
+    "Stop and report contract, judgment, investigation, stalled, scope, or safety blockers "
+    "to the main session."
+)
 
 
 def _nonempty(value: Any) -> bool:
@@ -80,8 +87,14 @@ def make_work_unit(
     authority_ceiling: str = "none",
     write_scope_ceiling: Sequence[str] = (),
     done_when: str,
+    interfaces: Sequence[str] = (),
+    invariants: Sequence[str] = (),
+    decision_boundary: str = DEFAULT_DECISION_BOUNDARY,
+    accepted_evidence_refs: Sequence[str] = (),
+    do_not_redo: Sequence[str] = (),
+    stop_boundary: str = DEFAULT_STOP_BOUNDARY,
 ) -> dict[str, Any]:
-    """Build one compact WorkUnit with dependency-derived initial state."""
+    """Build one compact WorkUnit with its bounded managed-child responsibility context."""
     dependencies = list(depends_on)
     return {
         "unit_id": unit_id,
@@ -97,6 +110,14 @@ def make_work_unit(
         "authority_ceiling": authority_ceiling,
         "write_scope_ceiling": list(write_scope_ceiling),
         "done_when": done_when,
+        "responsibility_context": {
+            "interfaces": list(interfaces),
+            "invariants": list(invariants),
+            "decision_boundary": decision_boundary,
+            "accepted_evidence_refs": list(accepted_evidence_refs),
+            "do_not_redo": list(do_not_redo),
+            "stop_boundary": stop_boundary,
+        },
         "accepted_result_ref": None,
         "accepted_execution_id": None,
         "accepted_control_epoch": None,

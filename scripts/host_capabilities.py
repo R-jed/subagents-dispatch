@@ -18,10 +18,13 @@ REQUIRED_CAPABILITIES = (
     "pre_tool_use_guard",
     "post_tool_use_guard",
     "host_observation_guard",
+    "peer_message_guard",
     "subagent_stop_veto",
 )
 LIFECYCLE_TOOLS = ("spawn_agent", "followup_task", "interrupt_agent")
-TOOL_CAPABILITY_MAP = {
+OBSERVATION_TOOL = "list_agents"
+PEER_MESSAGE_TOOL = "send_message"
+TOOL_CAPABILITY_LEAVES = {
     "spawn": {"spawn_agent"},
     "observe": {"list_agents"},
     "wait_or_wakeup": {"wait_agent"},
@@ -57,6 +60,14 @@ def _string_set(value: Any, *, label: str) -> set[str]:
 def _hook_tool_set(hooks: Mapping[str, Any], event: str) -> set[str]:
     value = hooks.get(event, [])
     return _string_set(value, label=f"hooks.{event}")
+
+
+def _tool_leaf(identity: str) -> str:
+    return identity.rsplit(".", 1)[-1]
+
+
+def _tool_identities(tools: set[str], leaves: set[str]) -> set[str]:
+    return {identity for identity in tools if _tool_leaf(identity) in leaves}
 
 
 def normalize_agent_status(status: Any) -> dict[str, Any]:
@@ -112,14 +123,23 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         raise HostCapabilityError("max_spawned_threads must be null or a positive integer")
 
     capabilities: dict[str, bool] = {}
-    for capability, required_tools in TOOL_CAPABILITY_MAP.items():
-        capabilities[capability] = required_tools.issubset(tools)
-    lifecycle = set(LIFECYCLE_TOOLS)
-    capabilities["pre_tool_use_guard"] = lifecycle.issubset(pre_tools)
-    capabilities["post_tool_use_guard"] = lifecycle.issubset(post_tools)
-    capabilities["host_observation_guard"] = (
-        "list_agents" in pre_tools and "list_agents" in post_tools
+    for capability, required_leaves in TOOL_CAPABILITY_LEAVES.items():
+        capabilities[capability] = bool(_tool_identities(tools, required_leaves))
+
+    lifecycle_identities = _tool_identities(tools, set(LIFECYCLE_TOOLS))
+    observation_identities = _tool_identities(tools, {OBSERVATION_TOOL})
+    peer_message_identities = _tool_identities(tools, {PEER_MESSAGE_TOOL})
+
+    capabilities["pre_tool_use_guard"] = bool(lifecycle_identities) and lifecycle_identities.issubset(
+        pre_tools
     )
+    capabilities["post_tool_use_guard"] = bool(lifecycle_identities) and lifecycle_identities.issubset(
+        post_tools
+    )
+    capabilities["host_observation_guard"] = bool(observation_identities) and observation_identities.issubset(
+        pre_tools
+    ) and observation_identities.issubset(post_tools)
+    capabilities["peer_message_guard"] = peer_message_identities.issubset(pre_tools)
     capabilities["subagent_stop_veto"] = hooks["SubagentStop"] is True
 
     missing_capabilities = [
@@ -190,6 +210,7 @@ def build_guard_coverage_proof(
         "pre_tool_use_guard",
         "post_tool_use_guard",
         "host_observation_guard",
+        "peer_message_guard",
         "subagent_stop_veto",
     ):
         if capabilities.get(capability) is not True:
@@ -213,6 +234,7 @@ def build_guard_coverage_proof(
         "pre_tool_use": True,
         "post_tool_use": True,
         "host_observation_guard": True,
+        "peer_message_guard": True,
         "subagent_stop_veto": True,
         "evidence_ref": evidence_ref,
     }

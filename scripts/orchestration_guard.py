@@ -26,6 +26,7 @@ POST_TOOL_USE = "PostToolUse"
 SUBAGENT_STOP = "SubagentStop"
 LIFECYCLE_TOOLS = {"spawn_agent", "followup_task", "interrupt_agent"}
 OBSERVATION_TOOL = "list_agents"
+PEER_MESSAGE_TOOL = "send_message"
 RESERVED_AGENT_PREFIX = "subagents_dispatch_"
 MAX_STDIN_BYTES = 2 * 1024 * 1024
 BLOCKING_EXIT_CODE = 2
@@ -52,6 +53,18 @@ def _stop(reason: str) -> dict[str, Any]:
 
 def _is_managed_agent_type(value: Any) -> bool:
     return isinstance(value, str) and value.startswith(RESERVED_AGENT_PREFIX)
+
+
+def _tool_leaf_name(value: Any) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.rsplit(".", 1)[-1]
+
+
+def _canonical_tool_payload(payload: Mapping[str, Any], tool_name: str) -> dict[str, Any]:
+    normalized = dict(payload)
+    normalized["tool_name"] = tool_name
+    return normalized
 
 
 def _runtime_temp_root() -> Path | None:
@@ -125,7 +138,9 @@ def _prepare_host_observation(
     temp_root: str | os.PathLike[str] | None,
 ) -> dict[str, Any] | None:
     try:
-        host_evidence.prepare_list_agents_pre_tool_use(payload, temp_root=temp_root)
+        host_evidence.prepare_list_agents_pre_tool_use(
+            _canonical_tool_payload(payload, OBSERVATION_TOOL), temp_root=temp_root
+        )
     except host_evidence.HostEvidenceError as exc:
         return _block(str(exc))
     except Exception:
@@ -185,7 +200,12 @@ def evaluate_pre_tool_use(
 ) -> dict[str, Any] | None:
     if payload.get("hook_event_name") != PRE_TOOL_USE:
         return None
-    tool_name = payload.get("tool_name")
+    tool_name = _tool_leaf_name(payload.get("tool_name"))
+
+    if tool_name == PEER_MESSAGE_TOOL:
+        if _is_managed_agent_type(payload.get("agent_type")):
+            return _block("managed child Agents cannot send peer messages to other Agents")
+        return None
 
     if tool_name == OBSERVATION_TOOL:
         session_id = _session_id(payload)
@@ -220,7 +240,9 @@ def evaluate_pre_tool_use(
 
     if tool_name == "spawn_agent" and _is_managed_agent_type(tool_input.get("agent_type")):
         if family == "v3" or family == "none":
-            return spawn_guard.evaluate_hook(payload, temp_root=temp_root)
+            return spawn_guard.evaluate_hook(
+                _canonical_tool_payload(payload, tool_name), temp_root=temp_root
+            )
         assert current is not None
         try:
             managed_execution.validate_actual_spawn_input(current, tool_input=tool_input)
@@ -255,7 +277,9 @@ def _evaluate_host_observation(
     temp_root: str | os.PathLike[str] | None,
 ) -> dict[str, Any] | None:
     try:
-        host_evidence.ingest_list_agents_post_tool_use(payload, temp_root=temp_root)
+        host_evidence.ingest_list_agents_post_tool_use(
+            _canonical_tool_payload(payload, OBSERVATION_TOOL), temp_root=temp_root
+        )
     except host_evidence.HostEvidenceError:
         return _block("Host lifecycle observation is invalid or unbound; tool result rejected")
     except Exception:
@@ -282,7 +306,9 @@ def evaluate_post_tool_use(
 ) -> dict[str, Any] | None:
     if payload.get("hook_event_name") != POST_TOOL_USE:
         return None
-    tool_name = payload.get("tool_name")
+    tool_name = _tool_leaf_name(payload.get("tool_name"))
+    if tool_name == PEER_MESSAGE_TOOL:
+        return None
     if tool_name == OBSERVATION_TOOL:
         session_id = _session_id(payload)
         family, _ = _load_family(session_id, temp_root=temp_root)

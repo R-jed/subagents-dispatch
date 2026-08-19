@@ -40,7 +40,7 @@ TOP_LEVEL_FIELDS = {
     "updated_at",
     "locale",
 }
-WORK_UNIT_FIELDS = {
+WORK_UNIT_REQUIRED_FIELDS = {
     "unit_id",
     "intent",
     "goal",
@@ -54,6 +54,15 @@ WORK_UNIT_FIELDS = {
     "accepted_result_ref",
     "accepted_execution_id",
     "accepted_control_epoch",
+}
+WORK_UNIT_FIELDS = WORK_UNIT_REQUIRED_FIELDS | {"responsibility_context"}
+RESPONSIBILITY_CONTEXT_FIELDS = {
+    "interfaces",
+    "invariants",
+    "decision_boundary",
+    "accepted_evidence_refs",
+    "do_not_redo",
+    "stop_boundary",
 }
 EXECUTION_FIELDS = {
     "execution_id",
@@ -187,6 +196,24 @@ def _require_exact_fields(value: Any, fields: set[str], *, label: str) -> dict[s
     return value
 
 
+def _require_allowed_fields(
+    value: Any,
+    required: set[str],
+    allowed: set[str],
+    *,
+    label: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise StatePayloadError(f"{label} must be an object")
+    extra = set(value) - allowed
+    missing = required - set(value)
+    if extra:
+        raise StatePayloadError(f"{label} has unsupported fields: {', '.join(sorted(extra))}")
+    if missing:
+        raise StatePayloadError(f"{label} is missing fields: {', '.join(sorted(missing))}")
+    return value
+
+
 def _validate_string_list(value: Any, *, label: str, unique: bool = True) -> list[str]:
     if not isinstance(value, list) or not all(_nonempty(item) for item in value):
         raise StatePayloadError(f"{label} must be an array of non-empty strings")
@@ -220,12 +247,29 @@ def _validate_ownership(value: Any, *, label: str) -> dict[str, Any]:
     return ownership
 
 
+def _validate_responsibility_context(value: Any, *, label: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    context = _require_exact_fields(value, RESPONSIBILITY_CONTEXT_FIELDS, label=label)
+    for field in ("interfaces", "invariants", "accepted_evidence_refs", "do_not_redo"):
+        _validate_string_list(context[field], label=f"{label}.{field}")
+    for field in ("decision_boundary", "stop_boundary"):
+        if not _nonempty(context[field]):
+            raise StatePayloadError(f"{label}.{field} must be non-empty text")
+    return context
+
+
 def _validate_work_units(units: Any) -> dict[str, dict[str, Any]]:
     if not isinstance(units, list):
         raise StatePayloadError("work_units must be an array")
     by_id: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(units):
-        unit = _require_exact_fields(raw, WORK_UNIT_FIELDS, label=f"work unit {index}")
+        unit = _require_allowed_fields(
+            raw,
+            WORK_UNIT_REQUIRED_FIELDS,
+            WORK_UNIT_FIELDS,
+            label=f"work unit {index}",
+        )
         unit_id = unit["unit_id"]
         if not _nonempty(unit_id) or unit_id in by_id:
             raise StatePayloadError(f"work unit {index} has invalid or duplicate unit_id")
@@ -239,6 +283,10 @@ def _validate_work_units(units: Any) -> dict[str, dict[str, Any]]:
             raise StatePayloadError(f"work unit {unit_id} cannot depend on itself")
         if unit["state"] not in WORK_UNIT_STATES:
             raise StatePayloadError(f"work unit {unit_id} has invalid state")
+        _validate_responsibility_context(
+            unit.get("responsibility_context"),
+            label=f"work unit {unit_id}.responsibility_context",
+        )
         ownership = _validate_ownership(unit["ownership"], label=f"work unit {unit_id}.ownership")
         authority = unit["authority_ceiling"]
         if authority not in MUTATION_AUTHORITIES:

@@ -28,7 +28,8 @@ def load_module():
 
 def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) -> dict:
     lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
-    paired_observation = [*lifecycle, "list_agents"]
+    pre_guarded = [*lifecycle, "list_agents", "send_message"]
+    post_guarded = [*lifecycle, "list_agents"]
     return {
         "surface": "multi_agent_v2",
         "tools": [
@@ -40,8 +41,8 @@ def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) 
             "interrupt_agent",
         ],
         "hooks": {
-            "PreToolUse": paired_observation,
-            "PostToolUse": paired_observation
+            "PreToolUse": pre_guarded,
+            "PostToolUse": post_guarded
             if post
             else ["spawn_agent", "interrupt_agent", "list_agents"],
             "SubagentStop": stop,
@@ -119,12 +120,24 @@ def test_host_observation_requires_paired_pre_and_post_hooks():
         "spawn_agent",
         "followup_task",
         "interrupt_agent",
+        "send_message",
     ]
     snapshot = module.normalize_host_capabilities(payload)
 
     assert snapshot["execution_ready"] is False
     assert snapshot["capabilities"]["host_observation_guard"] is False
     assert "host_observation_guard" in snapshot["missing"]
+
+
+def test_missing_peer_message_guard_fails_closed_when_tool_is_exposed():
+    module = load_module()
+    payload = evidence()
+    payload["hooks"]["PreToolUse"].remove("send_message")
+    snapshot = module.normalize_host_capabilities(payload)
+
+    assert snapshot["execution_ready"] is False
+    assert snapshot["capabilities"]["peer_message_guard"] is False
+    assert "peer_message_guard" in snapshot["missing"]
 
 
 def test_missing_subagent_stop_veto_fails_closed():
@@ -201,6 +214,7 @@ def test_guard_coverage_proof_requires_execution_ready_host_and_current_trust():
         "pre_tool_use": True,
         "post_tool_use": True,
         "host_observation_guard": True,
+        "peer_message_guard": True,
         "subagent_stop_veto": True,
         "evidence_ref": "host-smoke:H00",
     }

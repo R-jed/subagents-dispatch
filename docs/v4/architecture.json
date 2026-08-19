@@ -105,6 +105,17 @@
         "accepted_result_ref",
         "accepted_execution_id",
         "accepted_control_epoch"
+      ],
+      "optional_fields": [
+        "responsibility_context"
+      ],
+      "managed_spawn_required_context_fields": [
+        "interfaces",
+        "invariants",
+        "decision_boundary",
+        "accepted_evidence_refs",
+        "do_not_redo",
+        "stop_boundary"
       ]
     },
     "WriterLease": {
@@ -143,8 +154,10 @@
     ]
   },
   "guard": {
+    "exact_exposed_tool_identity_coverage": true,
     "host_hook_coverage_is_release_gate": true,
     "managed_lifecycle_authority_owner": "main",
+    "managed_peer_message_pre_guard": true,
     "post_tool_use_acknowledges_control": true,
     "pre_tool_use_consumes_prepared_control": true,
     "subagent_stop_forces_no_auto_continue": true
@@ -158,6 +171,7 @@
     "pre_tool_use_guard",
     "post_tool_use_guard",
     "host_observation_guard",
+    "peer_message_guard",
     "subagent_stop_veto"
   ],
   "invariants": {
@@ -171,7 +185,7 @@
     "I08": "interrupt acknowledgement alone never releases a WriterLease.",
     "I09": "UNKNOWN writer ownership blocks conflicting managed mutation.",
     "I10": "Managed children cannot spawn, followup, interrupt, resume, or otherwise control sibling managed agents.",
-    "I11": "Peer messages cannot grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.",
+    "I11": "When the Host exposes peer messaging, managed children cannot send peer messages; peer messages never grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.",
     "I12": "Unresolved V3.x live state is never silently migrated into V4 execution.",
     "I13": "Plan-only orchestration never acquires a WriterLease.",
     "I14": "Main must acquire the same WriterLease abstraction before managed integration writes."

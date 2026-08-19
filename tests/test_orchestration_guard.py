@@ -45,6 +45,14 @@ def v4_state(state_module, tmp_path: Path) -> None:
             "authority_ceiling": "none",
             "write_scope_ceiling": [],
             "done_when": "Main verifies facts",
+            "responsibility_context": {
+                "interfaces": [],
+                "invariants": [],
+                "decision_boundary": "Escalate material decisions to Main.",
+                "accepted_evidence_refs": [],
+                "do_not_redo": [],
+                "stop_boundary": "Stop and report any contract, judgment, investigation, stalled, scope, or safety blocker.",
+            },
             "accepted_result_ref": None,
             "accepted_execution_id": None,
             "accepted_control_epoch": None,
@@ -226,6 +234,8 @@ def test_managed_child_cannot_use_any_lifecycle_tool_even_for_unrelated_target(t
         ("spawn_agent", {"task_name": "other", "message": "x", "agent_type": "default"}),
         ("followup_task", {"target": "other", "message": "x"}),
         ("interrupt_agent", {"target": "other"}),
+        ("send_message", {"target": "other", "message": "x"}),
+        ("collaboration.spawn_agent", {"task_name": "other", "message": "x", "agent_type": "default"}),
     ]
     for tool_name, tool_input in calls:
         result = guard.evaluate_pre_tool_use(
@@ -260,6 +270,12 @@ def test_unrelated_root_lifecycle_call_passes_through_without_dispatch_state(tmp
         temp_root=tmp_path,
     )
     assert result is None
+
+    peer = guard.evaluate_pre_tool_use(
+        pre_payload({"target": "unrelated_agent", "message": "hello"}, tool_name="send_message"),
+        temp_root=tmp_path,
+    )
+    assert peer is None
 
 
 def test_cli_post_failure_rejects_result_instead_of_failing_open(monkeypatch, capsys):

@@ -1,9 +1,9 @@
 {
-  "description": "Staged V4 managed lifecycle and Host-observation Hook manifest. Activate only at the V4 cutover after isolated Host smoke passes.",
+  "description": "Staged V4 managed lifecycle, peer-message containment, and Host-observation Hook manifest. Activate only at the V4 cutover after isolated Host smoke passes.",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents",
+        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents|send_message|collaboration\\.spawn_agent|collaboration\\.followup_task|collaboration\\.interrupt_agent|collaboration\\.list_agents|collaboration\\.send_message",
         "hooks": [
           {
             "type": "command",
@@ -17,7 +17,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents",
+        "matcher": "spawn_agent|followup_task|interrupt_agent|list_agents|send_message|collaboration\\.spawn_agent|collaboration\\.followup_task|collaboration\\.interrupt_agent|collaboration\\.list_agents|collaboration\\.send_message",
         "hooks": [
           {
             "type": "command",

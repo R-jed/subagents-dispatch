@@ -58,6 +58,15 @@ contracts/responsibility-packet.md
 contracts/team-plan.md
 -> multi-responsibility dependency and integration truth
 
+contracts/guardrails.md
+-> authority, depth, mutation, writer, consent and external-action boundaries
+
+contracts/handoff.md
+-> optional main-session-accepted evidence bridge between responsibilities
+
+contracts/evidence-artifact.md
+-> complete inspectable evidence provenance when compact references are insufficient
+
 contracts/interaction.md
 -> user-visible Orchestrate controls
 
@@ -68,7 +77,7 @@ contracts/final-review.md
 -> exact-candidate independent review
 ```
 
-Supporting contracts such as composition, guardrails, handoff, evidence-artifact, and receipt may refine current V4 boundaries when referenced by an active owner. Historical V3 state or receipt semantics do not override the V4 state machine or the two-Skill product surface.
+Other supporting contracts may refine current V4 boundaries when referenced by an active owner. Historical V3 state or receipt semantics do not override the V4 state machine or the two-Skill product surface. Historical RC stage specifications live under `docs/history/`.
 
 ## Runtime owners
 
@@ -83,7 +92,7 @@ scripts/dispatch_state_v4.py
 -> bounded session-scoped V4 state, validation and Host reconciliation
 
 scripts/work_graph_v4.py
--> WorkUnit truth, single-WorkUnit installation, dependency and acceptance transitions
+-> WorkUnit truth, bounded responsibility context, single-WorkUnit installation, dependency and acceptance transitions
 
 scripts/scheduler_v4.py
 -> wakeup-driven admission, ready frontier, Host capacity, fanout and backpressure
@@ -97,11 +106,17 @@ scripts/execution_lifecycle_v4.py
 scripts/writer_lease_v4.py
 -> canonical WriterLease ownership and settlement
 
+scripts/managed_execution_v4.py
+-> exact five-section responsibility projection and managed spawn payload
+
 scripts/host_evidence_v4.py
 -> paired current Host lifecycle/capacity evidence
 
+scripts/host_capabilities.py
+-> Host capability normalization and exact exposed tool-identity Hook coverage
+
 scripts/orchestration_guard.py
--> staged V4 PreToolUse, PostToolUse and SubagentStop Guard
+-> staged V4 lifecycle, peer-message containment and Host-observation Guard
 
 docs/v4/host-smoke.json
 -> real Host release gate
@@ -115,9 +130,13 @@ One dependency-free delegated responsibility may use one WorkUnit with `team_pla
 
 When two or more delegated responsibilities remain concurrently unresolved, or dependency/integration order becomes materially important, TeamPlan supplies the positive revision and Work Graph structural truth. The same scheduler remains the sole admission owner.
 
-## WorkUnit and ExecutionBinding
+## WorkUnit and responsibility context
 
 A WorkUnit records stable responsibility and acceptance truth. An ExecutionBinding records one concrete Agent attempt and route. This separation lets one responsibility survive retry, reroute, same-child correction, interruption, or main-session takeover without making profile identity part of responsibility identity.
+
+Current WorkUnits created for managed delegation carry one bounded `responsibility_context` containing concrete interfaces, invariants, the main-session decision boundary, accepted evidence references, valid discovery that should not be repeated, and the stop boundary. The persisted schema keeps this field optional so pre-closure V4 state can still be diagnosed, but any managed spawn requires a complete valid context and fails closed without it.
+
+`managed_execution_v4.py` projects that state into exactly five top-level sections: `objective`, `ownership`, `interfaces`, `constraints`, and `verification`. This is the only child wire representation. Handoff Capsules and Evidence Artifacts remain main-session-owned provenance mechanisms and are referenced narrowly when useful; they do not create another assignment schema.
 
 Host `COMPLETED` means an execution produced a candidate result. It maps to `WorkUnit.RESULT_READY`. Main-session verification and explicit WorkUnit acceptance are required before the unit becomes `ACCEPTED`. Dependencies unlock only from `ACCEPTED`.
 
@@ -146,19 +165,19 @@ Managed lifecycle operations use a single-use PendingControl. The correctness-be
 
 Supported operations are `SPAWN`, `FOLLOWUP`, `CONTINUE`, and `INTERRUPT`. A PendingControl binds the WorkUnit/ExecutionBinding identity, applicable TeamPlan revision, execution control epoch, optional WriterLease epoch, exact lifecycle target, canonical tool-input digest, writer effect, and one Host `tool_use_id`.
 
-`PreToolUse` consumes exactly one matching prepared control. Successful `PostToolUse` acknowledges that exact in-flight control. Ambiguous acknowledgement remains fail closed. Missing PostToolUse never becomes an inferred acknowledgement.
+`PreToolUse` consumes exactly one matching prepared control. PostToolUse may acknowledge that exact in-flight control only when the real Host event semantics prove the required success/failure distinction. Ambiguous acknowledgement remains fail closed. Missing PostToolUse never becomes an inferred acknowledgement. H07 and H08 are explicit feasibility gates for outcome reliability and message representation before production lifecycle Hook activation.
 
 ## WriterLease
 
 V4.0.0 supports one canonical managed writer at a time. `WriterLease` is an orchestration mutual-exclusion permit, not an operating-system filesystem lock.
 
-Writing SPAWN, FOLLOWUP, and CONTINUE require the matching execution-owned WriterLease before Host activation. Successful lifecycle acknowledgement applies the authorized writer effect in the same state transaction as the PendingControl acknowledgement.
+Writing SPAWN, FOLLOWUP, and CONTINUE require the matching execution-owned WriterLease before Host activation. A valid lifecycle acknowledgement applies the authorized writer effect in the same state transaction as the PendingControl acknowledgement.
 
 Interrupt acknowledgement alone never releases or transfers a writer. Release or transfer requires current-generation Host settlement evidence, matching lease and control epochs, no unresolved PendingControl, and current managed lifecycle Guard coverage evidence. `UNKNOWN` blocks conflicting managed mutation and never expires automatically.
 
 Main-session integration writes use the same WriterLease abstraction. User takeover cannot bypass writer settlement.
 
-## Host observations
+## Host observations and exact tool identity
 
 V4 state normalizes only lifecycle evidence needed by orchestration. Every observation is captured against an execution identity and control epoch, with WriterLease epoch when applicable. Observations captured against an older generation are discarded.
 
@@ -166,19 +185,23 @@ Within one control epoch, delayed Host evidence must not reactivate a settled ex
 
 Host uncertainty stays explicit. Missing or conflicting identity evidence produces `UNKNOWN`; it never authorizes replacement work, writer transfer, or dependency acceptance.
 
+Host capability normalization classifies a collaboration tool by its final semantic name while preserving the full exposed identity for Hook coverage. If the Host exposes both `spawn_agent` and `collaboration.spawn_agent`, each identity must be covered explicitly. Coverage of one identity never proves coverage of another alias.
+
+If the Host exposes `send_message`, every exposed peer-message identity must be PreToolUse guarded. Managed children are blocked before peer delivery. Root/non-managed messaging remains outside PendingControl. Peer messages never grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.
+
 ## Lifecycle Guard and release gate
 
 The V4 three-sided Guard target is staged in `docs/v4/hooks.json`:
 
 ```text
-PreToolUse  -> authorize managed spawn/followup/interrupt
-PostToolUse -> acknowledge the exact successful Host operation
+PreToolUse   -> authorize managed lifecycle calls, bind Host observation, block managed-child peer messaging
+PostToolUse  -> bind exact lifecycle/Host observation results without inventing missing Host truth
 SubagentStop -> prevent autonomous continuation of managed leaf Agents
 ```
 
-The production `hooks/hooks.json` remains the hardened V3.x compatibility boundary until the real Host gate passes. Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build invokes the required Hooks with the required identities and payload semantics.
+The production `hooks/hooks.json` remains the hardened V3.x compatibility boundary until the real Host gate passes. Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build invokes every exposed canonical or namespaced tool identity with the required payload and outcome semantics.
 
-`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact release candidate before production Hook activation and publication.
+`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact release candidate before production Hook activation and publication. The first feasibility wave should settle Hook trust/identity coverage, PostToolUse outcome reliability, message representation, profile selectors/tool surface, peer-message containment, and assignment completeness before spending the full campaign budget.
 
 ## Final Review
 
@@ -191,6 +214,8 @@ Git-backed deliverables use `scripts/review-artifact.py`; non-Git deliverables u
 V3.x live state is legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, V4 `WriterLease.UNKNOWN`, or unresolved PendingControl remains fail closed. Terminal proven-owned legacy state may be explicitly cleaned through supported maintenance paths.
 
 The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata only, not raw prompts, child transcripts, reasoning traces, source copies, or full Host output.
+
+`dispatch_state.py`, `spawn_guard.py`, and legacy migration remain compatibility owners until the planned post-cutover sunset. The shared storage primitives are not extracted from the V3 module before the Host feasibility gate because doing so would widen the state-storage regression surface.
 
 ## V4.0.0 exclusions
 
