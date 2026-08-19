@@ -11,7 +11,11 @@ from typing import Any, Mapping, Sequence
 import dispatch_control_v4 as control
 import dispatch_state_v4 as state
 import managed_execution_v4 as managed_execution
+import policy as policy_contract
 import writer_lease_v4 as writer
+
+
+_PROFILE_SPECS = policy_contract.profile_contracts()
 
 
 class ExecutionLifecycleError(RuntimeError):
@@ -75,13 +79,16 @@ def allocate_execution(
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Allocate one fresh attempt and reserve WriterLease atomically when writable."""
-    if profile_id not in state.PROFILE_CONTRACT:
+    if profile_id not in _PROFILE_SPECS:
         raise ExecutionLifecycleError("profile_id is outside fixed V4 profiles")
     if not isinstance(execution_id, str) or not execution_id.strip():
         raise ExecutionLifecycleError("execution_id must be non-empty")
     if not isinstance(native_task_name, str) or not native_task_name.strip():
         raise ExecutionLifecycleError("native_task_name must be non-empty")
-    model, effort, profile_authority = state.PROFILE_CONTRACT[profile_id]
+    profile = _PROFILE_SPECS[profile_id]
+    model = profile["model"]
+    effort = profile["effort"]
+    profile_authority = profile["mutation_authority"]
     scope = list(granted_write_scope)
     allocated: dict[str, Any] = {}
 
