@@ -9,7 +9,7 @@ This specification freezes the repository changes allowed before the first real 
 3. Prevent managed children from using peer messaging as an unguarded sibling-context channel when the Host exposes `send_message`.
 4. Strengthen H00-H20 so a campaign cannot pass while an exposed lifecycle, observation, or peer-message route bypasses the managed Guard.
 5. Remove current-product documentation drift and move RC3 stage evidence out of the active contract directory.
-6. Make the pre-Host candidate actually activate the exact staged lifecycle Hook definition under test without prematurely replacing the production compatibility Hook file.
+6. Make the exact pre-Host candidate activate the same default lifecycle Hook artifact that would ship if every release gate passes.
 7. Refresh candidate metadata and repository integrity after the code/document closure.
 
 ## Non-goals
@@ -17,7 +17,7 @@ This specification freezes the repository changes allowed before the first real 
 The following remain outside this closure:
 
 - extracting V3 storage primitives from `dispatch_state.py`;
-- deleting the production compatibility `spawn_guard.py` before lifecycle Hook cutover;
+- deleting retained `spawn_guard.py` compatibility code without a separate consumer audit;
 - removing legacy profile/state migration;
 - changing WriterLease or PendingControl authority semantics;
 - solving encrypted Hook message representation before H08 provides real Host evidence;
@@ -66,13 +66,15 @@ If `send_message` is exposed, every exposed model identity must map to an exact 
 
 `host_capabilities.py` owns the identity mapping. `orchestration_guard.py` reuses that owner and may recognize additional defensive compatibility spellings for containment, but defensive recognition does not count as execution-readiness evidence.
 
-## Staged Hook activation
+## Active Hook candidate
 
-`docs/v4/hooks.json` is the exact lifecycle Hook definition under test. During the pre-Host candidate phase, `.codex-plugin/plugin.json` explicitly selects `./docs/v4/hooks.json` through the Plugin `hooks` field. The physical production file `hooks/hooks.json` remains the V3 compatibility spawn Guard and is retained until lifecycle Hook cutover.
+`hooks/hooks.json` is the authoritative installed lifecycle Hook definition under test. It is also the artifact that would ship if every V4.0.0 release gate passes. The Plugin uses the default Hook path, which keeps the candidate compatible with the pinned official OpenAI Plugin validator.
 
-The staged Hook file is part of package-integrity scope while the Plugin manifest selects it. H00 must capture the active Hook digest and prove that the target Host discovered and trusts that exact definition. Installing the candidate without confirming active Hook identity does not close H00.
+`docs/v4/hooks.json` is a non-runtime campaign reference. Tests require its `hooks` object to remain exactly equivalent to `hooks/hooks.json`, so it cannot become an independent safety authority. Package integrity covers both files during this campaign window.
 
-After all H00-H20 probes pass against the staged definition, lifecycle Hook cutover promotes the staged definition to `hooks/hooks.json`, removes the temporary manifest selection when the default production path is sufficient, refreshes package integrity and candidate identity, reruns the complete repository matrix, and repeats every Host probe affected by the changed candidate or Hook identity.
+H00 must capture the active `hooks/hooks.json` digest and prove that the target Host discovered and trusts that exact definition. Installing the candidate without confirming active Hook identity does not close H00.
+
+There is no post-H00 Hook-copy or promotion step. Any material candidate mutation after Host evidence invalidates the affected evidence and requires the relevant repository and Host verification to be repeated.
 
 ## Host campaign contract
 
@@ -92,9 +94,10 @@ H07 and H08 remain Host feasibility gates. Repository code must not guess around
 
 ## V3 and documentation closure
 
-- Keep `scripts/dispatch_state.py`, `scripts/spawn_guard.py`, legacy migration, and their required tests until the planned post-cutover sunset.
+- Keep `scripts/dispatch_state.py`, `scripts/spawn_guard.py`, legacy migration, and their required tests while active compatibility or migration consumers remain.
+- `spawn_guard.py` is retained compatibility code and is not the active Hook implementation for the exact V4 real-Host candidate.
 - Move `contracts/rc3-integrity-closure.md` to `docs/history/rc3-integrity-closure.md`; it is release history, not active V4 contract truth.
-- Keep Privacy language aligned with the two-Skill V4 product and staged lifecycle Hook model.
+- Keep Privacy language aligned with the two-Skill V4 product and active lifecycle Hook model.
 - Keep Doctor as product-health diagnostics while candidate-bound release authority belongs to `release_evidence_v4.py` and H00-H20.
 - Keep `README_AI.md` as an owner index rather than a second policy implementation.
 - Refresh PR #73 candidate metadata after the final repository candidate and CI run are known.
@@ -108,8 +111,9 @@ H07 and H08 remain Host feasibility gates. Repository code must not guess around
 | Lifecycle identity | model-visible namespaced identity can be mistaken for Hook identity | exact model identity maps to exact flattened Hook identity or readiness fails closed |
 | Peer messaging | exposed `send_message` is ignored by readiness | missing exact PreToolUse peer guard blocks execution readiness |
 | Managed leaf | managed child `send_message` passes through | Guard blocks before Host messaging |
-| Staged Hook activation | installed candidate loads only the V3 compatibility Hook | Plugin manifest selects `./docs/v4/hooks.json` for the pre-Host candidate |
-| Staged Hook integrity | active staged Hook is outside package-integrity scope | `docs/v4/hooks.json` is hashed while selected by Plugin manifest |
+| Active Hook candidate | installed candidate still loads only the V3 compatibility Guard | default `hooks/hooks.json` contains the complete V4 lifecycle Guard |
+| Reference duplication | `docs/v4/hooks.json` can drift into a second authority | reference `hooks` object must exactly equal active `hooks/hooks.json` |
+| Hook integrity | active lifecycle Hook is outside package-integrity scope | active and reference Hook files are both hashed |
 | Host contract | H00/H01/H14 do not require exhaustive identity separation | machine contract carries explicit model-visible and Hook-serialized requirements |
 | Public docs | retired identities or stale Host assumptions remain | current two-Skill, exact-identity, and release-owner language only |
 | RC3 history | stage evidence remains under active `contracts/` | historical location only |
@@ -119,7 +123,7 @@ H07 and H08 remain Host feasibility gates. Repository code must not guess around
 The closure is complete only when:
 
 1. targeted red tests pass on the new implementation;
-2. the pre-Host Plugin manifest selects the exact staged Hook definition and package integrity covers that file;
+2. the exact pre-Host candidate uses validator-compatible default Plugin Hook discovery and `hooks/hooks.json` contains the complete V4 lifecycle Guard;
 3. package-integrity generation is refreshed from the final files;
 4. Ruff passes;
 5. the complete pytest suite passes;
