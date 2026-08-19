@@ -165,7 +165,7 @@ Managed lifecycle operations use a single-use PendingControl. The correctness-be
 
 Supported operations are `SPAWN`, `FOLLOWUP`, `CONTINUE`, and `INTERRUPT`. A PendingControl binds the WorkUnit/ExecutionBinding identity, applicable TeamPlan revision, execution control epoch, optional WriterLease epoch, exact lifecycle target, canonical tool-input digest, writer effect, and one Host `tool_use_id`.
 
-`PreToolUse` consumes exactly one matching prepared control. PostToolUse may acknowledge that exact in-flight control only when the real Host event semantics prove the required success/failure distinction. Ambiguous acknowledgement remains fail closed. Missing PostToolUse never becomes an inferred acknowledgement. H07 and H08 are explicit feasibility gates for outcome reliability and message representation before production lifecycle Hook activation.
+`PreToolUse` consumes exactly one matching prepared control. PostToolUse may acknowledge that exact in-flight control only when the real Host event semantics prove the required success/failure distinction. Ambiguous acknowledgement remains fail closed. Missing PostToolUse never becomes an inferred acknowledgement. H07 and H08 are explicit feasibility gates for outcome reliability and message representation before managed delegated execution can be trusted on the target Host.
 
 ## WriterLease
 
@@ -185,13 +185,13 @@ Within one control epoch, delayed Host evidence must not reactivate a settled ex
 
 Host uncertainty stays explicit. Missing or conflicting identity evidence produces `UNKNOWN`; it never authorizes replacement work, writer transfer, or dependency acceptance.
 
-Host capability normalization classifies a collaboration tool by its final semantic name while preserving the full exposed identity for Hook coverage. If the Host exposes both `spawn_agent` and `collaboration.spawn_agent`, each identity must be covered explicitly. Coverage of one identity never proves coverage of another alias.
+Host capability normalization keeps three distinct facts: the model-visible collaboration identity, the semantic collaboration tool, and the exact Hook-serialized `tool_name`. Bare V2 identities map to themselves. A default namespace model identity such as `collaboration.spawn_agent` maps to semantic `spawn_agent` and the flattened Hook identity `collaborationspawn_agent`. Unknown namespace or flattening is unclassified and fails execution readiness until Host adaptation. Coverage of one identity never proves coverage of another mapping.
 
-If the Host exposes `send_message`, every exposed peer-message identity must be PreToolUse guarded. Managed children are blocked before peer delivery. Root/non-managed messaging remains outside PendingControl. Peer messages never grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.
+If the Host exposes `send_message`, every model-visible peer-message identity must map to an exact PreToolUse Hook identity. Managed children are blocked before peer delivery. Root/non-managed messaging remains outside PendingControl. Peer messages never grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.
 
 ## Lifecycle Guard and release gate
 
-The V4 three-sided Guard target is staged in `docs/v4/hooks.json`:
+The V4 three-sided Guard under test is `docs/v4/hooks.json`:
 
 ```text
 PreToolUse   -> authorize managed lifecycle calls, bind Host observation, block managed-child peer messaging
@@ -199,9 +199,9 @@ PostToolUse  -> bind exact lifecycle/Host observation results without inventing 
 SubagentStop -> prevent autonomous continuation of managed leaf Agents
 ```
 
-The production `hooks/hooks.json` remains the hardened V3.x compatibility boundary until the real Host gate passes. Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build invokes every exposed canonical or namespaced tool identity with the required payload and outcome semantics.
+During the pre-Host RC phase, `.codex-plugin/plugin.json` explicitly selects this staged definition so isolated H00-H20 probes exercise it on the real target Host. The physical `hooks/hooks.json` file remains the hardened V3.x compatibility file until cutover. Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build loads the selected Hook source, trusts it, invokes every exposed identity with the expected serialized `tool_name`, or supplies reliable outcome semantics.
 
-`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact release candidate before production Hook activation and publication. The first feasibility wave should settle Hook trust/identity coverage, PostToolUse outcome reliability, message representation, profile selectors/tool surface, peer-message containment, and assignment completeness before spending the full campaign budget.
+`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact candidate before production-file cutover and publication. H00 first proves the selected staged Hook source and trust state. The first feasibility wave then settles identity coverage, PostToolUse outcome reliability, message representation, profile selectors/tool surface, peer-message containment, and assignment completeness before spending the full campaign budget.
 
 ## Final Review
 
