@@ -90,13 +90,15 @@ V3.x active or corrupt state is never silently migrated
 plan-only creates no runtime state, lease, control, or Host action
 ```
 
-The production V3.x compatibility spawn Guard remains installed until the lifecycle Hook cutover. `dispatch_state.py`, legacy migration, and the tests that still protect compatibility or shared storage remain active dependencies during this window.
+The physical production V3.x compatibility spawn Guard remains in `hooks/hooks.json` until lifecycle Hook cutover. `dispatch_state.py`, legacy migration, and the tests that still protect compatibility or shared storage remain active dependencies during this window.
 
 ## 4. Real Codex Host gate
 
 The machine-readable authority is `docs/v4/host-smoke.json`. Its exact required probes and requirements are authoritative. This checklist deliberately does not maintain a second full copy of the H00-H20 field list.
 
 Offline CI, source inspection, the official Plugin validator, prior V3 spawn-guard evidence, or model self-report cannot substitute for this gate. The tracked contract remains `PENDING` with empty embedded results; authoritative campaign results remain external and candidate-bound.
+
+During the pre-Host RC phase, `.codex-plugin/plugin.json` must explicitly select `./docs/v4/hooks.json`. Package integrity must include that selected staged file. The physical `hooks/hooks.json` compatibility file remains unchanged until cutover. Before recording H00 evidence, verify on the target Host that the enabled Plugin reports the staged Hook source and that the exact staged definition is trusted. If the Host loads the default compatibility Hook instead, H00 has not started.
 
 Before spending the full campaign budget, run the feasibility wave against the exact staged `docs/v4/hooks.json` definition:
 
@@ -110,7 +112,7 @@ H07  reliable lifecycle PostToolUse success/failure discrimination
 H15  fresh-context assignment semantic completeness
 ```
 
-If any exposed lifecycle or observation alias is not intercepted exactly, stop. Coverage of `spawn_agent` does not prove coverage of `collaboration.spawn_agent` or another Host identity.
+If any exposed lifecycle or observation identity is not intercepted exactly, stop. Coverage of `spawn_agent` does not prove coverage of the Hook-serialized identity required by an exposed namespaced model identity such as `collaboration.spawn_agent`.
 
 If the Host exposes `send_message` to a managed child, every exposed peer-message identity must hit PreToolUse and be blocked before peer delivery. Peer messaging may not become a side channel for sibling control.
 
@@ -126,11 +128,12 @@ Only after all H00-H20 probes pass against the staged definition may `docs/v4/ho
 
 Promotion mutates the candidate. Therefore:
 
-1. refresh package integrity and exact candidate identity;
-2. rerun the complete four-platform repository matrix;
-3. repeat every Host probe affected by the promoted candidate/Hook identity;
-4. ensure installed Doctor accepts the production lifecycle Hook contract;
-5. keep any ambiguous Host behavior fail closed.
+1. copy the staged lifecycle definition to `hooks/hooks.json` and remove the temporary Plugin manifest `hooks` override when the default production path becomes authoritative;
+2. refresh package integrity and exact candidate identity;
+3. rerun the complete four-platform repository matrix;
+4. repeat every Host probe affected by the promoted candidate/Hook identity;
+5. ensure installed Doctor resolves and accepts the production lifecycle Hook contract;
+6. keep any ambiguous Host behavior fail closed.
 
 With production lifecycle Hooks active verify representative flows:
 
