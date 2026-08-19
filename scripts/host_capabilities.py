@@ -52,6 +52,12 @@ HOOK_TOOL_IDENTITIES = {
     hook_identity: semantic
     for semantic, hook_identity in HOST_TOOL_IDENTITIES.values()
 }
+HOOK_TOOL_IDENTITIES.update(
+    {
+        model_identity: semantic
+        for model_identity, (semantic, _) in HOST_TOOL_IDENTITIES.items()
+    }
+)
 SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
 GUARD_TRUST_FIELDS = {"manifest_sha256", "trusted_current_definition", "evidence_ref"}
 NORMALIZED_SNAPSHOT_FIELDS = {
@@ -84,7 +90,7 @@ def _hook_tool_set(hooks: Mapping[str, Any], event: str) -> set[str]:
 
 
 def canonical_hook_tool_name(identity: Any) -> str | None:
-    """Map an exact Hook-serialized collaboration identity to its semantic tool name."""
+    """Map an exact or defensive compatibility Hook identity to its semantic tool name."""
     if not isinstance(identity, str) or not identity.strip():
         return None
     return HOOK_TOOL_IDENTITIES.get(identity)
