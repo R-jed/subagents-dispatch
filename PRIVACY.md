@@ -18,17 +18,19 @@ These local files contain Plugin configuration and ownership or synchronization 
 
 ## Local lifecycle Hooks
 
-subagents-dispatch packages local synchronous Codex Hook definitions used to enforce managed Agent boundaries and to bind inspectable Host lifecycle evidence. Before the V4 lifecycle cutover, the production `hooks/hooks.json` remains the compatibility managed-spawn guard. The complete V4 PreToolUse, PostToolUse, and SubagentStop definition is staged separately and is activated only after the real Host campaign required by the release contract passes.
+subagents-dispatch packages local synchronous Codex Hook definitions used to enforce managed Agent boundaries and to bind inspectable Host lifecycle evidence. The exact V4 real-Host release candidate uses the default Plugin Hook path `hooks/hooks.json`, which contains the active PreToolUse, PostToolUse, and SubagentStop lifecycle Guard. H00-H20 must verify this exact candidate before publication.
 
 For a managed lifecycle call, Codex supplies the proposed tool call to the local Hook process. The Guard inspects only the structural identity and control fields needed for the safety boundary, such as the Hook event, root session identity, caller Agent type when exposed, exact tool identity, `tool_use_id`, target or task name, profile selector, `fork_turns`, and the tool-input representation needed to verify a prepared control. A managed child peer-message attempt may also be blocked when the Host exposes `send_message`.
 
-The proposed call may contain a task message or another Host field. The Guard does not use raw message text as repository evidence, does not persist raw Hook input, does not echo raw message bodies in block reasons, and does not write raw Hook payloads to a project-operated log. Prepared V4 controls retain a bounded deterministic digest and the structural state required for lifecycle authorization. The H08 Host gate must verify that the Host's actual message representation is compatible with that binding before V4 lifecycle Hooks become production authority.
+The proposed call may contain a task message or another Host field. The Guard does not use raw message text as repository evidence, does not persist raw Hook input, does not echo raw message bodies in block reasons, and does not write raw Hook payloads to a project-operated log. Prepared V4 controls retain a bounded deterministic digest and the structural state required for lifecycle authorization. The H08 Host gate must verify that the Host's actual message representation is compatible with that binding before delegated execution is trusted on the target Host.
 
 PostToolUse processing may inspect the structural response needed to acknowledge an exact control or ingest a paired `list_agents` observation. Missing, stale, ambiguous, or unbound evidence remains fail closed. The Plugin does not parse arbitrary response prose to manufacture release or writer authority when the Host does not expose a reliable outcome contract.
 
 SubagentStop processing may return a local stop decision for managed Agent types so automatic continuation remains under the main session's orchestration control.
 
 The Hook processes perform no project-operated network request and send no Hook data to the maintainer. Hook trust and enablement remain Host or user controls.
+
+`docs/v4/hooks.json` is a non-runtime campaign reference copy. Tests require its `hooks` object to remain equivalent to the active manifest; runtime discovery, Doctor diagnostics, Host evidence, and release authority bind to `hooks/hooks.json`.
 
 ## Plugin installation identity and explicit update operations
 
