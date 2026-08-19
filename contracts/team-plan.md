@@ -74,7 +74,7 @@ Allowed roles come from `policy.json`. `role` records the delegated Subagent rol
 
 If Recovery later performs `main_takeover`, delegated execution for that unit ends and Main continues the stable responsibility. Recovery owns that execution-state transition; TeamPlan does not rewrite the unit to an invalid `role: main`.
 
-TeamPlan does not duplicate the full child packet. The responsibility packet still carries intent, mutation authority, decision rights, interfaces, evidence, optional Handoff Capsule, current failure, and stop conditions.
+TeamPlan does not duplicate child serialization. `responsibility-packet.md` owns the one five-section responsibility record and `managed_execution_v4.py` renders that record from current WorkUnit and ExecutionBinding truth. TeamPlan contributes only the structural facts that materially apply, including the current positive revision, unit identity, delegated role, dependency, ownership and acceptance structure.
 
 ## 2A. Semantic coverage stays with Main
 
@@ -113,11 +113,11 @@ A taken-over unit becomes dependency-satisfied only after Main completes and acc
 
 ## 4. Ownership
 
-`ownership.write` lists the relative paths the unit may own for source mutation when its responsibility packet separately grants `bounded-source-write` mutation authority.
+`ownership.write` lists the relative paths the unit may own for source mutation when its responsibility record separately grants `bounded-source-write` mutation authority.
 
 `ownership.forbidden` lists relative paths the unit must not mutate.
 
-Filesystem ownership does not create mutation authority. The responsibility packet remains the authorization source.
+Filesystem ownership does not create mutation authority. The responsibility record remains the authorization projection for the child; persisted V4 state remains authoritative for execution and writer control.
 
 Read-only roles, as defined by `policy.json`, must not declare write ownership.
 
@@ -166,7 +166,7 @@ Compile the later phase from current task truth instead of mutating the old Team
 
 Choose the existing `planning_source` value that truthfully describes how the new TeamPlan itself was produced. Use `source_refs` to point at the accepted upstream artifact when a stable reference exists and that artifact materially informs the new phase. Do not invent a new planning-source taxonomy merely to label every prior deliverable type.
 
-Still-valid evidence may be reused through normal packets or a Handoff Capsule. Prior readiness does not grant mutation authority, external-impact authorization, or broader scope to the later phase.
+Still-valid evidence may be reused through normal responsibility records or a Handoff Capsule. Prior readiness does not grant mutation authority, external-impact authorization, or broader scope to the later phase.
 
 ## 7. Validation
 
