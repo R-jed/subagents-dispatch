@@ -44,10 +44,16 @@ def _canonical_profile(role: str, policy: dict[str, Any]) -> dict[str, Any]:
     required = {"name", "description", "model", "model_reasoning_effort", "developer_instructions"}
     if not required <= set(profile):
         _core.fail(f"canonical {role} profile is missing required contract fields")
-    if profile["name"] != spec["agent_type"] or profile["model"] != spec["model"] or profile["model_reasoning_effort"] != spec["effort"]:
+    expected_sandbox = "read-only" if spec["mutation_authority"] == "none" else None
+    if spec.get("sandbox_mode") != expected_sandbox:
+        _core.fail(f"policy role {role!r} has an inconsistent sandbox contract")
+    if (
+        profile["name"] != spec["agent_type"]
+        or profile["model"] != spec["model"]
+        or profile["model_reasoning_effort"] != spec["effort"]
+        or profile.get("sandbox_mode") != expected_sandbox
+    ):
         _core.fail(f"canonical {role} profile does not match the current policy route")
-    if "sandbox_mode" in profile:
-        _core.fail(f"canonical {role} profile must inherit Host permissions")
     return profile
 
 
