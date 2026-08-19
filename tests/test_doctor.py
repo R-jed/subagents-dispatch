@@ -59,7 +59,7 @@ def run_doctor(home: Path, temp_root: Path, *extra: str) -> subprocess.Completed
     )
 
 
-def test_doctor_reports_product_layers_and_keeps_pre_cutover_hook_gap_degraded(tmp_path: Path):
+def test_doctor_reports_product_layers_with_staged_hook_unverified(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--check")
@@ -75,13 +75,16 @@ def test_doctor_reports_product_layers_and_keeps_pre_cutover_hook_gap_degraded(t
     assert positions == sorted(positions)
     assert "[OK] Plugin package:" in result.stdout
     assert "[OK] Managed Agents: 5/5 managed Agent profiles are installed exactly" in result.stdout
-    assert "[WARN] Host integration:" in result.stdout
+    assert (
+        "[UNKNOWN] Host integration: installed lifecycle Hooks validate; "
+        "no explicit Host capability snapshot was supplied"
+    ) in result.stdout
     assert "[OK] Orchestration state: no thread-scoped orchestration state is active" in result.stdout
-    assert "Health: DEGRADED" in result.stdout
-    assert "Verification: VERIFIED" in result.stdout
+    assert "Health: HEALTHY" in result.stdout
+    assert "Verification: UNVERIFIED" in result.stdout
 
 
-def test_doctor_json_separates_health_from_verification_completeness(tmp_path: Path):
+def test_doctor_json_separates_health_from_host_verification_completeness(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--json", "--check")
@@ -89,8 +92,8 @@ def test_doctor_json_separates_health_from_verification_completeness(tmp_path: P
     payload = json.loads(result.stdout)
     assert payload["schema_version"] == 6
     assert payload["healthy"] is True
-    assert payload["status"] == "DEGRADED"
-    assert payload["verification"] == "VERIFIED"
+    assert payload["status"] == "HEALTHY"
+    assert payload["verification"] == "UNVERIFIED"
     assert [item["name"] for item in payload["layers"]] == [
         "Plugin package",
         "Managed Agents",
