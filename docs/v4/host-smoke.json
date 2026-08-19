@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-host-smoke-8",
+  "schema_version": "4.0.0-host-smoke-7",
   "contract_kind": "machine-readable-host-campaign-contract",
   "gate_id": "v4-real-host-h00-h20",
   "status": "PENDING",
