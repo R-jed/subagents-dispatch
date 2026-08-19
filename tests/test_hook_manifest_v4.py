@@ -38,11 +38,11 @@ def test_staged_hook_manifest_covers_managed_lifecycle_boundaries():
         "interrupt_agent",
         "list_agents",
         "send_message",
-        "collaboration\\.spawn_agent",
-        "collaboration\\.followup_task",
-        "collaboration\\.interrupt_agent",
-        "collaboration\\.list_agents",
-        "collaboration\\.send_message",
+        "collaborationspawn_agent",
+        "collaborationfollowup_task",
+        "collaborationinterrupt_agent",
+        "collaborationlist_agents",
+        "collaborationsend_message",
     }:
         assert identity in pre
     for identity in {
@@ -50,10 +50,10 @@ def test_staged_hook_manifest_covers_managed_lifecycle_boundaries():
         "followup_task",
         "interrupt_agent",
         "list_agents",
-        "collaboration\\.spawn_agent",
-        "collaboration\\.followup_task",
-        "collaboration\\.interrupt_agent",
-        "collaboration\\.list_agents",
+        "collaborationspawn_agent",
+        "collaborationfollowup_task",
+        "collaborationinterrupt_agent",
+        "collaborationlist_agents",
     }:
         assert identity in post
 
