@@ -31,10 +31,27 @@ TOOL_CAPABILITY_LEAVES = {
     "followup": {"followup_task"},
     "interrupt": {"interrupt_agent"},
 }
-KNOWN_COLLABORATION_LEAVES = (
-    set().union(*TOOL_CAPABILITY_LEAVES.values())
-    | {PEER_MESSAGE_TOOL}
+COLLABORATION_TOOL_SEMANTICS = frozenset(
+    set().union(*TOOL_CAPABILITY_LEAVES.values()) | {PEER_MESSAGE_TOOL}
 )
+DEFAULT_V2_NAMESPACE = "collaboration"
+HOST_TOOL_IDENTITIES = {
+    semantic: (semantic, semantic)
+    for semantic in COLLABORATION_TOOL_SEMANTICS
+}
+HOST_TOOL_IDENTITIES.update(
+    {
+        f"{DEFAULT_V2_NAMESPACE}.{semantic}": (
+            semantic,
+            f"{DEFAULT_V2_NAMESPACE}{semantic}",
+        )
+        for semantic in COLLABORATION_TOOL_SEMANTICS
+    }
+)
+HOOK_TOOL_IDENTITIES = {
+    hook_identity: semantic
+    for semantic, hook_identity in HOST_TOOL_IDENTITIES.values()
+}
 SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
 GUARD_TRUST_FIELDS = {"manifest_sha256", "trusted_current_definition", "evidence_ref"}
 NORMALIZED_SNAPSHOT_FIELDS = {
@@ -66,20 +83,38 @@ def _hook_tool_set(hooks: Mapping[str, Any], event: str) -> set[str]:
     return _string_set(value, label=f"hooks.{event}")
 
 
-def _tool_leaf(identity: str) -> str:
-    return identity.rsplit(".", 1)[-1]
+def canonical_hook_tool_name(identity: Any) -> str | None:
+    """Map an exact Hook-serialized collaboration identity to its semantic tool name."""
+    if not isinstance(identity, str) or not identity.strip():
+        return None
+    return HOOK_TOOL_IDENTITIES.get(identity)
 
 
-def _tool_identities(tools: set[str], leaves: set[str]) -> set[str]:
-    return {identity for identity in tools if _tool_leaf(identity) in leaves}
+def _semantic_tool(identity: str) -> str | None:
+    resolved = HOST_TOOL_IDENTITIES.get(identity)
+    if resolved is None:
+        return None
+    return resolved[0]
+
+
+def _tool_identities(tools: set[str], semantics: set[str]) -> set[str]:
+    return {
+        identity
+        for identity in tools
+        if _semantic_tool(identity) in semantics
+    }
+
+
+def _required_hook_identities(tools: set[str], semantics: set[str]) -> set[str]:
+    return {
+        HOST_TOOL_IDENTITIES[identity][1]
+        for identity in tools
+        if _semantic_tool(identity) in semantics
+    }
 
 
 def _reject_unclassified_collaboration_tools(tools: set[str]) -> None:
-    unclassified = sorted(
-        identity
-        for identity in tools
-        if _tool_leaf(identity) not in KNOWN_COLLABORATION_LEAVES
-    )
+    unclassified = sorted(identity for identity in tools if identity not in HOST_TOOL_IDENTITIES)
     if unclassified:
         raise HostCapabilityError(
             "unclassified collaboration tool identities require Host adaptation: "
@@ -141,23 +176,25 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         raise HostCapabilityError("max_spawned_threads must be null or a positive integer")
 
     capabilities: dict[str, bool] = {}
-    for capability, required_leaves in TOOL_CAPABILITY_LEAVES.items():
-        capabilities[capability] = bool(_tool_identities(tools, required_leaves))
+    for capability, required_semantics in TOOL_CAPABILITY_LEAVES.items():
+        capabilities[capability] = bool(_tool_identities(tools, required_semantics))
 
-    lifecycle_identities = _tool_identities(tools, set(LIFECYCLE_TOOLS))
-    observation_identities = _tool_identities(tools, {OBSERVATION_TOOL})
-    peer_message_identities = _tool_identities(tools, {PEER_MESSAGE_TOOL})
+    lifecycle_hook_identities = _required_hook_identities(tools, set(LIFECYCLE_TOOLS))
+    observation_hook_identities = _required_hook_identities(tools, {OBSERVATION_TOOL})
+    peer_message_hook_identities = _required_hook_identities(tools, {PEER_MESSAGE_TOOL})
 
-    capabilities["pre_tool_use_guard"] = bool(lifecycle_identities) and lifecycle_identities.issubset(
+    capabilities["pre_tool_use_guard"] = bool(lifecycle_hook_identities) and lifecycle_hook_identities.issubset(
         pre_tools
     )
-    capabilities["post_tool_use_guard"] = bool(lifecycle_identities) and lifecycle_identities.issubset(
+    capabilities["post_tool_use_guard"] = bool(lifecycle_hook_identities) and lifecycle_hook_identities.issubset(
         post_tools
     )
-    capabilities["host_observation_guard"] = bool(observation_identities) and observation_identities.issubset(
-        pre_tools
-    ) and observation_identities.issubset(post_tools)
-    capabilities["peer_message_guard"] = peer_message_identities.issubset(pre_tools)
+    capabilities["host_observation_guard"] = bool(
+        observation_hook_identities
+    ) and observation_hook_identities.issubset(pre_tools) and observation_hook_identities.issubset(
+        post_tools
+    )
+    capabilities["peer_message_guard"] = peer_message_hook_identities.issubset(pre_tools)
     capabilities["subagent_stop_veto"] = hooks["SubagentStop"] is True
 
     missing_capabilities = [
