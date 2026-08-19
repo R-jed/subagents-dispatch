@@ -1,8 +1,8 @@
 # V4 Complexity Closure Specification
 
-This specification freezes the bounded P0/P1 simplification pass that must complete before the real H00-H20 Host campaign.
+This specification records the bounded P0/P1 simplification pass that completed before the real H00-H20 Host campaign.
 
-The starting candidate is commit `7ec4b2aff380b0920078a8a5e98fe084a01212dd` on `v4/rc4-host-contract-closure`.
+The pass started from commit `7ec4b2aff380b0920078a8a5e98fe084a01212dd` on `v4/rc4-host-contract-closure`. Its original Hook-staging boundary was later superseded by `docs/v4/pre-host-closure-spec.md`: the exact real-Host candidate now carries the active V4 lifecycle Guard at `hooks/hooks.json`, while H00-H20 still remain unclaimed and release-blocking.
 
 ## Goal
 
@@ -10,19 +10,20 @@ Remove competing V3/V4 contract owners and unnecessary single-responsibility cer
 
 The pass must keep one runtime, one scheduler/admission owner, one canonical workspace writer boundary, one Host lifecycle truth path, and the five fixed managed Agent profiles.
 
-## Non-goals
+## Non-goals of the original pass
 
-This pass must not:
+The original P0/P1 pass did not authorize:
 
-- extract a new state-storage module;
-- merge facade/core implementation pairs;
-- reduce WriterLease identity or settlement rules;
-- remove PendingControl payload, tool-use, control-epoch, lease-epoch, or writer-effect bindings;
-- merge the five physical Agent profiles;
-- create a second single-delegate runtime or scheduler;
-- remove V3 migration/compatibility code that still has a current production consumer;
-- activate staged V4 production Hooks;
-- claim any H00-H20 Host result.
+- extracting a new state-storage module;
+- merging facade/core implementation pairs;
+- reducing WriterLease identity or settlement rules;
+- removing PendingControl payload, tool-use, control-epoch, lease-epoch, or writer-effect bindings;
+- merging the five physical Agent profiles;
+- creating a second single-delegate runtime or scheduler;
+- removing V3 migration/compatibility code that still has a current production consumer;
+- claiming any H00-H20 Host result.
+
+Hook activation was also outside that earlier pass. The later pre-Host closure changed only that candidate boundary after proving the default active Hook path was required for a validator-compatible, candidate-stable real Host campaign. This historical scope note does not grant Host PASS.
 
 ## P0-A: Active V4 contract closure
 
@@ -131,9 +132,9 @@ All scripts with a current product, Hook, Doctor, update, migration, review, rou
 | R9 | stale product vocabulary remains in active contracts | contract scan | no retired `Dispatch` Skill consent wording in final-review; architecture and Doctor ownership agree |
 | R10 | stale recovery vocabulary can guide current Orchestrate | recovery contract scan | current recovery uses WorkUnit/ExecutionBinding, `execution_id`, `attempt_no`, current V4 lifecycle set, and no V3 state capsule owner claim |
 
-## Regression requirements
+## Current regression requirements
 
-The change is acceptable only if all existing safety behavior remains covered, including:
+The resulting candidate is acceptable only if all safety behavior remains covered, including:
 
 - two fresh attempts maximum per unchanged WorkUnit;
 - one focused same-child follow-up budget;
@@ -142,7 +143,7 @@ The change is acceptable only if all existing safety behavior remains covered, i
 - PendingControl Pre/Post exact binding;
 - dependency unlock only after WorkUnit acceptance;
 - current five-profile model/effort/sandbox contract;
-- production compatibility Hook remains unchanged before Host cutover;
+- exact active lifecycle Hook at `hooks/hooks.json` with H00-H20 still `PENDING` until real Host evidence;
 - Doctor remains five product layers;
 - V3 migration remains explicit and fail closed.
 
@@ -155,5 +156,6 @@ The change is acceptable only if all existing safety behavior remains covered, i
 5. Run targeted P1 tests.
 6. Refresh package integrity only after runtime-file identity is final.
 7. Run Ruff, full pytest, managed Agent lifecycle checks and official Plugin validation through the repository CI matrix.
-8. Review the final diff against this specification and verify that no non-goal was introduced.
-9. Freeze the resulting exact candidate for the real H00-H20 campaign.
+8. Review the final diff against this specification and verify that no original safety non-goal was weakened.
+9. Apply the later pre-Host closure contract for exact active Hook candidate validation.
+10. Freeze the resulting exact candidate for the real H00-H20 campaign.
