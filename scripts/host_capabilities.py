@@ -31,6 +31,10 @@ TOOL_CAPABILITY_LEAVES = {
     "followup": {"followup_task"},
     "interrupt": {"interrupt_agent"},
 }
+KNOWN_COLLABORATION_LEAVES = (
+    set().union(*TOOL_CAPABILITY_LEAVES.values())
+    | {PEER_MESSAGE_TOOL}
+)
 SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
 GUARD_TRUST_FIELDS = {"manifest_sha256", "trusted_current_definition", "evidence_ref"}
 NORMALIZED_SNAPSHOT_FIELDS = {
@@ -70,6 +74,19 @@ def _tool_identities(tools: set[str], leaves: set[str]) -> set[str]:
     return {identity for identity in tools if _tool_leaf(identity) in leaves}
 
 
+def _reject_unclassified_collaboration_tools(tools: set[str]) -> None:
+    unclassified = sorted(
+        identity
+        for identity in tools
+        if _tool_leaf(identity) not in KNOWN_COLLABORATION_LEAVES
+    )
+    if unclassified:
+        raise HostCapabilityError(
+            "unclassified collaboration tool identities require Host adaptation: "
+            + ", ".join(unclassified)
+        )
+
+
 def normalize_agent_status(status: Any) -> dict[str, Any]:
     """Normalize the public Multi-Agent V2 status union without inventing identity."""
     if isinstance(status, str) and status in SIMPLE_AGENT_STATES:
@@ -103,6 +120,7 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     if surface != EXPECTED_SURFACE:
         raise HostCapabilityError(f"surface must be exactly {EXPECTED_SURFACE}")
     tools = _string_set(evidence["tools"], label="tools")
+    _reject_unclassified_collaboration_tools(tools)
     hooks = evidence["hooks"]
     if not isinstance(hooks, Mapping):
         raise HostCapabilityError("hooks must be an object")
