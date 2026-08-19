@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 ACTIVE = ROOT / "hooks" / "hooks.json"
+REFERENCE = ROOT / "docs" / "v4" / "hooks.json"
 
 
 def _handlers(events: dict, event_name: str) -> list[dict]:
@@ -30,6 +31,12 @@ def test_real_host_candidate_uses_default_plugin_hook_path():
     manifest = json.loads(PLUGIN.read_text(encoding="utf-8"))
     assert "hooks" not in manifest
     assert ACTIVE.is_file()
+
+
+def test_reference_hook_copy_has_no_independent_runtime_truth():
+    active = json.loads(ACTIVE.read_text(encoding="utf-8"))
+    reference = json.loads(REFERENCE.read_text(encoding="utf-8"))
+    assert reference["hooks"] == active["hooks"]
 
 
 def test_active_hook_manifest_covers_managed_lifecycle_boundaries():
