@@ -197,7 +197,7 @@ def test_unclassified_flattened_collaboration_identity_is_rejected():
         module.normalize_host_capabilities(payload)
 
 
-def test_namespaced_identity_requires_exact_hook_coverage():
+def test_namespaced_model_identity_requires_flattened_hook_coverage():
     module = load_module()
     payload = evidence()
     payload["tools"].append("collaboration.spawn_agent")
@@ -209,7 +209,20 @@ def test_namespaced_identity_requires_exact_hook_coverage():
     assert snapshot["capabilities"]["post_tool_use_guard"] is False
 
 
-def test_namespaced_identity_can_pass_when_exactly_guarded():
+def test_namespaced_model_identity_can_pass_with_exact_flattened_hook_coverage():
+    module = load_module()
+    payload = evidence()
+    payload["tools"].append("collaboration.spawn_agent")
+    payload["hooks"]["PreToolUse"].append("collaborationspawn_agent")
+    payload["hooks"]["PostToolUse"].append("collaborationspawn_agent")
+
+    snapshot = module.normalize_host_capabilities(payload)
+
+    assert snapshot["execution_ready"] is True
+    assert snapshot["missing"] == []
+
+
+def test_dotted_model_identity_does_not_count_as_hook_identity():
     module = load_module()
     payload = evidence()
     payload["tools"].append("collaboration.spawn_agent")
@@ -218,8 +231,9 @@ def test_namespaced_identity_can_pass_when_exactly_guarded():
 
     snapshot = module.normalize_host_capabilities(payload)
 
-    assert snapshot["execution_ready"] is True
-    assert snapshot["missing"] == []
+    assert snapshot["execution_ready"] is False
+    assert module.canonical_hook_tool_name("collaboration.spawn_agent") is None
+    assert module.canonical_hook_tool_name("collaborationspawn_agent") == "spawn_agent"
 
 
 def test_required_hook_tool_set_is_exact_lifecycle_surface():
