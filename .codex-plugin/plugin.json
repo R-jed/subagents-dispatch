@@ -8,6 +8,7 @@
   "license": "MIT",
   "keywords": ["codex", "subagents", "delegation", "orchestration", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"],
   "skills": "./skills/",
+  "hooks": "./docs/v4/hooks.json",
   "interface": {
     "displayName": "subagents-dispatch",
     "shortDescription": "Bounded Main-led Subagent orchestration and diagnostics.",
