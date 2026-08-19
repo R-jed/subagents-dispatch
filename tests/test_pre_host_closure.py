@@ -217,7 +217,7 @@ def test_managed_child_peer_message_and_flattened_namespace_lifecycle_are_blocke
         assert result is not None
         assert result["decision"] == "block"
 
-    assert guard._tool_leaf_name("collaboration.spawn_agent") is None
+    assert guard._tool_leaf_name("collaboration.spawn_agent") == "spawn_agent"
 
 
 def test_staged_manifest_covers_exact_hook_serialized_collaboration_identities():
