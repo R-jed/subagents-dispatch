@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-7",
+  "schema_version": "4.0.0-phase-status-8",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -55,7 +55,8 @@
       "external_host_campaign": "REQUIRED_H00_H20",
       "real_host_smoke": "PENDING_RELEASE_GATE",
       "real_host_smoke_contract": "docs/v4/host-smoke.json",
-      "production_hook_activation": "BLOCKED",
+      "pre_host_staged_hook_selection": "ACTIVE_FOR_VALIDATION",
+      "production_hook_cutover": "BLOCKED",
       "final_review": "PENDING_RELEASE_GATE",
       "external_release_evidence": "PENDING_RELEASE_GATE",
       "publication": "BLOCKED"
