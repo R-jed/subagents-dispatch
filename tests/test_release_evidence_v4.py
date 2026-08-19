@@ -43,31 +43,18 @@ def write(path: Path, text: str) -> None:
 
 
 def make_candidate(tmp_path: Path) -> Path:
+    """Build a realistic candidate from the current product integrity boundary."""
     repo = tmp_path / "candidate"
-    for directory in (
-        "agent-profiles",
-        "contracts",
-        "hooks",
-        "scripts",
-        "skills",
-        ".codex-plugin",
-        ".agents/plugins",
-        "docs/v4",
-    ):
-        (repo / directory).mkdir(parents=True, exist_ok=True)
-    write(repo / ".codex-plugin" / "plugin.json", '{"name":"subagents-dispatch","version":"4.0.0"}\n')
-    write(repo / ".agents" / "plugins" / "marketplace.json", "{}\n")
-    write(repo / "docs" / "python-runtime.md", "runtime\n")
-    write(repo / "contracts" / "policy.json", '{"schema_version":9}\n')
-    write(
-        repo / "hooks" / "hooks.json",
-        '{"hooks":{"PreToolUse":[],"PostToolUse":[],"SubagentStop":[]}}\n',
-    )
+    repo.mkdir(parents=True, exist_ok=True)
+    package = load_module("rc4_release_package_builder", "package_integrity.py")
+    for relative in package.runtime_files(ROOT):
+        source = ROOT.joinpath(*relative.parts)
+        target = repo.joinpath(*relative.parts)
+        write(target, source.read_text(encoding="utf-8"))
     write(
         repo / "docs" / "v4" / "host-smoke.json",
         (ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"),
     )
-    package = load_module("rc4_release_package_builder", "package_integrity.py")
     package.write_manifest(repo)
 
     run(repo, "init")
