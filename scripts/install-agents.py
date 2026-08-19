@@ -313,8 +313,8 @@ def preflight_profiles(
     check_only: bool,
     managed_hashes: dict[str, str],
     pending_cleanup: set[str] | None = None,
-) -> set[str]:
-    upgrades: set[str] = set()
+) -> dict[str, str]:
+    upgrades: dict[str, str] = {}
     skip_names = pending_cleanup or set()
 
     for filename in PROFILE_FILES:
@@ -334,8 +334,9 @@ def preflight_profiles(
             fail(f"Agent profile destination is not a regular file: {target}")
         if target.read_bytes() == source.read_bytes():
             continue
-        if not check_only and managed_hashes.get(filename) == file_hash(target):
-            upgrades.add(filename)
+        target_hash = file_hash(target)
+        if not check_only and managed_hashes.get(filename) == target_hash:
+            upgrades[filename] = target_hash
             continue
         fail(
             "Refusing to overwrite an Agent profile that differs from the current package "
@@ -388,15 +389,31 @@ def write_manifest(path: Path, payload: dict) -> None:
         staged.unlink(missing_ok=True)
 
 
-def backup_target(target: Path) -> Path:
-    backup = target.parent / f".{target.name}.backup-{uuid.uuid4().hex}"
-    target.rename(backup)
-    return backup
+def assert_upgrade_target_unchanged(target: Path, expected_hash: str) -> None:
+    if target.is_symlink() or not target.is_file():
+        fail(f"Managed Agent profile changed after preflight and will not be replaced: {target}")
+    if file_hash(target) != expected_hash:
+        fail(f"Managed Agent profile changed after preflight and will not be replaced: {target}")
+
+
+def publish_staged_no_clobber(staged: Path, target: Path) -> None:
+    try:
+        os.link(staged, target)
+    except FileExistsError as exc:
+        raise RuntimeError(
+            f"Agent profile destination appeared after preflight and will not be overwritten: {target}"
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(
+            f"Could not publish Agent profile without clobbering an existing destination {target}: {exc}"
+        ) from exc
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 def apply_profile_changes(
     agents_dir: Path,
-    upgrades: set[str],
+    upgrades: dict[str, str],
     created: list[Path],
     backups: dict[Path, Path],
 ) -> None:
@@ -407,9 +424,17 @@ def apply_profile_changes(
             continue
         staged = stage_file(agents_dir, source.read_bytes())
         try:
-            if target.exists():
-                backups[target] = backup_target(target)
-            staged.rename(target)
+            if filename in upgrades:
+                expected_hash = upgrades[filename]
+                assert_upgrade_target_unchanged(target, expected_hash)
+                backup = target.parent / f".{target.name}.backup-{uuid.uuid4().hex}"
+                target.rename(backup)
+                backups[target] = backup
+                if backup.is_symlink() or not backup.is_file() or file_hash(backup) != expected_hash:
+                    fail(
+                        f"Managed Agent profile changed while being replaced; preserving rollback copy: {backup}"
+                    )
+            publish_staged_no_clobber(staged, target)
             if target not in backups:
                 created.append(target)
         except BaseException:
@@ -426,15 +451,34 @@ def rollback(
     errors: list[str] = []
     for path in reversed(created):
         try:
-            path.unlink(missing_ok=True)
+            source = PROFILE_SOURCE / path.name
+            if path.exists():
+                if path.is_symlink() or not path.is_file() or path.read_bytes() != source.read_bytes():
+                    errors.append(
+                        f"refusing to remove drifted created profile during rollback: {path}"
+                    )
+                    continue
+                path.unlink()
         except OSError as exc:
             errors.append(f"could not remove created profile {path}: {exc}")
     for target, backup in reversed(list(backups.items())):
         try:
-            target.unlink(missing_ok=True)
-            backup.rename(target)
+            if target.exists():
+                source = PROFILE_SOURCE / target.name
+                if target.is_symlink() or not target.is_file() or target.read_bytes() != source.read_bytes():
+                    errors.append(
+                        f"refusing to clobber drifted profile while restoring rollback copy {backup}: {target}"
+                    )
+                    continue
+                target.unlink()
+            os.link(backup, target)
+            backup.unlink()
+        except FileExistsError:
+            errors.append(
+                f"destination reappeared while restoring rollback copy {backup}; preserved both paths: {target}"
+            )
         except OSError as exc:
-            errors.append(f"could not restore {target}: {exc}")
+            errors.append(f"could not restore {target} from {backup}: {exc}")
     try:
         if previous_manifest is None:
             manifest_path.unlink(missing_ok=True)
