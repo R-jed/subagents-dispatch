@@ -16,6 +16,7 @@ if sys.platform == "win32":
 import dispatch_control_v4 as control
 import dispatch_state as state_v3
 import dispatch_state_v4 as state_v4
+import host_capabilities
 import host_evidence_v4 as host_evidence
 import managed_execution_v4 as managed_execution
 import spawn_guard
@@ -56,9 +57,7 @@ def _is_managed_agent_type(value: Any) -> bool:
 
 
 def _tool_leaf_name(value: Any) -> str | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    return value.rsplit(".", 1)[-1]
+    return host_capabilities.canonical_hook_tool_name(value)
 
 
 def _canonical_tool_payload(payload: Mapping[str, Any], tool_name: str) -> dict[str, Any]:
