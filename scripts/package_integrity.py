@@ -25,8 +25,43 @@ RUNTIME_DIRECTORIES = (
     PurePosixPath("agent-profiles"),
     PurePosixPath("contracts"),
     PurePosixPath("hooks"),
-    PurePosixPath("scripts"),
     PurePosixPath("skills"),
+)
+RUNTIME_SCRIPT_FILES = tuple(
+    PurePosixPath(path)
+    for path in (
+        "scripts/check-plugin-update.py",
+        "scripts/dispatch_control_v4.py",
+        "scripts/dispatch_state.py",
+        "scripts/dispatch_state_v4.py",
+        "scripts/dispatch_state_v4_core.py",
+        "scripts/doctor.py",
+        "scripts/doctor_runtime.py",
+        "scripts/doctor_runtime_core.py",
+        "scripts/execution_lifecycle_v4.py",
+        "scripts/execution_lifecycle_v4_core.py",
+        "scripts/host_capabilities.py",
+        "scripts/host_evidence_v4.py",
+        "scripts/inspect-agent-runtime.py",
+        "scripts/install-agents.py",
+        "scripts/legacy_migration.py",
+        "scripts/managed_execution_v4.py",
+        "scripts/orchestrate_v4.py",
+        "scripts/orchestration_guard.py",
+        "scripts/package_integrity.py",
+        "scripts/plugin_update.py",
+        "scripts/policy.py",
+        "scripts/review-artifact.py",
+        "scripts/runtime-evidence.py",
+        "scripts/scheduler_v4.py",
+        "scripts/spawn_guard.py",
+        "scripts/uninstall-agents.py",
+        "scripts/validate_team_ledger.py",
+        "scripts/validate_team_plan.py",
+        "scripts/work_graph_v4.py",
+        "scripts/writer_lease_v4.py",
+        "scripts/writer_lease_v4_core.py",
+    )
 )
 IGNORED_PARTS = {"__pycache__"}
 IGNORED_SUFFIXES = {".pyc", ".pyo"}
@@ -105,6 +140,9 @@ def runtime_files(root: Path = ROOT) -> list[PurePosixPath]:
     files = set(STATIC_FILES)
     for relative_dir in RUNTIME_DIRECTORIES:
         files.update(_iter_directory_files(root, relative_dir))
+    for relative in RUNTIME_SCRIPT_FILES:
+        _resolved_file(root, relative)
+        files.add(relative)
     files.discard(MANIFEST_RELATIVE)
     return sorted(files, key=lambda item: item.as_posix())
 
