@@ -25,8 +25,8 @@ Deterministic runtime
 -> scripts/*_v4.py and their current supporting modules
 
 Host action boundary
--> hooks/
--> staged V4 lifecycle definition in docs/v4/hooks.json
+-> hooks/hooks.json
+-> scripts/orchestration_guard.py
 
 Installed-product diagnosis and update
 -> skills/doctor/
@@ -100,17 +100,25 @@ scripts/writer_lease_v4.py
 scripts/host_evidence_v4.py
 -> paired current Host evidence
 
+scripts/host_capabilities.py
+-> semantic Host capability normalization and exact tool-identity mapping
+
 scripts/orchestration_guard.py
--> staged V4 lifecycle Guard
+-> active V4 lifecycle, peer-message containment, and Host-observation Guard
+
+hooks/hooks.json
+-> authoritative installed Hook manifest for the exact real-Host candidate
 ```
 
 One dependency-free delegated responsibility is a smaller state shape inside this same runtime. It does not create TeamPlan or a second scheduler. Coordinated work adds TeamPlan and Work Graph dependency truth only when multiple unresolved delegated responsibilities or material dependency order requires them.
 
-## Production Hook staging
+## Real-Host Hook candidate
 
-The current production `hooks/hooks.json` remains the hardened compatibility spawn boundary until the real H00-H20 campaign proves the staged V4 lifecycle Hook contract on the target Codex Host.
+The exact V4 real-Host candidate uses the default Plugin Hook path `hooks/hooks.json`. That file already contains the complete V4 `PreToolUse`, `PostToolUse`, and `SubagentStop` Guard definition. H00-H20 validate this same artifact before publication.
 
-`docs/v4/hooks.json` is the staged three-event candidate using `PreToolUse`, `PostToolUse`, and `SubagentStop`. Repository tests prove code behavior only. They do not promote staged configuration to observed Host truth.
+`docs/v4/hooks.json` remains a non-runtime campaign reference copy. Tests require its `hooks` object to match `hooks/hooks.json` exactly, and package integrity protects both during the campaign window. Host evidence, Doctor diagnostics, and release authority bind to `hooks/hooks.json`.
+
+There is no post-H00 Hook-copy or promotion phase. Any material candidate mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated.
 
 ## Package integrity boundary
 
@@ -122,9 +130,9 @@ This integrity boundary does not claim that Codex physically omits maintainer fi
 
 ## Compatibility
 
-V3 migration and compatibility code remains while it has active production, Doctor, or migration consumers. It is not dead code solely because V4 has a new runtime.
+V3 migration and compatibility code remains while it has active production, Doctor, or migration consumers. `scripts/spawn_guard.py` is retained compatibility code but is not the active Hook implementation for the V4 real-Host candidate.
 
-After V4 production Hook cutover and an explicit compatibility window, remaining V3 runtime paths should be reviewed for staged sunset with consumer proof. Storage extraction, facade/core consolidation, and legacy deletion are maintenance work and are intentionally outside the pre-H00 complexity closure.
+After V4 Host validation and an explicit compatibility window, remaining V3 runtime paths should be reviewed for staged sunset with consumer proof. Storage extraction, facade/core consolidation, and legacy deletion are maintenance work and remain outside this pre-H00 closure.
 
 ## Design rule
 
