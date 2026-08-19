@@ -13,7 +13,7 @@ MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 POLICY = ROOT / "contracts" / "policy.json"
 SKILLS = ROOT / "skills"
 HOOKS = ROOT / "hooks" / "hooks.json"
-STAGED_HOOKS = ROOT / "docs" / "v4" / "hooks.json"
+REFERENCE_HOOKS = ROOT / "docs" / "v4" / "hooks.json"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 PUBLIC_SKILLS = {"orchestrate", "doctor"}
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
@@ -86,12 +86,14 @@ def test_fixed_profile_policy_is_luna_max_terra_high_sol_high():
         assert spec["effort"] == profile["model_reasoning_effort"] == effort
 
 
-def test_v4_hooks_remain_staged_until_real_host_smoke():
-    production = json.loads(HOOKS.read_text(encoding="utf-8"))
-    staged = json.loads(STAGED_HOOKS.read_text(encoding="utf-8"))
+def test_v4_active_hook_candidate_is_release_blocked_by_real_host_smoke():
+    active = json.loads(HOOKS.read_text(encoding="utf-8"))
+    reference = json.loads(REFERENCE_HOOKS.read_text(encoding="utf-8"))
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
-    assert set(production["hooks"]) == {"PreToolUse"}
-    assert set(staged["hooks"]) == {"PreToolUse", "PostToolUse", "SubagentStop"}
+    assert set(active["hooks"]) == {"PreToolUse", "PostToolUse", "SubagentStop"}
+    assert reference["hooks"] == active["hooks"]
+    assert smoke["activation_manifest"] == "hooks/hooks.json"
+    assert smoke["production_manifest"] == "hooks/hooks.json"
     assert smoke["status"] != "PASS"
     assert smoke["gate_id"] == "v4-real-host-h00-h20"
 
