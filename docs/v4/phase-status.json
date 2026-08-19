@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-8",
+  "schema_version": "4.0.0-phase-status-9",
   "engineering_baseline": "docs/v4/engineering-baseline.json",
   "phases": {
     "phase0": {
@@ -55,13 +55,12 @@
       "external_host_campaign": "REQUIRED_H00_H20",
       "real_host_smoke": "PENDING_RELEASE_GATE",
       "real_host_smoke_contract": "docs/v4/host-smoke.json",
-      "pre_host_staged_hook_selection": "ACTIVE_FOR_VALIDATION",
-      "production_hook_cutover": "BLOCKED",
+      "release_candidate_lifecycle_hook": "ACTIVE_PENDING_HOST_VALIDATION",
       "final_review": "PENDING_RELEASE_GATE",
       "external_release_evidence": "PENDING_RELEASE_GATE",
       "publication": "BLOCKED"
     }
   },
   "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
-  "release_rule": "V4.0.0 publication requires an external candidate-bound H00-H20 Host campaign PASS, production lifecycle Hook promotion and relevant exact-candidate Host retest, a fresh candidate-bound Advisor Final Review PASS, verified external release evidence, an installed Doctor product-health check with no blocking diagnosis, and human App observation. The Doctor check is product-health evidence only and does not grant publication authority. The tracked docs/v4/host-smoke.json remains a PENDING static contract and cannot self-attest runtime PASS."
+  "release_rule": "V4.0.0 publication requires an external candidate-bound H00-H20 Host campaign PASS against the exact active hooks/hooks.json candidate, a fresh candidate-bound Advisor Final Review PASS, verified external release evidence, an installed Doctor product-health check with no blocking diagnosis, and human App observation. Any material mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated. The Doctor check is product-health evidence only and does not grant publication authority. The tracked docs/v4/host-smoke.json remains a PENDING static contract and cannot self-attest runtime PASS."
 }
