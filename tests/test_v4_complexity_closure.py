@@ -231,7 +231,7 @@ def test_runtime_integrity_excludes_maintainer_only_tools_and_keeps_product_scri
 def test_active_contracts_use_current_two_skill_and_doctor_ownership():
     architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
-    assert "other root `contracts/` documents are hardened V3.x" not in architecture.lower()
+    assert "other root `contracts/` documents are hardened v3.x" not in architecture.lower()
     assert "release readiness" not in architecture
     assert "selection/invocation of Dispatch" not in final_review
     assert "selection/invocation of Orchestrate" in final_review
