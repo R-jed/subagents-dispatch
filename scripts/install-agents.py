@@ -177,6 +177,12 @@ def load_installer_policy() -> dict:
         values = [spec.get(key) for key in required]
         if not all(isinstance(value, str) and value.strip() for value in values):
             fail(f"Policy contract role {role!r} contains an empty/non-string constant")
+        sandbox_mode = spec.get("sandbox_mode")
+        if spec["mutation_authority"] == "none":
+            if sandbox_mode != "read-only":
+                fail(f"Read-only policy role {role!r} must pin sandbox_mode='read-only'")
+        elif sandbox_mode is not None:
+            fail(f"Writable policy role {role!r} must inherit Host sandbox permission")
         if spec["profile_file"] in seen_files or spec["agent_type"] in seen_names:
             fail(f"Duplicate profile or Agent role in policy contract: {role}")
         seen_files.add(spec["profile_file"])
@@ -192,6 +198,7 @@ EXPECTED_PROFILES = {
         spec["agent_type"],
         spec["model"],
         spec["effort"],
+        spec.get("sandbox_mode"),
     )
     for spec in ROLE_SPECS.values()
 }
@@ -273,11 +280,10 @@ def validate_sources() -> None:
             str(data.get("name", "")).strip(),
             str(data.get("model", "")).strip(),
             str(data.get("model_reasoning_effort", "")).strip(),
+            data.get("sandbox_mode"),
         )
         if actual != expected:
             fail(f"Agent profile {filename} pins {actual!r}; expected {expected!r}")
-        if "sandbox_mode" in data:
-            fail(f"Agent profile {filename} must inherit Host permission; sandbox_mode is unsupported")
         if not str(data.get("description", "")).strip() or not str(data.get("developer_instructions", "")).strip():
             fail(f"Agent profile is incomplete: {filename}")
         if expected[0] in seen_names:
