@@ -148,7 +148,7 @@ every exposed lifecycle/observation Host identity requires exact Hook coverage
 managed child peer messaging is blocked when the Host exposes send_message
 ```
 
-The production `hooks/hooks.json` remains the hardened V3.x compatibility boundary until H00-H20 pass against the exact promoted candidate. `docs/v4/hooks.json` is staged configuration only. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
+The physical production file `hooks/hooks.json` remains the hardened V3.x compatibility file until lifecycle Hook cutover. The pre-Host RC Plugin manifest explicitly selects `docs/v4/hooks.json`, so real H00-H20 feasibility probes exercise the exact staged lifecycle definition while production cutover remains pending. Doctor resolves the effective Hook selection from the Plugin manifest. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
 
 Each `skills/<id>/SKILL.md` is a thin explicit adapter. `policy.allow_implicit_invocation` is false for both public Skills.
 
