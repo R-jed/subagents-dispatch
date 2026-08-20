@@ -43,9 +43,36 @@ def test_each_guarded_semantic_owns_its_runtime_interception_evidence():
     assert "blocked before managed child peer delivery" in requirements(current["H14"])
 
 
-def test_h08_uses_exact_binding_behavior_when_raw_payload_is_unavailable():
+def test_h08_is_spawn_message_binding_preflight_before_h01():
+    current = probes()
+    h08 = current["H08"]
+    h08_text = requirements(h08)
+    h01_text = requirements(current["H01"])
+
+    assert h08["operation"] == "spawn message binding capability preflight"
+    assert "before h01" in h08_text
+    assert "plaintext or verifiable binding metadata" in h08_text
+    assert "before host mutation" in h08_text
+    assert "opaque or transformed message content" in h08_text
+    assert "h08 fail and stops the campaign" in h08_text
+    assert "do not rebind pendingcontrol to observed ciphertext" in h08_text
+
+    assert "h08 spawn-message binding capability has already passed" in h01_text
+    assert "without omitting or rebinding opaque message semantics" in h01_text
+
+
+def test_h02_owns_followup_message_binding():
+    text = requirements(probes()["H02"])
+
+    assert "followup_task message representation remains exact-bindable" in text
+    assert "before host mutation" in text
+    assert "opaque or transformed message content without a verifiable binding fails closed" in text
+
+
+def test_h08_rejects_transport_continuity_as_semantic_binding():
     text = requirements(probes()["H08"])
 
-    assert "exact-binding acceptance and mismatch-rejection behavior" in text
-    assert "raw sanitized shapes are recorded when the host exposes them" in text
-    assert "does not weaken exact pendingcontrol binding" in text
+    assert "plaintext digest" in text
+    assert "authenticated binding token" in text
+    assert "use string heuristics" in text
+    assert "omit message semantics from authorization" in text
