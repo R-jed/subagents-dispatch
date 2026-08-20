@@ -196,7 +196,28 @@
     "unresolved_live_state": "fail_closed"
   },
   "pending_control": {
-    "payload_binding": "sha256_canonical_tool_input",
+    "authorization_projection": {
+      "followup_task": [
+        "target"
+      ],
+      "interrupt_agent": [
+        "target"
+      ],
+      "spawn_agent": [
+        "task_name",
+        "agent_type",
+        "fork_turns"
+      ]
+    },
+    "host_owned_transport_fields": {
+      "followup_task": [
+        "message"
+      ],
+      "spawn_agent": [
+        "message"
+      ]
+    },
+    "payload_binding": "sha256_lifecycle_authorization_projection",
     "serial_per_execution": true,
     "single_use_binding": "tool_use_id",
     "states": [
