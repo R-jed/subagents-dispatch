@@ -27,7 +27,34 @@ def load_module():
         sys.path.remove(scripts)
 
 
-def plugin_list(*, installed_version: str, source_ref: str, enabled: bool = True) -> dict:
+def marketplace_root(tmp_path: Path, version: str) -> Path:
+    root = tmp_path / f"marketplace-{version}"
+    manifest = root / ".codex-plugin" / "plugin.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(
+        json.dumps({"name": "subagents-dispatch", "version": version}),
+        encoding="utf-8",
+    )
+    return root
+
+
+def plugin_list(
+    *,
+    installed_version: str,
+    local_root: Path | None = None,
+    legacy_ref: str | None = None,
+    enabled: bool = True,
+    marketplace_source: str = "R-jed/subagents-dispatch",
+) -> dict:
+    if local_root is not None:
+        source = {"source": "local", "path": str(local_root.resolve())}
+    else:
+        source = {
+            "source": "git",
+            "url": "https://github.com/R-jed/subagents-dispatch",
+            "ref": legacy_ref,
+            "sha": "a" * 40,
+        }
     return {
         "installed": [
             {
@@ -37,15 +64,10 @@ def plugin_list(*, installed_version: str, source_ref: str, enabled: bool = True
                 "version": installed_version,
                 "installed": True,
                 "enabled": enabled,
-                "source": {
-                    "source": "git",
-                    "url": "https://github.com/R-jed/subagents-dispatch",
-                    "ref": source_ref,
-                    "sha": "a" * 40,
-                },
+                "source": source,
                 "marketplaceSource": {
                     "sourceType": "git",
-                    "source": "R-jed/subagents-dispatch",
+                    "source": marketplace_source,
                 },
                 "installPolicy": "AVAILABLE",
                 "authPolicy": "ON_USE",
@@ -66,80 +88,124 @@ def add_result(version: str, installed_path: Path) -> dict:
     }
 
 
-def test_exact_installation_is_ok():
+def test_exact_marketplace_checkout_installation_is_ok(tmp_path: Path):
     module = load_module()
+    root = marketplace_root(tmp_path, "4.0.0")
     result = module.installation_layer_from_payload(
-        plugin_list(installed_version="3.1.0", source_ref="v3.1.0"),
-        package_version="3.1.0",
+        plugin_list(installed_version="4.0.0", local_root=root),
+        package_version="4.0.0",
     )
     assert result["status"] == "OK"
-    assert result["details"]["installed_version"] == "3.1.0"
-    assert result["details"]["available_version"] == "3.1.0"
+    assert result["details"]["source_mode"] == "marketplace-local"
+    assert result["details"]["installed_version"] == "4.0.0"
+    assert result["details"]["available_version"] == "4.0.0"
 
 
-def test_local_marketplace_snapshot_can_report_update_without_network_mutation():
+def test_marketplace_checkout_can_report_update_without_plugin_mutation(tmp_path: Path):
     module = load_module()
+    root = marketplace_root(tmp_path, "4.1.0")
     result = module.installation_layer_from_payload(
-        plugin_list(installed_version="3.0.1", source_ref="v3.1.0"),
-        package_version="3.0.1",
+        plugin_list(installed_version="4.0.0", local_root=root),
+        package_version="4.0.0",
     )
     assert result["status"] == "WARN"
-    assert result["details"]["installed_version"] == "3.0.1"
-    assert result["details"]["available_version"] == "3.1.0"
+    assert result["details"]["available_version"] == "4.1.0"
     assert result["details"]["update_available"] is True
     assert "update" in result["action"].lower()
 
 
-def test_running_package_cache_skew_is_reported_separately_from_available_update():
+def test_running_package_cache_skew_is_reported_separately(tmp_path: Path):
     module = load_module()
+    root = marketplace_root(tmp_path, "4.1.0")
     result = module.installation_layer_from_payload(
-        plugin_list(installed_version="3.1.0", source_ref="v3.1.0"),
-        package_version="3.0.1",
+        plugin_list(installed_version="4.1.0", local_root=root),
+        package_version="4.0.0",
     )
     assert result["status"] == "WARN"
-    assert result["details"]["package_version"] == "3.0.1"
-    assert result["details"]["installed_version"] == "3.1.0"
     assert result["details"]["package_cache_skew"] is True
     assert result["details"]["update_available"] is False
     assert "fresh" in result["action"].lower() or "restart" in result["action"].lower()
 
 
-def test_duplicate_installed_identity_fails_closed():
+def test_duplicate_installed_identity_fails_closed(tmp_path: Path):
     module = load_module()
-    payload = plugin_list(installed_version="3.1.0", source_ref="v3.1.0")
+    root = marketplace_root(tmp_path, "4.0.0")
+    payload = plugin_list(installed_version="4.0.0", local_root=root)
     payload["installed"].append(dict(payload["installed"][0]))
-    result = module.installation_layer_from_payload(payload, package_version="3.1.0")
+    result = module.installation_layer_from_payload(payload, package_version="4.0.0")
     assert result["status"] == "FAIL"
     assert result["details"]["matches"] == 2
 
 
-def test_unversioned_marketplace_source_stays_unknown():
+def test_legacy_git_release_source_remains_migration_compatible():
     module = load_module()
     result = module.installation_layer_from_payload(
-        plugin_list(installed_version="3.1.0", source_ref="main"),
+        plugin_list(installed_version="3.1.0", legacy_ref="v3.1.0"),
+        package_version="3.1.0",
+    )
+    assert result["status"] == "OK"
+    assert result["details"]["source_mode"] == "legacy-git"
+    assert result["details"]["available_version"] == "3.1.0"
+
+
+def test_unversioned_legacy_git_source_stays_unknown():
+    module = load_module()
+    result = module.installation_layer_from_payload(
+        plugin_list(installed_version="3.1.0", legacy_ref="main"),
         package_version="3.1.0",
     )
     assert result["status"] == "UNKNOWN"
     assert result["details"]["available_version"] is None
 
 
-def test_marketplace_source_older_than_installed_cache_fails():
+def test_untrusted_marketplace_origin_fails_even_with_local_source(tmp_path: Path):
     module = load_module()
+    root = marketplace_root(tmp_path, "4.0.0")
     result = module.installation_layer_from_payload(
-        plugin_list(installed_version="3.1.0", source_ref="v3.0.1"),
-        package_version="3.1.0",
+        plugin_list(
+            installed_version="4.0.0",
+            local_root=root,
+            marketplace_source="attacker/example",
+        ),
+        package_version="4.0.0",
+    )
+    assert result["status"] == "FAIL"
+    assert "origin" in result["summary"]
+
+
+def test_local_source_manifest_identity_is_validated(tmp_path: Path):
+    module = load_module()
+    root = marketplace_root(tmp_path, "4.0.0")
+    manifest = root / ".codex-plugin" / "plugin.json"
+    manifest.write_text(json.dumps({"name": "other", "version": "4.0.0"}), encoding="utf-8")
+    result = module.installation_layer_from_payload(
+        plugin_list(installed_version="4.0.0", local_root=root),
+        package_version="4.0.0",
+    )
+    assert result["status"] == "FAIL"
+    assert "identity" in result["summary"]
+
+
+def test_marketplace_source_older_than_installed_cache_fails(tmp_path: Path):
+    module = load_module()
+    root = marketplace_root(tmp_path, "4.0.0")
+    result = module.installation_layer_from_payload(
+        plugin_list(installed_version="4.1.0", local_root=root),
+        package_version="4.1.0",
     )
     assert result["status"] == "FAIL"
 
 
-def test_explicit_update_requires_marketplace_plugin_and_post_install_convergence(
+def test_explicit_update_uses_refreshed_checkout_manifest_as_target(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
     module = load_module()
     codex_home = tmp_path / "codex-home"
     codex_home.mkdir()
-    installed_root = tmp_path / "plugin-cache" / "3.1.0"
+    before_root = marketplace_root(tmp_path / "before", "4.0.0")
+    refreshed_root = marketplace_root(tmp_path / "after", "4.1.0")
+    installed_root = tmp_path / "plugin-cache" / "4.1.0"
     installed_root.mkdir(parents=True)
 
     calls: list[tuple[str, ...]] = []
@@ -152,18 +218,18 @@ def test_explicit_update_requires_marketplace_plugin_and_post_install_convergenc
         if args == ["plugin", "list", "--json"]:
             list_count += 1
             if list_count == 1:
-                return plugin_list(installed_version="3.0.1", source_ref="v3.0.1")
+                return plugin_list(installed_version="4.0.0", local_root=before_root)
             if list_count == 2:
-                return plugin_list(installed_version="3.0.1", source_ref="v3.1.0")
-            return plugin_list(installed_version="3.1.0", source_ref="v3.1.0")
+                return plugin_list(installed_version="4.0.0", local_root=refreshed_root)
+            return plugin_list(installed_version="4.1.0", local_root=refreshed_root)
         if args == ["plugin", "marketplace", "upgrade", "subagents-dispatch", "--json"]:
             return {
                 "selectedMarketplaces": ["subagents-dispatch"],
-                "upgradedRoots": [str(tmp_path / "marketplace")],
+                "upgradedRoots": [str(refreshed_root)],
                 "errors": [],
             }
         if args == ["plugin", "add", "subagents-dispatch@subagents-dispatch", "--json"]:
-            return add_result("3.1.0", installed_root)
+            return add_result("4.1.0", installed_root)
         raise AssertionError(args)
 
     verified: list[str] = []
@@ -182,11 +248,13 @@ def test_explicit_update_requires_marketplace_plugin_and_post_install_convergenc
 
     report = module.update_plugin(codex_home=codex_home)
 
+    assert report["schema_version"] == 2
     assert report["changed"] is True
-    assert report["from_version"] == "3.0.1"
-    assert report["to_version"] == "3.1.0"
+    assert report["from_version"] == "4.0.0"
+    assert report["to_version"] == "4.1.0"
+    assert report["marketplace_version"] == "4.1.0"
     assert report["restart_required"] is True
-    assert verified == ["manifest:3.1.0:3.1.0", "package:3.1.0:3.1.0"]
+    assert verified == ["manifest:4.1.0:4.1.0", "package:4.1.0:4.1.0"]
     assert ("plugin", "marketplace", "upgrade", "subagents-dispatch", "--json") in calls
     assert ("plugin", "add", "subagents-dispatch@subagents-dispatch", "--json") in calls
     assert list_count == 3
@@ -199,6 +267,8 @@ def test_explicit_update_does_not_claim_success_when_installed_version_mismatche
     module = load_module()
     codex_home = tmp_path / "codex-home"
     codex_home.mkdir()
+    before_root = marketplace_root(tmp_path / "before", "4.0.0")
+    refreshed_root = marketplace_root(tmp_path / "after", "4.1.0")
     installed_root = tmp_path / "plugin-cache"
     installed_root.mkdir()
     list_count = 0
@@ -207,9 +277,8 @@ def test_explicit_update_does_not_claim_success_when_installed_version_mismatche
         nonlocal list_count
         if args == ["plugin", "list", "--json"]:
             list_count += 1
-            if list_count == 1:
-                return plugin_list(installed_version="3.0.1", source_ref="v3.0.1")
-            return plugin_list(installed_version="3.0.1", source_ref="v3.1.0")
+            root = before_root if list_count == 1 else refreshed_root
+            return plugin_list(installed_version="4.0.0", local_root=root)
         if args[0:3] == ["plugin", "marketplace", "upgrade"]:
             return {"selectedMarketplaces": ["subagents-dispatch"], "upgradedRoots": [], "errors": []}
         if args[0:2] == ["plugin", "add"]:
@@ -230,25 +299,25 @@ def test_noop_update_refreshes_marketplace_without_reinstall(
     module = load_module()
     codex_home = tmp_path / "codex-home"
     codex_home.mkdir()
+    root = marketplace_root(tmp_path, "4.0.0")
     calls: list[tuple[str, ...]] = []
 
     def fake_run_json(_binary, args, *, codex_home, timeout=60):
         calls.append(tuple(args))
         if args == ["plugin", "list", "--json"]:
-            return plugin_list(installed_version="3.0.1", source_ref="v3.0.1")
+            return plugin_list(installed_version="4.0.0", local_root=root)
         if args[0:3] == ["plugin", "marketplace", "upgrade"]:
             return {"selectedMarketplaces": ["subagents-dispatch"], "upgradedRoots": [], "errors": []}
         raise AssertionError(args)
 
     monkeypatch.setattr(module, "resolve_codex_binary", lambda _value=None: "/fake/codex")
     monkeypatch.setattr(module, "_run_json", fake_run_json)
-    monkeypatch.setattr(module, "package_version", lambda: "3.0.1")
+    monkeypatch.setattr(module, "package_version", lambda: "4.0.0")
 
     report = module.update_plugin(codex_home=codex_home)
 
     assert report["changed"] is False
-    assert report["from_version"] == "3.0.1"
-    assert report["to_version"] == "3.0.1"
+    assert report["marketplace_version"] == "4.0.0"
     assert not any(call[0:2] == ("plugin", "add") for call in calls)
 
 
@@ -267,13 +336,14 @@ def prepare_updated_package(root: Path, version: str) -> None:
 
 def current_doctor_report() -> dict:
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "healthy": True,
-        "status": "DEGRADED",
+        "status": "HEALTHY",
+        "verification": "UNVERIFIED",
         "layers": [
             {"name": "Plugin package", "status": "OK"},
             {"name": "Managed Agents", "status": "OK"},
-            {"name": "Host integration", "status": "WARN"},
+            {"name": "Host integration", "status": "UNKNOWN"},
             {"name": "Orchestration state", "status": "OK"},
             {"name": "Legacy compatibility", "status": "OK"},
         ],
@@ -305,7 +375,7 @@ def test_post_update_verifier_accepts_current_product_doctor_contract(
     )
 
 
-def test_post_update_verifier_rejects_stale_pre_refactor_doctor_layers(
+def test_post_update_verifier_rejects_stale_doctor_schema(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -314,17 +384,8 @@ def test_post_update_verifier_rejects_stale_pre_refactor_doctor_layers(
     prepare_updated_package(root, "4.0.0")
     codex_home = tmp_path / "codex-home"
     codex_home.mkdir()
-    stale = {
-        "schema_version": 5,
-        "healthy": True,
-        "layers": [
-            {"name": "Plugin", "status": "OK"},
-            {"name": "Plugin installation", "status": "OK"},
-            {"name": "Skills", "status": "OK"},
-            {"name": "Spawn guard package", "status": "OK"},
-            {"name": "Managed Agent profiles", "status": "OK"},
-        ],
-    }
+    stale = current_doctor_report()
+    stale["schema_version"] = 5
 
     def fake_run_python(_python, script, args, *, timeout=90, env=None):
         stdout = json.dumps(stale) if script.name == "doctor.py" else ""
@@ -332,7 +393,7 @@ def test_post_update_verifier_rejects_stale_pre_refactor_doctor_layers(
 
     monkeypatch.setattr(module, "_run_python", fake_run_python)
 
-    with pytest.raises(module.UpdateError, match="layer contract is unsupported"):
+    with pytest.raises(module.UpdateError, match="healthy product state"):
         module._verify_new_package(
             root,
             codex_home=codex_home,
