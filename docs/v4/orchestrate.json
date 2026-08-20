@@ -45,5 +45,5 @@
     ]
   },
   "host_execution": "native_host_only",
-  "lifecycle_hooks": "staged_until_exact_candidate_h00_h20_validation"
+  "lifecycle_hooks": "active_default_plugin_hook_release_gated_by_exact_candidate_h00_h20"
 }
