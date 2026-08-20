@@ -90,7 +90,9 @@ V3.x active or corrupt state is never silently migrated
 plan-only creates no runtime state, lease, control, or Host action
 ```
 
-The exact real-Host candidate already carries the V4 lifecycle Guard at the default Plugin Hook path `hooks/hooks.json`. `scripts/spawn_guard.py`, `dispatch_state.py`, legacy migration, and tests that still protect compatibility or shared storage remain retained compatibility dependencies, but `spawn_guard.py` is not the active Hook implementation for this candidate.
+PendingControl `payload_digest` is the digest of the lifecycle authorization projection. It excludes Host-owned V2 `message` bytes while continuing to bind target/profile/fresh-context semantics, control generation, `tool_use_id`, and WriterLease effect. Main-side preparation still validates the canonical five-section plaintext assignment before PendingControl is created.
+
+The exact real-Host candidate carries the V4 lifecycle Guard at the default Plugin Hook path `hooks/hooks.json`. `scripts/spawn_guard.py`, `dispatch_state.py`, legacy migration, and tests that still protect compatibility or shared storage remain retained compatibility dependencies, but `spawn_guard.py` is not the active Hook implementation for this candidate.
 
 `docs/v4/hooks.json` is a non-runtime campaign reference copy. Tests require its `hooks` object to remain exactly equivalent to active `hooks/hooks.json`; Host evidence and release authority bind to `hooks/hooks.json`.
 
@@ -98,30 +100,31 @@ The exact real-Host candidate already carries the V4 lifecycle Guard at the defa
 
 The machine-readable authority is `docs/v4/host-smoke.json`. Its exact required probes and requirements are authoritative. This checklist deliberately does not maintain a second full copy of the H00-H20 field list.
 
-Offline CI, source inspection, the official Plugin validator, prior V3 spawn-guard evidence, or model self-report cannot substitute for this gate. The tracked contract remains `PENDING` with empty embedded results; authoritative campaign results remain external and candidate-bound.
+Offline CI, source inspection, the official Plugin validator, prior Host evidence from another candidate, or model self-report cannot substitute for this gate. The tracked contract remains `PENDING` with empty embedded results; authoritative campaign results remain external and candidate-bound.
 
 Before recording H00 evidence, install the exact candidate and verify that the target Host discovers and trusts the active default Plugin Hook source `hooks/hooks.json`. Capture the exact active Hook digest, Host build, model-visible collaboration identities, and Hook-serialized `tool_name` identities separately. If the observed Hook digest differs from the candidate digest, H00 has not started.
 
 Before spending the full campaign budget, run this feasibility wave against the exact candidate:
 
 ```text
-H00  exact Hook trust + complete exposed collaboration tool identities
-H08  V2 spawn-message plaintext-to-dispatch binding capability preflight
-H01  spawn lifecycle identity/namespace coverage and successful Pre/Post binding
-H02  followup lifecycle interception + exact message binding
-H13  exact managed profile selectors, effective model/effort/permissions/tool surface
-H14  managed leaf tool surface + send_message containment
-H07  reliable lifecycle PostToolUse success/failure discrimination
-H15  fresh-context assignment semantic completeness
+H00      exact Hook trust + complete exposed collaboration tool identities
+H08/H01  one shared managed spawn specimen: encrypted-message compatibility at Pre, then successful spawn Pre/Post
+H02      followup lifecycle interception + target/control-generation binding
+H13      exact managed profile selectors, effective model/effort/permissions/tool surface
+H14      managed leaf tool surface + send_message containment
+H07      reliable lifecycle PostToolUse success/failure discrimination
+H15      fresh-context assignment semantic delivery and sibling isolation
 ```
 
-H08 must run before H01. The preflight may intentionally reach the exact candidate PreToolUse boundary with a prepared authorized spawn, but it must not require successful child mutation to discover incompatibility. If the Host replaces the authorized plaintext `message` with opaque or transformed content and does not expose a local decryption path, plaintext digest, authenticated binding token, or equivalent verifiable relation, H08 is FAIL and the campaign stops before H01.
+H08 is evaluated at the PreToolUse boundary of the same authorized managed spawn specimen used by H01, before Host child mutation. The canonical five-section plaintext assignment must already have been constructed and validated locally. The Host may expose `message` as opaque or transformed transport data. The Guard requires the transport field to exist and be non-empty, while exact lifecycle authorization remains bound to `task_name`, managed `agent_type`, `fork_turns: none`, current control generation, `tool_use_id`, and WriterLease effect.
 
-Seeing the same ciphertext at PreToolUse and PostToolUse does not establish that the dispatched instruction equals the scheduler-authorized plaintext assignment. Do not rebind PendingControl to the observed ciphertext, infer equivalence from ciphertext format or length, or remove `message` semantics from the authorization digest.
+Do not decrypt, rebind, hash-compare, or infer opaque message content in order to manufacture local transport ownership. Mutation of an authorization-relevant field must still fail closed before child creation.
 
-H01 runs only after H08 PASS. It must then prove a successful managed spawn is intercepted before and after the Host call, bound to one `tool_use_id`, and acknowledged against the exact authorized PendingControl.
+If the H08 PreToolUse assertion passes, the same specimen continues into H01. H01 must prove a successful managed spawn is intercepted before and after the Host call, uses one `tool_use_id`, consumes exactly one PendingControl, and persists the matching acknowledgement.
 
-H02 independently proves the corresponding message-binding property for `followup_task`; successful spawn binding is not evidence that followup representation is safe.
+H02 independently proves the corresponding `followup_task` control boundary. Its `target` and lifecycle generation remain exact while Host-owned message representation may vary.
+
+H15 owns semantic delivery evidence. Use observable child behavior and distinct non-sensitive sibling markers or an equivalent probe to confirm the five-section assignment is delivered without reading or decrypting Host transport content. Child self-report alone cannot close H15.
 
 If any exposed lifecycle or observation identity is not intercepted exactly, stop. Coverage of `spawn_agent` does not prove coverage of the Hook-serialized identity required by an exposed namespaced model identity such as `collaboration.spawn_agent`.
 
