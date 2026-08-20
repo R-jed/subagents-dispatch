@@ -68,14 +68,12 @@ def base_records() -> list[dict]:
             "timestamp": "2026-08-20T14:00:02Z",
             "type": "event_msg",
             "payload": {
-                "type": "item_started",
-                "item": {
-                    "type": "SubAgentActivity",
-                    "id": "call_spawn",
-                    "kind": "started",
-                    "agent_thread_id": CHILD,
-                    "agent_path": "/root/sd-u1-a1",
-                },
+                "type": "sub_agent_activity",
+                "event_id": "call_spawn",
+                "occurred_at_ms": 1_777_777_777_777,
+                "kind": "started",
+                "agent_thread_id": CHILD,
+                "agent_path": "/root/sd-u1-a1",
             },
         },
         {
@@ -151,6 +149,18 @@ def test_collaboration_inspector_binds_call_result_and_activity_without_message_
     assert "message" not in result.stdout.lower() or '"message_present"' in result.stdout
     assert "reasoning" not in result.stdout.lower()
     assert "nickname" not in result.stdout.lower()
+
+
+def test_collaboration_inspector_rejects_conflicting_activity_ids(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    records = base_records()
+    records[2]["payload"]["id"] = "call_other"
+    write_rollout(sessions, records)
+
+    result = run_inspector(sessions)
+
+    assert result.returncode != 0
+    assert "sub-agent activity id/event_id conflict" in result.stderr
 
 
 def test_collaboration_inspector_does_not_relabel_unknown_output_as_success(tmp_path: Path):
