@@ -21,7 +21,9 @@ COLLAB_TOOLS = {
     "send_message",
     "wait_agent",
 }
-TARGET_LINE = re.compile(rb'"(?:namespace|name|call_id|sub_agent_activity|subagent_activity)"')
+TARGET_LINE = re.compile(
+    rb'"(?:namespace|name|call_id|sub_agent_activity|subagent_activity|SubAgentActivity)"'
+)
 NEWLINE_BOUNDARY = re.compile(br"\r\n|\r|\n")
 READ_CHUNK_BYTES = 1024 * 1024
 MAX_ROLLOUT_BYTES = 64 * 1024 * 1024
