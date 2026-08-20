@@ -1,7 +1,7 @@
 {
   "algorithm": "sha256",
   "files": {
-    ".agents/plugins/marketplace.json": "7d24169603393b6d076688c28cbded3fcd970bb338db4306ae73f71c5d961358",
+    ".agents/plugins/marketplace.json": "8f6923cb4b1245426a85dc3fe4a1b7710a7f1d1d2530d650861d387c6c200750",
     ".codex-plugin/plugin.json": "635a987ec4f9113103e89e7b10cea1f74e19c17fc38464061e58b7a95f45b1e8",
     "agent-profiles/subagents-dispatch-advisor.toml": "e016705b42eec5db34cab96a7977e69d15ebb1349cd30fd230c2c3dc827b0167",
     "agent-profiles/subagents-dispatch-investigator.toml": "1142691ee8b5b87f4a42feb8b14845227cbe6409c78608c9ddb83524cacea9e9",
@@ -45,7 +45,7 @@
     "scripts/orchestrate_v4.py": "fe1db577f65e0e9dc0ff1d525cab8c97f1483880fa3277d7d8222bd1f578dccc",
     "scripts/orchestration_guard.py": "2857ffb971f1e03150e7d374b96fa6541222f68c351dcafbd934d8b56cf9342b",
     "scripts/package_integrity.py": "420c4b8a17d97e3dc7832f79f35cae90ad6d04f149f7dd0c0b0cc29583cfa59a",
-    "scripts/plugin_update.py": "2924d5ba2fce0467b5cee955e85b27d37d70fa4194bf974416505afbc7adaccc",
+    "scripts/plugin_update.py": "a738cccc3e25fbe9336af2bcc250594a8f796f742a94b95d18ce7c9c2f9b9264",
     "scripts/policy.py": "187d376a19e68d176f0c20f3e713bbccb19dd112455343a0c6765e8c889da2ee",
     "scripts/review-artifact.py": "3f5ee696806249e01fc81914d5da87ba0dee6ad84eb5704f0f7e0014fd23b87d",
     "scripts/runtime-evidence.py": "1bda857f2abb1adac7ae9d776d325d24ad7fd23947dd944003f86d3268d24597",
