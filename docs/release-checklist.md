@@ -106,19 +106,26 @@ Before spending the full campaign budget, run this feasibility wave against the 
 
 ```text
 H00  exact Hook trust + complete exposed collaboration tool identities
-H01  spawn lifecycle identity/namespace coverage
-H08  encrypted/transformed message representation compatibility
+H08  V2 spawn-message plaintext-to-dispatch binding capability preflight
+H01  spawn lifecycle identity/namespace coverage and successful Pre/Post binding
+H02  followup lifecycle interception + exact message binding
 H13  exact managed profile selectors, effective model/effort/permissions/tool surface
 H14  managed leaf tool surface + send_message containment
 H07  reliable lifecycle PostToolUse success/failure discrimination
 H15  fresh-context assignment semantic completeness
 ```
 
+H08 must run before H01. The preflight may intentionally reach the exact candidate PreToolUse boundary with a prepared authorized spawn, but it must not require successful child mutation to discover incompatibility. If the Host replaces the authorized plaintext `message` with opaque or transformed content and does not expose a local decryption path, plaintext digest, authenticated binding token, or equivalent verifiable relation, H08 is FAIL and the campaign stops before H01.
+
+Seeing the same ciphertext at PreToolUse and PostToolUse does not establish that the dispatched instruction equals the scheduler-authorized plaintext assignment. Do not rebind PendingControl to the observed ciphertext, infer equivalence from ciphertext format or length, or remove `message` semantics from the authorization digest.
+
+H01 runs only after H08 PASS. It must then prove a successful managed spawn is intercepted before and after the Host call, bound to one `tool_use_id`, and acknowledged against the exact authorized PendingControl.
+
+H02 independently proves the corresponding message-binding property for `followup_task`; successful spawn binding is not evidence that followup representation is safe.
+
 If any exposed lifecycle or observation identity is not intercepted exactly, stop. Coverage of `spawn_agent` does not prove coverage of the Hook-serialized identity required by an exposed namespaced model identity such as `collaboration.spawn_agent`.
 
 If the Host exposes `send_message` to a managed child, every exposed peer-message identity must hit PreToolUse and be blocked before peer delivery. Peer messaging may not become a side channel for sibling control.
-
-If H08 cannot bind the authorized plaintext responsibility to the actual Hook representation without weakening PendingControl integrity, stop and redesign the binding. Do not use string heuristics or omit message semantics from authorization.
 
 If H07 cannot reliably distinguish a successful lifecycle operation from a failed one, stop. Do not infer success from arbitrary response text and do not ACK a control merely because PostToolUse fired.
 
