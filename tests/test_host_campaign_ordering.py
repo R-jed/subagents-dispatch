@@ -43,36 +43,39 @@ def test_each_guarded_semantic_owns_its_runtime_interception_evidence():
     assert "blocked before managed child peer delivery" in requirements(current["H14"])
 
 
-def test_h08_is_spawn_message_binding_preflight_before_h01():
+def test_h08_is_native_encrypted_message_preflight_on_h01_specimen():
     current = probes()
     h08 = current["H08"]
     h08_text = requirements(h08)
     h01_text = requirements(current["H01"])
 
-    assert h08["operation"] == "spawn message binding capability preflight"
-    assert "before h01" in h08_text
-    assert "plaintext or verifiable binding metadata" in h08_text
-    assert "before host mutation" in h08_text
-    assert "opaque or transformed message content" in h08_text
-    assert "h08 fail and stops the campaign" in h08_text
-    assert "do not rebind pendingcontrol to observed ciphertext" in h08_text
+    assert h08["operation"] == "native encrypted-message compatibility preflight"
+    assert "same authorized spawn specimen used by h01" in h08_text
+    assert "before host child mutation" in h08_text
+    assert "opaque or transformed transport data" in h08_text
+    assert "does not decrypt, rebind, hash-compare, or infer its content" in h08_text
+    assert "task_name agent_type fork_turns" in h08_text
+    assert "authorization-envelope mutation is rejected" in h08_text
+    assert "h15 owns behavior-level delivery" in h08_text
 
-    assert "h08 spawn-message binding capability has already passed" in h01_text
-    assert "without omitting or rebinding opaque message semantics" in h01_text
+    assert "h08 native encrypted-message compatibility has passed" in h01_text
+    assert "codex owns message transport" in h01_text
+    assert "task_name agent_type fork_turns control epoch and writer effect" in h01_text
 
 
-def test_h02_owns_followup_message_binding():
+def test_h02_binds_followup_control_while_host_owns_message_transport():
     text = requirements(probes()["H02"])
 
-    assert "followup_task message representation remains exact-bindable" in text
-    assert "before host mutation" in text
-    assert "opaque or transformed message content without a verifiable binding fails closed" in text
+    assert "same-child target preserved" in text
+    assert "target lifecycle generation and writer effect" in text
+    assert "opaque or transformed message transport representation" in text
+    assert "target drift or lifecycle-generation drift fails closed" in text
 
 
-def test_h08_rejects_transport_continuity_as_semantic_binding():
-    text = requirements(probes()["H08"])
+def test_h15_owns_semantic_delivery_evidence_without_decrypting_transport():
+    text = requirements(probes()["H15"])
 
-    assert "plaintext digest" in text
-    assert "authenticated binding token" in text
-    assert "use string heuristics" in text
-    assert "omit message semantics from authorization" in text
+    assert "observable child behavior" in text
+    assert "distinct non-sensitive markers" in text
+    assert "without inspecting encrypted transport content" in text
+    assert "parallel siblings isolated" in text
