@@ -11,6 +11,7 @@ This specification freezes the repository changes allowed before the first real 
 5. Remove current-product documentation drift and move RC3 stage evidence out of the active contract directory.
 6. Make the exact pre-Host candidate activate the same default lifecycle Hook artifact that would ship if every release gate passes.
 7. Refresh candidate metadata and repository integrity after the code/document closure.
+8. Gate managed V2 spawn before H01 when the Host makes the delegated `message` opaque without a verifiable relation to the authorized plaintext assignment.
 
 ## Non-goals
 
@@ -20,7 +21,7 @@ The following remain outside this closure:
 - deleting retained `spawn_guard.py` compatibility code without a separate consumer audit;
 - removing legacy profile/state migration;
 - changing WriterLease or PendingControl authority semantics;
-- guessing around encrypted Hook message representation before H08 provides real Host evidence;
+- guessing around encrypted Hook message representation when the Host does not expose a verifiable plaintext-to-dispatch binding;
 - inferring PostToolUse success from response text before H07 provides a reliable Host contract;
 - facade/core consolidation or Experiment Plane refactoring.
 
@@ -59,14 +60,24 @@ Model-visible identity, candidate matcher identity, and raw Hook stdin `tool_nam
 Raw Hook stdin is useful diagnostic evidence when the Host exposes it, but it is not a valid prerequisite for invoking the very tool that produces it. Runtime interception is therefore proven in the behavior probe that safely exercises each semantic:
 
 - H00 proves candidate discovery, trust, complete model-visible classification, active matcher coverage, and actual PreToolUse/PostToolUse execution through a safe non-mutating observation such as `list_agents`;
-- H01 proves `spawn_agent` interception;
-- H02 proves `followup_task` interception;
+- H01 proves `spawn_agent` interception after message-binding capability is already established;
+- H02 proves `followup_task` interception and exact message binding for that lifecycle operation;
 - H03 proves `interrupt_agent` interception;
 - H14 proves managed-child `send_message` interception and pre-delivery blocking.
 
 If a behavior probe shows that an exposed route bypasses the active Hook, the campaign stops immediately for Host adaptation even when repository-side mapping predicted coverage.
 
 `wait_agent` is a known `wait_or_wakeup` capability. It does not mutate lifecycle ownership and is not required to pass through the managed lifecycle Guard merely because it is part of the collaboration surface.
+
+## Encrypted message binding gate
+
+Managed V2 lifecycle authorization binds the prepared PendingControl to the exact delegated assignment. A Host representation that replaces the authorized plaintext `message` with opaque ciphertext is usable only when the blocking local boundary also receives a verifiable relation between that ciphertext and the authorized plaintext, such as locally available plaintext, a plaintext digest, an authenticated binding token, or an equivalent Host contract.
+
+Seeing the same ciphertext in PreToolUse and PostToolUse is not sufficient. Rebinding a PREPARED PendingControl to whatever ciphertext appears at PreToolUse would prove only transport continuity, not that the dispatched instruction is the instruction authorized by the scheduler.
+
+H08 is therefore a capability preflight and runs immediately after H00, before H01. It must stop before child mutation when the Host cannot provide a verifiable plaintext-to-dispatch binding. An opaque or transformed `message` with no local decryption path or binding metadata is H08 FAIL. Do not use ciphertext prefixes, length heuristics, probabilistic assumptions, or omission of message semantics to manufacture compatibility.
+
+H02 separately proves the corresponding exact-binding property for `followup_task`. H14 does not require reading managed-child `send_message` content because the required behavior is unconditional pre-delivery blocking for managed children.
 
 ## Active Hook candidate
 
@@ -83,14 +94,19 @@ There is no post-H00 Hook-copy or promotion step. Any material candidate mutatio
 Before a full H00-H20 campaign:
 
 - H00 records the exact active Hook definition, target Host build, complete model-visible collaboration surface, candidate identity-owner classification, active matcher coverage, trust state, and a safe real PreToolUse/PostToolUse execution witness. Raw Hook stdin identity is recorded when available but is not required before the behavior probe that can generate it.
-- H01 verifies every exposed spawn model identity is empirically intercepted by the exact active candidate, with the same `tool_use_id` and PendingControl-compatible input.
-- H08 verifies actual message representation by exact-binding behavior. An authorized canonical payload must be accepted and a mismatched binding must fail closed before Host mutation. Raw sanitized shapes are recorded when the Host exposes them.
+- H08 runs next as the spawn-message binding capability preflight. A prepared authorized spawn may reach PreToolUse, but H08 must fail closed before Host child mutation if the Host exposes only opaque or transformed message content with no verifiable relation to the authorized plaintext assignment.
+- H01 runs only after H08 PASS and verifies every exposed spawn model identity is empirically intercepted by the exact active candidate, with the same `tool_use_id`, exact PendingControl binding, successful Host mutation, and matching PostToolUse acknowledgement.
+- H02 verifies every exposed followup identity is empirically intercepted and that its message representation remains exact-bindable to the authorized PendingControl before mutation.
 - H13 verifies exact managed-profile selectors and effective profile behavior.
 - H14 records the complete managed-child collaboration surface and verifies every exposed peer-message route is empirically intercepted and blocked before delivery.
 - H07 verifies lifecycle success/failure discrimination is reliable enough that a failed Host operation cannot be ACKED as success.
 - H15 verifies the delivered five-section assignment contains the material responsibility semantics and fresh-context isolation.
 
-Only after that feasibility wave passes should the remaining H00-H20 probes be completed. H02/H03 apply the empirical-interception rule to followup and interrupt; H11/H12 verify managed Sol/Terra cannot use lifecycle controls or peer messaging; H20 requires Windows path-alias evidence.
+Only after that feasibility wave passes should the remaining H00-H20 probes be completed. H03 applies the empirical-interception rule to interrupt; H11/H12 verify managed Sol/Terra cannot use lifecycle controls or peer messaging; H20 requires Windows path-alias evidence.
+
+The feasibility order is:
+
+`H00 -> H08 -> H01 -> H02 -> H13 -> H14 -> H07 -> H15`.
 
 H07 and H08 remain Host feasibility gates. Repository code must not guess around either Host behavior.
 
@@ -112,6 +128,8 @@ H07 and H08 remain Host feasibility gates. Repository code must not guess around
 | Incomplete persisted unit | current assignment can render without semantic context | managed assignment fails closed |
 | Lifecycle identity | model-visible namespaced identity can be mistaken for Hook identity | candidate identity owner classifies the model identity and active matcher coverage plus behavior probes prove interception |
 | Campaign ordering | H00 requires raw stdin evidence that only H01/H02/H03/H14 can produce | H00 admits safe behavior probes without weakening their empirical interception gates |
+| Encrypted spawn binding | H01 is attempted before learning whether the Host can bind authorized plaintext to encrypted V2 message input | H08 runs first and stops before child mutation when no verifiable plaintext-to-dispatch binding exists |
+| Followup binding | spawn-message feasibility is treated as proof for followup | H02 independently requires exact-bindable followup message representation |
 | Peer messaging | exposed `send_message` is ignored by readiness | missing exact PreToolUse peer guard blocks execution readiness |
 | Managed leaf | managed child `send_message` passes through | Guard blocks before Host messaging |
 | Active Hook candidate | installed candidate still loads only the V3 compatibility Guard | default `hooks/hooks.json` contains the complete V4 lifecycle Guard |
