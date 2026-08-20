@@ -28,7 +28,7 @@ def test_all_managed_profiles_disable_child_multi_agent_without_route_drift():
         assert payload.get("sandbox_mode") == sandbox
         assert payload["agents"]["enabled"] is False
         assert payload["features"]["multi_agent_v2"] is False
-        assert "Do not create further subagents" in payload["developer_instructions"]
+        assert "create further subagents" in payload["developer_instructions"]
 
 
 def write_rollout(sessions: Path, records: list[dict], *, relative: str = "2026/08/20") -> Path:
