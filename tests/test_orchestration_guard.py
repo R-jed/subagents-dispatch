@@ -199,7 +199,7 @@ def test_post_tool_use_acknowledges_exact_control(tmp_path: Path):
     )
 
 
-def test_post_payload_drift_rejects_result_and_quarantines_control(tmp_path: Path):
+def test_post_control_envelope_drift_rejects_result_and_quarantines_control(tmp_path: Path):
     state_module = load_module("guard_state_drift", STATE_V4)
     control = load_module("guard_control_drift", CONTROL_V4)
     guard = load_module("guard_under_test_drift", GUARD)
@@ -217,7 +217,7 @@ def test_post_payload_drift_rejects_result_and_quarantines_control(tmp_path: Pat
     assert guard.evaluate_pre_tool_use(pre_payload(original), temp_root=tmp_path) is None
 
     changed = dict(original)
-    changed["message"] = "changed after pre hook"
+    changed["agent_type"] = "subagents_dispatch_worker"
     blocked = guard.evaluate_post_tool_use(post_payload(changed), temp_root=tmp_path)
     assert blocked is not None
     assert blocked["decision"] == "block"
