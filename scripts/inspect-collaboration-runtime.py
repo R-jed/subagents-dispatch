@@ -251,7 +251,11 @@ def event_activity(payload: Any) -> dict[str, Any] | None:
         item_type = item.get("type")
         if item_type not in {"sub_agent_activity", "subagent_activity", "SubAgentActivity"}:
             continue
-        item_id = nonempty(item.get("id"))
+        legacy_id = nonempty(item.get("id"))
+        event_id = nonempty(item.get("event_id"))
+        if legacy_id is not None and event_id is not None and legacy_id != event_id:
+            fail("sub-agent activity id/event_id conflict")
+        item_id = event_id or legacy_id
         agent_thread_id = nonempty(item.get("agent_thread_id"))
         agent_path = nonempty(item.get("agent_path"))
         kind = nonempty(item.get("kind"))
