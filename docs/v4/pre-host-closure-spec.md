@@ -5,7 +5,7 @@ This specification freezes the repository changes allowed before the first real 
 ## Goals
 
 1. Preserve the one five-section managed responsibility record while restoring the task semantics that routing requires a child to receive.
-2. Make Host capability readiness depend on exact coverage of every exposed collaboration identity across the model-visible and Hook-serialized identity planes.
+2. Make Host capability readiness depend on complete model-visible identity classification, exact active Hook matcher coverage, and empirical runtime interception in the behavior probe that can safely produce that evidence.
 3. Prevent managed children from using peer messaging as an unguarded sibling-context channel when the Host exposes `send_message`.
 4. Strengthen H00-H20 so a campaign cannot pass while an exposed lifecycle, observation, or peer-message route bypasses the managed Guard.
 5. Remove current-product documentation drift and move RC3 stage evidence out of the active contract directory.
@@ -20,7 +20,7 @@ The following remain outside this closure:
 - deleting retained `spawn_guard.py` compatibility code without a separate consumer audit;
 - removing legacy profile/state migration;
 - changing WriterLease or PendingControl authority semantics;
-- solving encrypted Hook message representation before H08 provides real Host evidence;
+- guessing around encrypted Hook message representation before H08 provides real Host evidence;
 - inferring PostToolUse success from response text before H07 provides a reliable Host contract;
 - facade/core consolidation or Experiment Plane refactoring.
 
@@ -45,26 +45,28 @@ Required semantic projection:
 
 ## Host tool identity gate
 
-Host evidence declares the exact collaboration tool identities observed on the target Host. Model-visible identity and Hook `tool_name` identity are separate evidence fields.
+Host evidence records the complete model-visible collaboration surface exactly. `host_capabilities.py` is the single identity owner and must classify every exposed model identity into a supported semantic tool. An unknown namespace or otherwise unclassified collaboration identity stops the campaign for Host adaptation.
 
-The current supported V2 identity mapping is explicit:
+The current supported V2 mapping includes:
 
-- bare model-visible identities such as `spawn_agent` map to the same Hook identity;
-- default namespace model identities such as `collaboration.spawn_agent` map to the semantic tool `spawn_agent` and the flattened Hook identity `collaborationspawn_agent`;
-- the same rule applies to `followup_task`, `interrupt_agent`, `list_agents`, `send_message`, and `wait_agent` where applicable;
-- an unknown namespace, unknown flattening, or otherwise unclassified collaboration identity is a Host-readiness failure requiring Host adaptation.
+- bare model identities such as `spawn_agent`;
+- default namespace model identities such as `collaboration.spawn_agent`;
+- the corresponding candidate-supported Hook matcher identities, including bare and flattened forms such as `spawn_agent` and `collaborationspawn_agent` where applicable;
+- the same semantic classification for `followup_task`, `interrupt_agent`, `list_agents`, `send_message`, and `wait_agent`.
 
-For every exposed lifecycle semantic tool in:
+Model-visible identity, candidate matcher identity, and raw Hook stdin `tool_name` are different evidence concepts. The active Hook manifest must cover every candidate-supported matcher identity required for the exposed lifecycle, observation, and peer-message semantics. Defensive compatibility spellings recognized by `orchestration_guard.py` do not add execution-readiness authority.
 
-`spawn_agent`, `followup_task`, `interrupt_agent`
+Raw Hook stdin is useful diagnostic evidence when the Host exposes it, but it is not a valid prerequisite for invoking the very tool that produces it. Runtime interception is therefore proven in the behavior probe that safely exercises each semantic:
 
-PreToolUse and PostToolUse evidence must contain the exact Hook-serialized identity required by the model-visible identity mapping. Coverage of the bare identity does not prove coverage of a namespaced model identity.
+- H00 proves candidate discovery, trust, complete model-visible classification, active matcher coverage, and actual PreToolUse/PostToolUse execution through a safe non-mutating observation such as `list_agents`;
+- H01 proves `spawn_agent` interception;
+- H02 proves `followup_task` interception;
+- H03 proves `interrupt_agent` interception;
+- H14 proves managed-child `send_message` interception and pre-delivery blocking.
 
-For every exposed `list_agents` model identity, authoritative Host observation requires paired PreToolUse and PostToolUse coverage of its exact Hook-serialized identity.
+If a behavior probe shows that an exposed route bypasses the active Hook, the campaign stops immediately for Host adaptation even when repository-side mapping predicted coverage.
 
-If `send_message` is exposed, every exposed model identity must map to an exact PreToolUse Hook identity, and the managed Guard must block calls from managed child agent types before peer delivery. Root/non-managed messaging remains pass-through and peer messaging never grants orchestration authority.
-
-`host_capabilities.py` owns the identity mapping. `orchestration_guard.py` reuses that owner and may recognize additional defensive compatibility spellings for containment, but defensive recognition does not count as execution-readiness evidence.
+`wait_agent` is a known `wait_or_wakeup` capability. It does not mutate lifecycle ownership and is not required to pass through the managed lifecycle Guard merely because it is part of the collaboration surface.
 
 ## Active Hook candidate
 
@@ -72,7 +74,7 @@ If `send_message` is exposed, every exposed model identity must map to an exact 
 
 `docs/v4/hooks.json` is a non-runtime campaign reference. Tests require its `hooks` object to remain exactly equivalent to `hooks/hooks.json`, so it cannot become an independent safety authority. Package integrity covers both files during this campaign window.
 
-H00 must capture the active `hooks/hooks.json` digest and prove that the target Host discovered and trusts that exact definition. Installing the candidate without confirming active Hook identity does not close H00.
+H00 must capture the active `hooks/hooks.json` digest and prove that the target Host discovered, trusts, and actually executes that exact definition. Installing the candidate without runtime Hook execution evidence does not close H00.
 
 There is no post-H00 Hook-copy or promotion step. Any material candidate mutation after Host evidence invalidates the affected evidence and requires the relevant repository and Host verification to be repeated.
 
@@ -80,15 +82,15 @@ There is no post-H00 Hook-copy or promotion step. Any material candidate mutatio
 
 Before a full H00-H20 campaign:
 
-- H00 records the exact active Hook definition, target Host build, model-visible collaboration identities, Hook-serialized identities, and trust state.
-- H01 verifies every exposed spawn model identity maps to and is intercepted through its exact Hook-serialized identity.
-- H08 verifies the actual message Hook representation remains compatible with exact PendingControl binding.
+- H00 records the exact active Hook definition, target Host build, complete model-visible collaboration surface, candidate identity-owner classification, active matcher coverage, trust state, and a safe real PreToolUse/PostToolUse execution witness. Raw Hook stdin identity is recorded when available but is not required before the behavior probe that can generate it.
+- H01 verifies every exposed spawn model identity is empirically intercepted by the exact active candidate, with the same `tool_use_id` and PendingControl-compatible input.
+- H08 verifies actual message representation by exact-binding behavior. An authorized canonical payload must be accepted and a mismatched binding must fail closed before Host mutation. Raw sanitized shapes are recorded when the Host exposes them.
 - H13 verifies exact managed-profile selectors and effective profile behavior.
-- H14 records the complete managed-child collaboration surface and verifies every exposed peer-message route is blocked.
+- H14 records the complete managed-child collaboration surface and verifies every exposed peer-message route is empirically intercepted and blocked before delivery.
 - H07 verifies lifecycle success/failure discrimination is reliable enough that a failed Host operation cannot be ACKED as success.
 - H15 verifies the delivered five-section assignment contains the material responsibility semantics and fresh-context isolation.
 
-Only after that feasibility wave passes should the remaining H00-H20 probes be completed. H02/H03 apply the exact-identity rule to followup and interrupt; H11/H12 verify managed Sol/Terra cannot use lifecycle controls or peer messaging; H20 requires Windows path-alias evidence.
+Only after that feasibility wave passes should the remaining H00-H20 probes be completed. H02/H03 apply the empirical-interception rule to followup and interrupt; H11/H12 verify managed Sol/Terra cannot use lifecycle controls or peer messaging; H20 requires Windows path-alias evidence.
 
 H07 and H08 remain Host feasibility gates. Repository code must not guess around either Host behavior.
 
@@ -108,14 +110,15 @@ H07 and H08 remain Host feasibility gates. Repository code must not guess around
 | --- | --- | --- |
 | Responsibility semantics | `make_work_unit` cannot express required context | exact semantics survive WorkUnit -> assignment record |
 | Incomplete persisted unit | current assignment can render without semantic context | managed assignment fails closed |
-| Lifecycle identity | model-visible namespaced identity can be mistaken for Hook identity | exact model identity maps to exact flattened Hook identity or readiness fails closed |
+| Lifecycle identity | model-visible namespaced identity can be mistaken for Hook identity | candidate identity owner classifies the model identity and active matcher coverage plus behavior probes prove interception |
+| Campaign ordering | H00 requires raw stdin evidence that only H01/H02/H03/H14 can produce | H00 admits safe behavior probes without weakening their empirical interception gates |
 | Peer messaging | exposed `send_message` is ignored by readiness | missing exact PreToolUse peer guard blocks execution readiness |
 | Managed leaf | managed child `send_message` passes through | Guard blocks before Host messaging |
 | Active Hook candidate | installed candidate still loads only the V3 compatibility Guard | default `hooks/hooks.json` contains the complete V4 lifecycle Guard |
 | Reference duplication | `docs/v4/hooks.json` can drift into a second authority | reference `hooks` object must exactly equal active `hooks/hooks.json` |
 | Hook integrity | active lifecycle Hook is outside package-integrity scope | active and reference Hook files are both hashed |
-| Host contract | H00/H01/H14 do not require exhaustive identity separation | machine contract carries explicit model-visible and Hook-serialized requirements |
-| Public docs | retired identities or stale Host assumptions remain | current two-Skill, exact-identity, and release-owner language only |
+| Host contract | H00 requires unavailable raw payload before the tool can be exercised | machine contract separates admission evidence from per-semantic runtime interception evidence |
+| Public docs | retired identities or stale Host assumptions remain | current two-Skill, behavior-evidence, and release-owner language only |
 | RC3 history | stage evidence remains under active `contracts/` | historical location only |
 
 ## Acceptance
@@ -124,7 +127,7 @@ The closure is complete only when:
 
 1. targeted red tests pass on the new implementation;
 2. the exact pre-Host candidate uses validator-compatible default Plugin Hook discovery and `hooks/hooks.json` contains the complete V4 lifecycle Guard;
-3. package-integrity generation is refreshed from the final files;
+3. package-integrity generation is refreshed from the final files when runtime files change;
 4. Ruff passes;
 5. the complete pytest suite passes;
 6. managed Agent install/check/uninstall/reinstall lifecycle passes;
