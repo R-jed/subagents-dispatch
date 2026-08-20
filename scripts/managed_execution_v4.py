@@ -27,6 +27,8 @@ RESPONSIBILITY_CONTEXT_FIELDS = {
     "do_not_redo",
     "stop_boundary",
 }
+SPAWN_CONTROL_FIELDS = ("task_name", "agent_type", "fork_turns")
+SPAWN_INPUT_FIELDS = set(SPAWN_CONTROL_FIELDS) | {"message"}
 
 
 class ManagedExecutionContractError(RuntimeError):
@@ -190,6 +192,14 @@ def expected_spawn_input_for_task(
 def validate_actual_spawn_input(
     current: Mapping[str, Any], *, tool_input: Mapping[str, Any]
 ) -> dict[str, Any]:
+    """Validate the managed spawn control envelope at the Host boundary.
+
+    The canonical plaintext assignment is constructed and checked before the
+    Host call is prepared. Codex V2 owns transport of ``message`` and may expose
+    an opaque encrypted representation to Hooks, so the Guard verifies only
+    that the transport field is present and non-empty while continuing to bind
+    task identity, managed profile, and fresh-context behavior exactly.
+    """
     if not isinstance(tool_input, Mapping):
         raise ManagedExecutionContractError("managed spawn tool_input must be an object")
     task_name = tool_input.get("task_name")
@@ -197,8 +207,12 @@ def validate_actual_spawn_input(
         raise ManagedExecutionContractError("managed spawn requires native task_name")
     expected = expected_spawn_input_for_task(current, task_name=task_name)
     actual = dict(tool_input)
-    if actual != expected:
+    if set(actual) != SPAWN_INPUT_FIELDS or not _nonempty(actual.get("message")):
         raise ManagedExecutionContractError(
-            "managed spawn input does not match profile, fresh-context, or assignment contract"
+            "managed spawn input does not match profile, fresh-context, or transport shape contract"
+        )
+    if any(actual.get(field) != expected.get(field) for field in SPAWN_CONTROL_FIELDS):
+        raise ManagedExecutionContractError(
+            "managed spawn input does not match profile, fresh-context, or control contract"
         )
     return expected
