@@ -70,7 +70,7 @@ def base_records() -> list[dict]:
             "payload": {
                 "type": "item_started",
                 "item": {
-                    "type": "sub_agent_activity",
+                    "type": "SubAgentActivity",
                     "id": "call_spawn",
                     "kind": "started",
                     "agent_thread_id": CHILD,
