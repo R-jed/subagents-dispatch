@@ -34,6 +34,16 @@ EXPECTED_LIFECYCLE = {
     "CONTINUE": {"INTERRUPTED"},
     "INTERRUPT": {"RUNNING"},
 }
+LIFECYCLE_AUTHORIZATION_FIELDS = {
+    "spawn_agent": ("task_name", "agent_type", "fork_turns"),
+    "followup_task": ("target",),
+    "interrupt_agent": ("target",),
+}
+LIFECYCLE_TRANSPORT_FIELDS = {
+    "spawn_agent": ("message",),
+    "followup_task": ("message",),
+    "interrupt_agent": (),
+}
 
 
 class ControlError(RuntimeError):
@@ -55,6 +65,36 @@ def canonical_tool_input_digest(tool_input: Any) -> str:
     except (TypeError, ValueError) as exc:
         raise ControlError(f"tool_input is not canonical JSON: {exc}") from exc
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _nonempty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def lifecycle_authorization_input(tool_name: str, tool_input: Any) -> dict[str, Any]:
+    """Project one lifecycle call onto Plugin-owned authorization semantics.
+
+    Codex owns transport of encrypted ``message`` fields for V2 spawn and
+    follow-up calls. PendingControl therefore binds the stable control envelope
+    while still requiring the native transport field to be present and non-empty.
+    """
+    authorization_fields = LIFECYCLE_AUTHORIZATION_FIELDS.get(tool_name)
+    transport_fields = LIFECYCLE_TRANSPORT_FIELDS.get(tool_name)
+    if authorization_fields is None or transport_fields is None:
+        raise ControlError(f"unsupported managed lifecycle tool {tool_name!r}")
+    if not isinstance(tool_input, Mapping):
+        raise ControlError("managed lifecycle tool_input must be an object")
+
+    expected_fields = set(authorization_fields) | set(transport_fields)
+    if set(tool_input) != expected_fields:
+        raise ControlError(f"{tool_name} has unsupported or missing lifecycle input fields")
+    if not all(_nonempty_string(tool_input.get(field)) for field in expected_fields):
+        raise ControlError(f"{tool_name} lifecycle input fields must be non-empty strings")
+    return {field: tool_input[field] for field in authorization_fields}
+
+
+def lifecycle_authorization_digest(tool_name: str, tool_input: Any) -> str:
+    return canonical_tool_input_digest(lifecycle_authorization_input(tool_name, tool_input))
 
 
 def _target_for(tool_name: str, tool_input: Any) -> str:
@@ -162,7 +202,7 @@ def prepare_control(
         raise ControlError("unsupported writer_effect")
     tool_name = OPERATION_TOOL[operation]
     target = _target_for(tool_name, tool_input)
-    digest = canonical_tool_input_digest(tool_input)
+    digest = lifecycle_authorization_digest(tool_name, tool_input)
     prepared: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
@@ -226,7 +266,7 @@ def _matching_controls(
     if operations is None:
         raise ControlError("unsupported managed lifecycle tool")
     target = _target_for(tool_name, tool_input)
-    digest = canonical_tool_input_digest(tool_input)
+    digest = lifecycle_authorization_digest(tool_name, tool_input)
     matches = []
     for control in current.get("pending_controls", []):
         if not isinstance(control, dict):
@@ -319,7 +359,7 @@ def _historical_ack_matches(
     tool_input: Mapping[str, Any],
     tool_use_id: str,
 ) -> list[Mapping[str, Any]]:
-    digest = canonical_tool_input_digest(tool_input)
+    digest = lifecycle_authorization_digest(tool_name, tool_input)
     target = _target_for(tool_name, tool_input)
     return [
         event
