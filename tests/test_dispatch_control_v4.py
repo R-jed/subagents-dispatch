@@ -164,20 +164,29 @@ def test_followup_advances_local_control_epoch_only_after_ack(tmp_path: Path):
     state_module = load_module("control_state_followup", STATE_PATH)
     control = load_module("control_v4_followup", CONTROL_PATH)
     persist(state_module, tmp_path, lifecycle="COMPLETED")
-    tool_input = {"target": "sd_u1_a1", "message": "fix the one acceptance miss"}
+    prepared_input = {"target": "sd_u1_a1", "message": "fix the one acceptance miss"}
+    host_pre_input = {"target": "sd_u1_a1", "message": "gAAAA-followup-pre"}
+    host_post_input = {"target": "sd_u1_a1", "message": "gAAAA-followup-post"}
 
-    control.prepare_control(
+    prepared = control.prepare_control(
         "thread-1",
         control_id="control-followup",
         execution_id="exec-1",
         operation="FOLLOWUP",
-        tool_input=tool_input,
+        tool_input=prepared_input,
         temp_root=tmp_path,
     )
+    assert prepared["payload_digest"] == control.lifecycle_authorization_digest(
+        "followup_task", prepared_input
+    )
+    assert control.canonical_tool_input_digest(prepared_input) != control.canonical_tool_input_digest(
+        host_pre_input
+    )
+
     control.consume_prepared_control(
         "thread-1",
         tool_name="followup_task",
-        tool_input=tool_input,
+        tool_input=host_pre_input,
         tool_use_id="tool-followup",
         temp_root=tmp_path,
     )
@@ -188,7 +197,7 @@ def test_followup_advances_local_control_epoch_only_after_ack(tmp_path: Path):
     control.acknowledge_control(
         "thread-1",
         tool_name="followup_task",
-        tool_input=tool_input,
+        tool_input=host_post_input,
         tool_response={},
         tool_use_id="tool-followup",
         temp_root=tmp_path,
@@ -198,47 +207,89 @@ def test_followup_advances_local_control_epoch_only_after_ack(tmp_path: Path):
     assert acknowledged["executions"][0]["control_epoch"] == 1
 
 
-def test_payload_drift_cannot_ack_and_inflight_control_can_be_quarantined(tmp_path: Path):
+def test_transport_message_drift_can_ack_but_control_envelope_drift_is_quarantined(
+    tmp_path: Path,
+):
     state_module = load_module("control_state_drift", STATE_PATH)
     control = load_module("control_v4_drift", CONTROL_PATH)
     persist(state_module, tmp_path)
-    original = {
+    prepared_input = {
         "task_name": "sd_u1_a1",
         "message": "read bounded scope",
         "agent_type": "subagents_dispatch_reader",
         "fork_turns": "none",
     }
-    control.prepare_control(
+    host_pre_input = dict(prepared_input)
+    host_pre_input["message"] = "gAAAA-spawn-pre"
+    host_post_input = dict(prepared_input)
+    host_post_input["message"] = "gAAAA-spawn-post"
+
+    prepared = control.prepare_control(
         "thread-1",
-        control_id="control-drift",
+        control_id="control-transport",
         execution_id="exec-1",
         operation="SPAWN",
-        tool_input=original,
+        tool_input=prepared_input,
         temp_root=tmp_path,
+    )
+    assert prepared["payload_digest"] == control.lifecycle_authorization_digest(
+        "spawn_agent", prepared_input
+    )
+    assert control.canonical_tool_input_digest(prepared_input) != control.canonical_tool_input_digest(
+        host_pre_input
+    )
+
+    control.consume_prepared_control(
+        "thread-1",
+        tool_name="spawn_agent",
+        tool_input=host_pre_input,
+        tool_use_id="tool-transport",
+        temp_root=tmp_path,
+    )
+    acknowledged = control.acknowledge_control(
+        "thread-1",
+        tool_name="spawn_agent",
+        tool_input=host_post_input,
+        tool_response={"task_name": "sd_u1_a1"},
+        tool_use_id="tool-transport",
+        temp_root=tmp_path,
+    )
+    assert acknowledged["state"] == "ACKED"
+
+    envelope_root = tmp_path / "envelope-drift"
+    envelope_root.mkdir()
+    persist(state_module, envelope_root)
+    control.prepare_control(
+        "thread-1",
+        control_id="control-envelope",
+        execution_id="exec-1",
+        operation="SPAWN",
+        tool_input=prepared_input,
+        temp_root=envelope_root,
     )
     control.consume_prepared_control(
         "thread-1",
         tool_name="spawn_agent",
-        tool_input=original,
-        tool_use_id="tool-drift",
-        temp_root=tmp_path,
+        tool_input=host_pre_input,
+        tool_use_id="tool-envelope",
+        temp_root=envelope_root,
     )
 
-    changed = dict(original)
-    changed["message"] = "different payload"
+    changed = dict(host_post_input)
+    changed["agent_type"] = "subagents_dispatch_worker"
     with pytest.raises(control.ControlError, match="IN_FLIGHT"):
         control.acknowledge_control(
             "thread-1",
             tool_name="spawn_agent",
             tool_input=changed,
             tool_response={"task_name": "sd_u1_a1"},
-            tool_use_id="tool-drift",
-            temp_root=tmp_path,
+            tool_use_id="tool-envelope",
+            temp_root=envelope_root,
         )
     assert control.mark_control_unknown(
-        "thread-1", tool_use_id="tool-drift", temp_root=tmp_path
+        "thread-1", tool_use_id="tool-envelope", temp_root=envelope_root
     )
-    current = state_module.load_state("thread-1", temp_root=tmp_path)
+    current = state_module.load_state("thread-1", temp_root=envelope_root)
     assert current is not None
     assert current["pending_controls"][0]["state"] == "UNKNOWN"
 
