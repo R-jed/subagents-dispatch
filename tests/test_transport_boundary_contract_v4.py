@@ -57,3 +57,15 @@ def test_machine_host_contract_keeps_transport_and_semantic_delivery_separate():
     assert "h15 owns behavior-level delivery" in h08
     assert "observable child behavior" in h15
     assert "without inspecting encrypted transport content" in h15
+
+
+def test_orchestrate_machine_contract_marks_active_release_gated_hooks():
+    orchestrate = json.loads(
+        (ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8")
+    )
+
+    assert orchestrate["host_execution"] == "native_host_only"
+    assert (
+        orchestrate["lifecycle_hooks"]
+        == "active_default_plugin_hook_release_gated_by_exact_candidate_h00_h20"
+    )
