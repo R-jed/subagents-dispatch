@@ -106,22 +106,24 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
 
     current = state.load_state("thread-guard", temp_root=tmp_path)
     assert current is not None
-    tool_input = managed.expected_spawn_input_for_execution(current, execution_id="exec-1")
+    prepared_input = managed.expected_spawn_input_for_execution(current, execution_id="exec-1")
     control.prepare_control(
         "thread-guard",
         control_id="spawn:exec-1",
         execution_id="exec-1",
         operation="SPAWN",
-        tool_input=tool_input,
+        tool_input=prepared_input,
         writer_effect="RESERVE",
         temp_root=tmp_path,
     )
 
+    host_pre_input = dict(prepared_input)
+    host_pre_input["message"] = "gAAAA-host-encrypted-pre"
     pre = {
         "session_id": "thread-guard",
         "hook_event_name": "PreToolUse",
         "tool_name": "spawn_agent",
-        "tool_input": tool_input,
+        "tool_input": host_pre_input,
         "tool_use_id": "tool-spawn",
     }
     assert guard.evaluate_pre_tool_use(pre, temp_root=tmp_path) is None
@@ -130,11 +132,13 @@ def test_actual_guard_posttool_path_promotes_reserved_writer(tmp_path: Path):
     assert inflight["pending_controls"][0]["state"] == "IN_FLIGHT"
     assert inflight["writer_lease"]["state"] == "RESERVED"
 
+    host_post_input = dict(prepared_input)
+    host_post_input["message"] = "gAAAA-host-encrypted-post"
     post = {
         "session_id": "thread-guard",
         "hook_event_name": "PostToolUse",
         "tool_name": "spawn_agent",
-        "tool_input": tool_input,
+        "tool_input": host_post_input,
         "tool_use_id": "tool-spawn",
         "tool_response": {"task_name": "sd_u1_a1"},
     }
