@@ -15,7 +15,6 @@ from typing import Any, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_MANIFEST = ROOT / ".codex-plugin" / "plugin.json"
 PLUGIN_ID = "subagents-dispatch@subagents-dispatch"
 PLUGIN_NAME = "subagents-dispatch"
 MARKETPLACE_NAME = "subagents-dispatch"
@@ -91,22 +90,87 @@ def _matching_installed(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     ]
 
 
-def _canonical_source_issue(row: Mapping[str, Any]) -> str | None:
-    source = row.get("source")
+def _canonical_marketplace_issue(row: Mapping[str, Any]) -> str | None:
     marketplace_source = row.get("marketplaceSource")
-    if not isinstance(source, Mapping):
-        return "installed Plugin source metadata is unavailable"
-    if source.get("source") != "git":
-        return "installed Plugin source is not the canonical Git source type"
-    source_url = source.get("url")
-    if source_url not in CANONICAL_GIT_URLS:
-        return "installed Plugin Git source does not match R-jed/subagents-dispatch"
     if not isinstance(marketplace_source, Mapping):
         return "installed Marketplace source metadata is unavailable"
     if marketplace_source.get("sourceType") != "git":
         return "configured Marketplace source is not a Git source"
     if marketplace_source.get("source") not in CANONICAL_MARKETPLACE_SOURCES:
         return "configured Marketplace origin does not match R-jed/subagents-dispatch"
+    return None
+
+
+def _local_source_root(row: Mapping[str, Any]) -> Path:
+    source = row.get("source")
+    if not isinstance(source, Mapping) or source.get("source") != "local":
+        raise UpdateError("installed Plugin source is not a Marketplace-local source")
+    raw_path = source.get("path")
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        raise UpdateError("Marketplace-local Plugin source path is unavailable")
+    root = Path(raw_path).expanduser()
+    if not root.is_absolute():
+        raise UpdateError("Marketplace-local Plugin source path must be absolute")
+    if root.is_symlink():
+        raise UpdateError("Marketplace-local Plugin source root must not be a symlink")
+    try:
+        root = root.resolve(strict=True)
+    except OSError as exc:
+        raise UpdateError("Marketplace-local Plugin source root is unavailable") from exc
+    if not root.is_dir():
+        raise UpdateError("Marketplace-local Plugin source root is not a directory")
+    return root
+
+
+def _available_version_from_local_source(row: Mapping[str, Any]) -> str:
+    root = _local_source_root(row)
+    manifest = root / ".codex-plugin" / "plugin.json"
+    if manifest.is_symlink() or not manifest.is_file():
+        raise UpdateError("Marketplace-local Plugin manifest is unavailable or unsafe")
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise UpdateError("Marketplace-local Plugin manifest is unreadable") from exc
+    if not isinstance(payload, dict) or payload.get("name") != PLUGIN_NAME:
+        raise UpdateError("Marketplace-local Plugin manifest identity is invalid")
+    version = payload.get("version")
+    if not isinstance(version, str) or _core_semver(version.strip()) is None:
+        raise UpdateError("Marketplace-local Plugin version is not a stable semantic version")
+    return version.strip()
+
+
+def _source_mode(row: Mapping[str, Any]) -> str:
+    source = row.get("source")
+    if not isinstance(source, Mapping):
+        raise UpdateError("installed Plugin source metadata is unavailable")
+    source_type = source.get("source")
+    if source_type == "local":
+        _local_source_root(row)
+        return "marketplace-local"
+    if source_type == "git":
+        if source.get("url") not in CANONICAL_GIT_URLS:
+            raise UpdateError("installed Plugin Git source does not match R-jed/subagents-dispatch")
+        return "legacy-git"
+    raise UpdateError("installed Plugin source type is unsupported")
+
+
+def _available_version(row: Mapping[str, Any]) -> str | None:
+    mode = _source_mode(row)
+    source = row.get("source")
+    assert isinstance(source, Mapping)
+    if mode == "marketplace-local":
+        return _available_version_from_local_source(row)
+    return _version_from_ref(source.get("ref"))
+
+
+def _canonical_source_issue(row: Mapping[str, Any]) -> str | None:
+    issue = _canonical_marketplace_issue(row)
+    if issue is not None:
+        return issue
+    try:
+        _source_mode(row)
+    except UpdateError as exc:
+        return str(exc)
     return None
 
 
@@ -142,7 +206,7 @@ def installation_layer_from_payload(
         return _layer(
             "FAIL",
             "Codex reports duplicate installed identities for subagents-dispatch",
-            action="Resolve the duplicate Plugin installation before running Dispatch or Update.",
+            action="Resolve the duplicate Plugin installation before running Orchestrate or Update.",
             matches=len(matches),
             package_version=package_version,
         )
@@ -151,12 +215,14 @@ def installation_layer_from_payload(
     source = row.get("source")
     marketplace_source = row.get("marketplaceSource")
     source_ref = source.get("ref") if isinstance(source, Mapping) else None
+    source_path = source.get("path") if isinstance(source, Mapping) else None
     source_url = source.get("url") if isinstance(source, Mapping) else None
     marketplace_origin = marketplace_source.get("source") if isinstance(marketplace_source, Mapping) else None
     base_details = {
         "matches": 1,
         "package_version": package_version,
         "source_ref": source_ref,
+        "source_path": source_path,
         "source_url": source_url,
         "marketplace_source": marketplace_origin,
     }
@@ -165,7 +231,18 @@ def installation_layer_from_payload(
         return _layer(
             "FAIL",
             source_issue,
-            action="Restore the canonical R-jed/subagents-dispatch Marketplace and Plugin source before any update check or update.",
+            action="Restore the canonical R-jed/subagents-dispatch Git Marketplace before any update check or update.",
+            **base_details,
+        )
+
+    try:
+        source_mode = _source_mode(row)
+        available_version = _available_version(row)
+    except UpdateError as exc:
+        return _layer(
+            "FAIL",
+            str(exc),
+            action="Repair the canonical Marketplace checkout before using the installed Plugin.",
             **base_details,
         )
 
@@ -174,29 +251,30 @@ def installation_layer_from_payload(
         return _layer(
             "FAIL",
             "installed subagents-dispatch has no usable version identity",
+            source_mode=source_mode,
             **base_details,
         )
     installed_version = installed_version.strip()
-    available_version = _version_from_ref(source_ref)
     installed_core = _core_semver(installed_version)
     available_core = _core_semver(available_version) if available_version else None
-    update_available = bool(
-        available_version
-        and installed_core is not None
-        and available_core is not None
-        and available_core > installed_core
-    )
-    source_older = bool(
-        available_version
-        and installed_core is not None
-        and available_core is not None
-        and available_core < installed_core
-    )
+    if installed_core is None:
+        return _layer(
+            "FAIL",
+            "installed Plugin version is not a stable semantic version",
+            action="Review the installed Plugin identity before updating.",
+            installed_version=installed_version,
+            available_version=available_version,
+            source_mode=source_mode,
+            **base_details,
+        )
+
+    update_available = bool(available_core is not None and available_core > installed_core)
+    source_older = bool(available_core is not None and available_core < installed_core)
     package_cache_skew = package_version != installed_version
     enabled = row.get("enabled")
-
     details = {
         **base_details,
+        "source_mode": source_mode,
         "installed_version": installed_version,
         "available_version": available_version,
         "enabled": enabled,
@@ -204,17 +282,10 @@ def installation_layer_from_payload(
         "package_cache_skew": package_cache_skew,
     }
 
-    if installed_core is None:
-        return _layer(
-            "FAIL",
-            "installed Plugin version is not a stable semantic version",
-            action="Review the installed Plugin identity before updating.",
-            **details,
-        )
     if source_older:
         return _layer(
             "FAIL",
-            "Marketplace source points to a release older than the installed Plugin cache",
+            "Marketplace checkout contains a release older than the installed Plugin cache",
             action="Review the configured Marketplace source before changing the installed Plugin.",
             **details,
         )
@@ -222,13 +293,13 @@ def installation_layer_from_payload(
         return _layer(
             "WARN",
             "subagents-dispatch is installed but disabled in Codex",
-            action="Enable the installed Plugin and start a fresh Codex session before using Dispatch.",
+            action="Enable the installed Plugin and start a fresh Codex session before using Orchestrate.",
             **details,
         )
     if update_available:
         return _layer(
             "WARN",
-            "a newer version is already present in the configured Marketplace snapshot",
+            "a newer stable version is present in the canonical Marketplace checkout",
             action="Run Doctor with explicit update intent, then start a fresh Codex session.",
             **details,
         )
@@ -242,8 +313,8 @@ def installation_layer_from_payload(
     if available_version is None:
         return _layer(
             "UNKNOWN",
-            "installed Plugin identity is visible, but the Marketplace source is not pinned to a stable semantic-version tag",
-            action="Use the supported versioned Marketplace source to make update identity auditable.",
+            "installed Plugin identity is canonical, but a stable available version cannot be derived from the legacy source",
+            action="Refresh the canonical Marketplace so the Plugin source resolves through the managed checkout.",
             **details,
         )
     if available_version != installed_version:
@@ -255,7 +326,7 @@ def installation_layer_from_payload(
         )
     return _layer(
         "OK",
-        "Codex installed cache, canonical Marketplace release ref, and executing package version agree",
+        "Codex installed cache, canonical Marketplace checkout, and executing package version agree",
         **details,
     )
 
@@ -266,8 +337,7 @@ def resolve_codex_binary(explicit: str | None = None) -> str | None:
         path = Path(candidate).expanduser()
         if path.is_file():
             return str(path.resolve())
-        resolved = shutil.which(candidate)
-        return resolved
+        return shutil.which(candidate)
     return shutil.which("codex")
 
 
@@ -409,19 +479,10 @@ def _verify_new_package(
         if not path.is_file() or path.is_symlink():
             raise UpdateError(f"updated Plugin is missing a safe {path.name}")
 
-    integrity_result = _run_python(
-        sys.executable,
-        integrity,
-        ["--root", str(root)],
-    )
+    integrity_result = _run_python(sys.executable, integrity, ["--root", str(root)])
     if integrity_result.returncode != 0:
         raise UpdateError("updated Plugin package integrity verification failed")
-
-    install_result = _run_python(
-        sys.executable,
-        installer,
-        ["--codex-home", str(codex_home)],
-    )
+    install_result = _run_python(sys.executable, installer, ["--codex-home", str(codex_home)])
     if install_result.returncode != 0:
         raise UpdateError("updated managed-Agent profile reconciliation failed")
     check_result = _run_python(
@@ -449,7 +510,7 @@ def _verify_new_package(
         raise UpdateError("updated Plugin Doctor returned invalid JSON") from exc
     if not isinstance(report, dict) or not isinstance(report.get("layers"), list):
         raise UpdateError("updated Plugin Doctor report is invalid")
-    if report.get("schema_version") != 5 or report.get("healthy") is not True:
+    if report.get("schema_version") != 6 or report.get("healthy") is not True:
         raise UpdateError("updated Plugin Doctor did not report a healthy product state")
     observed = {
         item.get("name"): item.get("status")
@@ -507,12 +568,9 @@ def update_plugin(
 
     refreshed_payload = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
     refreshed_row = require_canonical_installed_source(refreshed_payload)
-    refreshed_source = refreshed_row.get("source")
-    target_version = _version_from_ref(
-        refreshed_source.get("ref") if isinstance(refreshed_source, Mapping) else None
-    )
-    if target_version is None:
-        raise UpdateError("refreshed Marketplace source is not pinned to a stable semantic-version tag")
+    target_version = _available_version(refreshed_row)
+    if target_version is None or _core_semver(target_version) is None:
+        raise UpdateError("refreshed Marketplace checkout does not expose a stable Plugin version")
 
     before_core = _core_semver(before_version)
     target_core = _core_semver(target_version)
@@ -522,15 +580,15 @@ def update_plugin(
 
     if target_version == before_version:
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "changed": False,
             "from_version": before_version,
             "to_version": before_version,
-            "marketplace_ref": f"v{target_version}",
+            "marketplace_version": target_version,
             "restart_required": package_version() != before_version,
             "steps": [
-                {"name": "Marketplace", "status": "OK", "summary": "canonical Marketplace snapshot is current"},
-                {"name": "Plugin package", "status": "OK", "summary": "installed Plugin is already current"},
+                {"name": "Marketplace", "status": "OK", "summary": "canonical Marketplace checkout is current"},
+                {"name": "Plugin package", "status": "OK", "summary": "installed Plugin version is already current"},
             ],
         }
 
@@ -542,7 +600,7 @@ def update_plugin(
     )
     installed_version, installed_root = _validate_add_result(add_result)
     if installed_version != target_version:
-        raise UpdateError("Codex installed version does not match the refreshed Marketplace release")
+        raise UpdateError("Codex installed version does not match the refreshed Marketplace package")
     _verify_installed_manifest(installed_root, installed_version)
 
     post_payload = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
@@ -558,18 +616,18 @@ def update_plugin(
     )
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "changed": True,
         "from_version": before_version,
         "to_version": installed_version,
-        "marketplace_ref": f"v{target_version}",
+        "marketplace_version": target_version,
         "installed_root": str(installed_root),
         "restart_required": True,
         "steps": [
-            {"name": "Marketplace", "status": "OK", "summary": f"canonical source refreshed to v{target_version}"},
+            {"name": "Marketplace", "status": "OK", "summary": f"canonical checkout exposes {target_version}"},
             {"name": "Plugin package", "status": "OK", "summary": f"installed and verified {installed_version}"},
             {"name": "Managed Agent profiles", "status": "OK", "summary": "reconciled and verified by the updated package"},
-            {"name": "Post-update Doctor", "status": "OK", "summary": "updated package identity and static production surfaces verified"},
+            {"name": "Post-update Doctor", "status": "OK", "summary": "updated package identity and static product surfaces verified"},
         ],
     }
 
@@ -579,12 +637,7 @@ def render_update(report: Mapping[str, Any]) -> str:
     for item in report.get("steps", []):
         if isinstance(item, Mapping):
             lines.append(f"[{item.get('status', 'UNKNOWN')}] {item.get('name', 'Unknown')}: {item.get('summary', '')}")
-    lines.extend(
-        [
-            "",
-            f"Version: {report.get('from_version')} -> {report.get('to_version')}",
-        ]
-    )
+    lines.extend(["", f"Version: {report.get('from_version')} -> {report.get('to_version')}"])
     if report.get("restart_required") is True:
         lines.append("[RESTART] Start a fresh Codex session to activate the installed Plugin and review any changed Hook trust prompt.")
     else:
