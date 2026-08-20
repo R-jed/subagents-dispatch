@@ -2,7 +2,9 @@
 
 This specification records the bounded P0/P1 simplification pass that completed before the real H00-H20 Host campaign.
 
-The pass started from commit `7ec4b2aff380b0920078a8a5e98fe084a01212dd` on `v4/rc4-host-contract-closure`. Its original Hook-staging boundary was later superseded by `docs/v4/pre-host-closure-spec.md`: the exact real-Host candidate now carries the active V4 lifecycle Guard at `hooks/hooks.json`, while H00-H20 still remain unclaimed and release-blocking.
+The pass started from commit `7ec4b2aff380b0920078a8a5e98fe084a01212dd` on `v4/rc4-host-contract-closure`. Its original Hook-staging boundary was later superseded by `docs/v4/pre-host-closure-spec.md`: the exact real-Host candidate now carries the active V4 lifecycle Guard at `hooks/hooks.json`, while H00-H20 still remain release-blocking until exact-candidate evidence passes.
+
+A later real-Host H08 failure exposed one incorrect assumption in the original closure language: complete Host `tool_input` equality treated encrypted V2 `message` transport as Plugin-owned authorization state. The current V4 contract keeps PendingControl and all lifecycle generations while narrowing its digest to authorization-relevant fields. This correction is documented here so the historical phrase "exact binding" cannot be read as a requirement to bind Host-owned encrypted message bytes.
 
 ## Goal
 
@@ -17,13 +19,13 @@ The original P0/P1 pass did not authorize:
 - extracting a new state-storage module;
 - merging facade/core implementation pairs;
 - reducing WriterLease identity or settlement rules;
-- removing PendingControl payload, tool-use, control-epoch, lease-epoch, or writer-effect bindings;
+- removing PendingControl single-use, target, tool-use, control-epoch, lease-epoch, or writer-effect bindings;
 - merging the five physical Agent profiles;
 - creating a second single-delegate runtime or scheduler;
 - removing V3 migration/compatibility code that still has a current production consumer;
 - claiming any H00-H20 Host result.
 
-Hook activation was also outside that earlier pass. The later pre-Host closure changed only that candidate boundary after proving the default active Hook path was required for a validator-compatible, candidate-stable real Host campaign. This historical scope note does not grant Host PASS.
+Hook activation was also outside that earlier pass. The later pre-Host closure changed only that candidate boundary after proving the default active Hook path was required for a validator-compatible, candidate-stable real Host campaign. The subsequent H08 transport correction changed only the ownership of V2 message bytes inside lifecycle authorization. These historical scope notes do not grant Host PASS.
 
 ## P0-A: Active V4 contract closure
 
@@ -57,9 +59,9 @@ There must be one responsibility schema across reasoning and Host payload constr
 - `constraints`
 - `verification`
 
-`managed_execution_v4.py` implements that record and renders the exact JSON Host `message`. Identity fields that already exist in runtime state may be included inside the five sections; they do not create another schema.
+`managed_execution_v4.py` implements that record and renders deterministic plaintext JSON for Main-side Host call preparation. Identity fields that already exist in runtime state may be included inside the five sections; they do not create another schema.
 
-The Host message remains deterministic JSON with stable key ordering and continues to bind exact `agent_type`, `task_name`, and `fork_turns: none` through the existing managed execution and PendingControl path.
+Main-side spawn preparation continues to validate the exact canonical assignment before PendingControl is created. At the Hook boundary, native Codex V2 may expose `message` as opaque encrypted transport. The Guard therefore requires a non-empty `message` transport field while binding exact `agent_type`, `task_name`, and `fork_turns: none` through the managed execution and PendingControl authorization path.
 
 ## P0-C: Real single-delegate path
 
@@ -117,6 +119,31 @@ This change narrows the integrity, Doctor and update-verification surface. It do
 
 All scripts with a current product, Hook, Doctor, update, migration, review, routing, lifecycle or runtime-evidence consumer remain covered until separate consumer proof supports removal.
 
+## PendingControl exactness after the Host transport correction
+
+The state field remains named `payload_digest` to avoid an unnecessary V4 state migration. Its current meaning is the digest of the lifecycle authorization projection, not a digest of the complete Host transport payload.
+
+The projection is:
+
+- `spawn_agent`: `task_name`, `agent_type`, `fork_turns`;
+- `followup_task`: `target`;
+- `interrupt_agent`: `target`.
+
+`message` is excluded from this digest because current Codex V2 owns its encrypted transport representation. Required message presence and type remain validated separately.
+
+The existing PendingControl guarantees remain unchanged:
+
+- one unresolved control per execution;
+- exact operation and target;
+- exact TeamPlan revision;
+- exact expected and next control epochs;
+- exact WriterLease epoch and writer effect when applicable;
+- one `tool_use_id` paired from PreToolUse through PostToolUse;
+- exact duplicate ACK idempotence;
+- stale or ambiguous PostToolUse quarantine to UNKNOWN.
+
+This is a trust-boundary correction, not a removal of lifecycle authorization.
+
 ## Red-test matrix
 
 | ID | Old candidate must fail because | Required test | Passing condition after change |
@@ -131,6 +158,8 @@ All scripts with a current product, Hook, Doctor, update, migration, review, rou
 | R8 | whole `scripts/` directory is integrity-scoped | inspect `runtime_files()` | listed maintainer-only tools are absent while required runtime/Hook/Doctor/update scripts remain present |
 | R9 | stale product vocabulary remains in active contracts | contract scan | no retired `Dispatch` Skill consent wording in final-review; architecture and Doctor ownership agree |
 | R10 | stale recovery vocabulary can guide current Orchestrate | recovery contract scan | current recovery uses WorkUnit/ExecutionBinding, `execution_id`, `attempt_no`, current V4 lifecycle set, and no V3 state capsule owner claim |
+| R11 | complete payload digest rejects Host-encrypted spawn message | prepare plaintext spawn, consume opaque-message PreToolUse, acknowledge different opaque-message PostToolUse | ACK succeeds when control envelope and `tool_use_id` are unchanged |
+| R12 | removing message bytes from the digest could accidentally weaken control identity | mutate `agent_type`, `fork_turns`, or target while keeping message valid | mismatch fails closed and unresolved control can be quarantined UNKNOWN |
 
 ## Current regression requirements
 
@@ -139,11 +168,13 @@ The resulting candidate is acceptable only if all safety behavior remains covere
 - two fresh attempts maximum per unchanged WorkUnit;
 - one focused same-child follow-up budget;
 - exact managed `agent_type` and `fork_turns: none`;
+- canonical five-section plaintext assignment construction before Host dispatch;
+- native V2 `message` transport required but excluded from lifecycle authorization digest;
 - WriterLease single-writer blocking and UNKNOWN fail-closed behavior;
-- PendingControl Pre/Post exact binding;
+- PendingControl Pre/Post exact lifecycle authorization binding through `tool_use_id`, control generation, target, and writer effect;
 - dependency unlock only after WorkUnit acceptance;
 - current five-profile model/effort/sandbox contract;
-- exact active lifecycle Hook at `hooks/hooks.json` with H00-H20 still `PENDING` until real Host evidence;
+- exact active lifecycle Hook at `hooks/hooks.json` with H00-H20 still `PENDING` until new exact-candidate real Host evidence;
 - Doctor remains five product layers;
 - V3 migration remains explicit and fail closed.
 
@@ -154,8 +185,8 @@ The resulting candidate is acceptable only if all safety behavior remains covere
 3. Run targeted P0 tests.
 4. Implement P1 policy projection and runtime integrity allowlist.
 5. Run targeted P1 tests.
-6. Refresh package integrity only after runtime-file identity is final.
-7. Run Ruff, full pytest, managed Agent lifecycle checks and official Plugin validation through the repository CI matrix.
-8. Review the final diff against this specification and verify that no original safety non-goal was weakened.
-9. Apply the later pre-Host closure contract for exact active Hook candidate validation.
-10. Freeze the resulting exact candidate for the real H00-H20 campaign.
+6. Apply the later Host transport correction with regression coverage for opaque messages and control-envelope drift.
+7. Refresh package integrity only after runtime-file identity is final.
+8. Run Ruff, full pytest, managed Agent lifecycle checks and official Plugin validation through the repository CI matrix.
+9. Review the final diff against this specification and verify that no unrelated safety owner changed.
+10. Freeze the resulting exact candidate for a new real H00-H20 campaign. All prior candidate-bound Host PASS/FAIL evidence remains historical after candidate mutation.
