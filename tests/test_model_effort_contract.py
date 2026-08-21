@@ -63,10 +63,12 @@ def test_profiles_runtime_doctor_and_machine_architecture_match_policy():
     doctor = load_module("model_effort_doctor", "doctor.py")
 
     assert state.PROFILE_CONTRACT == EXPECTED
+    assert not hasattr(doctor, "EXPECTED_PROFILES")
+    doctor_profiles = doctor.policy_contract.profile_contracts()
     assert {
-        role: (model, effort)
-        for role, (model, effort, _authority) in EXPECTED.items()
-    } == doctor.EXPECTED_PROFILES
+        role: (spec["model"], spec["effort"], spec["mutation_authority"])
+        for role, spec in doctor_profiles.items()
+    } == EXPECTED
 
     for role, expected in EXPECTED.items():
         spec = policy["roles"][role]
