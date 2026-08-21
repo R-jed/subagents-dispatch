@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """V4 Native Core orchestration state and Host reconciliation.
 
-The module reuses the hardened V3 storage boundary for private per-thread files,
-locking, and atomic replace. The V4 payload contains project orchestration state
-only. Host lifecycle truth is reconciled into ExecutionBinding generations.
+Schema-neutral private storage lives in ``state_storage``. This module owns only
+V4 orchestration schema and Host lifecycle reconciliation; it has no dependency
+on the retired V3 orchestration engine.
 """
 
 from __future__ import annotations
@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping
 
-import dispatch_state as storage
+import policy as policy_contract
+import state_storage as storage
 
 
 SCHEMA_VERSION = "4.0"
@@ -130,13 +131,7 @@ FAILURE_ORIGINS = {
     "runtime_ambiguous",
 }
 TASK_BLOCKERS = {"none", "contract", "judgment", "investigation", "stalled"}
-PROFILE_CONTRACT = {
-    "reader": ("gpt-5.6-luna", "max", "none"),
-    "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-    "investigator": ("gpt-5.6-terra", "high", "none"),
-    "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-    "advisor": ("gpt-5.6-sol", "high", "none"),
-}
+PROFILE_CONTRACT = policy_contract.profile_contract_tuples()
 HOST_STATE_MAP = {
     "pending_init": "RUNNING",
     "pendingInit": "RUNNING",
