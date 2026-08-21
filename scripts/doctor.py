@@ -33,7 +33,7 @@ EXPECTED_SKILLS = ("orchestrate", "doctor")
 EXPECTED_PROFILES = {
     "reader": ("gpt-5.6-luna", "max"),
     "worker": ("gpt-5.6-luna", "max"),
-    "investigator": ("gpt-5.6-terra", "high"),
+    "investigator": ("gpt-5.6-terra", "xhigh"),
     "solver": ("gpt-5.6-sol", "high"),
     "advisor": ("gpt-5.6-sol", "high"),
 }
