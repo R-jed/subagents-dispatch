@@ -51,7 +51,7 @@ def make_execution(
     model, effort, authority = {
         "reader": ("gpt-5.6-luna", "max", "none"),
         "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "xhigh", "none"),
+        "investigator": ("gpt-5.6-terra", "high", "none"),
         "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
         "advisor": ("gpt-5.6-sol", "high", "none"),
     }[profile_id]
