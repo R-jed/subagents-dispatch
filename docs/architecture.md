@@ -29,7 +29,44 @@ Reasoning effort is fixed. Managed child profiles disable child multi-agent capa
 
 ## Current owners
 
-Product contract ownership remains explicit in `contracts/`. The complete runtime path map lives only at `docs/v4/architecture.json#runtime_owners`.
+Product contract ownership remains explicit:
+
+```text
+contracts/policy.json
+-> fixed profiles, delegation and review policy
+
+contracts/routing.md
+-> delegation value and role selection
+
+contracts/responsibility-packet.md
+-> child responsibility serialization
+
+contracts/team-plan.md
+-> optional dependency and integration truth
+
+contracts/guardrails.md
+-> authority, depth, mutation, writer, consent and external-action boundaries
+
+contracts/handoff.md
+-> optional Main-accepted evidence bridge
+
+contracts/evidence-artifact.md
+-> inspectable evidence provenance
+
+contracts/interaction.md
+-> user-visible Orchestrate controls
+
+contracts/recovery.md
+-> WorkUnit / ExecutionBinding recovery behavior
+
+contracts/receipt.md
+-> user-facing factual execution summary
+
+contracts/final-review.md
+-> exact-candidate independent review
+```
+
+The complete runtime path map lives only at `docs/v4/architecture.json#runtime_owners`.
 
 The runtime responsibilities are orchestration admission and user controls, bounded session state, path-safe atomic storage, WorkUnit dependency and acceptance truth, wakeup-driven scheduling, ExecutionBinding lifecycle, WriterLease ownership and settlement, managed responsibility projection, Host capability normalization, and optional bounded rollout evidence for recovery or release validation.
 
