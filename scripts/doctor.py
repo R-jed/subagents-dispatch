@@ -17,9 +17,9 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-import dispatch_state as legacy_state
 import dispatch_state_v4 as state_v4
 import host_capabilities
+import legacy_state_cleanup as legacy_state
 import package_integrity
 from legacy_migration import detect_legacy_state, format_migration_state
 
@@ -33,7 +33,7 @@ EXPECTED_SKILLS = ("orchestrate", "doctor")
 EXPECTED_PROFILES = {
     "reader": ("gpt-5.6-luna", "max"),
     "worker": ("gpt-5.6-luna", "max"),
-    "investigator": ("gpt-5.6-terra", "high"),
+    "investigator": ("gpt-5.6-terra", "xhigh"),
     "solver": ("gpt-5.6-sol", "high"),
     "advisor": ("gpt-5.6-sol", "high"),
 }
