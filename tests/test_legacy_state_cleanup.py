@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import importlib.util
 import json
 from pathlib import Path
@@ -31,7 +32,13 @@ def load_modules():
         sys.path.remove(str(SCRIPTS))
 
 
-def legacy_payload(thread_id: str, *, state: str = "CLOSED", pending=None, updated_at="2026-07-01T00:00:00Z"):
+def legacy_payload(
+    thread_id: str,
+    *,
+    state: str = "CLOSED",
+    pending=None,
+    updated_at="2026-07-01T00:00:00Z",
+):
     return {
         "schema_version": "1.0",
         "root_thread_id": thread_id,
@@ -98,7 +105,7 @@ def test_unresolved_or_pending_v3_capsule_is_retained(tmp_path: Path):
     assert storage.state_path("legacy-takeover", temp_root=tmp_path).exists()
 
 
-def test_current_thread_and_v4_capsule_are_never_legacy-cleaned(tmp_path: Path):
+def test_current_thread_and_v4_capsule_are_never_legacy_cleaned(tmp_path: Path):
     storage, cleanup = load_modules()
     write_payload(storage, tmp_path, "current-v3", legacy_payload("current-v3"))
     write_payload(
@@ -124,29 +131,35 @@ def test_current_thread_and_v4_capsule_are_never_legacy-cleaned(tmp_path: Path):
     assert storage.state_path("native-v4", temp_root=tmp_path).exists()
 
 
-def test_cleanup_rechecks_before_delete_and_preserves_changed_capsule(tmp_path: Path):
+def test_cleanup_rechecks_after_lock_and_preserves_changed_capsule(tmp_path: Path):
     storage, cleanup = load_modules()
     original = legacy_payload("legacy-race")
     write_payload(storage, tmp_path, "legacy-race", original)
-    real_read = cleanup._read_payload
-    reads = 0
+    real_state_lock = storage.state_lock
+    changed = False
 
-    def refresh_on_second_read(*args, **kwargs):
-        nonlocal reads
-        reads += 1
-        payload = real_read(*args, **kwargs)
-        if reads == 2 and payload is not None:
-            fresh = dict(payload)
-            fresh["updated_at"] = "2026-08-21T00:00:00Z"
-            write_payload(storage, tmp_path, "legacy-race", fresh)
-            return fresh
-        return payload
+    @contextmanager
+    def change_before_cleanup_lock(thread_id: str, *, temp_root=None, **kwargs):
+        nonlocal changed
+        if not changed:
+            changed = True
+            fresh = legacy_payload(
+                thread_id,
+                updated_at="2026-08-21T00:00:00Z",
+            )
+            encoded = json.dumps(fresh, separators=(",", ":")).encode()
+            with real_state_lock(thread_id, temp_root=temp_root, **kwargs):
+                _, _, path, _ = storage._paths(thread_id, temp_root, create=True)
+                storage._write_unlocked(path, encoded)
+        with real_state_lock(thread_id, temp_root=temp_root, **kwargs):
+            yield
 
-    cleanup._read_payload = refresh_on_second_read
+    cleanup.storage.state_lock = change_before_cleanup_lock
     report = cleanup.cleanup_stale_states(
         temp_root=tmp_path, now="2026-08-21T00:00:01Z"
     )
 
+    assert changed is True
     assert report["removed"] == []
     assert report["fresh"] == ["legacy-race"]
     assert storage.state_path("legacy-race", temp_root=tmp_path).exists()
