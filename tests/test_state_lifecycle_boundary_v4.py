@@ -73,7 +73,15 @@ def execution(*, lifecycle: str, authority: str = "none") -> dict:
     }
 
 
-def persist_with_records(module, tmp_path: Path, *, unit_state: str, lifecycle: str, writer: bool = False):
+def persist_with_records(
+    module,
+    tmp_path: Path,
+    *,
+    unit_state: str,
+    lifecycle: str,
+    writer: bool = False,
+    writer_state: str = "HELD",
+):
     payload = module.new_state(thread_id="thread-1")
     payload["work_units"] = [
         work_unit(state=unit_state, authority="bounded-source-write" if writer else "none")
@@ -89,7 +97,7 @@ def persist_with_records(module, tmp_path: Path, *, unit_state: str, lifecycle: 
             "unit_id": "U1",
             "owner_kind": "execution",
             "owner_id": "exec-1",
-            "state": "HELD",
+            "state": writer_state,
         }
     module.validate_state_payload(payload)
     module.create_state_if_absent(payload, temp_root=tmp_path)
@@ -109,6 +117,28 @@ def test_create_state_if_absent_rejects_existing_active_state(tmp_path: Path):
     current = module.load_state("thread-1", temp_root=tmp_path)
     assert current is not None
     assert current["executions"][0]["lifecycle"] == "RUNNING"
+
+
+def test_create_state_if_absent_preserves_existing_held_writer(tmp_path: Path):
+    module = load_state_module()
+    persist_with_records(
+        module,
+        tmp_path,
+        unit_state="EXECUTING",
+        lifecycle="RUNNING",
+        writer=True,
+    )
+
+    with pytest.raises(module.StatePayloadError, match="already exists"):
+        module.create_state_if_absent(
+            module.new_state(thread_id="thread-1"),
+            temp_root=tmp_path,
+        )
+
+    current = module.load_state("thread-1", temp_root=tmp_path)
+    assert current is not None
+    assert current["writer_lease"]["state"] == "HELD"
+    assert current["writer_lease"]["owner_id"] == "exec-1"
 
 
 def test_compat_write_state_cannot_overwrite_existing_state(tmp_path: Path):
@@ -152,6 +182,25 @@ def test_terminal_cleanup_rejects_blocking_writer(tmp_path: Path):
 
     with pytest.raises(module.StatePayloadError, match="blocking WriterLease"):
         module.remove_terminal_state("thread-1", temp_root=tmp_path)
+
+
+def test_terminal_cleanup_rejects_unknown_writer(tmp_path: Path):
+    module = load_state_module()
+    persist_with_records(
+        module,
+        tmp_path,
+        unit_state="CANCELLED",
+        lifecycle="FAILED",
+        writer=True,
+        writer_state="UNKNOWN",
+    )
+
+    with pytest.raises(module.StatePayloadError, match="blocking WriterLease"):
+        module.remove_terminal_state("thread-1", temp_root=tmp_path)
+
+    current = module.load_state("thread-1", temp_root=tmp_path)
+    assert current is not None
+    assert current["writer_lease"]["state"] == "UNKNOWN"
 
 
 def test_terminal_cleanup_requires_current_revision(tmp_path: Path):
