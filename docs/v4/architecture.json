@@ -129,10 +129,13 @@
   "host_capability_requirements": [
     "spawn",
     "observe",
+    "wait_or_wakeup",
     "followup",
     "interrupt",
-    "fresh_context_spawn",
-    "managed_child_collaboration_disabled"
+    "fresh_context_spawn"
+  ],
+  "managed_profile_requirements": [
+    "child_collaboration_disabled"
   ],
   "host_truth": {
     "capacity_owner": "codex_host",
@@ -238,9 +241,9 @@
     "host_capacity_token_required": false,
     "host_rejection_is_capacity_authority": true,
     "known_host_capacity_is_advisory_ceiling": true,
-    "unknown_counts_as_blocking": true
+    "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-1",
+  "schema_version": "4.0.0-native-core-candidate-2",
   "semantic_roles": [
     "main",
     "work",
