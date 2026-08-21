@@ -121,7 +121,6 @@ def test_new_v4_state_has_exact_bounded_top_level_shape():
         "work_units": [],
         "executions": [],
         "writer_lease": None,
-        "pending_controls": [],
         "accounting_refs": [],
         "created_at": "2026-08-17T00:00:00Z",
         "updated_at": "2026-08-17T00:00:00Z",
@@ -223,32 +222,12 @@ def test_writer_lease_owner_is_bound_to_main_or_matching_execution():
     assert module.validate_state_payload(state) == state
 
 
-def test_pending_controls_are_single_unresolved_control_per_execution():
-    module = load_module("dispatch_state_v4_controls", MODULE_PATH)
+def test_retired_pending_control_field_is_rejected():
+    module = load_module("dispatch_state_v4_no_controls", MODULE_PATH)
     state = populated_state(module)
-    control = {
-        "control_id": "control-1",
-        "unit_id": "U1",
-        "execution_id": "exec-1",
-        "operation": "INTERRUPT",
-        "target": "sd_u1_a1",
-        "payload_digest": "a" * 64,
-        "expected_team_plan_revision": None,
-        "expected_control_epoch": 0,
-        "next_control_epoch": 1,
-        "expected_lease_epoch": None,
-        "writer_effect": "NONE",
-        "state": "PREPARED",
-        "tool_use_id": None,
-    }
-    state["pending_controls"] = [control]
-    assert module.validate_state_payload(state) == state
+    state["pending_controls"] = []
 
-    duplicate = copy.deepcopy(control)
-    duplicate["control_id"] = "control-2"
-    duplicate["payload_digest"] = "b" * 64
-    state["pending_controls"].append(duplicate)
-    with pytest.raises(module.StatePayloadError, match="multiple unresolved controls"):
+    with pytest.raises(module.StatePayloadError, match="unsupported fields: pending_controls"):
         module.validate_state_payload(state)
 
 
