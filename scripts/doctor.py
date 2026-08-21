@@ -77,6 +77,15 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _profile_disables_child_collaboration(profile: Mapping[str, Any]) -> bool:
+    instructions = str(profile.get("developer_instructions", "")).lower()
+    return (
+        profile.get("agents", {}).get("enabled") is False
+        and profile.get("features", {}).get("multi_agent_v2") is False
+        and "create further subagents" in instructions
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Diagnose subagents-dispatch Native Core.")
     parser.add_argument(
@@ -216,9 +225,7 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
             or spec.get("effort") != effort
             or profile.get("model") != model
             or profile.get("model_reasoning_effort") != effort
-            or profile.get("agents", {}).get("enabled") is not False
-            or profile.get("features", {}).get("multi_agent_v2") is not False
-            or "Do not create or manage further subagents" not in str(profile.get("developer_instructions", ""))
+            or not _profile_disables_child_collaboration(profile)
         ):
             mismatches.append(role)
     if mismatches:
@@ -324,7 +331,15 @@ def diagnose_legacy(codex_home: Path) -> dict[str, Any]:
         return layer(
             "Legacy compatibility",
             "WARN",
-            "legacy ownership is unknown and automatic migration is blocked",
+            "legacy ownership is unknown. Automatic migration is blocked",
+            migration_state=status,
+        )
+    if status == "current_with_preserved_legacy_modified":
+        return layer(
+            "Legacy compatibility",
+            "OK",
+            "legacy compatibility state is classifiable",
+            action="Do not repeat automatic migration; preserve the modified legacy profile and ownership evidence.",
             migration_state=status,
         )
     return layer("Legacy compatibility", "OK", "legacy compatibility state is classifiable", migration_state=status)
