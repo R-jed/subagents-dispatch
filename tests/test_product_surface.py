@@ -57,32 +57,21 @@ def test_marketplace_plugin_source_is_exact_checkout_root():
     assert market["plugins"][0]["source"] == {"source": "local", "path": "./"}
 
 
-def test_fixed_profiles_keep_models_effort_and_child_collaboration_disabled():
+def test_fixed_profiles_follow_policy_and_child_collaboration_is_disabled():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["schema_version"] == 9
-    assert policy["fixed_execution_profiles"] == {
-        "luna": "max",
-        "terra": "high",
-        "sol": "high",
-        "dynamic_effort_routing": False,
-    }
     assert policy["delegation"] == {"max_depth": 1, "fork_turns": "none"}
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
-    expected = {
-        "reader": ("gpt-5.6-luna", "max"),
-        "worker": ("gpt-5.6-luna", "max"),
-        "investigator": ("gpt-5.6-terra", "high"),
-        "solver": ("gpt-5.6-sol", "high"),
-        "advisor": ("gpt-5.6-sol", "high"),
-    }
-    assert set(policy["roles"]) == set(expected)
-    for role, (model, effort) in expected.items():
-        spec = policy["roles"][role]
-        profile = tomllib.loads((ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8"))
-        assert spec["model"] == profile["model"] == model
-        assert spec["effort"] == profile["model_reasoning_effort"] == effort
-        assert profile["agents"]["enabled"] is False
-        assert profile["features"]["multi_agent_v2"] is False
+    assert set(policy["roles"]) == {"reader", "worker", "investigator", "solver", "advisor"}
+
+    for role, spec in policy["roles"].items():
+        profile = tomllib.loads(
+            (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
+        )
+        assert profile["model"] == spec["model"], role
+        assert profile["model_reasoning_effort"] == spec["effort"], role
+        assert profile["agents"]["enabled"] is False, role
+        assert profile["features"]["multi_agent_v2"] is False, role
 
 
 def test_native_core_release_is_blocked_until_external_n0_n8_campaign_passes():
