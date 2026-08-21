@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -9,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
+POLICY = ROOT / "contracts" / "policy.json"
 
 
 def load_module(name: str, filename: str):
@@ -30,20 +32,22 @@ def test_orchestrate_and_doctor_are_the_final_public_surface():
     assert skills == ["doctor", "orchestrate"]
 
 
-def test_fixed_profile_routing_never_changes_model_or_effort():
+def test_fixed_profile_routing_uses_the_policy_model_effort_contract():
     orchestrate = load_module("p7_orchestrate_routes", "orchestrate_v4.py")
+    roles = json.loads(POLICY.read_text(encoding="utf-8"))["roles"]
     cases = [
-        ({"intent": "inspect"}, "reader", "gpt-5.6-luna", "max"),
-        ({"intent": "implement", "requires_write": True}, "worker", "gpt-5.6-luna", "max"),
-        ({"intent": "investigate", "broad_investigation": True}, "investigator", "gpt-5.6-terra", "high"),
-        ({"intent": "solve", "stalled_or_high_judgment": True, "requires_write": True}, "solver", "gpt-5.6-sol", "high"),
-        ({"intent": "review", "review": True}, "advisor", "gpt-5.6-sol", "high"),
+        ({"intent": "inspect"}, "reader"),
+        ({"intent": "implement", "requires_write": True}, "worker"),
+        ({"intent": "investigate", "broad_investigation": True}, "investigator"),
+        ({"intent": "solve", "stalled_or_high_judgment": True, "requires_write": True}, "solver"),
+        ({"intent": "review", "review": True}, "advisor"),
     ]
-    for kwargs, profile_id, model, effort in cases:
+    for kwargs, profile_id in cases:
         route = orchestrate.route_profile(**kwargs)
+        spec = roles[profile_id]
         assert route["profile_id"] == profile_id
-        assert route["model"] == model
-        assert route["effort"] == effort
+        assert route["model"] == spec["model"]
+        assert route["effort"] == spec["effort"]
 
 
 def test_plan_only_does_not_create_state_or_lease(tmp_path: Path):
