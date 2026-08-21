@@ -21,7 +21,7 @@
   },
   "fixed_execution_profiles": {
     "luna": "max",
-    "terra": "high",
+    "terra": "xhigh",
     "sol": "high",
     "dynamic_effort_routing": false
   },
@@ -52,7 +52,7 @@
       "profile_file": "subagents-dispatch-investigator.toml",
       "agent_type": "subagents_dispatch_investigator",
       "model": "gpt-5.6-terra",
-      "effort": "high",
+      "effort": "xhigh",
       "mutation_authority": "none",
       "sandbox_mode": "read-only"
     },
