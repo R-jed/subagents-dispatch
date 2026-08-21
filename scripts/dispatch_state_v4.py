@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os as _os
 from pathlib import Path as _Path
-from typing import Any as _Any, Callable as _Callable, Mapping as _Mapping
+from typing import Any as _Any, Mapping as _Mapping
 
 import dispatch_state_v4_core as _core
 import state_storage as _storage
