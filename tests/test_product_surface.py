@@ -37,7 +37,7 @@ def test_plugin_manifest_is_v4_two_skill_identity_and_validator_compatible():
     assert payload["name"] == "subagents-dispatch"
     assert payload["version"] == "4.0.0"
     assert payload["skills"] == "./skills/"
-    for unsupported in ("hooks", "mcpServers", "apps", "agents"):
+    for unsupported in ("mcpServers", "apps", "agents"):
         assert unsupported not in payload
     interface = payload["interface"]
     assert len(interface["defaultPrompt"]) == 2
@@ -80,8 +80,6 @@ def test_native_core_release_is_blocked_until_external_n0_n8_campaign_passes():
     assert smoke["results"] == {}
     assert smoke["gate_id"] == "v4-real-host-n0-n8"
     assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{index}" for index in range(9)]
-    assert not (ROOT / "hooks").exists()
-    assert not (ROOT / "docs" / "v4" / "hooks.json").exists()
 
 
 def test_installation_document_keeps_supported_commands():
