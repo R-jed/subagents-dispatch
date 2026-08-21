@@ -16,7 +16,7 @@
     "contracts/interaction.md": "bd8a6ec9d80265ccf48691bd74dc2bf07032e6b43c73da1ea90b61519d37ab59",
     "contracts/policy.json": "c1f5a304e3fb48567bf29b59cfaba7ca8961ddb25b082c92f44b6c77d89dad5c",
     "contracts/receipt.md": "14a788453aede6704f9eac1bb6a7038254e6fca942e8ea7d3faa94eca6c6f376",
-    "contracts/recovery.md": "012083b3ac77174d3935ae01250bd0b8130222bc2acd5fe205fdd7fe5e9a2007",
+    "contracts/recovery.md": "6eef684a9895623dd2eb137e10408b1f3cf08e8cd0c435348b65cd8ecf1fd190",
     "contracts/responsibility-packet.md": "d87e9e3fef5b7160c9d6e75863b27989e0bc265bdfd86e9cde27b337d852f5ad",
     "contracts/routing.md": "f8b8d7b343e669f3d52d16c59ee9bbdfb42e0cbe2e632a32f5882573212703f9",
     "contracts/state.md": "b1db9a81447ea1d8b812868328d466531db63f6ff68e6153c39b44250511b94d",
@@ -49,7 +49,7 @@
     "scripts/writer_lease_v4.py": "5e28bea524c06393f2812914226182caa50d100a47def2e10eedf62a42813730",
     "skills/doctor/SKILL.md": "6a7f52e4b76b81465c3efc74d315182941cd48054351c3bdd92de5073a84d734",
     "skills/doctor/agents/openai.yaml": "1c3989188f3c3885e2e637faae04b29ac74a20bf39850e412af12301809d91a9",
-    "skills/orchestrate/SKILL.md": "bcbc937893fdff1ac786334d28d323e68093b40d6d905f9458a4ce5af497a676",
+    "skills/orchestrate/SKILL.md": "f9cf3eab6356b578e50932649958dfd338773d4c5d4bcc7796b9ff8ead232449",
     "skills/orchestrate/agents/openai.yaml": "72093396dc072c6f86fc977b27db30c1799b2c2169a4fd36dc1938042ab5a012"
   },
   "normalization": "utf-8-lf",

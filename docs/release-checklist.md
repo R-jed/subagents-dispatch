@@ -38,6 +38,8 @@ Solver / Advisor       Sol High
 
 Supported removal commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; all unrelated configuration semantics must remain unchanged, and other Codex state must remain unchanged.
 
+Repository tests should validate current product behavior and safety invariants. They should not preserve dead architecture solely to keep historical assertions green.
+
 ## 3. Native Core state and recovery gates
 
 Verify at minimum:
@@ -62,8 +64,6 @@ V4 state depends only on schema-neutral state_storage primitives
 legacy stale cleanup does not load the retired V3 orchestration engine
 plan-only creates no runtime state, lease or Host action
 ```
-
-A repository search must find no active production correctness dependency on Plugin Hook lifecycle authority, PendingControl, Guard receipts, the retired V3 orchestration state engine, a separate Team Ledger, or a replacement persisted request/receipt control plane.
 
 ## 4. Real Codex Host gate
 

@@ -49,7 +49,7 @@ Maintainer evidence and experiments
 -> experiment/calibration tooling
 ```
 
-Codex Native Subagents remain the only Agent runtime. Plugin Hooks are not part of the Native Core correctness path.
+Codex Native Subagents are the Agent runtime and lifecycle authority.
 
 ## Runtime ownership
 
@@ -76,14 +76,16 @@ Maintainer-only experiment and release-evidence tools do not automatically becom
 
 ## Compatibility
 
-V3 storage/migration helpers remain only where current Doctor or migration behavior consumes them. Experimental Hook-era V4 state has no compatibility promise in the RC5 Native Core candidate.
+V3 storage and migration helpers remain only where current Doctor or migration behavior consumes them. Older pre-release V4 state from incompatible schemas requires explicit cleanup and restart.
 
-Retired RC designs remain historical evidence and must not be treated as active runtime owners.
+Historical design records remain in Git history and release notes. They do not define current runtime ownership.
 
 ## Release boundary
 
 Repository tests prove deterministic implementation contracts. `docs/v4/host-smoke.json` owns the exact N0-N8 real Host campaign. Final Review and release evidence bind to the exact candidate after deterministic and Host verification.
 
+The release process should prefer evidence that protects user-facing behavior, lifecycle safety, installation health and candidate identity. Tests that only preserve knowledge of deleted implementation names add maintenance cost without improving the product.
+
 ## Design rule
 
-Prefer deleting competing representations and stale ceremony before adding abstractions. Add a new component only when a concrete product or safety requirement cannot be expressed safely through an existing owner.
+Prefer deleting competing representations and stale ceremony before adding abstractions. Add a new component only when a concrete product or safety requirement cannot be expressed safely through an existing owner. CI should validate these product contracts without becoming a reason to retain dead architecture.

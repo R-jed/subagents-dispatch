@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-08-21
+Last updated: 2026-08-22
 
 subagents-dispatch is a local Codex Plugin built around two explicit Skills, Codex Native Subagents and bundled local helper scripts. The project does not operate a developer-controlled server, analytics service, account system, advertising system, telemetry endpoint or remote orchestration service.
 
@@ -26,7 +26,7 @@ The managed profiles contain Plugin configuration. They do not contain conversat
 
 ## Native lifecycle and orchestration state
 
-V4.0.0 Native Core uses Codex Native Subagent lifecycle results and bounded local orchestration state. Plugin Hooks are not part of the V4.0.0 correctness path.
+V4.0.0 uses Codex Native Subagent lifecycle results and bounded local orchestration state.
 
 For an active Orchestrate execution or control flow, the Plugin may write one bounded `active.json` file below the operating system temporary directory:
 

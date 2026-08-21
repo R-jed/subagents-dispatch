@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -90,7 +91,11 @@ def test_single_work_unit_installer_keeps_null_revision_and_rejects_dependencies
     state.write_state(state.new_state(thread_id="thread-complexity"), temp_root=tmp_path)
 
     unit = graph.make_work_unit(
-        unit_id="U1", intent="inspect", goal="inspect one thing", output="evidence", done_when="evidence exists"
+        unit_id="U1",
+        intent="inspect",
+        goal="inspect one thing",
+        output="evidence",
+        done_when="evidence exists",
     )
     installed = graph.install_single_work_unit(
         "thread-complexity", unit=unit, temp_root=tmp_path
@@ -175,10 +180,10 @@ def test_profile_machine_truth_has_one_policy_projection():
         assert managed.PROFILE_AGENT_TYPES[role] == spec["agent_type"]
 
 
-def test_runtime_integrity_excludes_maintainer_only_and_retired_control_plane_tools():
+def test_runtime_integrity_keeps_product_runtime_and_excludes_maintainer_tools():
     integrity = load_module("closure_integrity", "package_integrity.py")
     files = {path.as_posix() for path in integrity.runtime_files(ROOT)}
-    excluded = {
+    maintainer_only = {
         "scripts/calibration_profile_contract.py",
         "scripts/calibration_profiles.py",
         "scripts/calibration_profiles_core.py",
@@ -187,12 +192,8 @@ def test_runtime_integrity_excludes_maintainer_only_and_retired_control_plane_to
         "scripts/validate-experiment-campaign.py",
         "scripts/validate-experiment-run.py",
         "scripts/validate_experiment_campaign_core.py",
-        "scripts/orchestration_guard.py",
-        "scripts/dispatch_control_v4.py",
-        "scripts/host_evidence_v4.py",
-        "scripts/spawn_guard.py",
     }
-    assert not (files & excluded)
+    assert not (files & maintainer_only)
     for required in (
         "scripts/doctor.py",
         "scripts/install-agents.py",
@@ -208,20 +209,28 @@ def test_runtime_integrity_excludes_maintainer_only_and_retired_control_plane_to
 def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
-    machine = (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
+    machine = json.loads(
+        (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
+    )
 
-    assert "selection/invocation of Dispatch" not in final_review
+    for expected in (
+        "docs/v4/architecture.json",
+        "Codex Native Subagents",
+        "Orchestrate",
+        "Doctor",
+        "scripts/execution_lifecycle_v4.py",
+    ):
+        assert expected in architecture
     assert "selection/invocation of Orchestrate" in final_review
-    assert "Plugin Hooks are not a correctness authority" in architecture
-    assert '"plugin_hook_required": false' in machine
-    assert "host_evidence_v4.py" not in architecture
+    assert machine["public_skills"] == ["orchestrate", "doctor"]
+    assert machine["host_truth"]["lifecycle_owner"] == "codex_host"
 
 
 def test_recovery_contract_uses_execution_identity_and_native_lifecycle():
     recovery = (ROOT / "contracts" / "recovery.md").read_text(encoding="utf-8")
     assert "execution_id" in recovery
     assert "attempt_no" in recovery
-    assert "PendingControl" not in recovery
+    assert "Codex Native Subagents own native lifecycle truth" in recovery
     for state_name in (
         "SPAWN_PENDING",
         "RUNNING",

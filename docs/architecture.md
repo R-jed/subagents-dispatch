@@ -1,14 +1,12 @@
 # Architecture
 
-subagents-dispatch V4.0.0 is a bounded orchestration layer over Codex Native Subagents. Codex remains the Agent runtime and the authoritative source for native child materialization, collaboration-call acceptance or rejection, lifecycle status, and actual Host capacity behavior.
+subagents-dispatch V4.0.0 is a bounded orchestration layer over Codex Native Subagents. Codex remains the Agent runtime and the authoritative source for child materialization, lifecycle status, native control results, and actual Host capacity.
 
-The user-facing Main session owns user intent, authorization, decomposition, routing, scheduling policy, WriterLease, artifact verification, WorkUnit acceptance, and the final response.
-
-The normative V4 candidate architecture is `docs/v4/architecture.json`. `docs/rc5-hookless-core-design.md` records the active Native Core decision and its implementation constraints. RC5 is not frozen until implementation and release verification complete.
+The user-facing Main session owns user intent, authorization, decomposition, routing, scheduling policy, WriterLease, artifact verification, WorkUnit acceptance, integration, and the final response. The normative machine-readable contract is `docs/v4/architecture.json`.
 
 ## Public surface
 
-V4 exposes two explicit Skills:
+V4 exposes exactly two explicit Skills:
 
 ```text
 Orchestrate
@@ -17,17 +15,7 @@ Doctor
 
 `Orchestrate` owns plan-only routing, delegated execution, status, correction, continuation, interruption, cancellation, takeover, integration, and consequence-based independent review. `Doctor` diagnoses the installed Plugin package, managed profiles, Host capability surface, orchestration state, and legacy compatibility.
 
-## Semantic and capability model
-
-The semantic model stays small:
-
-```text
-main session
-Work
-Review
-```
-
-Managed profiles remain fixed:
+## Fixed profiles
 
 | Profile | Model / effort | Ordinary authority | Semantic role |
 | --- | --- | --- | --- |
@@ -37,24 +25,22 @@ Managed profiles remain fixed:
 | Solver | Sol High | bounded-source-write | Work |
 | Advisor | Sol High | none | Review |
 
-V4 does not change reasoning effort dynamically. Managed child profiles disable child multi-agent capability. A release Host that unexpectedly exposes child collaboration capability fails the managed profile contract.
+Reasoning effort is fixed. Managed child profiles disable child multi-agent capability. Configured read-only remains least-privilege intent until the running Host proves effective sandbox enforcement.
 
-Configured read-only sandbox remains least-privilege intent. RC5 does not claim Host-enforced read-only unless the running Host proves it.
-
-## Active contract owners
+## Current owners
 
 ```text
 contracts/policy.json
--> fixed profile identities, delegation invariants, review triggers
+-> fixed profiles, delegation and review policy
 
 contracts/routing.md
--> delegation value, capability selection, responsibility semantics
+-> delegation value and role selection
 
 contracts/responsibility-packet.md
--> serialized responsibility record
+-> child responsibility serialization
 
 contracts/team-plan.md
--> optional multi-responsibility dependency and integration truth
+-> optional dependency and integration truth
 
 contracts/guardrails.md
 -> authority, depth, mutation, writer, consent and external-action boundaries
@@ -72,40 +58,32 @@ contracts/recovery.md
 -> WorkUnit / ExecutionBinding recovery behavior
 
 contracts/receipt.md
--> user-facing factual execution summary only; no lifecycle ledger authority
+-> user-facing factual execution summary
 
 contracts/final-review.md
 -> exact-candidate independent review
 ```
 
-Historical RC designs and Hook-era contracts do not override the active Native Core decision. Plugin Hooks are not a correctness authority in Native Core.
-
-## Runtime owners
+Runtime ownership is intentionally small:
 
 ```text
-docs/v4/architecture.json
--> candidate V4 product and safety invariants
-
 scripts/orchestrate_v4.py
 -> admission, routing and user control facade
 
 scripts/dispatch_state_v4.py
--> bounded session-scoped V4 state and Host lifecycle reconciliation
+-> bounded session-scoped state and Host lifecycle reconciliation
 
 scripts/state_storage.py
--> schema-neutral thread identity, path safety, locking and atomic persistence
-
-scripts/legacy_state_cleanup.py
--> explicit cleanup compatibility for stale terminal V3 capsules only
+-> path safety, locking and atomic persistence
 
 scripts/work_graph_v4.py
 -> WorkUnit truth, dependency and acceptance transitions
 
 scripts/scheduler_v4.py
--> wakeup-driven product admission, fanout and backpressure
+-> wakeup-driven admission, fanout and backpressure
 
 scripts/execution_lifecycle_v4.py
--> ExecutionBinding allocation, same-child lifecycle operations, and direct Host observation facade
+-> ExecutionBinding allocation and same-child lifecycle operations
 
 scripts/writer_lease_v4.py
 -> canonical WriterLease ownership and settlement
@@ -117,10 +95,8 @@ scripts/host_capabilities.py
 -> native Host capability normalization
 
 scripts/inspect-collaboration-runtime.py
--> optional allowlisted rollout evidence for recovery and release attestation
+-> optional allowlisted rollout evidence for recovery and release validation
 ```
-
-The retired V3 orchestration state engine, separate Team Ledger, Plugin Hook interception, PendingControl, Hook-specific tool-name normalization, Hook capacity tokens, Guard coverage proof, and replacement request/receipt ledgers are outside the Native Core correctness path.
 
 ## Single responsibility and coordinated work
 
@@ -148,6 +124,8 @@ Recognized success binds observed child identity and lifecycle. A recognized pre
 
 FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch` before a later Host generation may become current. Writable reactivation reserves or retains WriterLease first.
 
+STEER targets a currently RUNNING child through the native followup primitive without changing lifecycle generation or consuming focused-correction budget.
+
 INTERRUPT requests native interruption. The call result alone never releases WriterLease. Current-generation Host settlement is required before writer transfer or takeover.
 
 `UNKNOWN` blocks replacement execution, conflicting writer ownership, and final acceptance until reconciled.
@@ -162,9 +140,9 @@ control_epoch
 lease_epoch when applicable
 ```
 
-The basis does not require a persisted PreToolUse record. Stale-generation observations are discarded. Delayed evidence from an older epoch cannot reactivate or settle the current generation.
+Stale-generation observations are discarded. Delayed evidence from an older epoch cannot reactivate or settle the current generation.
 
-`list_agents` supports Status, recovery, takeover settlement, and ambiguity reconciliation. The allowlisted rollout inspector remains optional and is used when exact raw collaboration evidence is required. It is not a mandatory per-call receipt subsystem.
+`list_agents` supports Status, recovery, takeover settlement, and ambiguity reconciliation. The allowlisted rollout inspector remains optional and is used only when exact raw collaboration evidence is required for recovery or release validation.
 
 ## Scheduling
 
@@ -178,7 +156,7 @@ one canonical managed writer
 UNKNOWN counts as blocking occupancy
 ```
 
-Known Host capacity may reduce an advisory launch ceiling. Unknown Host capacity does not require an occupancy token before a bounded spawn attempt. Codex Host owns actual capacity and may reject the call.
+Known Host capacity may reduce an advisory launch ceiling. Unknown Host capacity does not block a bounded spawn attempt. Codex Host owns actual capacity and may reject the call.
 
 A writable Worker or Solver is admitted only when no other managed child is active in the canonical checkout. Read-oriented managed children may run together when independent. Final Review waits for the writer to settle. These phase rules reduce checkout interference and do not claim OS containment.
 
@@ -188,13 +166,9 @@ V4 keeps one canonical managed writer. WriterLease is project scheduling ownersh
 
 A writable activation acquires or retains the lease before Host activation. A writer in RUNNING, REVOKING, or UNKNOWN remains blocking. INTERRUPT return alone cannot release it. Release or transfer requires current-generation Host lifecycle settlement evidence.
 
-WriterLease settlement does not depend on PendingControl acknowledgement or Guard coverage proof.
-
-WriterLease schema simplification is deferred until native interrupt, takeover, UNKNOWN, and crash-recovery behavior are verified after Hook removal.
-
 ## Child coordination
 
-Main is the sole managed coordinator. Managed child profiles disable native multi-agent capability and receive behavioral instructions not to create further subagents. Peer messages have no authority semantics and are not part of the correctness path.
+Main is the sole managed coordinator. Managed child profiles disable native multi-agent capability and receive behavioral instructions not to create further subagents. Peer messages have no authority semantics and are outside the managed coordination contract.
 
 If a future Host exposes managed child collaboration despite the verified profile configuration, the Host/build fails release readiness until adapted and re-tested.
 
@@ -204,17 +178,13 @@ After Main establishes Candidate Ready, `contracts/final-review.md` decides whet
 
 Git-backed deliverables use `scripts/review-artifact.py`; non-Git deliverables use deterministic SHA-256 serialization. Any material candidate mutation invalidates the previous verdict.
 
-## Migration
+## Compatibility
 
 V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed. Explicit stale cleanup understands only the minimum legacy schema needed to prove a terminal V3 capsule safe to remove.
 
-RC5 Native Core is pre-release and carries no compatibility promise for experimental V4 state containing PendingControl. Development and release validation use fresh Native Core state after schema cutover.
-
-The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata, not raw prompts, child transcripts, reasoning traces, source copies, or arbitrary Host output.
+Older pre-release V4 state from incompatible schemas requires explicit cleanup and restart. The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata, not raw prompts, child transcripts, reasoning traces, source copies, or arbitrary Host output.
 
 ## Release verification
-
-RC5 freezes after deterministic verification, behavior comparison, Host verification, and adversarial review.
 
 The Native Core Host campaign is:
 
@@ -230,8 +200,8 @@ N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and truthful sandbox reporting
 ```
 
-A repository search must find no active production correctness dependency on Plugin Hook, PendingControl, the retired V3 orchestration state engine, a separate Team Ledger, or a replacement persisted request/receipt control plane before freeze.
+Repository CI supports delivery by catching regressions. It does not define product value and cannot substitute for real Host behavior, installed-product checks, or Main acceptance semantics.
 
 ## V4.0.0 exclusions
 
-The release excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, parallel isolated managed writers, Plugin Hook lifecycle authority, PendingControl, the retired V3 orchestration engine, separate Team Ledger state, and replacement operation-receipt ledgers.
+The release excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, and parallel isolated managed writers.

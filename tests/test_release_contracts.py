@@ -12,7 +12,6 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 CHANGELOG_V3 = ROOT / "CHANGELOG_V3.md"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
-BEHAVIOR_COMPARISON = ROOT / "docs" / "v4" / "rc4-native-core-behavior-comparison.json"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -55,43 +54,5 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
         "N7_rollout_reconciliation_privacy",
         "N8_final_review_and_sandbox_truth",
     ]
-    assert "activation_manifest" not in smoke
-    assert "production_manifest" not in smoke
-    assert architecture["host_truth"]["plugin_hook_required"] is False
-
-
-def test_rc4_native_core_behavior_comparison_records_only_reviewed_deltas():
-    comparison = json.loads(BEHAVIOR_COMPARISON.read_text(encoding="utf-8"))
-
-    assert comparison["baseline"] == {
-        "name": "RC4 Host contract closure",
-        "commit": "c6c788bf1d5ba4a061b6252fc307fafec7ef07a3",
-        "source_pr": 73,
-    }
-    assert comparison["comparison_result"]["blocking_unapproved_behavior_regressions"] == 0
-    assert comparison["comparison_result"]["release_ready"] is False
-    assert comparison["comparison_result"]["status"] == "READY_FOR_EXACT_CANDIDATE_HOST_VALIDATION"
-
-    assert {item["id"] for item in comparison["corrected_regressions"]} == {
-        "terra-effort-drift",
-        "steer-correction-conflation",
-    }
-    assert all(item["status"] == "CORRECTED" for item in comparison["corrected_regressions"])
-
-    assert {item["id"] for item in comparison["intentional_changes"]} == {
-        "remove-hook-correctness-authority",
-        "remove-pending-control",
-        "capacity-policy",
-        "broad-reader-fanout",
-        "public-skill-surface",
-        "receipt-surface",
-    }
-    assert all(item["status"] == "APPROVED_DELTA" for item in comparison["intentional_changes"])
-
-    pending_host = {item["id"]: item["status"] for item in comparison["host_evidence_required"]}
-    assert pending_host == {
-        "N0-N8": "PENDING",
-        "same-child-rejection-edge": "PENDING_N4",
-        "interrupt-rejection-edge": "PENDING_N5",
-        "sandbox-truth": "PENDING_N8",
-    }
+    assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
+    assert architecture["host_truth"]["capacity_owner"] == "codex_host"

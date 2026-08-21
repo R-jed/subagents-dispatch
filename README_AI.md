@@ -1,6 +1,6 @@
 # subagents-dispatch: AI Agent Reference
 
-This file is an index to current product owners. Historical RC documents do not override the Native Core candidate.
+This file is an index to current product owners. Historical design records do not override the Native Core candidate.
 
 ## Project identity
 
@@ -91,8 +91,6 @@ scripts/inspect-collaboration-runtime.py
 docs/v4/host-smoke.json
 -> candidate-bound N0-N8 real Host release gate
 ```
-
-Plugin Hook lifecycle authority, PendingControl, Guard receipts, Hook capacity tokens, and a replacement request/receipt control plane are retired from Native Core.
 
 ## Compatibility owners
 

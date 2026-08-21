@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-11",
+  "schema_version": "4.0.0-phase-status-12",
   "candidate_branch": "v4/rc5-native-core",
   "architecture": "native_core",
   "repository_phases": {
@@ -8,20 +8,14 @@
     "work_graph_scheduler": "PASS",
     "writer_lease_recovery": "PASS",
     "public_orchestrate_doctor_surface": "PASS",
-    "hook_control_plane_removal": "PASS",
     "product_plane_closure": "PASS",
     "model_effort_alignment": "PASS",
-    "v3_residue_closure": "PASS",
-    "rc4_native_core_behavior_comparison": "PASS"
+    "v3_residue_closure": "PASS"
   },
   "fixed_profiles": {
     "luna": "max",
     "terra": "high",
     "sol": "high"
-  },
-  "behavior_comparison": {
-    "contract": "docs/v4/rc4-native-core-behavior-comparison.json",
-    "result": "READY_FOR_EXACT_CANDIDATE_HOST_VALIDATION"
   },
   "current_runtime_owners": [
     "scripts/orchestrate_v4.py",
@@ -36,14 +30,6 @@
   "legacy_compatibility_owners": [
     "scripts/legacy_migration.py",
     "scripts/legacy_state_cleanup.py"
-  ],
-  "retired_from_current_runtime": [
-    "Plugin Hook lifecycle authority",
-    "PendingControl",
-    "Guard receipt control plane",
-    "V3 orchestration state engine",
-    "separate Team Ledger",
-    "persistent receipt event accounting"
   ],
   "real_host_gate": {
     "status": "PENDING_RELEASE_GATE",

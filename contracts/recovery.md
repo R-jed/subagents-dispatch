@@ -61,7 +61,7 @@ Before a reconciliation-sensitive Host observation, capture the current Executio
 
 A stale observation is discarded. An ambiguous observation moves lifecycle to `UNKNOWN`. For a writable execution, ambiguity also keeps WriterLease blocking.
 
-Normal recovery may use `list_agents`. Exact root rollout inspection is reserved for cases where native call materialization or identity remains ambiguous, and for release attestation. Recovery does not require a persisted Hook request/receipt pair.
+Normal recovery may use `list_agents`. Exact root rollout inspection is reserved for cases where native call materialization or identity remains ambiguous, and for release attestation. Recovery authority comes from current Host observations and bounded local state.
 
 ## Failure and blocker axes
 

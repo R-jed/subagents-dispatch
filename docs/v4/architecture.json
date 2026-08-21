@@ -106,18 +106,6 @@
       ]
     }
   },
-  "excluded_from_v4_0_0": [
-    "dynamic_reasoning_effort",
-    "nested_delegation",
-    "automatic_worktree_manager",
-    "parallel_isolated_writers",
-    "peer_delegation",
-    "persistent_scheduler_database",
-    "daemon_scheduler",
-    "plugin_hook_correctness_dependency",
-    "pending_control_protocol",
-    "operation_intent_receipt_ledger"
-  ],
   "execution": {
     "control_epoch_scope": "execution_binding",
     "fresh_agent_attempt_limit": 2,
@@ -147,8 +135,7 @@
     "capacity_owner": "codex_host",
     "child_identity_owner": "codex_host",
     "lifecycle_owner": "codex_host",
-    "materialization_owner": "codex_host",
-    "plugin_hook_required": false
+    "materialization_owner": "codex_host"
   },
   "invariants": {
     "I01": "A canonical workspace has at most one managed writer lease in RESERVED, HELD, REVOKING, or UNKNOWN.",
@@ -163,7 +150,7 @@
     "I10": "Plan-only orchestration never acquires WriterLease.",
     "I11": "Main must acquire the same WriterLease abstraction before managed integration writes.",
     "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
-    "I13": "Ordinary correctness does not depend on Plugin Hook, PendingControl, or a replacement request-receipt control plane."
+    "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement."
   },
   "migration": {
     "silent_live_state_migration": false,
@@ -214,11 +201,9 @@
       "control_epoch",
       "lease_epoch"
     ],
-    "persist_pre_tool_basis": false,
     "stale_observation_action": "discard"
   },
   "release": {
-    "freeze_after_implementation_and_verification": true,
     "host_campaign": [
       "N0_route_model_effort_fork_turns",
       "N1_child_collaboration_absent",
@@ -244,12 +229,11 @@
   },
   "scheduler": {
     "acceptance_backpressure_threshold": 2,
-    "host_capacity_token_required": false,
     "host_rejection_is_capacity_authority": true,
     "known_host_capacity_is_advisory_ceiling": true,
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-2",
+  "schema_version": "4.0.0-native-core-candidate-3",
   "semantic_roles": [
     "main",
     "work",
@@ -298,7 +282,6 @@
       "REVOKING",
       "UNKNOWN"
     ],
-    "hook_guard_proof_required_for_settlement": false,
     "main_requires_lease_for_managed_write": true,
     "parallel_isolated_writers_v4": false,
     "scope": "canonical_workspace",
