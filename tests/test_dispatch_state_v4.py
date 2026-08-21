@@ -11,7 +11,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 MODULE_PATH = SCRIPTS / "dispatch_state_v4.py"
-V3_PATH = SCRIPTS / "dispatch_state.py"
 
 
 def load_module(name: str, path: Path):
@@ -65,7 +64,7 @@ def execution(
     model, effort, authority = {
         "reader": ("gpt-5.6-luna", "max", "none"),
         "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "high", "none"),
+        "investigator": ("gpt-5.6-terra", "xhigh", "none"),
         "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
         "advisor": ("gpt-5.6-sol", "high", "none"),
     }[profile_id]
@@ -259,9 +258,13 @@ def test_state_revision_cas_and_atomic_persistence(tmp_path: Path):
 
 def test_v4_loader_fails_closed_on_v3_live_state(tmp_path: Path):
     v4 = load_module("dispatch_state_v4_legacy", MODULE_PATH)
-    v3 = load_module("dispatch_state_v3_for_v4_legacy", V3_PATH)
-    legacy = v3.new_state(thread_id="thread-1")
-    v3.write_state(legacy, temp_root=tmp_path)
+    legacy_path = v4.state_path("thread-1", temp_root=tmp_path)
+    legacy_path.parent.mkdir(parents=True, mode=0o700)
+    legacy_path.write_text(
+        '{"schema_version":"1.0","root_thread_id":"thread-1","units":[]}',
+        encoding="utf-8",
+    )
+    legacy_path.chmod(0o600)
 
     with pytest.raises(v4.StateCorruptError, match="unsupported fields|schema_version"):
         v4.load_state("thread-1", temp_root=tmp_path)
