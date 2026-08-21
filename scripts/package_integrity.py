@@ -20,19 +20,16 @@ STATIC_FILES = (
     PurePosixPath(".codex-plugin/plugin.json"),
     PurePosixPath(".agents/plugins/marketplace.json"),
     PurePosixPath("docs/python-runtime.md"),
-    PurePosixPath("docs/v4/hooks.json"),
 )
 RUNTIME_DIRECTORIES = (
     PurePosixPath("agent-profiles"),
     PurePosixPath("contracts"),
-    PurePosixPath("hooks"),
     PurePosixPath("skills"),
 )
 RUNTIME_SCRIPT_FILES = tuple(
     PurePosixPath(path)
     for path in (
         "scripts/check-plugin-update.py",
-        "scripts/dispatch_control_v4.py",
         "scripts/dispatch_state.py",
         "scripts/dispatch_state_v4.py",
         "scripts/dispatch_state_v4_core.py",
@@ -42,26 +39,24 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/execution_lifecycle_v4.py",
         "scripts/execution_lifecycle_v4_core.py",
         "scripts/host_capabilities.py",
-        "scripts/host_evidence_v4.py",
         "scripts/inspect-agent-runtime.py",
+        "scripts/inspect-collaboration-runtime.py",
         "scripts/install-agents.py",
         "scripts/legacy_migration.py",
         "scripts/managed_execution_v4.py",
         "scripts/orchestrate_v4.py",
-        "scripts/orchestration_guard.py",
         "scripts/package_integrity.py",
         "scripts/plugin_update.py",
         "scripts/policy.py",
+        "scripts/release_evidence_v4.py",
         "scripts/review-artifact.py",
         "scripts/runtime-evidence.py",
         "scripts/scheduler_v4.py",
-        "scripts/spawn_guard.py",
         "scripts/uninstall-agents.py",
         "scripts/validate_team_ledger.py",
         "scripts/validate_team_plan.py",
         "scripts/work_graph_v4.py",
         "scripts/writer_lease_v4.py",
-        "scripts/writer_lease_v4_core.py",
     )
 )
 IGNORED_PARTS = {"__pycache__"}
@@ -133,11 +128,7 @@ def _iter_directory_files(root: Path, relative_dir: PurePosixPath) -> Iterable[P
 
 
 def runtime_files(root: Path = ROOT) -> list[PurePosixPath]:
-    root = root.expanduser()
-    try:
-        root = root.resolve(strict=True)
-    except OSError as exc:
-        raise IntegrityError("Plugin root is unavailable") from exc
+    root = root.expanduser().resolve(strict=True)
     files = set(STATIC_FILES)
     for relative_dir in RUNTIME_DIRECTORIES:
         files.update(_iter_directory_files(root, relative_dir))
@@ -209,15 +200,7 @@ def verify_package(root: Path = ROOT, *, profile: str = "full") -> dict[str, Any
         root = root.resolve(strict=True)
         manifest = load_manifest(root)
     except (OSError, IntegrityError) as exc:
-        return {
-            "ok": False,
-            "profile": profile,
-            "missing": [],
-            "mismatched": [],
-            "unsafe": [],
-            "manifest_error": str(exc),
-        }
-
+        return {"ok": False, "profile": profile, "missing": [], "mismatched": [], "unsafe": [], "manifest_error": str(exc)}
     files = manifest["files"]
     assert isinstance(files, Mapping)
     if profile == "full":
@@ -226,7 +209,6 @@ def verify_package(root: Path = ROOT, *, profile: str = "full") -> dict[str, Any
         targets = list(UPDATE_BOOTSTRAP_PATHS)
     else:
         raise ValueError(f"unsupported integrity profile: {profile}")
-
     missing: list[str] = []
     mismatched: list[str] = []
     unsafe: list[str] = []
@@ -250,16 +232,12 @@ def verify_package(root: Path = ROOT, *, profile: str = "full") -> dict[str, Any
             continue
         if actual != expected:
             mismatched.append(relative_text)
-
     version_error: str | None = None
     try:
-        plugin_version = _plugin_version(root)
-        manifest_version = manifest.get("plugin_version")
-        if manifest_version != plugin_version:
+        if manifest.get("plugin_version") != _plugin_version(root):
             version_error = "package-integrity manifest version does not match plugin.json"
     except IntegrityError as exc:
         version_error = str(exc)
-
     return {
         "ok": not missing and not mismatched and not unsafe and version_error is None,
         "profile": profile,
