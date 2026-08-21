@@ -12,8 +12,6 @@ PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 POLICY = ROOT / "contracts" / "policy.json"
 SKILLS = ROOT / "skills"
-HOOKS = ROOT / "hooks" / "hooks.json"
-REFERENCE_HOOKS = ROOT / "docs" / "v4" / "hooks.json"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 PUBLIC_SKILLS = {"orchestrate", "doctor"}
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
@@ -59,7 +57,7 @@ def test_marketplace_plugin_source_is_exact_checkout_root():
     assert market["plugins"][0]["source"] == {"source": "local", "path": "./"}
 
 
-def test_fixed_profile_policy_is_luna_max_terra_high_sol_high():
+def test_fixed_profiles_keep_models_effort_and_child_collaboration_disabled():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["schema_version"] == 9
     assert policy["fixed_execution_profiles"] == {
@@ -83,18 +81,18 @@ def test_fixed_profile_policy_is_luna_max_terra_high_sol_high():
         profile = tomllib.loads((ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8"))
         assert spec["model"] == profile["model"] == model
         assert spec["effort"] == profile["model_reasoning_effort"] == effort
+        assert profile["agents"]["enabled"] is False
+        assert profile["features"]["multi_agent_v2"] is False
 
 
-def test_v4_active_hook_candidate_is_release_blocked_by_real_host_smoke():
-    active = json.loads(HOOKS.read_text(encoding="utf-8"))
-    reference = json.loads(REFERENCE_HOOKS.read_text(encoding="utf-8"))
+def test_native_core_release_is_blocked_until_external_n0_n8_campaign_passes():
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
-    assert set(active["hooks"]) == {"PreToolUse", "PostToolUse", "SubagentStop"}
-    assert reference["hooks"] == active["hooks"]
-    assert smoke["activation_manifest"] == "hooks/hooks.json"
-    assert smoke["production_manifest"] == "hooks/hooks.json"
-    assert smoke["status"] != "PASS"
-    assert smoke["gate_id"] == "v4-real-host-h00-h20"
+    assert smoke["status"] == "PENDING"
+    assert smoke["results"] == {}
+    assert smoke["gate_id"] == "v4-real-host-n0-n8"
+    assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{index}" for index in range(9)]
+    assert not (ROOT / "hooks").exists()
+    assert not (ROOT / "docs" / "v4" / "hooks.json").exists()
 
 
 def test_installation_document_keeps_supported_commands():
