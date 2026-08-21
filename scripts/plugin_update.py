@@ -300,7 +300,7 @@ def installation_layer_from_payload(
         return _layer(
             "WARN",
             "a newer stable version is present in the canonical Marketplace checkout",
-            action="Run Doctor with explicit update intent, then start a fresh Codex session.",
+            action="Run the explicit Plugin updater, then start a fresh Codex session.",
             **details,
         )
     if package_cache_skew:
@@ -321,7 +321,7 @@ def installation_layer_from_payload(
         return _layer(
             "WARN",
             "Marketplace release identity and installed Plugin version differ",
-            action="Run Doctor with explicit update intent and review the resulting installed identity.",
+            action="Run the explicit Plugin updater and review the resulting installed identity.",
             **details,
         )
     return _layer(
@@ -499,22 +499,34 @@ def _verify_new_package(
     doctor_result = _run_python(
         sys.executable,
         doctor,
-        ["--codex-home", str(codex_home), "--json", "--thread-id", "plugin-update-verification"],
+        [
+            "--codex-home",
+            str(codex_home),
+            "--json",
+            "--check",
+            "--thread-id",
+            "plugin-update-verification",
+        ],
         env=env,
     )
     if doctor_result.returncode != 0:
-        raise UpdateError("updated Plugin Doctor could not run")
+        raise UpdateError("updated Plugin Doctor reported a blocking product-health failure")
     try:
         report = json.loads(doctor_result.stdout)
     except json.JSONDecodeError as exc:
         raise UpdateError("updated Plugin Doctor returned invalid JSON") from exc
-    if not isinstance(report, dict) or not isinstance(report.get("layers"), list):
+    if not isinstance(report, dict) or set(report) != {"layers", "actions"}:
+        raise UpdateError("updated Plugin Doctor report does not match the Native Core contract")
+    layers = report.get("layers")
+    actions = report.get("actions")
+    if not isinstance(layers, list) or not isinstance(actions, list):
         raise UpdateError("updated Plugin Doctor report is invalid")
-    if report.get("schema_version") != 6 or report.get("healthy") is not True:
-        raise UpdateError("updated Plugin Doctor did not report a healthy product state")
+    if actions:
+        raise UpdateError("post-update Doctor performed an unexpected maintenance action")
+
     observed = {
         item.get("name"): item.get("status")
-        for item in report["layers"]
+        for item in layers
         if isinstance(item, dict)
     }
     expected_layers = {
@@ -530,7 +542,7 @@ def _verify_new_package(
         raise UpdateError("updated Plugin Doctor did not verify the Plugin package")
     if observed["Managed Agents"] != "OK":
         raise UpdateError("updated Plugin Doctor did not verify managed Agent profiles")
-    if observed["Host integration"] not in {"WARN", "UNKNOWN"}:
+    if observed["Host integration"] not in {"OK", "WARN", "UNKNOWN"}:
         raise UpdateError("updated Plugin Doctor reported an unsafe Host integration state")
     if observed["Orchestration state"] != "OK":
         raise UpdateError("updated Plugin Doctor reported an unsafe orchestration state")
@@ -627,7 +639,7 @@ def update_plugin(
             {"name": "Marketplace", "status": "OK", "summary": f"canonical checkout exposes {target_version}"},
             {"name": "Plugin package", "status": "OK", "summary": f"installed and verified {installed_version}"},
             {"name": "Managed Agent profiles", "status": "OK", "summary": "reconciled and verified by the updated package"},
-            {"name": "Post-update Doctor", "status": "OK", "summary": "updated package identity and static product surfaces verified"},
+            {"name": "Post-update Doctor", "status": "OK", "summary": "updated package product-health contract verified"},
         ],
     }
 
@@ -639,7 +651,7 @@ def render_update(report: Mapping[str, Any]) -> str:
             lines.append(f"[{item.get('status', 'UNKNOWN')}] {item.get('name', 'Unknown')}: {item.get('summary', '')}")
     lines.extend(["", f"Version: {report.get('from_version')} -> {report.get('to_version')}"])
     if report.get("restart_required") is True:
-        lines.append("[RESTART] Start a fresh Codex session to activate the installed Plugin and review any changed Hook trust prompt.")
+        lines.append("[RESTART] Start a fresh Codex session to activate the installed Plugin package.")
     else:
         lines.append("[OK] No Plugin package change is required.")
     lines.extend(["", "Overall: UPDATE COMPLETE"])

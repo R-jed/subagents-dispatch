@@ -1,334 +1,120 @@
 # Native Subagent Runtime Contract
 
-subagents-dispatch uses Codex Native Subagents and child threads directly. It does not create another Agent runtime, persistent scheduler, daemon, thread pool, routing proxy, control server, or telemetry collector.
+subagents-dispatch uses Codex Native Subagents directly. It does not create another Agent runtime, daemon, background poller, thread pool, routing proxy, control server, persistent scheduler database, or telemetry collector.
 
-The distinction is deliberate:
+## Public entry points
 
-| Native Codex | subagents-dispatch |
-| --- | --- |
-| runs the main session and child threads | decides whether delegation helps and which exact project role is useful |
-| exposes whatever capacity/wait/update/control/runtime metadata the build supports | uses only observed capability without inventing a universal runtime contract |
-| provides custom Agent configuration and sandbox/tool surfaces | adds one-writer, consent, trust, exact-role, and interaction-control boundaries |
-| can expose native child status/control surfaces | maps explicit user Status/Steer/Takeover requests onto those surfaces when available |
-| returns child output | verifies claims against the actual artifact and relevant evidence |
-
-## Explicit entry point and control intents
-
-The Plugin packages six explicit Skill ids: `dispatch`, `preview`, `status`, `steer`, `takeover`, and `doctor`. Their intended display labels come from each `agents/openai.yaml`; the exact labels rendered by a particular App build are verified directly during release validation rather than inferred from repository metadata.
-
-Implicit invocation is disabled. The user chooses when adaptive delegation or dispatch control is worth applying.
-
-After explicit Skill selection, the conceptual inputs are:
+The Plugin exposes exactly two explicit Skills:
 
 ```text
-Dispatch: a new task, related continuation, or no new task for resume
-Preview: a task to project without execution
-Status: optional exact unit-id zoom
-Steer: optional exact unit id plus focused guidance
-Takeover: optional exact unit id plus optional guidance for Main after transfer
-Doctor: diagnostic intent plus explicit live/repair/cleanup/migration intent when needed
+Orchestrate
+Doctor
 ```
 
-These are semantic inputs after selection, not guessed literal App slash strings. The App-visible selection form is a Host/UI fact.
-
-Preview does not touch the native child runtime. Status is a one-shot observation. Steer and Takeover use native child-control capability when the current Host exposes it. The Plugin does not emulate unavailable Host controls with a background controller.
+Orchestrate contains plan-only, status, steer, takeover, cancel, continue, correction, execution, review and integration as control intents inside one public Skill. Implicit invocation is disabled.
 
 ## Native control boundary
 
-Current Codex Subagents surfaces expose user-facing management of Agent threads, including inspecting Agents and asking Codex to steer, stop, close, or resume child work when supported by the current build. subagents-dispatch treats that native surface as the control primitive.
-
-The Plugin adds semantic safety around it:
+Codex Host owns child materialization, lifecycle execution, actual capacity and native control primitives. subagents-dispatch adds product semantics around those facts:
 
 ```text
-Steer
--> same responsibility / attempt / role / authority
+fresh spawn
+-> exact managed agent_type
+-> fork_turns = none
+-> Host success binds one child identity
+-> explicit pre-materialization rejection rolls back provisional activation
+-> ambiguous materialization becomes UNKNOWN
 
-Takeover
--> request child stop/close when needed
--> prove old owner is no longer active
--> verify/preserve useful evidence
--> transfer responsibility to Main
+same-child followup
+-> same ExecutionBinding
+-> one bounded focused correction budget
+-> control_epoch advances
 
-Dispatch resume
--> resume or observe the same bound attempt
--> no replacement child merely because Main changed turns
+continue
+-> same interrupted ExecutionBinding
+-> no fresh-attempt or correction-budget consumption
+
+interrupt / takeover
+-> request native interruption
+-> interrupt return alone does not release WriterLease
+-> current-generation Host settlement must prove the old writer is non-active
 ```
 
-For a writing child, Main remains read-only until the previous writer is confirmed non-active. If native state cannot be established, it stays `UNKNOWN`. The Plugin does not claim a successful takeover or start conflicting mutation.
-
-The compact product lifecycle normalizes only the native facts needed for orchestration. The current supported child-status surface is handled by `contracts/state.md` as:
-
-```text
-pendingInit  -> RUNNING once an inspectable child identity exists
-running      -> RUNNING
-interrupted  -> INTERRUPTED
-completed    -> COMPLETED
-errored      -> FAILED
-shutdown     -> CLOSED
-notFound     -> UNKNOWN
-```
-
-`SPAWN_PENDING` remains the product's pre-identity crash-window state. `notFound` does not prove that a previous writer shut down safely.
+`UNKNOWN` never authorizes replacement execution, conflicting writer transfer or final acceptance.
 
 ## First-use readiness
 
-The exact project roles use Codex's native custom-Agent TOML mechanism. Personal custom Agents are stored under the active Codex home `agents` directory, normally `~/.codex/agents/`.
+Managed custom-Agent profiles live under the active Codex home and may not become selectable in a task that was already running when the files were created.
 
-The current supported Host behavior loads custom-Agent role declarations into the task/session configuration when that task starts. A role file written after startup does not become a newly selectable `agent_type` for the already-running task merely because the TOML now exists on disk.
-
-When an explicit task run through Dispatch actually needs a child, role readiness is checked before delegated implementation starts:
+When delegation is useful but the exact role is unavailable:
 
 ```text
-exact required role already available
--> delegate normally
+managed profiles safely absent
+-> provision only Plugin-owned managed files
+-> verify them
+-> return RESTART_REQUIRED
 
-role unavailable + managed profiles cleanly absent
--> automatically provision only the five plugin-owned profiles + ownership manifest + installer lock
--> run installer --check
--> readiness outcome RESTART_REQUIRED
--> do not attempt spawn_agent in the current task
--> ask for one fresh Codex task/session and rerun the original request through Dispatch
+managed profiles exact but current task still lacks the role
+-> return RESTART_REQUIRED
 
-role unavailable + managed profiles already exact
--> current task still cannot use the role
--> readiness outcome RESTART_REQUIRED
--> do not probe by spawning
--> retry from one fresh task/session
-
-role unavailable + unsafe/conflicting/unowned managed state
+unsafe/conflicting ownership state
 -> USER_ACTION_REQUIRED
--> do not overwrite, substitute a role, or spawn
--> use Doctor for the exact diagnosis when useful
 ```
 
-`RESTART_REQUIRED` is a pre-dispatch readiness outcome, not a native child lifecycle state. No child attempt exists yet. On the fresh task, exact role availability is checked again; if it still fails despite exact installed profiles, the condition is treated as a Host/configuration limitation and fails closed.
-
-Routine first-use provisioning is bounded to the Plugin's fixed managed paths and is covered by explicit user selection/invocation of Dispatch once real delegation is already justified. It does not authorize `config.toml`, credentials, MCP configuration, repositories, unrelated Agent profiles, repair of unowned conflicts, migration, or upgrade changes.
-
-Preview and Status do not provision missing profiles solely to make a read-only answer richer.
-
-The installer is a project-specific lifecycle and ownership layer around native custom Agent files; it is not a second runtime.
+No speculative spawn is used to probe a known-stale registry boundary. A fresh task must expose the exact role before delegated execution proceeds.
 
 ## Current exact roles
 
 ```text
-subagents_dispatch_reader        -> gpt-5.6-luna  / max   / mutation none
-subagents_dispatch_worker        -> gpt-5.6-luna  / max   / bounded-source-write when assigned
-subagents_dispatch_solver        -> gpt-5.6-sol   / high  / bounded-source-write when assigned
-subagents_dispatch_investigator  -> gpt-5.6-terra / xhigh / mutation none
-subagents_dispatch_advisor       -> gpt-5.6-sol   / high  / mutation none
+subagents_dispatch_reader        -> gpt-5.6-luna  / max  / mutation none
+subagents_dispatch_worker        -> gpt-5.6-luna  / max  / bounded source write when granted
+subagents_dispatch_investigator  -> gpt-5.6-terra / high / mutation none
+subagents_dispatch_solver        -> gpt-5.6-sol   / high / bounded source write when granted
+subagents_dispatch_advisor       -> gpt-5.6-sol   / high / mutation none
 ```
 
-The Plugin configures model and reasoning per role, but it does not expose a per-child permission selector. Codex may expose the sandbox and permission profile that actually applied without exposing which internal source supplied them or why that source was selected. The Plugin therefore treats `selected_environment` and `parent_turn` only as candidate source vocabulary, never as an observed Host precedence rule.
+Managed child profiles disable child multi-agent capability. Profile configuration proves intent only; observed model, effort and sandbox require Host evidence when those facts are material.
 
-Responsibility semantics follow the current model guidance:
+## Capacity and fanout
+
+Delegation is value-driven. Zero children is normal when delegation adds no value.
+
+Current product ceilings are:
 
 ```text
-Luna Reader/Worker
--> clear, repeatable, bounded work
-
-Terra Investigator
--> bounded read-heavy technical investigation / evidence synthesis after semantics stabilize
-
-Sol Advisor/Solver
--> demanding, ambiguous, multi-step material judgment and judgment-coupled implementation
+initial managed children <= 2
+normal managed children <= 3
+known Host capacity may reduce the ceiling
 ```
 
-Terra is an investigation lane rather than an automatic escalation destination. A difficult technical problem that still requires demanding or material judgment belongs on the Sol path.
-
-Model-specific delegation requires the exact current profile. There is no built-in-role substitution or hidden model ladder.
-
-Profile matching proves configuration intent only. It does not prove the route a live child actually ran.
-
-## Main-session capability dedup
-
-Main-session route evidence is optional optimization data.
-
-Only when the router has already established that material judgment needs Sol capability may trusted current-session model/effort metadata be used to avoid a redundant Advisor/Solver call.
-
-`contracts/policy.json` owns the capability reference. `scripts/runtime-evidence.py` normalizes observed metadata.
-
-Current reference is Solver, GPT-5.6 Sol `high`:
-
-```text
-Sol family + high/xhigh/max
--> covered
-
-Sol family + medium/low
--> uncovered
-
-other model family
--> uncovered
-
-missing / partial / local-only / conflicted / unranked effort
--> unknown
-```
-
-Routine bounded work does not inspect main-session metadata. `unknown` is allowed to remain unknown.
-
-A covered main session can suppress ordinary Sol capability uplift. It cannot satisfy fresh independent review of its own final candidate.
-
-## Runtime evidence is diagnostic
-
-The helper supports:
-
-```text
-subject: main_session
-subject: child
-```
-
-For child diagnostics it keeps the three assurance dimensions separate:
-
-```text
-route_assurance
-permission_state_assurance
-permission_provenance_assurance
-```
-
-Use runtime diagnostics when the claim actually depends on runtime observation, including:
-
-- exact model/role/effort proof;
-- hard Host-enforced read-only;
-- main capability dedup;
-- ancestry when depth-one proof matters;
-- independent-review provenance;
-- configuration/runtime conflicts;
-- release validation.
-
-Do not run these checks as routine ceremony for every bounded child. Exact profile configuration plus real artifact verification may be sufficient when runtime route proof is not part of acceptance.
-
-Configured or selected values never become observed values by assumption. An ordinary Dispatch Receipt may display the selected project lane bound to a materialized unit, such as `Luna Max` or `Sol High`; that label reports the orchestration route selected and materialized by the project, not an independent live telemetry measurement. Explicit observed model/reasoning/permission claims remain owned by supported Host evidence normalized through `runtime-evidence.py` and Doctor live-route diagnostics. Contradictory native evidence is a route-integrity failure and must not be hidden by the selected label.
-
-## Token and usage boundary
-
-Codex App Server can expose thread token-usage update events to clients. That is a Host/client API surface and is not assumed to be available inside this Skill execution path.
-
-The current Plugin does not add a private App Server client, hook-based telemetry collector, transcript scraper, or token estimator.
-
-```text
-attributable exact Host usage available
--> may report exact usage when useful
-
-usage surface unavailable to the Skill
--> usage remains unavailable
-```
-
-Currency cost is also left unreported unless a future supported surface supplies exact attributable billing semantics. Model name, output length, and elapsed time are insufficient evidence.
-
-## Completion and wait surface
-
-The desired scheduling behavior is completion-driven when the native runtime exposes a usable completion surface.
-
-For release-relevant builds characterize the strongest actually observed surface:
-
-```text
-barrier_only
-per_child_terminal
-any_child_update
-```
-
-These are observed runtime labels, not permanent Codex constants.
-
-Example:
-
-```text
-A slow independent read-only task
-B fast independent read-only task
-C depends only on B
-
-spawn A + B
-B completes
--> process B
--> start C while A remains active only if the runtime exposes B completion and reusable capacity
-```
-
-If the runtime exposes only a barrier, subagents-dispatch degrades to that surface. It does not simulate event-driven behavior with model-mediated busy polling.
-
-Child progress observability is separate:
-
-```text
-none
-terminal_only
-periodic_summary
-structured_live
-```
-
-A wake-up event does not imply deterministic insight into child progress.
-
-The Status Skill reads the best current evidence once and returns. It does not turn this completion surface into a private poll loop.
-
-## Capacity
-
-subagents-dispatch has no minimum Subagent count, no project-level ordinary numeric child ceiling, and no target Agent count.
-
-The main session chooses the active set from responsibilities that are ready, distinct, non-duplicative, worth delegating, and safe to run now. It may use several child Agents when a task contains several independent valuable lanes. It may use none when delegation adds no value.
-
-Actual active concurrency remains bounded by:
-
-```text
-useful independent ready work
-writer safety
-exact role availability
-user scope and compute consent
-native runtime capacity
-```
-
-The Host capacity is treated as an upper bound, never a target to fill. A single observed or configured capacity value applies only to that runtime/environment.
-
-Material compute expansion is governed by `contracts/guardrails.md`. Child count alone is not the trigger.
+Unknown Host capacity does not block a bounded spawn attempt. The Host owns actual capacity and may reject the call. Spare capacity never justifies decorative work.
 
 ## Writer ownership
 
-One canonical physical checkout has one active writing actor inside the current orchestration:
+The current product manages one canonical mutable workspace. One active managed writer may own it at a time:
 
 ```text
-main session while mutating
-subagents_dispatch_worker
-subagents_dispatch_solver
+Main while mutating
+Luna Worker when granted bounded-source-write
+Sol Solver when granted bounded-source-write
 ```
 
-When a child writer owns the checkout, Main can continue read-only analysis but waits for ownership handoff before integration writes.
-
-Takeover follows the same boundary. A stop request is an action request; Main waits for evidence that the old writer is actually no longer active before writing.
-
-Concurrent writers require genuine filesystem isolation such as separate worktrees/workspaces/repositories plus semantic independence or explicit dependency/integration order. Current v3 behavior does not enable parallel writers in the canonical workspace.
-
-This session-local rule cannot exclude another Codex session, editor, hook, or external process. Current safety relies on recommended isolation plus drift detection and fail-closed behavior. Cross-session coordination must be validated empirically before a stronger mechanism is claimed.
+WriterLease is scheduling ownership, not an OS or filesystem lock. A writing execution in RUNNING, REVOKING or UNKNOWN remains blocking until current-generation Host settlement proves safe release or transfer.
 
 ## Context transfer
 
-Children normally use fresh context (`fork_turns=none`) and receive a compact responsibility packet from `contracts/routing.md`.
+Every new managed child receives fresh context with `fork_turns = none` plus the exact five-section responsibility record from `contracts/responsibility-packet.md`.
 
-Fresh context does not require repeated discovery. When Main has already verified material evidence that a later responsibility can reuse, it may add a Handoff Capsule from `contracts/handoff.md`:
+Accepted evidence may be distilled into bounded responsibility context or a Handoff Capsule. Raw transcripts, private reasoning and unverified child claims do not become inherited task truth.
 
-```text
-artifact refs
-accepted facts/evidence
-interfaces/invariants
-DO NOT REDO
-open questions
-staleness conditions
-```
+## Runtime evidence
 
-The capsule contains distilled accepted task truth. It excludes private reasoning, raw transcripts, copied source files, and unverified child claims. Relevant drift invalidates affected facts until narrow re-verification.
+Use public Host metadata first. When required runtime facts are unavailable and an exact local Codex rollout is accessible, the allowlisted inspectors may recover only the bounded identity/routing/permission metadata defined by `docs/runtime-attestation.md`.
 
-## Delegation depth
+Configured, requested, accepted and observed facts stay separate. Child prose is not observed runtime evidence.
 
-```text
-main session -> child
-child -> no further project delegation
-```
+## Completion and acceptance
 
-Unexpected descendants are outside the supported product contract.
+Host completion produces candidate work and moves the WorkUnit to `RESULT_READY`. Main verifies the actual artifact and relevant evidence before `ACCEPTED`. Dependencies unlock only from WorkUnit acceptance.
 
-## Lifecycle
-
-Process completed/no-longer-needed children promptly and close them when the native surface supports it so capacity can recover.
-
-If a runtime shows stale slots, blocking close operations, missing completion signals, absent route metadata, unresolved stop state, or other limitations, record the exact build and adapt product claims. Do not hide runtime limitations behind policy wording.
-
-## User-facing takeaway
-
-subagents-dispatch lets the main session lead a specialist team whose size follows the task. The user can preview the likely delegation, inspect or steer active responsibilities, and safely take work back into Main. Reusable context stays small and evidence-bound.
-
-Native Codex still owns thread execution, custom-Agent registration timing, and native control. subagents-dispatch handles the first-use registration boundary by provisioning cleanly missing plugin-owned profiles, returning `RESTART_REQUIRED`, and continuing only from a fresh task/session instead of attempting a known-stale spawn.
+Process no-longer-needed child work promptly when the native surface supports it. Missing, stale or ambiguous Host state remains explicit rather than being guessed.

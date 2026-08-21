@@ -1,29 +1,12 @@
 # V4.0.0 Release Checklist
 
-Use this checklist for the exact V4.0.0 candidate. Repository implementation may complete while real Codex Host evidence is unavailable, but publication remains blocked until the required Host lifecycle campaign is captured.
-
-## Evidence ownership
-
-Keep these evidence classes separate:
-
-```text
-Repository/API/CI evidence
-Raw Host/rollout evidence
-Direct human Codex App observation
-Model self-report
-```
-
-Repository/API/CI evidence closes deterministic package, schema, test, and distribution checks. Raw Host/rollout evidence owns lifecycle and runtime truth. Direct human Codex App observation owns rendered UI labels and post-selection presentation. Model self-report is supporting context and cannot close a Host/UI gate by itself.
-
-Formal calibration and benchmark campaigns remain Experiment Plane work unless a release claim explicitly depends on them. Runtime attestation and the real Host lifecycle campaign remain release-path evidence where the corresponding claims depend on observed Host behavior.
+Use this checklist for the exact Native Core V4.0.0 candidate. Repository completion does not imply Host release readiness.
 
 ## 1. Candidate identity
 
-Record the exact candidate commit, tree, Plugin version, Marketplace ref, package-integrity manifest, active `hooks/hooks.json` digest, profile contract digest, Host contract digest, Codex Host version/build, and operating systems used for smoke.
+Record the exact candidate commit/tree, Plugin version, Marketplace identity, package-integrity manifest, managed profile contract digest, Host campaign contract, Codex Host version/build, and operating systems used for validation.
 
-`.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, and the V4 changelog entry must agree on `4.0.0` before tagging. Use a versioned semantic-version tag only after all release gates pass. Verify that Marketplace installation resolves the exact tagged candidate rather than a mutable branch.
-
-The checklist does not claim platform-enforced tag immutability. Evidence that a ref resolves to an expected commit does not by itself prove platform-enforced tag immutability.
+`.codex-plugin/plugin.json`, Marketplace metadata and the V4 changelog must agree on `4.0.0` before tagging.
 
 ## 2. Repository gates
 
@@ -36,21 +19,13 @@ macOS / Python 3.11
 Windows / Python 3.11
 ```
 
-Required deterministic checks include:
+Required checks include Plugin/Marketplace validation, package-integrity regeneration, official Plugin validator, Ruff, full pytest, managed profile install/check/uninstall lifecycle, Doctor, V4 state/work graph/scheduler/lifecycle/writer tests, update lifecycle tests, migration fail-closed tests and product-surface consistency tests.
+
+Public Skill directories must be exactly:
 
 ```text
-Plugin and Marketplace JSON validation
-package-integrity regeneration check
-pinned official OpenAI Plugin validator
-Ruff
-full pytest suite
-managed Agent install/check/uninstall/reinstall lifecycle
-Doctor --check
-V4 state / Work Graph / Scheduler tests
-PendingControl / Guard / WriterLease tests
-Orchestrate tests
-migration and fail-closed tests
-tag/version parity when running from a release tag
+skills/orchestrate
+skills/doctor
 ```
 
 Production model/effort remains fixed:
@@ -61,99 +36,63 @@ Investigator           Terra High
 Solver / Advisor       Sol High
 ```
 
-Public Skill directories must be exactly:
+## 3. Native Core state and recovery gates
+
+Verify at minimum:
 
 ```text
-skills/orchestrate
-skills/doctor
-```
-
-For route evidence preserve `Configured -> Requested -> Accepted -> Observed`. Never promote accepted routing metadata or child prose into observed runtime truth.
-
-Supported uninstall commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged, and all unrelated configuration semantics must remain unchanged.
-
-## 3. State and migration gates
-
-Verify:
-
-```text
-state v4 remains bounded and thread scoped
+state is bounded and root-session scoped
 WorkUnit acceptance is separate from Host lifecycle
-Host COMPLETED advances only to RESULT_READY
-dependencies unlock only from WorkUnit ACCEPTED
+Host COMPLETED advances to RESULT_READY only
+dependencies unlock only from ACCEPTED
 single responsibility may keep team_plan_revision = null
-managed spawn requires complete responsibility_context
-stale execution/control/lease observations are discarded
+managed spawn requires complete responsibility context
+fresh child uses exact managed agent_type and fork_turns = none
+stale control/lease observations are rejected
+explicit pre-materialization spawn rejection consumes no fresh attempt
+ambiguous materialization becomes UNKNOWN
 WriterLease.UNKNOWN never auto-releases
-PendingControl.UNKNOWN remains fail closed
-V3.x active or corrupt state is never silently migrated
-plan-only creates no runtime state, lease, control, or Host action
+interrupt return alone never releases WriterLease
+one focused same-child followup remains bounded
+CONTINUE preserves the same interrupted ExecutionBinding
+V3 active/corrupt state is never silently migrated
+plan-only creates no runtime state, lease or Host action
 ```
 
-PendingControl `payload_digest` is the digest of the lifecycle authorization projection. It excludes Host-owned V2 `message` bytes while continuing to bind target/profile/fresh-context semantics, control generation, `tool_use_id`, and WriterLease effect. Main-side preparation still validates the canonical five-section plaintext assignment before PendingControl is created.
-
-The exact real-Host candidate carries the V4 lifecycle Guard at the default Plugin Hook path `hooks/hooks.json`. `scripts/spawn_guard.py`, `dispatch_state.py`, legacy migration, and tests that still protect compatibility or shared storage remain retained compatibility dependencies, but `spawn_guard.py` is not the active Hook implementation for this candidate.
-
-`docs/v4/hooks.json` is a non-runtime campaign reference copy. Tests require its `hooks` object to remain exactly equivalent to active `hooks/hooks.json`; Host evidence and release authority bind to `hooks/hooks.json`.
+A repository search must find no active production correctness dependency on Plugin Hook lifecycle authority, PendingControl, Guard receipts or a replacement persisted request/receipt control plane.
 
 ## 4. Real Codex Host gate
 
-The machine-readable authority is `docs/v4/host-smoke.json`. Its exact required probes and requirements are authoritative. This checklist deliberately does not maintain a second full copy of the H00-H20 field list.
-
-Offline CI, source inspection, the official Plugin validator, prior Host evidence from another candidate, or model self-report cannot substitute for this gate. The tracked contract remains `PENDING` with empty embedded results; authoritative campaign results remain external and candidate-bound.
-
-Before recording H00 evidence, install the exact candidate and verify that the target Host discovers and trusts the active default Plugin Hook source `hooks/hooks.json`. Capture the exact active Hook digest, Host build, model-visible collaboration identities, and Hook-serialized `tool_name` identities separately. If the observed Hook digest differs from the candidate digest, H00 has not started.
-
-Before spending the full campaign budget, run this feasibility wave against the exact candidate:
+`docs/v4/host-smoke.json` is the machine-readable authority. The required campaign is exactly:
 
 ```text
-H00      exact Hook trust + complete exposed collaboration tool identities
-H08/H01  one shared managed spawn specimen: encrypted-message compatibility at Pre, then successful spawn Pre/Post
-H02      followup lifecycle interception + target/control-generation binding
-H13      exact managed profile selectors, effective model/effort/permissions/tool surface
-H14      managed leaf tool surface + send_message containment
-H07      reliable lifecycle PostToolUse success/failure discrimination
-H15      fresh-context assignment semantic delivery and sibling isolation
+N0 exact role / model / effort / fork_turns
+N1 managed child collaboration capability absent
+N2 fresh spawn success and identity binding
+N3 explicit capacity rejection with no materialization
+N4 same-child followup and continue
+N5 interrupt and settlement observation
+N6 writer takeover blocked until settlement
+N7 rollout reconciliation and privacy allowlist
+N8 final Advisor review and truthful sandbox reporting
 ```
 
-H08 is evaluated at the PreToolUse boundary of the same authorized managed spawn specimen used by H01, before Host child mutation. The canonical five-section plaintext assignment must already have been constructed and validated locally. The Host may expose `message` as opaque or transformed transport data. The Guard requires the transport field to exist and be non-empty, while exact lifecycle authorization remains bound to `task_name`, managed `agent_type`, `fork_turns: none`, current control generation, `tool_use_id`, and WriterLease effect.
+Offline CI, source inspection, profile configuration, model self-report or evidence from another candidate cannot substitute for these Host facts.
 
-Do not decrypt, rebind, hash-compare, or infer opaque message content in order to manufacture local transport ownership. Mutation of an authorization-relevant field must still fail closed before child creation.
+Known limitation from feasibility evidence: configured read-only profiles do not by themselves prove Host-enforced read-only. N8 must report the actual effective sandbox truth without upgrading configuration intent into runtime proof.
 
-If the H08 PreToolUse assertion passes, the same specimen continues into H01. H01 must prove a successful managed spawn is intercepted before and after the Host call, uses one `tool_use_id`, consumes exactly one PendingControl, and persists the matching acknowledgement.
+## 5. Candidate stability
 
-H02 independently proves the corresponding `followup_task` control boundary. Its `target` and lifecycle generation remain exact while Host-owned message representation may vary.
+Any material mutation after Host evidence changes the candidate. Refresh package integrity and candidate identity, rerun the repository matrix, and repeat every Host probe affected by the mutation.
 
-H15 owns semantic delivery evidence. Use observable child behavior and distinct non-sensitive sibling markers or an equivalent probe to confirm the five-section assignment is delivered without reading or decrypting Host transport content. Child self-report alone cannot close H15.
-
-If any exposed lifecycle or observation identity is not intercepted exactly, stop. Coverage of `spawn_agent` does not prove coverage of the Hook-serialized identity required by an exposed namespaced model identity such as `collaboration.spawn_agent`.
-
-If the Host exposes `send_message` to a managed child, every exposed peer-message identity must hit PreToolUse and be blocked before peer delivery. Peer messaging may not become a side channel for sibling control.
-
-If H07 cannot reliably distinguish a successful lifecycle operation from a failed one, stop. Do not infer success from arbitrary response text and do not ACK a control merely because PostToolUse fired.
-
-Only after the feasibility wave passes should the remaining H00-H20 probes be completed. Every probe must be bound to one declared environment and the exact candidate identity required by the external release-evidence contract. H20 must run on Windows.
-
-## 5. Candidate stability after Host evidence
-
-The H00-H20 campaign validates the same active `hooks/hooks.json` artifact that would ship if every release gate passes. There is no post-campaign Hook-copy or Hook-promotion step.
-
-Any material mutation after Host evidence changes the candidate. Therefore:
-
-1. refresh package integrity and exact candidate identity;
-2. rerun the complete four-platform repository matrix;
-3. repeat every Host probe affected by the changed candidate or Hook identity;
-4. keep any ambiguous Host behavior fail closed.
-
-Representative flows that must remain covered by repository or Host evidence as applicable include:
+Representative flows must remain covered by repository or Host evidence as applicable:
 
 ```text
 plan-only
 zero-child task
-single dependency-free delegated responsibility
-two-child initial fanout
-Host-capacity-limited fanout
-progressive refill
+single delegated responsibility
+two-child initial read fanout
+known-capacity-limited admission
 acceptance backpressure
 same-child correction
 CONTINUE after interrupt
@@ -161,60 +100,41 @@ takeover
 cancellation
 fresh Advisor review
 post-review mutation invalidation
-V3.x unresolved-state block
-```
-
-Writer safety must still prove:
-
-```text
-fresh writer activation reserves WriterLease before Host call
-second managed writer is blocked
-followup cannot bypass a newer lease
-interrupt ACK alone does not release unsettled writer
-settlement requires exact current Host observation + retained receipt
-takeover transfers WriterLease atomically to Main
-stale lease identity cannot release a newer lease
+legacy unresolved-state block
 ```
 
 ## 6. Final Review and release evidence
 
-After the exact candidate is deterministic and H00-H20 pass, run a fresh independent Final Review under `contracts/final-review.md` against that exact candidate.
+After deterministic checks and N0-N8 pass, run a fresh independent Final Review against the exact candidate under `contracts/final-review.md`.
 
-Any subsequent mutation invalidates that verdict.
-
-Release authority belongs to:
+Then verify candidate-bound external evidence with:
 
 ```text
 <python-3.11+> scripts/release_evidence_v4.py --repo <candidate-root> --evidence <external-release-evidence>
 ```
 
-The verifier must remain non-zero when external candidate-bound evidence is absent, stale, incomplete, or bound to another candidate.
+The verifier must remain non-zero for absent, stale, incomplete or differently bound evidence.
 
-Doctor is a product-health diagnostic. It must remain read-only/offline by default and must not grant publication authority.
+## 7. Installed-product gate
 
-## 7. Installed Doctor and human App gates
+Install the exact candidate into an isolated Codex home. Run Doctor and require no blocking product-health failure. Directly observe the two public Skill entries and verify that managed profiles become selectable after the documented fresh-session boundary when required.
 
-Run installed Doctor against an isolated Codex home and require no blocking product-health failure.
+Also exercise explicit update/check documentation against the shipped CLI surface so public commands cannot drift from argparse/runtime behavior.
 
-After installing the exact release candidate in Codex, directly observe the rendered entries for Orchestrate and Doctor. Verify both are distinguishable, presentation is correct, unrelated tasks do not implicitly activate either Skill, and fresh managed profiles are visible after the documented restart boundary when required.
-
-Do not infer literal App menu syntax from repository identifiers.
-
-## 8. Governance, tag, and distribution
-
-Final sequence:
+## 8. Final sequence
 
 ```text
 repository matrix PASS
-real Host H00-H20 PASS against exact active hooks/hooks.json candidate
+product-surface consistency PASS
+real Host N0-N8 PASS on exact candidate
 fresh exact-candidate Advisor Final Review PASS
-external release evidence verifies exactly
-installed Doctor has no BLOCKED product-health failure
+external release evidence verifies
+installed Doctor has no blocking failure
 human two-Skill App observation PASS
 merge approved candidate
-create v4.0.0 semantic-version tag
-verify Marketplace installs the exact tagged candidate
+create v4.0.0 tag
+verify Marketplace resolves the exact tagged candidate
 publish release notes
 ```
 
-If a real Host gate remains unavailable or fails, record the candidate as repository-complete and release-blocked. Do not relabel `PENDING`, `UNKNOWN`, or `NOT TESTED` as PASS.
+If a Host gate is unavailable or fails, record the candidate as repository-complete and release-blocked. `PENDING`, `UNKNOWN` and `NOT TESTED` are not PASS.

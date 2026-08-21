@@ -39,7 +39,7 @@
     "scripts/managed_execution_v4.py": "ab61c112dd785c798c971190c644a9f82d8965da21a80bb1be238fcc291cdbc9",
     "scripts/orchestrate_v4.py": "d65ecc9de3e6d9fc26517560c54da3e709cb79065424a146cfaa7284eb511731",
     "scripts/package_integrity.py": "eb5278def2b855f23afea80e1c650aa7f2b8dc38c447544eff5cdd9233a1452e",
-    "scripts/plugin_update.py": "a738cccc3e25fbe9336af2bcc250594a8f796f742a94b95d18ce7c9c2f9b9264",
+    "scripts/plugin_update.py": "b129086c61aa84947b4122e87f248f17f2afe9619a6bdc9ebb671af036124d27",
     "scripts/policy.py": "187d376a19e68d176f0c20f3e713bbccb19dd112455343a0c6765e8c889da2ee",
     "scripts/review-artifact.py": "3f5ee696806249e01fc81914d5da87ba0dee6ad84eb5704f0f7e0014fd23b87d",
     "scripts/runtime-evidence.py": "1bda857f2abb1adac7ae9d776d325d24ad7fd23947dd944003f86d3268d24597",

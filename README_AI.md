@@ -1,158 +1,145 @@
 # subagents-dispatch: AI Agent Reference
 
-This file is an index to canonical project owners, not a second copy of runtime policy.
+This file is an index to current product owners. Historical RC documents do not override the Native Core candidate.
 
 ## Project identity
 
 ```text
 Product name:        subagents-dispatch
 Repository:          R-jed/subagents-dispatch
-Repo marketplace id: subagents-dispatch
 Plugin id:           subagents-dispatch
-Plugin directory:    .
 Current version:     4.0.0
 Distribution:        Codex Plugin
 License:             MIT
 ```
 
-The V4 public surface contains exactly two explicit Skills:
+The public V4 surface contains exactly two explicit Skills:
 
 | Skill id | Display label | Responsibility |
 | --- | --- | --- |
-| `orchestrate` | Orchestrate | plan-only, execute, inspect, correct, continue, cancel, take over, review, and integrate |
-| `doctor` | Doctor | diagnose and explicitly maintain the installed Plugin, managed profiles, Host integration, orchestration state, and legacy compatibility |
+| `orchestrate` | Orchestrate | plan-only, execute, inspect, correct, continue, cancel, take over, review, integrate |
+| `doctor` | Doctor | diagnose and explicitly maintain the installed Plugin, managed profiles, Host integration, orchestration state, legacy compatibility |
 
-Do not invent a Codex App slash-command string from repository identifiers. Exact App labels and presentation are Host/UI facts requiring direct observation.
+Do not invent literal App slash-command strings from repository identifiers. Rendered UI labels are Host facts.
 
-## Active V4 contract owners
+## Current contract owners
 
 ```text
 contracts/policy.json
--> fixed managed profile identities, delegation invariants and review triggers
+-> fixed managed profile identities, model/effort, depth and review triggers
 
 contracts/routing.md
--> delegation value, capability selection, responsibility semantics and semantic coverage
+-> delegation value, role selection, semantic coverage and fanout policy
 
 contracts/responsibility-packet.md
--> the one serialized five-section responsibility record
+-> the one serialized five-section child responsibility record
 
 contracts/team-plan.md
--> multi-responsibility dependency and integration truth
+-> optional multi-responsibility dependency and integration truth
 
 contracts/guardrails.md
--> user authority, depth, mutation, writer, consent, prompt-injection and external-action boundaries
-
-contracts/handoff.md
--> optional main-session-accepted evidence bridge between responsibilities
-
-contracts/evidence-artifact.md
--> complete inspectable evidence provenance kept out of compact child context when needed
+-> authority, mutation, writer, consent, prompt-injection and external-action boundaries
 
 contracts/interaction.md
--> Orchestrate user-control semantics
+-> Orchestrate user controls
 
 contracts/recovery.md
 -> WorkUnit / ExecutionBinding lifecycle and bounded recovery
+
+contracts/state.md
+-> current V4 state schema and Host lifecycle normalization
 
 contracts/final-review.md
 -> exact-candidate independent review
 ```
 
-One dependency-free delegated responsibility may keep `team_plan_revision = null`. TeamPlan becomes structural truth only when multiple unresolved delegated responsibilities or material dependency/integration order require it. Do not invent another responsibility packet, task state, or scheduler for the compact path.
+One independent delegated responsibility may keep `team_plan_revision = null`. TeamPlan is required only when multiple unresolved responsibilities or material dependency/integration order need persistent structural truth.
 
-A managed WorkUnit may carry bounded `responsibility_context` for concrete interfaces, invariants, decision boundary, accepted evidence refs, `do_not_redo`, and stop boundary. The five-section responsibility record is the only child wire representation. Managed spawn fails closed if that context is missing or malformed.
-
-## V4 runtime owners
+## Current runtime owners
 
 ```text
 scripts/orchestrate_v4.py
--> explicit Orchestrate admission, policy-backed fixed profile routing, plan-only, status surface
+-> admission, fixed-profile routing and user control facade
 
 scripts/dispatch_state_v4.py
--> bounded session-scoped state v4 and stale-observation protection
+-> bounded session-scoped state
 
 scripts/work_graph_v4.py
--> WorkUnit construction/installation, responsibility context, dependency and acceptance truth
+-> WorkUnit construction, dependency and acceptance truth
 
 scripts/scheduler_v4.py
--> sole wakeup-driven admission, Host capacity, fanout, critical path and backpressure owner
-
-scripts/dispatch_control_v4.py
--> PendingControl prepare/consume/ack/quarantine
+-> wakeup-driven admission, fanout and backpressure
 
 scripts/execution_lifecycle_v4.py
--> ExecutionBinding lifecycle, followup, continue, interrupt and takeover coordination
+-> ExecutionBinding allocation, followup, continue, interrupt and Host reconciliation facade
 
 scripts/writer_lease_v4.py
--> canonical managed WriterLease protocol
+-> canonical managed WriterLease ownership and settlement
 
 scripts/managed_execution_v4.py
--> exact five-section responsibility projection and managed spawn payload derivation
-
-scripts/host_evidence_v4.py
--> paired current Host lifecycle and capacity evidence
+-> exact five-section responsibility projection and managed spawn payload
 
 scripts/host_capabilities.py
--> semantic Host capability normalization plus exact exposed lifecycle/observation/peer-message Hook coverage
+-> native Host capability normalization
 
-scripts/orchestration_guard.py
--> active V4 lifecycle, peer-message containment and Host-observation Guard implementation
-
-hooks/hooks.json
--> authoritative installed V4 lifecycle Hook manifest for the exact real-Host candidate
+scripts/inspect-collaboration-runtime.py
+-> optional allowlisted rollout evidence for recovery/release validation
 
 docs/v4/host-smoke.json
--> H00-H20 real Host release gate
+-> candidate-bound N0-N8 real Host release gate
 ```
+
+Plugin Hook lifecycle authority, PendingControl, Guard receipts, Hook capacity tokens, and a replacement request/receipt control plane are retired from Native Core.
 
 ## Fixed profiles
 
 ```text
-Reader        gpt-5.6-luna   max   read-only
-Worker        gpt-5.6-luna   max   bounded write
-Investigator  gpt-5.6-terra  high  read-only
-Solver        gpt-5.6-sol    high  bounded write
-Advisor       gpt-5.6-sol    high  read-only review
+Reader        gpt-5.6-luna   max   behavioral read-only
+Worker        gpt-5.6-luna   max   bounded source write when granted
+Investigator  gpt-5.6-terra  high  behavioral read-only
+Solver        gpt-5.6-sol    high  bounded source write when granted
+Advisor       gpt-5.6-sol    high  behavioral read-only review
 ```
 
-`contracts/policy.json` is the machine source of truth. `scripts/policy.py` provides the validated runtime projection. Dynamic reasoning-effort routing is outside V4.0.0.
+Managed child profiles disable child multi-agent capability. Configured read-only sandbox is intent only until the Host proves the effective sandbox.
 
-## Compatibility owners
-
-```text
-scripts/dispatch_state.py
--> hardened V3.x storage compatibility boundary still reused for legacy detection and shared filesystem primitives
-
-scripts/legacy_migration.py
--> proven-owned legacy profile/state migration and cleanup support
-
-scripts/spawn_guard.py
--> retained V3.x compatibility implementation; inactive in the V4 real-Host candidate unless a later explicit compatibility path proves a consumer
-```
-
-A V3.x orchestration capsule is legacy evidence. Never silently rewrite it into V4. An unresolved legacy writer, pending takeover, corrupt legacy state, WriterLease.UNKNOWN, or unresolved PendingControl remains fail closed.
-
-Historical RC stage specifications belong under `docs/history/`, not the active `contracts/` owner set. `docs/v4/hooks.json` is a non-runtime campaign reference copy whose `hooks` object is regression-locked to authoritative `hooks/hooks.json`.
-
-## Safety invariants
+## Core invariants
 
 ```text
-main session owns user intent, integration and WorkUnit acceptance
-Host COMPLETED does not unlock dependencies
+Main owns user intent, authorization, integration and final acceptance
+Host COMPLETED creates candidate work only
 WorkUnit ACCEPTED unlocks dependencies
 initial managed children <= 2
-normal managed children <= 3 and Host-capacity bounded
+normal managed children <= 3
 canonical managed writer <= 1
 fork_turns = none
 depth = 1
-interrupt ACK alone cannot release WriterLease
-stale execution/control/lease observations are discarded
-every exposed lifecycle/observation Host identity requires exact Hook coverage
-managed child peer messaging is blocked when the Host exposes send_message
+UNKNOWN blocks replacement, conflicting writer transfer and final acceptance
+interrupt return alone cannot release WriterLease
+current-generation Host settlement is required for writer release/takeover
+child self-report is never runtime or acceptance authority
 ```
 
-The exact real-Host release candidate uses the default Plugin Hook path `hooks/hooks.json`. H00-H20 exercise that same artifact that would ship if the release gates pass. There is no post-campaign Hook-copy step. Any material mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated. Offline CI cannot promote `docs/v4/host-smoke.json` to PASS.
+Known Host capacity may reduce admission. Unknown Host capacity does not require a project-issued capacity token; the Host owns actual capacity and may reject a spawn before materialization.
 
-Each `skills/<id>/SKILL.md` is a thin explicit adapter. `policy.allow_implicit_invocation` is false for both public Skills.
+## First-use boundary
 
-For installation and lifecycle instructions, use `docs/plugin-installation.md`. For runtime helpers, use the named scripts above and `scripts/policy.py`. Maintainer calibration, experiment validation/scoring and release evidence remain outside the ordinary product integrity path even when the repository retains those tools for development and publication workflows.
+When an exact managed role is unavailable and Plugin-owned profile files are safely absent, Orchestrate may provision only those managed files and then return `RESTART_REQUIRED`. A fresh task must expose the exact managed `agent_type` before delegated execution continues.
+
+## Doctor and update
+
+`scripts/doctor.py` is the current deterministic Doctor owner. Its JSON contract is `layers` plus `actions`, with five current product layers.
+
+Update check:
+
+```text
+<python-3.11+> scripts/check-plugin-update.py --codex-home <active-codex-home>
+```
+
+Explicit update:
+
+```text
+<python-3.11+> scripts/plugin_update.py --codex-home <active-codex-home>
+```
+
+Repository publication checks, N0-N8 Host evidence, Final Review and benchmark/calibration workflows remain outside ordinary Doctor authority.

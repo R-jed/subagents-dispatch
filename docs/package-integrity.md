@@ -1,43 +1,63 @@
-# Runtime package integrity
+# Runtime Package Integrity
 
-subagents-dispatch ships a deterministic package-consistency contract at `.codex-plugin/package-integrity.json`.
+subagents-dispatch ships a deterministic package-consistency manifest at `.codex-plugin/package-integrity.json`.
 
-The manifest records SHA-256 digests for the shipped runtime files selected by `scripts/package_integrity.py`. UTF-8 text is normalized to LF before hashing so equivalent Windows and Unix checkouts do not produce false mismatches. CI regenerates the expected manifest in memory and fails when the committed contract is stale.
+`scripts/package_integrity.py` discovers the installed-product runtime allowlist, normalizes UTF-8 text to LF, and records SHA-256 digests. CI regenerates the expected manifest in memory and fails when the committed manifest is stale.
 
-This check is designed to detect partial, stale, or accidentally modified Plugin packages. It is not a signature, provenance proof, or protection against an attacker who can rewrite both the package and its manifest.
+This detects partial, stale or accidentally modified packages. It is not a signature or protection against an attacker who can rewrite both files and the manifest.
 
-## Doctor bootstrap
+## Doctor startup
 
-`scripts/doctor.py` is a small stdlib-only bootstrap. Before loading the normal Doctor runtime it:
+Current Native Core Doctor has one implementation owner: `scripts/doctor.py`.
 
-1. requires a regular `.codex-plugin/package-integrity.json`;
-2. verifies `scripts/package_integrity.py` against the digest recorded in that manifest before importing the helper;
-3. runs the helper's full package verification;
-4. starts `scripts/doctor_runtime.py` only after those checks pass.
+At startup it runs full package verification before diagnosis. If package integrity fails, Doctor exits safely before reporting normal product layers.
 
-A bootstrap failure is reported as `Plugin package integrity` before the normal report exists. It is not a twelfth Doctor layer. A healthy Doctor still has exactly eleven production layers.
+A healthy normal report contains exactly five product layers:
+
+```text
+Plugin package
+Managed Agents
+Host integration
+Orchestration state
+Legacy compatibility
+```
+
+`scripts/doctor_runtime.py` and `scripts/doctor_runtime_core.py` are compatibility aliases only. They are not separate diagnostic engines.
 
 ## Explicit update
 
-`doctor.py --update` uses the smaller `update-bootstrap` profile. That profile protects only the files required to reach the canonical updater safely, so a missing non-bootstrap runtime file does not make the supported recovery path impossible.
+The explicit updater is:
 
-After Codex installs a newer Plugin package, `scripts/plugin_update.py` runs the new package's full integrity verifier before reconciling managed Agent profiles or running the new Doctor. A failed package verification stops the update lifecycle.
+```text
+<python-3.11+> scripts/plugin_update.py --codex-home <active-codex-home>
+```
 
-If the currently selected Marketplace release is already the installed version, explicit update may be a no-op. A damaged same-version package can therefore still require reinstalling the canonical Marketplace release.
+The updater verifies canonical installed identity before changing anything. After Codex installs a newer package it verifies the new package integrity, reconciles Plugin-owned managed profiles, verifies those profiles, and runs the newly installed Doctor JSON contract as post-write validation.
+
+The current Doctor machine contract is:
+
+```text
+layers
+actions
+```
+
+Post-update verification requires the exact five current product layers, no maintenance actions, no blocking layer state, and matching installed version identity.
+
+Update checking without installation is owned separately by `scripts/check-plugin-update.py`.
 
 ## Release maintenance
 
-When a runtime file changes, regenerate the manifest with:
+When a runtime file changes, regenerate the manifest:
 
 ```text
 python scripts/package_integrity.py --write
 ```
 
-Then verify it without changing the checkout:
+Then verify without changing the checkout:
 
 ```text
 python scripts/package_integrity.py --check-generated
 python scripts/package_integrity.py
 ```
 
-The four-platform CI runs the generated-manifest check before lint and tests. Runtime files must not be added by maintaining an independent manual digest list; `scripts/package_integrity.py` owns runtime-scope discovery and manifest generation.
+The canonical CI performs generated-manifest verification before lint and tests.
