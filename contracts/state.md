@@ -20,6 +20,19 @@ Use a stable Host-provided root thread identity. Do not invent a durable identit
 
 The repository and user project tree are not orchestration-state stores.
 
+## Active-state lifecycle boundary
+
+`new_state()` is a pure payload factory. Persistence starts through `create_state_if_absent()`, which acquires the state lock and rejects every existing `active.json`; initialization cannot replace a live, ambiguous, or terminal capsule in place.
+
+A completed orchestration leaves the active capsule in place until `remove_terminal_state()` re-reads it under the same state lock and proves all of the following:
+
+- every WorkUnit is `ACCEPTED` or `CANCELLED`;
+- no ExecutionBinding is `SPAWN_PENDING`, `RUNNING`, `INTERRUPTED`, or `UNKNOWN`;
+- no WriterLease is `RESERVED`, `HELD`, `REVOKING`, or `UNKNOWN`;
+- an optional expected `state_revision` still matches.
+
+Only then may the active capsule be removed. A new orchestration for the same root thread is created after that removal. There is no supported public overwrite operation for active V4 state.
+
 ## V4 Native Core schema
 
 The top-level payload contains exactly:
@@ -207,7 +220,7 @@ State-changing helpers:
 6. validate the complete payload;
 7. atomically replace the state file.
 
-Do not hold the state lock while waiting for child work or a Host call.
+Creation and terminal removal use the same lock boundary. Creation checks absence while locked; removal re-reads and proves terminality while locked. Do not hold the state lock while waiting for child work or a Host call.
 
 ## Upgrade boundary
 
