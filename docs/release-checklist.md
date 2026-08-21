@@ -36,7 +36,7 @@ Investigator           Terra High
 Solver / Advisor       Sol High
 ```
 
-Supported removal commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration; unrelated configuration semantics and other Codex state must remain unchanged.
+Supported removal commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must allow only the semantic delta required by the supported Plugin and Marketplace registration removal commands; unrelated configuration semantics and other Codex state must remain unchanged.
 
 ## 3. Native Core state and recovery gates
 
