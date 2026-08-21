@@ -34,14 +34,14 @@ def test_v4_policy_freezes_depth_writer_and_model_effort_profiles():
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
     assert policy["fixed_execution_profiles"] == {
         "luna": "max",
-        "terra": "xhigh",
+        "terra": "high",
         "sol": "high",
         "dynamic_effort_routing": False,
     }
     expected = {
         "reader": ("gpt-5.6-luna", "max", "none"),
         "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "xhigh", "none"),
+        "investigator": ("gpt-5.6-terra", "high", "none"),
         "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
         "advisor": ("gpt-5.6-sol", "high", "none"),
     }

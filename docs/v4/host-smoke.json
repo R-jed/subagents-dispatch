@@ -22,7 +22,7 @@
       "platform": "any",
       "requires": [
         "Reader and Worker use gpt-5.6-luna max",
-        "Investigator uses gpt-5.6-terra xhigh",
+        "Investigator uses gpt-5.6-terra high",
         "Solver and Advisor use gpt-5.6-sol high",
         "managed spawn uses fork_turns none"
       ]

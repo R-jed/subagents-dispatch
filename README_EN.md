@@ -117,7 +117,7 @@ Single-writer is a workspace boundary. A future Host that can reliably isolate w
 |---|---|---|
 | Reading | Luna Max | focused code reading and call-path tracing |
 | Implementation | Luna Max | bounded changes once the approach is clear |
-| Investigation | Terra XHigh | broad read-only investigation and cross-file evidence |
+| Investigation | Terra High | broad read-only investigation and cross-file evidence |
 | Problem solving | Sol High | implementation that needs substantial technical judgment |
 | Review | Sol High | independent review of plans and final results |
 

@@ -13,7 +13,7 @@ POLICY = ROOT / "contracts" / "policy.json"
 EXPECTED = {
     "reader": ("gpt-5.6-luna", "max", "none"),
     "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-    "investigator": ("gpt-5.6-terra", "xhigh", "none"),
+    "investigator": ("gpt-5.6-terra", "high", "none"),
     "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
     "advisor": ("gpt-5.6-sol", "high", "none"),
 }
@@ -45,7 +45,7 @@ def test_fixed_model_effort_authority_is_exact():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["fixed_execution_profiles"] == {
         "luna": "max",
-        "terra": "xhigh",
+        "terra": "high",
         "sol": "high",
         "dynamic_effort_routing": False,
     }
@@ -97,13 +97,12 @@ def test_routing_evals_use_current_production_profiles():
             )
 
 
-def test_current_product_docs_keep_terra_xhigh():
+def test_current_product_docs_keep_terra_high():
     for relative in CURRENT_DOCS:
         text = (ROOT / relative).read_text(encoding="utf-8")
         lowered = text.lower()
-        assert "terra high" not in lowered, relative
         assert "terra" in lowered, relative
-        assert "xhigh" in lowered, relative
+        assert "xhigh" not in lowered, relative
 
     machine = json.loads((ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8"))
-    assert machine["routing"]["investigator"] == ["gpt-5.6-terra", "xhigh"]
+    assert machine["routing"]["investigator"] == ["gpt-5.6-terra", "high"]

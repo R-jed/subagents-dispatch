@@ -25,7 +25,7 @@
     ],
     "investigator": [
       "gpt-5.6-terra",
-      "xhigh"
+      "high"
     ],
     "solver": [
       "gpt-5.6-sol",
