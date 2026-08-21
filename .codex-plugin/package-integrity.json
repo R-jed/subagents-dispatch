@@ -49,7 +49,7 @@
     "scripts/writer_lease_v4.py": "5e28bea524c06393f2812914226182caa50d100a47def2e10eedf62a42813730",
     "skills/doctor/SKILL.md": "6a7f52e4b76b81465c3efc74d315182941cd48054351c3bdd92de5073a84d734",
     "skills/doctor/agents/openai.yaml": "1c3989188f3c3885e2e637faae04b29ac74a20bf39850e412af12301809d91a9",
-    "skills/orchestrate/SKILL.md": "69aee8418467bbbcbe84b362b709c00ca9dd33a54e26f4cd760165bcca38a29a",
+    "skills/orchestrate/SKILL.md": "9f605300c0ad4fbd6b53817e856fe7f0db58487ce0463177f9fb64f0bc812e1d",
     "skills/orchestrate/agents/openai.yaml": "72093396dc072c6f86fc977b27db30c1799b2c2169a4fd36dc1938042ab5a012"
   },
   "normalization": "utf-8-lf",

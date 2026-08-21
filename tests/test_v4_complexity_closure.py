@@ -208,19 +208,44 @@ def test_runtime_integrity_keeps_product_runtime_and_excludes_maintainer_tools()
 
 def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    repository_architecture = (ROOT / "docs" / "repository-architecture.md").read_text(
+        encoding="utf-8"
+    )
+    orchestrate_skill = (ROOT / "skills" / "orchestrate" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
     machine = json.loads(
         (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
     )
+    phase = json.loads(
+        (ROOT / "docs" / "v4" / "phase-status.json").read_text(encoding="utf-8")
+    )
+    expected_runtime_owners = {
+        "orchestration": "scripts/orchestrate_v4.py",
+        "state": "scripts/dispatch_state_v4.py",
+        "storage": "scripts/state_storage.py",
+        "work_graph": "scripts/work_graph_v4.py",
+        "scheduler": "scripts/scheduler_v4.py",
+        "execution_lifecycle": "scripts/execution_lifecycle_v4.py",
+        "writer_lease": "scripts/writer_lease_v4.py",
+        "managed_execution": "scripts/managed_execution_v4.py",
+        "host_capabilities": "scripts/host_capabilities.py",
+        "runtime_evidence": "scripts/inspect-collaboration-runtime.py",
+    }
 
     for expected in (
         "docs/v4/architecture.json",
         "Codex Native Subagents",
         "Orchestrate",
         "Doctor",
-        "scripts/execution_lifecycle_v4.py",
     ):
         assert expected in architecture
+    assert machine["runtime_owners"] == expected_runtime_owners
+    assert phase["runtime_owner_contract"] == "docs/v4/architecture.json#runtime_owners"
+    assert "current_runtime_owners" not in phase
+    assert "docs/v4/architecture.json#runtime_owners" in repository_architecture
+    assert "../../docs/v4/architecture.json#runtime_owners" in orchestrate_skill
     assert "selection/invocation of Orchestrate" in final_review
     assert machine["public_skills"] == ["orchestrate", "doctor"]
     assert machine["host_truth"]["lifecycle_owner"] == "codex_host"

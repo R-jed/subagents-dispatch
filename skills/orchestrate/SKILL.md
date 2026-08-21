@@ -31,4 +31,4 @@ Load control contracts only when their state becomes relevant. Read `../../contr
 
 A V3.x orchestration capsule is legacy evidence. Do not silently enroll it into V4. Older pre-release V4 capsules from incompatible schemas require explicit cleanup/restart. Plan-only remains available because it creates no runtime state.
 
-The deterministic runtime owners are `../../scripts/orchestrate_v4.py`, `../../scripts/dispatch_state_v4.py`, `../../scripts/work_graph_v4.py`, `../../scripts/scheduler_v4.py`, `../../scripts/execution_lifecycle_v4.py`, and `../../scripts/writer_lease_v4.py`. Codex Native Subagents own lifecycle truth. Do not create a second orchestration runtime or persisted lifecycle authorization ledger inside this Skill.
+The canonical runtime owner map is `../../docs/v4/architecture.json#runtime_owners`. Codex Native Subagents own lifecycle truth. Do not create a second orchestration runtime or persisted lifecycle authorization ledger inside this Skill.

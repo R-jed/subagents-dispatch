@@ -57,40 +57,9 @@ One independent delegated responsibility may keep `team_plan_revision = null`. T
 
 ## Current runtime owners
 
-```text
-scripts/orchestrate_v4.py
--> admission, fixed-profile routing and user control facade
+The canonical machine-readable runtime owner map is `docs/v4/architecture.json#runtime_owners`. `docs/architecture.md` explains those responsibilities for humans. Do not maintain another full runtime path list in this file.
 
-scripts/dispatch_state_v4.py
--> bounded session-scoped state
-
-scripts/state_storage.py
--> schema-neutral thread identity, path safety, locking and atomic persistence
-
-scripts/work_graph_v4.py
--> WorkUnit construction, dependency and acceptance truth
-
-scripts/scheduler_v4.py
--> wakeup-driven admission, fanout and backpressure
-
-scripts/execution_lifecycle_v4.py
--> ExecutionBinding allocation, followup, continue, interrupt and Host reconciliation facade
-
-scripts/writer_lease_v4.py
--> canonical managed WriterLease ownership and settlement
-
-scripts/managed_execution_v4.py
--> exact five-section responsibility projection and managed spawn payload
-
-scripts/host_capabilities.py
--> native Host capability normalization
-
-scripts/inspect-collaboration-runtime.py
--> optional allowlisted rollout evidence for recovery/release validation
-
-docs/v4/host-smoke.json
--> candidate-bound N0-N8 real Host release gate
-```
+`docs/v4/host-smoke.json` separately owns the candidate-bound N0-N8 real Host release gate.
 
 ## Compatibility owners
 

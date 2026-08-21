@@ -227,6 +227,18 @@
     "peer_messaging_on_correctness_path": false,
     "principle": "lowest_eligible_capability_profile"
   },
+  "runtime_owners": {
+    "orchestration": "scripts/orchestrate_v4.py",
+    "state": "scripts/dispatch_state_v4.py",
+    "storage": "scripts/state_storage.py",
+    "work_graph": "scripts/work_graph_v4.py",
+    "scheduler": "scripts/scheduler_v4.py",
+    "execution_lifecycle": "scripts/execution_lifecycle_v4.py",
+    "writer_lease": "scripts/writer_lease_v4.py",
+    "managed_execution": "scripts/managed_execution_v4.py",
+    "host_capabilities": "scripts/host_capabilities.py",
+    "runtime_evidence": "scripts/inspect-collaboration-runtime.py"
+  },
   "scheduler": {
     "acceptance_backpressure_threshold": 2,
     "host_rejection_is_capacity_authority": true,

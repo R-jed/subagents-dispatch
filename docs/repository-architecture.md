@@ -1,6 +1,6 @@
 # Repository Architecture
 
-This document describes the current V4 Native Core repository organization. The normative candidate architecture is `docs/v4/architecture.json`; `docs/architecture.md` owns the detailed runtime map.
+This document describes the current V4 Native Core repository organization. The normative candidate architecture and canonical runtime owner map are in `docs/v4/architecture.json`.
 
 ## Product surface
 
@@ -20,14 +20,7 @@ Product contracts
 -> contracts/
 
 Deterministic Native Core runtime
--> scripts/orchestrate_v4.py
--> scripts/dispatch_state_v4.py
--> scripts/work_graph_v4.py
--> scripts/scheduler_v4.py
--> scripts/execution_lifecycle_v4.py
--> scripts/writer_lease_v4.py
--> scripts/managed_execution_v4.py
--> scripts/host_capabilities.py
+-> docs/v4/architecture.json#runtime_owners
 
 Installed-product lifecycle
 -> skills/doctor/
@@ -36,11 +29,6 @@ Installed-product lifecycle
 -> scripts/uninstall-agents.py
 -> scripts/check-plugin-update.py
 -> scripts/plugin_update.py
-
-Optional runtime evidence
--> scripts/inspect-agent-runtime.py
--> scripts/inspect-collaboration-runtime.py
--> scripts/runtime-evidence.py
 
 Maintainer evidence and experiments
 -> docs/v4/host-smoke.json
@@ -53,18 +41,9 @@ Codex Native Subagents are the Agent runtime and lifecycle authority.
 
 ## Runtime ownership
 
-One concern has one current owner:
+`docs/v4/architecture.json#runtime_owners` is the only complete machine-readable path map. Human documentation describes responsibility boundaries without maintaining another path inventory.
 
-```text
-Orchestrate admission/routing/control      scripts/orchestrate_v4.py
-bounded current state                     scripts/dispatch_state_v4.py
-WorkUnit/dependency/acceptance truth      scripts/work_graph_v4.py
-admission/fanout/backpressure             scripts/scheduler_v4.py
-ExecutionBinding lifecycle                scripts/execution_lifecycle_v4.py
-workspace writer ownership                scripts/writer_lease_v4.py
-child responsibility projection           scripts/managed_execution_v4.py
-Host capability normalization             scripts/host_capabilities.py
-```
+The owned concerns are orchestration admission and control, bounded state, storage, WorkUnit dependency and acceptance truth, scheduling, ExecutionBinding lifecycle, writer ownership, managed child responsibility projection, Host capability normalization, and optional bounded runtime evidence.
 
 A single independent delegated responsibility may avoid TeamPlan. Coordinated work adds TeamPlan only when multiple unresolved responsibilities or material dependency/integration order need persistent structural truth.
 

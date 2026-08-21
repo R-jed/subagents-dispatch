@@ -29,74 +29,11 @@ Reasoning effort is fixed. Managed child profiles disable child multi-agent capa
 
 ## Current owners
 
-```text
-contracts/policy.json
--> fixed profiles, delegation and review policy
+Product contract ownership remains explicit in `contracts/`. The complete runtime path map lives only at `docs/v4/architecture.json#runtime_owners`.
 
-contracts/routing.md
--> delegation value and role selection
+The runtime responsibilities are orchestration admission and user controls, bounded session state, path-safe atomic storage, WorkUnit dependency and acceptance truth, wakeup-driven scheduling, ExecutionBinding lifecycle, WriterLease ownership and settlement, managed responsibility projection, Host capability normalization, and optional bounded rollout evidence for recovery or release validation.
 
-contracts/responsibility-packet.md
--> child responsibility serialization
-
-contracts/team-plan.md
--> optional dependency and integration truth
-
-contracts/guardrails.md
--> authority, depth, mutation, writer, consent and external-action boundaries
-
-contracts/handoff.md
--> optional Main-accepted evidence bridge
-
-contracts/evidence-artifact.md
--> inspectable evidence provenance
-
-contracts/interaction.md
--> user-visible Orchestrate controls
-
-contracts/recovery.md
--> WorkUnit / ExecutionBinding recovery behavior
-
-contracts/receipt.md
--> user-facing factual execution summary
-
-contracts/final-review.md
--> exact-candidate independent review
-```
-
-Runtime ownership is intentionally small:
-
-```text
-scripts/orchestrate_v4.py
--> admission, routing and user control facade
-
-scripts/dispatch_state_v4.py
--> bounded session-scoped state and Host lifecycle reconciliation
-
-scripts/state_storage.py
--> path safety, locking and atomic persistence
-
-scripts/work_graph_v4.py
--> WorkUnit truth, dependency and acceptance transitions
-
-scripts/scheduler_v4.py
--> wakeup-driven admission, fanout and backpressure
-
-scripts/execution_lifecycle_v4.py
--> ExecutionBinding allocation and same-child lifecycle operations
-
-scripts/writer_lease_v4.py
--> canonical WriterLease ownership and settlement
-
-scripts/managed_execution_v4.py
--> responsibility projection and managed spawn payload
-
-scripts/host_capabilities.py
--> native Host capability normalization
-
-scripts/inspect-collaboration-runtime.py
--> optional allowlisted rollout evidence for recovery and release validation
-```
+`docs/v4/host-smoke.json` owns the candidate-bound N0-N8 real Host release gate. Compatibility helpers remain separate from current V4 runtime ownership.
 
 ## Single responsibility and coordinated work
 

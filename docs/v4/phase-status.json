@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-12",
+  "schema_version": "4.0.0-phase-status-13",
   "candidate_branch": "v4/rc5-native-core",
   "architecture": "native_core",
   "repository_phases": {
@@ -17,16 +17,7 @@
     "terra": "high",
     "sol": "high"
   },
-  "current_runtime_owners": [
-    "scripts/orchestrate_v4.py",
-    "scripts/dispatch_state_v4.py",
-    "scripts/state_storage.py",
-    "scripts/work_graph_v4.py",
-    "scripts/scheduler_v4.py",
-    "scripts/execution_lifecycle_v4.py",
-    "scripts/writer_lease_v4.py",
-    "scripts/host_capabilities.py"
-  ],
+  "runtime_owner_contract": "docs/v4/architecture.json#runtime_owners",
   "legacy_compatibility_owners": [
     "scripts/legacy_migration.py",
     "scripts/legacy_state_cleanup.py"
