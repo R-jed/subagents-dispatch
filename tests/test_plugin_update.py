@@ -11,6 +11,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 PLUGIN_UPDATE = SCRIPTS / "plugin_update.py"
+DOCTOR = SCRIPTS / "doctor.py"
+INSTALLER = SCRIPTS / "install-agents.py"
 
 
 def load_module():
@@ -293,6 +295,59 @@ def test_post_update_verifier_accepts_actual_native_core_doctor_contract(
 
     monkeypatch.setattr(module, "_run_python", fake_run_python)
     module._verify_new_package(root, codex_home=home, codex_bin="/fake/codex", expected_version="4.0.0")
+
+
+def test_post_update_verifier_consumes_real_current_doctor_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = load_module()
+    home = tmp_path / "codex-home"
+    install = subprocess.run(
+        [sys.executable, str(INSTALLER), "--codex-home", str(home)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install.returncode == 0, install.stdout + install.stderr
+
+    produced = subprocess.run(
+        [
+            sys.executable,
+            str(DOCTOR),
+            "--codex-home",
+            str(home),
+            "--temp-root",
+            str(tmp_path),
+            "--thread-id",
+            "plugin-update-verification",
+            "--json",
+            "--check",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert produced.returncode == 0, produced.stdout + produced.stderr
+    payload = json.loads(produced.stdout)
+    assert set(payload) == {"layers", "actions"}
+
+    updated_root = tmp_path / "updated-plugin"
+    prepare_updated_package(updated_root, "4.0.0")
+
+    def fake_run_python(_python, script, args, *, timeout=90, env=None):
+        stdout = produced.stdout if script.name == "doctor.py" else ""
+        return subprocess.CompletedProcess([str(script), *args], 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(module, "_run_python", fake_run_python)
+    module._verify_new_package(
+        updated_root,
+        codex_home=home,
+        codex_bin="/fake/codex",
+        expected_version="4.0.0",
+    )
 
 
 def test_post_update_verifier_rejects_stale_or_mutating_doctor_contract(
