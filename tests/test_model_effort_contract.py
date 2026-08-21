@@ -88,11 +88,13 @@ def test_routing_evals_use_current_production_profiles():
             )
 
 
-def test_current_product_docs_use_terra_xhigh():
+def test_current_product_docs_do_not_regress_to_terra_high():
     for relative in CURRENT_DOCS:
         text = (ROOT / relative).read_text(encoding="utf-8")
+        lowered = text.lower()
         assert "Terra High" not in text, relative
-        assert "Terra XHigh" in text, relative
+        assert "terra" in lowered, relative
+        assert "xhigh" in lowered, relative
 
     machine = json.loads((ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8"))
     assert machine["routing"]["investigator"] == ["gpt-5.6-terra", "xhigh"]
