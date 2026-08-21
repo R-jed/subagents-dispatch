@@ -1,4 +1,4 @@
-# Dispatch State
+# Orchestration State
 
 This contract owns short-lived project coordination state for one active V4 Native Core orchestration. It does not create another Agent runtime, Host lifecycle authority, scheduler daemon, event bus, or Hook control plane.
 
@@ -16,9 +16,9 @@ Runtime state lives under the operating-system temporary directory:
 <OS TEMP>/subagents-dispatch/<CODEX_THREAD_ID>/active.json
 ```
 
-Use a stable Host-provided root thread identity. Do not invent a durable identity from repository path, user text, or another unrelated property. Reject unsafe symlinks, malformed paths, oversized payloads, invalid schema, and non-private POSIX state files. Mutations use the existing short state lock and atomic replace boundary.
+Use a stable Host-provided root thread identity. Do not invent a durable identity from repository path, user text, or another unrelated property. Reject unsafe symlinks, malformed paths, oversized payloads, invalid schema, and non-private POSIX state files. Mutations use the schema-neutral short state lock and atomic replace boundary in `scripts/state_storage.py`.
 
-The repository and user project tree are not dispatch-state stores.
+The repository and user project tree are not orchestration-state stores.
 
 ## V4 Native Core schema
 
@@ -160,7 +160,7 @@ Missing identity is uncertainty. It does not prove that a prior writer stopped.
 
 ## Accounting references
 
-`accounting_refs` contains bounded structured facts with a stable unique `ref`. Native Core currently uses it for recovery-relevant Host observations and other compact accepted accounting facts.
+`accounting_refs` contains bounded structured evidence facts with a stable unique `ref`. Native Core uses it for recovery-relevant Host observations and other compact accepted evidence that is required by state validation.
 
 A `host_observation` record binds:
 
@@ -173,7 +173,7 @@ lease_epoch
 lifecycle
 ```
 
-Do not add a second request/receipt protocol under accounting refs.
+Do not add user-facing receipt counters, control history, retry/rework ledgers, or a second request/receipt protocol under `accounting_refs`.
 
 ## Acceptance truth
 
@@ -211,10 +211,10 @@ Do not hold the state lock while waiting for child work or a Host call.
 
 ## Upgrade boundary
 
-Public `main` remains V3.x while V4 is pre-release. Native Core therefore has no compatibility promise for experimental V4 capsules created by the earlier Hook/PendingControl design.
+V3.x state is legacy compatibility evidence while V4 remains pre-release. Native Core has no compatibility promise for experimental V4 capsules created by the earlier Hook/PendingControl design.
 
 After the V4 schema cutover, development/release validation starts with fresh V4 state. An old experimental V4 capsule containing removed fields is invalid and requires explicit cleanup/restart. V3.x profile/install ownership migration remains separately supported and tested.
 
 ## Normal completion
 
-A terminal orchestration may remove active state after all responsibilities and writer ownership are safely settled and required receipt/acceptance output has been produced. `UNKNOWN`, active execution, blocking WriterLease, or unresolved responsibility prevents silent cleanup.
+A terminal orchestration may remove active state after all responsibilities and writer ownership are safely settled and required acceptance/final-response work has completed. `UNKNOWN`, active execution, blocking WriterLease, or unresolved responsibility prevents silent cleanup.
