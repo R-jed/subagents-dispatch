@@ -91,33 +91,22 @@ def make_execution(
 
 
 def host_snapshot(capacity: int = 3) -> dict:
-    return {
-        "surface": "multi_agent_v2",
-        "capabilities": {
-            "spawn": True,
-            "observe": True,
-            "wait_or_wakeup": True,
-            "followup": True,
-            "interrupt": True,
-            "pre_tool_use_guard": True,
-            "post_tool_use_guard": True,
-            "host_observation_guard": True,
-            "peer_message_guard": True,
-            "subagent_stop_veto": True,
-        },
-        "fork_turns_none": True,
-        "max_spawned_threads": capacity,
-        "capacity_excludes_primary": True,
-        "execution_ready": True,
-        "missing": [],
-    }
+    host = load_module(f"runtime_host_{capacity}", "host_capabilities.py")
+    return host.normalize_host_capabilities(
+        {
+            "surface": "multi_agent_v2",
+            "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
+            "fork_turns_none": True,
+            "max_spawned_threads": capacity,
+        }
+    )
 
 
 def test_reader_binding_cannot_prepare_worker_agent_type(tmp_path: Path):
-    state = load_module("rc3_state_profile", "dispatch_state_v4.py")
-    lifecycle = load_module("rc3_lifecycle_profile", "execution_lifecycle_v4.py")
+    state = load_module("native_state_profile", "dispatch_state_v4.py")
+    lifecycle = load_module("native_lifecycle_profile", "execution_lifecycle_v4.py")
 
-    payload = state.new_state(thread_id="thread-rc3-profile")
+    payload = state.new_state(thread_id="thread-profile")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit("U1", state_name="EXECUTING")]
     payload["executions"] = [make_execution("U1", execution_id="exec-1", profile_id="reader")]
@@ -129,21 +118,20 @@ def test_reader_binding_cannot_prepare_worker_agent_type(tmp_path: Path):
         "agent_type": "subagents_dispatch_worker",
         "fork_turns": "none",
     }
-    with pytest.raises(Exception, match="agent_type|profile|managed spawn"):
+    with pytest.raises(Exception, match="profile|managed spawn|does not match"):
         lifecycle.prepare_spawn(
-            "thread-rc3-profile",
+            "thread-profile",
             execution_id="exec-1",
-            control_id="spawn:exec-1",
             tool_input=mismatched,
             temp_root=tmp_path,
         )
 
 
 def test_managed_spawn_requires_fork_turns_none_at_prepare_boundary(tmp_path: Path):
-    state = load_module("rc3_state_fork", "dispatch_state_v4.py")
-    lifecycle = load_module("rc3_lifecycle_fork", "execution_lifecycle_v4.py")
+    state = load_module("native_state_fork", "dispatch_state_v4.py")
+    lifecycle = load_module("native_lifecycle_fork", "execution_lifecycle_v4.py")
 
-    payload = state.new_state(thread_id="thread-rc3-fork")
+    payload = state.new_state(thread_id="thread-fork")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit("U1", state_name="EXECUTING")]
     payload["executions"] = [make_execution("U1", execution_id="exec-1", profile_id="reader")]
@@ -155,20 +143,19 @@ def test_managed_spawn_requires_fork_turns_none_at_prepare_boundary(tmp_path: Pa
         "agent_type": "subagents_dispatch_reader",
         "fork_turns": "all",
     }
-    with pytest.raises(Exception, match="fork_turns|fresh context|managed spawn"):
+    with pytest.raises(Exception, match="fresh-context|managed spawn|does not match"):
         lifecycle.prepare_spawn(
-            "thread-rc3-fork",
+            "thread-fork",
             execution_id="exec-1",
-            control_id="spawn:exec-1",
             tool_input=bad,
             temp_root=tmp_path,
         )
 
 
 def test_corrupt_accepted_state_requires_completed_current_producer():
-    state = load_module("rc3_state_accept", "dispatch_state_v4.py")
+    state = load_module("native_state_accept", "dispatch_state_v4.py")
 
-    payload = state.new_state(thread_id="thread-rc3-accept")
+    payload = state.new_state(thread_id="thread-accept")
     payload["team_plan_revision"] = 1
     unit = make_work_unit("U1", state_name="ACCEPTED")
     unit["accepted_result_ref"] = "result:sha256:abc"
@@ -184,33 +171,21 @@ def test_corrupt_accepted_state_requires_completed_current_producer():
 
 
 def test_old_attempt_cannot_be_accepted_after_new_attempt_exists(tmp_path: Path):
-    state = load_module("rc3_state_attempt", "dispatch_state_v4.py")
-    graph = load_module("rc3_graph_attempt", "work_graph_v4.py")
+    state = load_module("native_state_attempt", "dispatch_state_v4.py")
+    graph = load_module("native_graph_attempt", "work_graph_v4.py")
 
-    payload = state.new_state(thread_id="thread-rc3-attempt")
+    payload = state.new_state(thread_id="thread-attempt")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit("U1", state_name="RESULT_READY")]
     payload["executions"] = [
-        make_execution(
-            "U1",
-            execution_id="exec-1",
-            profile_id="reader",
-            lifecycle="COMPLETED",
-            attempt_no=1,
-        ),
-        make_execution(
-            "U1",
-            execution_id="exec-2",
-            profile_id="reader",
-            lifecycle="RUNNING",
-            attempt_no=2,
-        ),
+        make_execution("U1", execution_id="exec-1", lifecycle="COMPLETED", attempt_no=1),
+        make_execution("U1", execution_id="exec-2", lifecycle="RUNNING", attempt_no=2),
     ]
     state.write_state(payload, temp_root=tmp_path)
 
     with pytest.raises(Exception, match="current|attempt|supersed"):
         graph.accept_work_unit(
-            "thread-rc3-attempt",
+            "thread-attempt",
             unit_id="U1",
             execution_id="exec-1",
             result_ref="result:old",
@@ -219,31 +194,16 @@ def test_old_attempt_cannot_be_accepted_after_new_attempt_exists(tmp_path: Path)
         )
 
 
-def test_initial_fanout_does_not_expand_without_accepted_progress():
-    state = load_module("rc3_state_fanout", "dispatch_state_v4.py")
-    scheduler = load_module("rc3_scheduler_fanout", "scheduler_v4.py")
+def test_initial_fanout_does_not_expand_beyond_remaining_product_slot():
+    state = load_module("native_state_fanout", "dispatch_state_v4.py")
+    scheduler = load_module("native_scheduler_fanout", "scheduler_v4.py")
 
-    payload = state.new_state(thread_id="thread-rc3-fanout")
+    payload = state.new_state(thread_id="thread-fanout")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit(f"U{i}") for i in range(1, 5)]
     payload["work_units"][0]["state"] = "EXECUTING"
     payload["executions"] = [
         make_execution("U1", execution_id="exec-1", profile_id="reader", lifecycle="RUNNING")
-    ]
-    payload["accounting_refs"] = [
-        {
-            "ref": "host-capacity-observation:rc3-fanout",
-            "kind": "host_capacity_observation",
-            "source": "post_tool_use:list_agents",
-            "turn_id": "turn-rc3-fanout",
-            "tool_use_id": "tool-rc3-fanout",
-            "resident_children": 1,
-            "settled_children": 0,
-            "active_children": 1,
-            "managed_resident_children": 1,
-            "unmanaged_resident_children": 0,
-            "response_digest": "a" * 64,
-        }
     ]
     state.validate_state_payload(payload)
 
