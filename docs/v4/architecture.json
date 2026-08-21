@@ -26,6 +26,12 @@
       "interrupt_result_releases_writer": false,
       "requires_current_generation_settlement": true
     },
+    "STEER": {
+      "advances_control_epoch": false,
+      "host_primitive": "followup",
+      "increments_followup_count": false,
+      "requires_running_execution": true
+    },
     "TAKEOVER": {
       "host_primitive": "composite",
       "requires_writer_settlement_before_main_acquire": true
