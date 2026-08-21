@@ -54,7 +54,7 @@
       "id": "stable-read-heavy-investigation-uses-terra",
       "category": "role_choice",
       "input": {"task": "Desired semantics are fixed. Investigate a difficult compiler/runtime interaction across a broad read-only surface."},
-      "expected": {"action": "delegate", "task_blocker": "investigation", "nodes": [{"unit_id": "U1", "role": "investigator", "agent_type": "subagents_dispatch_investigator", "model": "gpt-5.6-terra", "effort": "high", "mutation_authority": "none"}]}
+      "expected": {"action": "delegate", "task_blocker": "investigation", "nodes": [{"unit_id": "U1", "role": "investigator", "agent_type": "subagents_dispatch_investigator", "model": "gpt-5.6-terra", "effort": "xhigh", "mutation_authority": "none"}]}
     },
     {
       "id": "ambiguous-semantics-do-not-use-terra",
