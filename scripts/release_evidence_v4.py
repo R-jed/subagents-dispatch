@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Verify candidate-bound external release evidence for V4.0.0 RC4.
+"""Verify candidate-bound external release evidence for V4.0.0 Native Core.
 
 The release evidence artifact must live outside the candidate repository. This
-verifier recomputes exact candidate identity, package/Hook/profile/Host-contract
-digests, requires a complete environment-bound H00-H20 Host campaign, and binds
-a fresh Final Review receipt to the same candidate.
+verifier recomputes exact candidate identity, runtime/profile/Host-contract
+digests, requires a complete environment-bound N0-N8 Native Core Host campaign,
+and binds a fresh Final Review receipt to the same candidate.
 
 This is release-process evidence, not cryptographic Host attestation. The trusted
 boundary remains the release/CI operator supplying the external evidence artifact.
-Ordinary orchestration runtime data cannot create publication authority by
-supplying lifecycle strings, booleans, or arbitrary digests.
+Ordinary orchestration runtime data cannot create publication authority.
 """
 
 from __future__ import annotations
@@ -27,15 +26,14 @@ import package_integrity
 
 
 EXPECTED_REPOSITORY = "R-jed/subagents-dispatch"
-RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-2"
-HOST_CAMPAIGN_SCHEMA = "4.0.0-host-campaign-2"
+RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-3"
+HOST_CAMPAIGN_SCHEMA = "4.0.0-native-host-campaign-1"
 FINAL_REVIEW_SCHEMA = "4.0.0-final-review-1"
-HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-host-smoke-7"
-REQUIRED_HOST_PROBES = tuple(f"H{index:02d}" for index in range(21))
+HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-native-host-smoke-1"
+REQUIRED_HOST_PROBES = tuple(f"N{index}" for index in range(9))
 HEX = frozenset("0123456789abcdef")
 
 RUNTIME_MANIFEST = Path(".codex-plugin/package-integrity.json")
-PRODUCTION_HOOK = Path("hooks/hooks.json")
 PROFILE_CONTRACT = Path("contracts/policy.json")
 HOST_CAMPAIGN_CONTRACT = Path("docs/v4/host-smoke.json")
 
@@ -43,7 +41,6 @@ IDENTITY_FIELDS = {
     "candidate_commit",
     "candidate_tree",
     "runtime_manifest_sha256",
-    "production_hook_sha256",
     "profile_contract_sha256",
     "host_contract_sha256",
 }
@@ -152,21 +149,20 @@ def _load_host_contract(repo: Path) -> Mapping[str, Any]:
         raise ReleaseEvidenceError("Host campaign contract must be an object")
     if payload.get("schema_version") != HOST_CAMPAIGN_CONTRACT_VERSION:
         raise ReleaseEvidenceError("Host campaign contract schema_version is unsupported")
+    if payload.get("gate_id") != "v4-real-host-n0-n8":
+        raise ReleaseEvidenceError("Host campaign contract gate_id is unsupported")
+    if payload.get("status") != "PENDING" or payload.get("results") != {}:
+        raise ReleaseEvidenceError("tracked Host campaign contract must remain PENDING with empty results")
     required = payload.get("required_probes")
     if not isinstance(required, list):
         raise ReleaseEvidenceError("Host campaign contract required_probes must be an array")
     ids = [item.get("id") for item in required if isinstance(item, Mapping)]
     if len(ids) != len(required) or tuple(ids) != REQUIRED_HOST_PROBES:
-        raise ReleaseEvidenceError("Host campaign contract probes must be exactly ordered H00-H20")
-    env_fields = payload.get("required_environment_fields")
-    result_fields = payload.get("required_result_fields")
-    if env_fields != sorted(HOST_ENVIRONMENT_FIELDS):
+        raise ReleaseEvidenceError("Host campaign contract probes must be exactly ordered N0-N8")
+    if payload.get("required_environment_fields") != sorted(HOST_ENVIRONMENT_FIELDS):
         raise ReleaseEvidenceError("Host campaign contract environment field set is unsupported")
-    if result_fields != sorted(HOST_RESULT_FIELDS):
+    if payload.get("required_result_fields") != sorted(HOST_RESULT_FIELDS):
         raise ReleaseEvidenceError("Host campaign contract result field set is unsupported")
-    h20 = next((item for item in required if isinstance(item, Mapping) and item.get("id") == "H20"), None)
-    if not isinstance(h20, Mapping) or h20.get("platform") != "windows":
-        raise ReleaseEvidenceError("Host campaign contract H20 must require Windows")
     return payload
 
 
@@ -181,7 +177,6 @@ def current_candidate_identity(repo: Path) -> dict[str, str]:
         "candidate_commit": commit,
         "candidate_tree": tree,
         "runtime_manifest_sha256": normalized_file_sha256(repo / RUNTIME_MANIFEST),
-        "production_hook_sha256": normalized_file_sha256(repo / PRODUCTION_HOOK),
         "profile_contract_sha256": normalized_file_sha256(repo / PROFILE_CONTRACT),
         "host_contract_sha256": normalized_file_sha256(repo / HOST_CAMPAIGN_CONTRACT),
     }
@@ -230,8 +225,7 @@ def _load_evidence(value: Mapping[str, Any] | Path) -> tuple[dict[str, Any] | No
 
 def _inside(candidate: Path, path: Path) -> bool:
     try:
-        resolved = path.expanduser().resolve(strict=False)
-        resolved.relative_to(candidate)
+        path.expanduser().resolve(strict=False).relative_to(candidate)
     except ValueError:
         return False
     return True
@@ -356,7 +350,9 @@ def _validate_host_campaign(
         issues.append("host campaign missing required probes: " + ", ".join(missing))
     if extra:
         issues.append("host campaign contains unsupported probes: " + ", ".join(extra))
-    for probe_id in sorted(required_ids & actual_ids):
+    for probe_id in REQUIRED_HOST_PROBES:
+        if probe_id not in results:
+            continue
         result = _exact_fields(
             results[probe_id],
             HOST_RESULT_FIELDS,
@@ -369,15 +365,8 @@ def _validate_host_campaign(
             issues.append(f"host campaign {probe_id} must PASS")
         if not _nonempty(result.get("evidence_ref")):
             issues.append(f"host campaign {probe_id} PASS requires evidence_ref")
-        environment_id = result.get("environment_id")
-        if environment_id not in environment_ids:
+        if result.get("environment_id") not in environment_ids:
             issues.append(f"host campaign {probe_id} references unknown environment_id")
-            continue
-        if probe_id == "H20" and isinstance(environments, Mapping):
-            environment = environments.get(environment_id)
-            platform = environment.get("platform") if isinstance(environment, Mapping) else None
-            if not isinstance(platform, str) or platform.lower() != "windows":
-                issues.append("host campaign H20 must be bound to a Windows environment")
 
 
 def _validate_final_review(
@@ -468,7 +457,7 @@ def verify_release_evidence(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Verify external V4.0.0 candidate-bound release evidence.")
+    parser = argparse.ArgumentParser(description="Verify external V4.0.0 Native Core release evidence.")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
