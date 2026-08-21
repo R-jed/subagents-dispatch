@@ -111,6 +111,36 @@ def _has_accepted_progress(payload: Mapping[str, Any]) -> bool:
     )
 
 
+def _phase_batch(
+    eligible: list[str],
+    *,
+    by_id: Mapping[str, Mapping[str, Any]],
+    launch_budget: int,
+) -> tuple[list[str], list[str]]:
+    """Choose one canonical-checkout phase for this scheduling decision.
+
+    A writer is always a singleton batch. A read batch may contain multiple
+    independent read-oriented units. Read and write work never share one launch
+    batch because all actions in a scheduler decision can be acted on before the
+    next reconciliation observes a newly reserved WriterLease.
+    """
+    if launch_budget <= 0 or not eligible:
+        return [], list(eligible)
+
+    first = eligible[0]
+    first_writable = by_id[first]["authority_ceiling"] != "none"
+    if first_writable:
+        return [first], eligible[1:]
+
+    read_eligible = [
+        unit_id for unit_id in eligible if by_id[unit_id]["authority_ceiling"] == "none"
+    ]
+    selected = read_eligible[:launch_budget]
+    selected_set = set(selected)
+    deferred = [unit_id for unit_id in eligible if unit_id not in selected_set]
+    return selected, deferred
+
+
 def scheduler_decision(
     payload: Mapping[str, Any],
     *,
@@ -153,7 +183,10 @@ def scheduler_decision(
 
     initial = not _has_accepted_progress(current)
     product_ceiling = INITIAL_CHILD_LIMIT if initial else PRODUCT_CHILD_LIMIT
-    product_free = max(0, product_ceiling - active_managed)
+    effective_capacity = product_ceiling
+    if host_capacity is not None:
+        effective_capacity = min(effective_capacity, host_capacity)
+    product_free = max(0, effective_capacity - active_managed)
     launch_budget = min(product_free, len(eligible))
 
     stop_reason: str | None = None
@@ -171,9 +204,13 @@ def scheduler_decision(
         stop_reason = "user_cancel"
     elif product_free == 0 and eligible:
         launch_budget = 0
-        stop_reason = "product_capacity_full"
+        stop_reason = "product_or_known_host_capacity_full"
 
-    selected = eligible[:launch_budget]
+    selected, deferred = _phase_batch(
+        eligible,
+        by_id=by_id,
+        launch_budget=launch_budget,
+    )
     actions = [
         {
             "action": "START_FRESH",
@@ -182,18 +219,21 @@ def scheduler_decision(
         }
         for unit_id in selected
     ]
-    for unit_id in eligible[len(selected):]:
-        waiting.append({"unit_id": unit_id, "reason": "product_fanout_limit"})
+    selected_writable = bool(selected) and by_id[selected[0]]["authority_ceiling"] != "none"
+    for unit_id in deferred:
+        if selected_writable or (
+            selected and by_id[unit_id]["authority_ceiling"] != "none"
+        ):
+            reason = "phase_batch_boundary"
+        else:
+            reason = "product_fanout_limit"
+        waiting.append({"unit_id": unit_id, "reason": reason})
 
     blocked = [
         {"unit_id": unit["unit_id"], "reason": "dependencies_unaccepted"}
         for unit in current["work_units"]
         if unit["state"] == "BLOCKED"
     ]
-
-    effective_capacity = product_ceiling
-    if host_capacity is not None:
-        effective_capacity = min(effective_capacity, host_capacity)
 
     return {
         "mode": "wakeup_reconcile",
@@ -211,7 +251,7 @@ def scheduler_decision(
         "backpressure": backpressure,
         "ready_frontier": ready_ids,
         "ranked_frontier": ranked_ready,
-        "launch_budget": launch_budget,
+        "launch_budget": len(selected),
         "stop_reason": stop_reason,
         "actions": actions,
         "waiting": waiting,
