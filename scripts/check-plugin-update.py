@@ -58,7 +58,6 @@ def check_update(
         "marketplace_refreshed": True,
         "plugin_install_performed": False,
         "managed_profiles_mutated": False,
-        "hook_trust_mutated": False,
         "installation": installation,
     }
 
