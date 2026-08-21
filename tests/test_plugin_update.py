@@ -366,19 +366,34 @@ def test_post_update_verifier_rejects_stale_or_mutating_doctor_contract(
         return subprocess.CompletedProcess([str(script), *args], 0, stdout=stdout, stderr="")
 
     monkeypatch.setattr(module, "_run_python", fake_run_python)
-    with pytest.raises(module.UpdateError, match="Native Core contract"):
+    with pytest.raises(module.UpdateError, match="health report format is unsupported"):
         module._verify_new_package(root, codex_home=home, codex_bin="/fake/codex", expected_version="4.0.0")
 
 
-def test_update_render_has_no_retired_hook_trust_instruction():
+def test_update_render_is_product_facing():
     module = load_module()
     text = module.render_update(
         {
-            "steps": [],
+            "steps": [
+                {"name": "Marketplace", "status": "OK", "summary": "Version 4.1.0 is available"},
+                {"name": "Plugin", "status": "OK", "summary": "Installed 4.1.0"},
+                {"name": "Health check", "status": "OK", "summary": "Passed"},
+            ],
             "from_version": "4.0.0",
             "to_version": "4.1.0",
             "restart_required": True,
         }
     )
-    assert "Hook" not in text
     assert "fresh Codex session" in text
+    assert "Version: 4.0.0 -> 4.1.0" in text
+    assert "Overall: UPDATE COMPLETE" in text
+    for internal in (
+        "Hook",
+        "canonical checkout",
+        "product-health contract",
+        "Native Core",
+        "WorkUnit",
+        "ExecutionBinding",
+        "WriterLease",
+    ):
+        assert internal not in text
