@@ -77,6 +77,9 @@ jobs:
   policy-tests:
     name: policy-tests
     needs: test
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - run: echo "All policy test matrix jobs passed."
+      - name: Require all platform checks
+        shell: bash
+        run: test '${{ needs.test.result }}' = 'success'
