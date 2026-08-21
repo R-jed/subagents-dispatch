@@ -103,6 +103,35 @@ def test_check_update_verifies_source_then_refreshes_marketplace_and_never_insta
     ]
 
 
+def test_update_check_render_is_product_facing():
+    module = load_module()
+    text = module.render(
+        {
+            "installation": {
+                "status": "OK",
+                "summary": "Installed Plugin is current",
+                "details": {
+                    "installed_version": "4.0.0",
+                    "available_version": "4.0.0",
+                    "update_available": False,
+                },
+            }
+        }
+    )
+    assert "[OK] Marketplace: refreshed" in text
+    assert "[OK] Plugin: Installed Plugin is current" in text
+    assert "Overall: CURRENT" in text
+    for internal in (
+        "canonical snapshot",
+        "canonical checkout",
+        "Native Core",
+        "WorkUnit",
+        "ExecutionBinding",
+        "WriterLease",
+    ):
+        assert internal not in text
+
+
 def test_check_update_rejects_wrong_marketplace_origin_before_network_refresh(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
