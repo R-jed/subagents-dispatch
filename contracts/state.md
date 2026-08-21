@@ -1,205 +1,220 @@
 # Dispatch State
 
-This contract owns short-lived coordination continuity for an active subagents-dispatch orchestration. It does not create another scheduler, database, daemon, event bus, or Agent runtime.
-
-## Purpose
-
-The Main session may be interrupted while native child Agents remain inspectable or resumable. Explicit Status, Steer, Takeover, and Dispatch-resume entry points therefore need a small amount of thread-scoped coordination truth that survives a turn boundary without polluting the repository.
-
-The state is an index over native work, not a copy of the work itself.
+This contract owns short-lived project coordination state for one active V4 Native Core orchestration. It does not create another Agent runtime, Host lifecycle authority, scheduler daemon, event bus, or Hook control plane.
 
 ## Core invariant
 
 One Main root thread has at most one active top-level subagents-dispatch orchestration.
 
-A different user task must not silently create a second top-level orchestration in the same root thread while an existing writer, UNKNOWN owner, pending takeover, or other unresolved active state remains.
+Codex Native Subagents own native lifecycle truth. The state capsule owns project responsibility, generation, write ownership, and acceptance bookkeeping.
 
 ## Storage boundary
 
-Ordinary runtime state lives under the operating-system temporary directory:
+Runtime state lives under the operating-system temporary directory:
 
 ```text
 <OS TEMP>/subagents-dispatch/<CODEX_THREAD_ID>/active.json
 ```
 
-`CODEX_THREAD_ID` is the preferred root-thread isolation key when the Host exposes it. If a stable thread identity is unavailable, do not invent one from repository path, current working directory, user text, or a random long-lived identifier. Cross-turn controls that require durable binding must fail closed when the current root thread cannot be identified reliably.
+Use a stable Host-provided root thread identity. Do not invent a durable identity from repository path, user text, or another unrelated property. Reject unsafe symlinks, malformed paths, oversized payloads, invalid schema, and non-private POSIX state files. Mutations use the existing short state lock and atomic replace boundary.
 
-The repository, `.codex/`, and the user's project working tree are not dispatch-state stores.
+The repository and user project tree are not dispatch-state stores.
 
-## What active.json may contain
+## V4 Native Core schema
 
-Store only compact coordination metadata required to recover the current control surface:
+The top-level payload contains exactly:
 
 ```text
-schema version
-root thread identity
+schema_version
+root_session_id
+state_revision
+team_plan_revision
+work_units
+executions
+writer_lease
+accounting_refs
+created_at
+updated_at
 locale
-created / updated timestamps
-active TeamPlan revision when one exists
-native unit / task / attempt / child identity bindings
-compact responsibility / authority snapshots needed to identify active units
-control / review / recovery accounting references
-pending takeover or reconciliation metadata when required
 ```
 
-For a single delegated responsibility without TeamPlan, the compact responsibility snapshot is deliberately closed rather than free-form:
+There is no `PendingControl`, Hook acknowledgement ledger, capacity token, `OperationIntent`, or `OperationReceipt` in the Native Core state schema.
+
+The capsule must not persist raw prompts, child transcripts, private reasoning, source-file contents, webpages, credentials, secrets, or arbitrary Host tool output. Keep the existing 64 KiB bound.
+
+## WorkUnit
+
+WorkUnit owns responsibility and acceptance truth. It records intent, goal, output, dependencies, ownership/write boundaries, authority ceiling, completion condition, optional bounded responsibility context, and accepted result binding.
+
+A dependency unlocks only when its predecessor WorkUnit reaches `ACCEPTED`. Host `COMPLETED` alone produces candidate evidence and never unlocks downstream work.
+
+A WorkUnit may reference at most two contiguous fresh execution attempts. A safe recognized pre-materialization rejection may remove a provisional `SPAWN_PENDING` execution before it becomes an attempt.
+
+## ExecutionBinding
+
+ExecutionBinding records one fresh attempt identity and its current same-child activation generation:
 
 ```text
-responsibility
--> outcome        required non-empty text
--> acceptance     required non-empty text
--> intent          optional: inspect | implement | verify | review
-
-authority
--> write_scope         required array of non-empty path/scope strings
--> mutation_authority  optional: none | declared-output-only | bounded-source-write
--> decision_rights     optional array of non-empty bounded-right strings
+execution_id
+unit_id
+team_plan_revision
+attempt_no
+profile_id
+agent_id
+native_task_name
+model
+effort
+granted_authority
+granted_write_scope
+workspace_id
+lifecycle
+control_epoch
+followup_count
+failure_origin
+blocker
+quarantine_reason
 ```
 
-These values reuse the existing Router and Guardrails vocabulary; they do not create a second task taxonomy. Unit identity, delegated role, model lane, lifecycle, and attempt identity remain separate typed fields in the capsule.
+`control_epoch` is the generation counter for same-child followup, continue, and interrupt. A Host observation captured against an older epoch is stale and cannot settle the current activation.
 
-For a multi-unit orchestration, TeamPlan remains the canonical structural truth; `team_plan_revision` is either null or a positive integer binding the compact active-unit index to the accepted plan revision. The capsule does not duplicate the full plan or recovery ledger by default.
-
-`controls` is a reserved compatibility field and must remain an empty array. Status/Steer/Takeover accounting has one canonical owner in typed `accounting_refs`; do not create a second control ledger. `pending_takeover`, when present, is exactly `{unit_id, status}` with `status: pending` and must reference an existing unit.
-
-Do not persist raw user prompts, child transcripts, private reasoning, source-file contents, web pages, full tool output, credentials, secrets, or a duplicate evidence corpus. The closed compact field schema and the existing 64 KiB capsule bound are both safety boundaries; callers still must not disguise prohibited content inside an allowed semantic field.
-
-## TeamPlan and ledger validation
-
-TeamPlan and recovery-ledger payloads remain canonical structured coordination representations. When a deterministic validator is required, pass the current payload through stdin where supported. Do not create one JSON file per validation merely because a validator accepts a path.
-
-The active capsule references the current TeamPlan revision when one exists and keeps only bounded runtime bindings/snapshots required for controls. Do not turn active.json into a second TeamPlan history, requirement ledger, recovery database, or evidence store. If an explicit future continuity case genuinely requires additional compact plan state, extend this schema deliberately and keep the 64 KiB bound rather than silently persisting arbitrary plan artifacts.
-
-## Lifecycle
+Lifecycle values are:
 
 ```text
-Preview
--> never creates active state
-
-explicit Dispatch with zero child Agents
--> does not create active state
-
-before the first real child spawn
--> create or atomically update active state with SPAWN_PENDING
-
-Host returns an inspectable child identity
--> bind the native identity and transition the attempt to RUNNING
-
-Status / Steer / Takeover / Dispatch resume
--> resolve the same thread-scoped active state
--> reconcile with current native Host evidence before acting
-
-normal terminal orchestration
--> produce the final Dispatch Receipt snapshot
--> remove active.json
-
-Main interruption / UNKNOWN / pending writer settlement / parked user decision
--> retain the capsule temporarily
+SPAWN_PENDING
+RUNNING
+INTERRUPTED
+COMPLETED
+FAILED
+UNKNOWN
+CLOSED
 ```
 
-The normal steady state after completed work is no dispatch-state file.
+`UNKNOWN` requires `runtime_ambiguous` and blocks conflicting progress.
 
-## Spawn crash window
+## WriterLease
 
-Persist the prepared attempt before invoking the Host:
+WriterLease is a project scheduling invariant for the canonical checkout. It is not an OS lock and does not prove that another same-user process cannot write.
+
+A writable execution reserves WriterLease before native activation. WriterLease remains blocking in:
 
 ```text
-prepare unit + unique task id + deterministic native task name
--> active state records SPAWN_PENDING
--> invoke spawn_agent
--> Host returns child identity
--> active state records RUNNING + child identity
+RESERVED
+HELD
+REVOKING
+UNKNOWN
 ```
 
-Use deterministic non-sensitive native task names derived from orchestration identity, for example `sd-u2-a1-execute`. Do not place user content or repository secrets in native task names.
+Release or transfer requires current-generation Host observation proving the execution is settled. An ambiguous writer observation makes the lease `UNKNOWN`. A later clear current-generation observation may recover the lease to a settleable state. `UNKNOWN` never authorizes transfer.
 
-`prepare_spawn` performs the pre-Host write. When the Host returns an inspectable identity, `bind_spawn_identity` re-reads the authoritative capsule under the same short state-lock discipline, resolves the exact prepared unit/task/attempt/native name, binds the returned child id, and atomically persists `RUNNING`. Callers must not overwrite that transition from a stale pre-Host payload.
+## Native lifecycle flow
 
-If Main is interrupted after native creation but before the returned child identity is persisted, a later Status may reconcile a SPAWN_PENDING record against native Agent listings and rebind only when identity is unambiguous. Ambiguity remains UNKNOWN and never authorizes a replacement Agent.
-
-## State truth versus Host truth
-
-The capsule owns coordination truth. Codex Native Subagents own runtime lifecycle truth.
+### Fresh spawn
 
 ```text
-capsule
--> responsibility, dependency, ownership, attempt identity, accounting
-
-native Host
--> current native child status and identity evidence
+validate responsibility/profile/attempt/writer admission
+-> persist SPAWN_PENDING ExecutionBinding
+-> reserve WriterLease when writable
+-> Main invokes native spawn_agent
+-> reconcile recognized Host result
 ```
 
-For the currently supported Codex native child-status surface, normalize only the observable lifecycle facts needed by this contract:
+Recognized success binds the expected child identity and lifecycle.
+
+A recognized pre-materialization rejection may roll back only the current provisional `SPAWN_PENDING` execution when there is no child identity or Host materialization evidence. An ambiguous result becomes `UNKNOWN`.
+
+### Same-child activation
+
+Followup and Continue reuse the same ExecutionBinding and advance `control_epoch`. They do not create a fresh attempt.
+
+Interrupt advances the generation as well. A writing interrupt moves WriterLease to `REVOKING` before Main asks the Host to interrupt. The interrupt call result alone does not release the lease.
+
+## Host observation basis
+
+Main is the trusted coordinator that invokes native tools and feeds observed Host lifecycle data to deterministic project state helpers.
+
+Before a reconciliation-sensitive observation, capture:
 
 ```text
-pendingInit  -> RUNNING once an inspectable child identity exists
-running      -> RUNNING
-interrupted  -> INTERRUPTED
-completed    -> COMPLETED
-errored      -> FAILED
-shutdown     -> CLOSED
-notFound     -> UNKNOWN
+execution_id
+control_epoch
+current lease_epoch or null
 ```
 
-`SPAWN_PENDING` remains the pre-identity crash-window state owned by the capsule. Do not map a materialized child with an inspectable identity back into that pre-identity state. `notFound` is missing runtime identity evidence, not proof that a previous writer stopped; it therefore cannot release write authority.
+The reconciliation helper re-reads authoritative state. If the basis no longer matches, return `stale` and do not mutate the newer generation.
 
-Status performs one native observation and one reconciliation. `reconcile_persisted_state` re-reads the current capsule under the state lock, applies that one Host snapshot, and atomically writes back any lifecycle/identity changes. `persisted_status_snapshot` returns the corresponding low-resolution view from the same reconciled state. A stale caller payload must not overwrite newer receipt/control metadata or newer explicit Host state.
+Normal status/recovery may use `list_agents`. Exact rollout inspection is reserved for ambiguous recovery and release attestation. No persisted PreToolUse preparation record is required.
 
-When Host and capsule identity evidence conflict, quarantine the affected attempt. Do not retry, replace, transfer writer ownership, or claim successful takeover until the conflict is resolved.
-
-## INTERRUPTED
-
-`INTERRUPTED` is a non-final delegated-attempt state when the native Host reports an interrupted child turn.
+Normalize current Host status only into the lifecycle facts the project needs:
 
 ```text
-RUNNING -> INTERRUPTED
-INTERRUPTED -> RUNNING
+pending_init / pendingInit -> RUNNING
+running                    -> RUNNING
+interrupted                -> INTERRUPTED
+completed                  -> COMPLETED
+errored                    -> FAILED
+shutdown                   -> CLOSED
+not_found / notFound       -> UNKNOWN
 ```
 
-Resuming the same native child keeps the same unit id, task id, attempt number, Agent identity, delegated role, and authority. It is not a retry, focused follow-up, rework pass, or new delegated work pass.
+Missing identity is uncertainty. It does not prove that a prior writer stopped.
 
-An interrupted writer is not proven settled. Main may begin conflicting mutation only after native evidence establishes that the previous writer is no longer active.
+## Accounting references
 
-## Atomicity and local safety
+`accounting_refs` contains bounded structured facts with a stable unique `ref`. Native Core currently uses it for recovery-relevant Host observations and other compact accepted accounting facts.
 
-State operations must be deterministic and short-lived:
+A `host_observation` record binds:
 
 ```text
-one state lock for mutation/reconciliation critical sections
-re-read authoritative capsule before state-changing merge/bind operations
-write temporary file
-flush as appropriate
-atomic replace
+ref
+kind = host_observation
+execution_id
+control_epoch
+lease_epoch
+lifecycle
 ```
 
-Receipt events use the same mutation boundary. `accounting_refs` contains unique structured events keyed by a stable `ref`; `persist_receipt_events` re-reads, merges, validates, and atomically replaces the capsule while holding the state lock. Reconciliation or resume may persist the same event again without incrementing visible totals.
+Do not add a second request/receipt protocol under accounting refs.
 
-`prepare_spawn`, `bind_spawn_identity`, `reconcile_persisted_state`, receipt persistence, stale cleanup, and removal all re-read authoritative state inside their mutation lock before committing the transition they own. `prepare_spawn` rejects a second active writer in the canonical workspace. State validation may still represent multiple observed writers so Doctor can expose and quarantine Host truth rather than hiding it. `remove_state` accepts terminal capsules only; planned, active, interrupted, pending-takeover, or unknown work must be settled first.
+## Acceptance truth
 
-Reject unsafe symlinked state roots, thread directories, state files, or locks. Use restrictive local file permissions where the platform supports them. POSIX implementations enforce owner-only mode bits for state directories/files/locks. Windows must not treat POSIX-style `st_mode` bits as an ACL proof; it retains the user-scoped OS temporary-directory boundary plus regular-file, path, symlink, size, schema, and locking checks. Validate the thread-id path component before constructing filesystem paths.
+Only Main accepts a WorkUnit after verifying the actual candidate.
 
-The lock coordinates state-file updates only. It is not a scheduler lock and must not be held while waiting for long-running child execution.
+An accepted WorkUnit must reference its current producing ExecutionBinding and the exact current `control_epoch`. The producer must be `COMPLETED`, or `CLOSED` only when the same generation has a stored Host observation proving it previously completed.
 
-## Stale cleanup
+Child prose, Host completion, or state transition by itself is insufficient acceptance evidence.
 
-Normal completion removes state immediately. Unexpected App or process termination may leave small stale capsules in the operating-system temporary directory.
+## Simple phase isolation
 
-A default stale horizon of seven days is acceptable for non-current thread state. The current root thread is never removed merely because of age while it is actively being controlled. Before deleting a stale capsule that claims active native work, reconcile when reliable native identity is still available; otherwise fail closed rather than assuming a writer disappeared. Cleanup must re-read and revalidate the candidate under the state lock immediately before unlinking so concurrently refreshed state cannot be deleted from stale pre-lock evidence.
+Because the tested Host did not enforce the requested read-only sandbox for managed read roles:
 
-Doctor may report current, stale, corrupt, unsafe, and forbidden repository-local state. Diagnosis is read-only by default. Explicit cleanup may remove only state proven to belong to subagents-dispatch and terminal; planned work and pending takeover are unresolved, not disposable.
+- managed Reader, Investigator, and Advisor executions may overlap one another when independent;
+- a writable Worker or Solver starts only after managed read-oriented executions have settled;
+- while WriterLease is blocking, no other managed child starts in the canonical checkout;
+- Final Review starts only after the writer settles;
+- `UNKNOWN` counts as active/blocking.
 
-## Control entry points
+This is scheduler policy. It does not require persisted phase state.
 
-Status, Steer, Takeover, and Dispatch resume share this state contract. None maintains a private state machine.
+## Atomicity
 
-A control detour is interaction semantics, not a delegated lifecycle transition by itself:
+State-changing helpers:
 
-```text
-user opens Status
-!= Agent failure
-!= retry
-!= semantic reroute
-!= ownership transfer
-```
+1. acquire the short state lock;
+2. re-read authoritative current state;
+3. validate the requested transition against current generation/lease identity;
+4. mutate a copy;
+5. increment `state_revision`;
+6. validate the complete payload;
+7. atomically replace the state file.
 
-The native child lifecycle changes only when the Host reports or accepts a corresponding runtime action.
+Do not hold the state lock while waiting for child work or a Host call.
+
+## Upgrade boundary
+
+Public `main` remains V3.x while V4 is pre-release. Native Core therefore has no compatibility promise for experimental V4 capsules created by the earlier Hook/PendingControl design.
+
+After the V4 schema cutover, development/release validation starts with fresh V4 state. An old experimental V4 capsule containing removed fields is invalid and requires explicit cleanup/restart. V3.x profile/install ownership migration remains separately supported and tested.
+
+## Normal completion
+
+A terminal orchestration may remove active state after all responsibilities and writer ownership are safely settled and required receipt/acceptance output has been produced. `UNKNOWN`, active execution, blocking WriterLease, or unresolved responsibility prevents silent cleanup.
