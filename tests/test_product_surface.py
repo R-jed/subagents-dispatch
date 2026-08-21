@@ -41,15 +41,47 @@ def test_plugin_manifest_is_v4_two_skill_identity_and_validator_compatible():
         assert unsupported not in payload
     interface = payload["interface"]
     assert len(interface["defaultPrompt"]) == 2
-    assert any("Orchestrate" in prompt for prompt in interface["defaultPrompt"])
-    assert any("Doctor" in prompt for prompt in interface["defaultPrompt"])
-    assert "two explicit Skills" in interface["longDescription"]
+    assert "Orchestrate" in interface["longDescription"]
+    assert "Doctor" in interface["longDescription"]
+    product_copy = " ".join(
+        [
+            payload["description"],
+            interface["shortDescription"],
+            interface["longDescription"],
+            *interface["defaultPrompt"],
+        ]
+    )
+    for internal in (
+        "WorkUnit",
+        "TeamPlan",
+        "ExecutionBinding",
+        "WriterLease",
+        "lifecycle reconciliation",
+        "two-Skill surface",
+        "Native Core",
+    ):
+        assert internal not in product_copy
     for field in ("privacyPolicyURL", "termsOfServiceURL"):
         parsed = urlparse(interface[field])
         assert parsed.scheme == "https" and parsed.netloc
     for field in ("composerIcon", "logo"):
         path = ROOT / interface[field].removeprefix("./")
         assert path.is_file()
+
+
+def test_orchestrate_keeps_engineering_narration_out_of_user_deliverables():
+    text = (SKILLS / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
+    for surface in ("UI", "PDFs", "presentations", "reports", "screenshots", "exported files"):
+        assert surface in text
+    assert "Unless the user explicitly requests" in text
+    for internal_process in (
+        "agent planning",
+        "implementation rationale",
+        "debugging chronology",
+        "verification mechanics",
+        "future-work planning",
+    ):
+        assert internal_process in text
 
 
 def test_marketplace_plugin_source_is_exact_checkout_root():
