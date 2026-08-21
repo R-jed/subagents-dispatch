@@ -102,13 +102,13 @@ scripts/legacy_state_cleanup.py
 
 scripts/legacy_migration.py
 -> ownership-checked V3 profile migration and compatibility diagnosis
-
-scripts/doctor_runtime.py
-scripts/doctor_runtime_core.py
--> legacy module names retained only as thin aliases to the current Native Core Doctor
 ```
 
 Compatibility code does not define current V4 routing, lifecycle, acceptance, release or Host authority.
+
+## Evaluator-only tooling
+
+Calibration and benchmark helpers under `scripts/calibration_*`, `scripts/validate-experiment-*`, and `scripts/score-behavioral-evals.py` are excluded from the runtime integrity set. They may preserve frozen experiment identifiers for reproducibility, but they do not define production Skill names, lifecycle authority, model routing, or release readiness.
 
 ## Fixed profiles
 
