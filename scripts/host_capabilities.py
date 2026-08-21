@@ -93,7 +93,7 @@ def normalize_agent_status(status: Any) -> dict[str, Any]:
 
 
 def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a deterministic capability snapshot without Plugin Hook requirements."""
+    """Return a deterministic Native Subagent capability snapshot."""
     if not isinstance(evidence, Mapping):
         raise HostCapabilityError("Host evidence must be an object")
     required_fields = {"surface", "tools", "fork_turns_none", "max_spawned_threads"}

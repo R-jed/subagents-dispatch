@@ -28,7 +28,7 @@
     "scripts/doctor.py": "327fc2e921ebc681cc36fca4feb4a391a052ff6f8b2f9e29566a8b1fd640d8f9",
     "scripts/execution_lifecycle_v4.py": "962803b0937821df741c4cd65ef2dae2739ded4aa32630da213f6374b98471d9",
     "scripts/execution_lifecycle_v4_core.py": "db22e6eebf9ed14814979a93651eab7927ea28134a2c04167098c93813b65583",
-    "scripts/host_capabilities.py": "e2a2b2fb250400d81f11dc393f65c70c055957818ca5af411c82401d7785ae56",
+    "scripts/host_capabilities.py": "22ff7d61f41a80c7ca0d26180d64483783f15357905947b4657d4fffd0beebe1",
     "scripts/inspect-agent-runtime.py": "4bd179811d6e2ed415243995a09866d4566bed5e466e42f2097ad349187c4453",
     "scripts/inspect-collaboration-runtime.py": "b8138517eb370111fb87b526b9896e0e17aa1369633e99817eb4fc816ef60b28",
     "scripts/install-agents.py": "f32e998e0ca894364e959dab9f5eb7dcfe54f306ea67d4761569b2aa9ab2dc47",
