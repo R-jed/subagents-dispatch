@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""V4 wakeup-driven reconcile scheduler with authoritative Host occupancy."""
+"""Wakeup-driven V4 Native Core scheduler.
+
+The scheduler owns product fanout, dependency readiness, acceptance backpressure,
+and simple canonical-checkout phase isolation. Actual native thread capacity is
+Host-owned and may reject a bounded spawn attempt.
+"""
 
 from __future__ import annotations
 
@@ -25,47 +30,42 @@ RESULT_BACKLOG_STATES = {"RESULT_READY", "VERIFYING"}
 PRODUCT_CHILD_LIMIT = 3
 INITIAL_CHILD_LIMIT = 2
 BACKPRESSURE_THRESHOLD = 2
-CAPACITY_KIND = state.HOST_CAPACITY_OBSERVATION_KIND
 
 
 class SchedulerError(RuntimeError):
-    """Scheduler input is malformed or violates the frozen V4 contract."""
+    """Scheduler input is malformed or violates the V4 Native Core contract."""
 
 
 def _snapshot_capacity(snapshot: Mapping[str, Any] | None) -> tuple[int | None, bool, list[str]]:
     if snapshot is None:
-        return None, False, ["host_capabilities_unavailable"]
+        return None, True, []
     try:
         normalized = host_capabilities.validate_normalized_snapshot(snapshot)
     except host_capabilities.HostCapabilityError as exc:
         raise SchedulerError(str(exc)) from exc
     if normalized.get("execution_ready") is not True:
-        missing = normalized.get("missing", [])
-        return None, False, list(missing) or ["host_not_execution_ready"]
-    return normalized["max_spawned_threads"], True, []
+        return normalized.get("max_spawned_threads"), False, list(normalized.get("missing", []))
+    return normalized.get("max_spawned_threads"), True, []
 
 
-def _execution_counts(payload: Mapping[str, Any]) -> tuple[int, dict[str, list[dict[str, Any]]]]:
+def _execution_counts(
+    payload: Mapping[str, Any],
+) -> tuple[int, int, int, dict[str, list[dict[str, Any]]]]:
     by_unit: dict[str, list[dict[str, Any]]] = {}
     active = 0
+    active_read = 0
+    active_write = 0
     for execution in payload.get("executions", []):
         if not isinstance(execution, dict):
             continue
         by_unit.setdefault(execution["unit_id"], []).append(execution)
         if execution["lifecycle"] in ACTIVE_TURN_STATES:
             active += 1
-    return active, by_unit
-
-
-def _capacity_observation(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    matches = [
-        event
-        for event in payload.get("accounting_refs", [])
-        if isinstance(event, Mapping) and event.get("kind") == CAPACITY_KIND
-    ]
-    if len(matches) > 1:
-        raise SchedulerError("multiple current Host capacity observations are unsafe")
-    return matches[0] if matches else None
+            if execution["granted_authority"] == "none":
+                active_read += 1
+            else:
+                active_write += 1
+    return active, active_read, active_write, by_unit
 
 
 def _blocking_writer(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -81,6 +81,7 @@ def _eligible_fresh_start(
     unit: Mapping[str, Any],
     *,
     executions: list[Mapping[str, Any]],
+    active_managed: int,
     blocking_writer: Mapping[str, Any] | None,
 ) -> tuple[bool, str | None]:
     if unit["state"] != "READY":
@@ -91,8 +92,15 @@ def _eligible_fresh_start(
         return False, "execution_active_or_unknown"
     if any(item["lifecycle"] not in {"COMPLETED", "FAILED", "CLOSED"} for item in executions):
         return False, "prior_execution_not_settled_for_fresh"
-    if unit["authority_ceiling"] != "none" and blocking_writer is not None:
-        return False, "writer_lease_blocked"
+
+    writable = unit["authority_ceiling"] != "none"
+    if writable:
+        if blocking_writer is not None:
+            return False, "writer_lease_blocked"
+        if active_managed:
+            return False, "read_phase_not_settled"
+    elif blocking_writer is not None:
+        return False, "writer_phase_active"
     return True, None
 
 
@@ -117,8 +125,7 @@ def scheduler_decision(
     state.validate_state_payload(current)
 
     host_capacity, host_ready, host_missing = _snapshot_capacity(capability_snapshot)
-    active_managed, executions_by_unit = _execution_counts(current)
-    capacity_observation = _capacity_observation(current)
+    active_managed, active_read, active_write, executions_by_unit = _execution_counts(current)
     result_backlog = sum(
         1 for unit in current["work_units"] if unit["state"] in RESULT_BACKLOG_STATES
     )
@@ -127,18 +134,16 @@ def scheduler_decision(
     critical_lengths = work_graph.critical_path_lengths(current)
 
     ready_ids = [unit["unit_id"] for unit in current["work_units"] if unit["state"] == "READY"]
-    ranked_ready = sorted(
-        ready_ids,
-        key=lambda unit_id: (-critical_lengths[unit_id], unit_id),
-    )
+    ranked_ready = sorted(ready_ids, key=lambda unit_id: (-critical_lengths[unit_id], unit_id))
+    by_id = {unit["unit_id"]: unit for unit in current["work_units"]}
 
     waiting: list[dict[str, str]] = []
     eligible: list[str] = []
-    by_id = {unit["unit_id"]: unit for unit in current["work_units"]}
     for unit_id in ranked_ready:
         ok, reason = _eligible_fresh_start(
             by_id[unit_id],
             executions=executions_by_unit.get(unit_id, []),
+            active_managed=active_managed,
             blocking_writer=blocking_writer,
         )
         if ok:
@@ -149,77 +154,24 @@ def scheduler_decision(
     initial = not _has_accepted_progress(current)
     product_ceiling = INITIAL_CHILD_LIMIT if initial else PRODUCT_CHILD_LIMIT
     product_free = max(0, product_ceiling - active_managed)
-
-    resident = 0
-    settled = 0
-    managed_resident = 0
-    unmanaged_resident = 0
-    observation_required = bool(eligible) and capacity_observation is None
-    if capacity_observation is not None:
-        resident = int(capacity_observation["resident_children"])
-        settled = int(capacity_observation["settled_children"])
-        managed_resident = int(capacity_observation["managed_resident_children"])
-        unmanaged_resident = int(capacity_observation["unmanaged_resident_children"])
-
-    host_reclaim_attempt = False
-    if capacity_observation is None:
-        host_free = 0
-    elif host_capacity is None:
-        host_free = 1 if resident == 0 else 0
-    else:
-        host_free = max(0, host_capacity - resident)
-
-    # One authoritative occupancy observation can authorize at most one fresh
-    # Host mutation. A successful lifecycle PostToolUse invalidates the
-    # observation, so event-driven refill must observe again before another
-    # child can be admitted.
-    launch_budget = min(product_free, host_free, 1)
-    if (
-        capacity_observation is not None
-        and host_capacity is not None
-        and resident >= host_capacity
-        and settled > 0
-        and product_free > 0
-        and eligible
-    ):
-        # Current V2 performs the precise active-turn/mailbox unloadability check
-        # inside the next spawn. Permit exactly one attempt; do not claim the
-        # settled resident is guaranteed reclaimable.
-        launch_budget = 1
-        host_reclaim_attempt = True
+    launch_budget = min(product_free, len(eligible))
 
     stop_reason: str | None = None
     if plan_only:
         launch_budget = 0
-        host_reclaim_attempt = False
         stop_reason = "plan_only"
     elif not host_ready:
         launch_budget = 0
-        host_reclaim_attempt = False
         stop_reason = "host_not_execution_ready"
     elif backpressure:
         launch_budget = 0
-        host_reclaim_attempt = False
         stop_reason = "acceptance_backpressure"
     elif wakeup_reason == "USER_CANCEL":
         launch_budget = 0
-        host_reclaim_attempt = False
         stop_reason = "user_cancel"
     elif product_free == 0 and eligible:
         launch_budget = 0
-        host_reclaim_attempt = False
         stop_reason = "product_capacity_full"
-    elif observation_required:
-        launch_budget = 0
-        host_reclaim_attempt = False
-        stop_reason = "host_occupancy_observation_required"
-    elif host_capacity is None and resident > 0 and eligible:
-        launch_budget = 0
-        host_reclaim_attempt = False
-        stop_reason = "host_capacity_unknown_with_residents"
-    elif host_capacity is not None and resident >= host_capacity and settled == 0 and eligible:
-        launch_budget = 0
-        stop_reason = "host_capacity_full"
 
     selected = eligible[:launch_budget]
     actions = [
@@ -230,45 +182,31 @@ def scheduler_decision(
         }
         for unit_id in selected
     ]
-
     for unit_id in eligible[len(selected):]:
-        waiting.append(
-            {
-                "unit_id": unit_id,
-                "reason": "capacity_or_initial_fanout_limit",
-            }
-        )
+        waiting.append({"unit_id": unit_id, "reason": "product_fanout_limit"})
 
     blocked = [
-        {
-            "unit_id": unit["unit_id"],
-            "reason": "dependencies_unaccepted",
-        }
+        {"unit_id": unit["unit_id"], "reason": "dependencies_unaccepted"}
         for unit in current["work_units"]
         if unit["state"] == "BLOCKED"
     ]
 
-    effective_capacity = (
-        1 if host_capacity is None else min(PRODUCT_CHILD_LIMIT, host_capacity)
-    )
+    effective_capacity = product_ceiling
+    if host_capacity is not None:
+        effective_capacity = min(effective_capacity, host_capacity)
+
     return {
         "mode": "wakeup_reconcile",
         "wakeup_reason": wakeup_reason,
         "plan_only": plan_only,
         "host_ready": host_ready,
         "host_missing": host_missing,
-        "effective_capacity": effective_capacity,
         "host_capacity": host_capacity,
+        "effective_capacity": effective_capacity,
         "initial_fanout": initial,
         "active_managed_executions": active_managed,
-        "occupied_slots": active_managed,
-        "occupied_open_threads": resident if capacity_observation is not None else active_managed,
-        "occupied_host_residents": resident,
-        "settled_host_residents": settled,
-        "managed_host_residents": managed_resident,
-        "unmanaged_host_residents": unmanaged_resident,
-        "requires_host_observation": observation_required,
-        "host_reclaim_attempt": host_reclaim_attempt,
+        "active_read_executions": active_read,
+        "active_write_executions": active_write,
         "result_backlog": result_backlog,
         "backpressure": backpressure,
         "ready_frontier": ready_ids,
@@ -302,11 +240,10 @@ def scheduler_status(payload: Mapping[str, Any]) -> dict[str, Any]:
         for unit in current["work_units"]
         if unit["state"] in {"BLOCKED", "READY", "RESULT_READY", "VERIFYING"}
     ]
-    lease = copy.deepcopy(current["writer_lease"])
     return {
         "active": active,
         "waiting": waiting,
-        "writer_lease": lease,
+        "writer_lease": copy.deepcopy(current["writer_lease"]),
         "acceptance_backlog": sum(
             1 for unit in current["work_units"] if unit["state"] in RESULT_BACKLOG_STATES
         ),
