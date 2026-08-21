@@ -56,8 +56,9 @@ def test_fixed_model_effort_authority_is_exact():
     assert actual == EXPECTED
 
 
-def test_profiles_runtime_and_doctor_match_policy():
+def test_profiles_runtime_doctor_and_machine_architecture_match_policy():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
     state = load_module("model_effort_state", "dispatch_state_v4.py")
     doctor = load_module("model_effort_doctor", "doctor.py")
 
@@ -72,7 +73,13 @@ def test_profiles_runtime_and_doctor_match_policy():
         profile = tomllib.loads(
             (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
         )
+        architecture_profile = architecture["profiles"][role]
         assert (profile["model"], profile["model_reasoning_effort"]) == expected[:2]
+        assert (
+            architecture_profile["model"],
+            architecture_profile["effort"],
+            architecture_profile["mutation_authority"],
+        ) == expected
 
 
 def test_routing_evals_use_current_production_profiles():
