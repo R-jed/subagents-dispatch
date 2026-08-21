@@ -20,8 +20,8 @@
       "id": "TD-V4-EXPERIMENT-PLANE-CONSOLIDATION",
       "priority": "P2",
       "status": "OPEN_NON_RUNTIME",
-      "current_condition": "calibration and benchmark helpers retain legacy internal facade/core structure and historical experiment vocabulary",
-      "target": "Consolidate experiment-only internals after release-critical Native Core and exact-candidate Host validation are stable"
+      "current_condition": "scripts/calibration_profiles_core.py still contains the original Reader-oriented evaluator transaction implementation, while calibration_profiles.py generalizes it to all roles by replacing selected core functions at import/runtime; these helpers are excluded from runtime package integrity and have no production routing, lifecycle, Doctor, or release authority",
+      "target": "After V4 release-critical Native Core and exact-candidate Host validation stabilize, consolidate calibration profile transactions behind one role-neutral evaluator implementation without changing frozen experiment evidence or production policy"
     }
   ],
   "release_policy": "Open P2 experiment/diagnostic usability debt does not replace or relax the exact-candidate N0-N8 Host release gate. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final."
