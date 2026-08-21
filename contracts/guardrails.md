@@ -226,3 +226,22 @@ Use inspectable evidence:
 Preserve `UNKNOWN`, partial, or not-observed states when facts are missing. Quarantine material route, permission, identity, ownership, or takeover-settlement conflicts instead of guessing.
 
 Main's normal completion response owns the user-visible task result: what changed, verification, blockers, and remaining risk. `receipt.md` may summarize current orchestration facts, but it does not create lifecycle or control authority.
+
+## 16. User-visible deliverables
+
+User-visible UI, PDFs, presentations, reports, screenshots, and exported files contain only content that serves the product or business outcome.
+
+Unless the user explicitly requests design notes, methodology, implementation process, or a work log, keep these out of the deliverable itself:
+
+```text
+agent planning or private reasoning
+implementation rationale or architecture narration
+debugging chronology
+verification mechanics and tool logs
+future-work or next-step planning
+internal orchestration ids, tool names, or lifecycle mechanics
+```
+
+Put engineering explanation, verification detail, limitations, and tradeoffs in Main's chat response, code comments, PR/MR text, documentation, or a plan file as appropriate.
+
+Product help text and empty-state copy may explain what the user can do when that explanation itself serves the product. Status and receipt UI may show current factual operational state, blockers, and required user actions without narrating internal reasoning.
