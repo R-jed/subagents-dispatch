@@ -1,209 +1,364 @@
 #!/usr/bin/env python3
-"""Integrity bootstrap for deterministic subagents-dispatch Doctor diagnostics."""
+"""Deterministic Doctor for the Native Core subagents-dispatch Plugin."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
-import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import tomllib
 from typing import Any, Mapping
-
-
-ROOT = Path(__file__).resolve().parents[1]
-INTEGRITY_HELPER = ROOT / "scripts" / "package_integrity.py"
-INTEGRITY_MANIFEST = ROOT / ".codex-plugin" / "package-integrity.json"
-RUNTIME = ROOT / "scripts" / "doctor_runtime.py"
-UPDATER = ROOT / "scripts" / "plugin_update.py"
-
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-
-def _bootstrap_failure(result: Mapping[str, Any], *, as_json: bool) -> None:
-    details: list[str] = []
-    for key in ("missing", "mismatched", "unsafe"):
-        values = result.get(key)
-        if isinstance(values, list):
-            details.extend(str(item) for item in values)
-    manifest_error = result.get("manifest_error")
-    if manifest_error:
-        details.append(str(manifest_error))
-    summary = "runtime package is incomplete or differs from its shipped integrity manifest"
-    if as_json:
-        print(
-            json.dumps(
-                {
-                    "schema_version": 1,
-                    "healthy": False,
-                    "bootstrap": {
-                        "name": "Plugin package integrity",
-                        "status": "FAIL",
-                        "summary": summary,
-                        "details": result,
-                    },
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-        )
-    else:
-        print("Subagents Dispatch Doctor")
-        print("Mode: package-integrity bootstrap")
-        print()
-        print(f"[FAIL] Plugin package integrity: {summary}")
-        if details:
-            print(f"       Affected: {', '.join(details)}")
-        print("       Action: use explicit Plugin update when a newer canonical release is available; otherwise reinstall the canonical Marketplace release.")
-        print()
-        print("Overall: UNHEALTHY")
-    raise SystemExit(1)
+import dispatch_state as legacy_state
+import dispatch_state_v4 as state_v4
+import host_capabilities
+import package_integrity
+from legacy_migration import detect_legacy_state, format_migration_state
 
 
-def _normalized_digest(path: Path) -> str:
-    text = path.read_text(encoding="utf-8")
-    normalized = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
-    return hashlib.sha256(normalized).hexdigest()
+ROOT = Path(__file__).resolve().parents[1]
+PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
+POLICY = ROOT / "contracts" / "policy.json"
+PROFILE_DIR = ROOT / "agent-profiles"
+SKILLS = ROOT / "skills"
+EXPECTED_SKILLS = ("orchestrate", "doctor")
+EXPECTED_PROFILES = {
+    "reader": ("gpt-5.6-luna", "max"),
+    "worker": ("gpt-5.6-luna", "max"),
+    "investigator": ("gpt-5.6-terra", "high"),
+    "solver": ("gpt-5.6-sol", "high"),
+    "advisor": ("gpt-5.6-sol", "high"),
+}
+RECOVERABLE_PROFILE_CHECK_PREFIXES = (
+    "Not installed:",
+    "Required Codex home is missing:",
+    "Current managed-profile manifest is missing or stale:",
+)
 
 
-def _verify_integrity_helper_before_import(*, as_json: bool) -> None:
-    if INTEGRITY_MANIFEST.is_symlink() or not INTEGRITY_MANIFEST.is_file():
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": [".codex-plugin/package-integrity.json"],
-                "mismatched": [],
-                "unsafe": [],
-                "manifest_error": "package-integrity manifest is unavailable",
-            },
-            as_json=as_json,
-        )
-    if INTEGRITY_HELPER.is_symlink() or not INTEGRITY_HELPER.is_file():
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": ["scripts/package_integrity.py"],
-                "mismatched": [],
-                "unsafe": [],
-                "manifest_error": "package-integrity helper is unavailable",
-            },
-            as_json=as_json,
-        )
+class DoctorError(RuntimeError):
+    """Deterministic diagnostic input is unsafe or malformed."""
+
+
+def layer(
+    name: str,
+    status: str,
+    summary: str,
+    *,
+    action: str | None = None,
+    **details: Any,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "name": name,
+        "status": status,
+        "summary": summary,
+        "details": details,
+    }
+    if action is not None:
+        result["action"] = action
+    return result
+
+
+def _read_json(path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads(INTEGRITY_MANIFEST.read_text(encoding="utf-8"))
-        files = payload.get("files") if isinstance(payload, dict) else None
-        expected = files.get("scripts/package_integrity.py") if isinstance(files, dict) else None
-        actual = _normalized_digest(INTEGRITY_HELPER)
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": [],
-                "mismatched": [],
-                "unsafe": [],
-                "manifest_error": f"package-integrity bootstrap is unreadable: {exc}",
-            },
-            as_json=as_json,
-        )
-    if not isinstance(expected, str) or len(expected) != 64 or actual != expected:
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": [],
-                "mismatched": ["scripts/package_integrity.py"],
-                "unsafe": [],
-                "manifest_error": None,
-            },
-            as_json=as_json,
-        )
+        raise DoctorError(f"cannot read {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise DoctorError(f"{path} must contain a JSON object")
+    return payload
 
 
-def _load_integrity():
-    as_json = "--json" in sys.argv[1:]
-    _verify_integrity_helper_before_import(as_json=as_json)
-    spec = importlib.util.spec_from_file_location("subagents_dispatch_package_integrity", INTEGRITY_HELPER)
-    if spec is None or spec.loader is None:
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": [],
-                "mismatched": [],
-                "unsafe": ["scripts/package_integrity.py"],
-                "manifest_error": "package-integrity helper cannot be loaded",
-            },
-            as_json=as_json,
-        )
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    except Exception as exc:
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": [],
-                "mismatched": [],
-                "unsafe": ["scripts/package_integrity.py"],
-                "manifest_error": f"package-integrity helper failed to load: {exc}",
-            },
-            as_json=as_json,
-        )
-    return module
-
-
-def _update_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--update", action="store_true")
-    parser.add_argument("--codex-home")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Diagnose subagents-dispatch Native Core.")
+    parser.add_argument(
+        "--codex-home",
+        type=Path,
+        default=Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")),
+    )
+    parser.add_argument("--temp-root", type=Path, default=Path(tempfile.gettempdir()))
+    parser.add_argument("--thread-id")
+    parser.add_argument("--host-evidence", type=Path)
+    parser.add_argument("--check", action="store_true")
     parser.add_argument("--json", action="store_true")
-    parsed, unknown = parser.parse_known_args(argv)
-    if unknown or not parsed.update:
-        raise ValueError("--update cannot be combined with other Doctor checks or mutations")
-    return parsed
+    parser.add_argument("--legacy", action="store_true")
+    parser.add_argument("--repair", action="store_true")
+    parser.add_argument("--migrate-legacy", action="store_true")
+    parser.add_argument("--cleanup-stale", action="store_true")
+    parser.add_argument("--uninstall-managed", action="store_true")
+    return parser.parse_args()
 
 
-def _run_update(argv: list[str], integrity) -> None:
+def _run_owned_action(command: list[str], *, label: str) -> None:
+    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise DoctorError(f"{label} failed{': ' + detail if detail else ''}")
+
+
+def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
+    selected = sum(
+        bool(value)
+        for value in (
+            args.repair,
+            args.migrate_legacy,
+            args.cleanup_stale,
+            args.uninstall_managed,
+        )
+    )
+    if selected > 1:
+        raise DoctorError("explicit Doctor maintenance actions are mutually exclusive")
+    actions: list[str] = []
+    if args.repair or args.migrate_legacy:
+        command = [
+            sys.executable,
+            str(ROOT / "scripts" / "install-agents.py"),
+            "--codex-home",
+            str(codex_home),
+        ]
+        if args.migrate_legacy:
+            command.append("--migrate-legacy")
+        label_text = "managed profile migration" if args.migrate_legacy else "managed profile repair"
+        _run_owned_action(command, label=label_text)
+        actions.append(f"{label_text} completed")
+    if args.uninstall_managed:
+        _run_owned_action(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "uninstall-agents.py"),
+                "--codex-home",
+                str(codex_home),
+            ],
+            label="managed profile uninstall",
+        )
+        actions.append("owned managed Agent profiles removed")
+    if args.cleanup_stale:
+        active = args.thread_id or os.environ.get("CODEX_THREAD_ID")
+        if active:
+            legacy_state.resolve_thread_id(active)
+        if args.temp_root.exists():
+            report = legacy_state.cleanup_stale_states(
+                temp_root=args.temp_root,
+                active_thread_id=active,
+            )
+            actions.append(f"stale cleanup removed {len(report['removed'])} terminal capsule(s)")
+        else:
+            actions.append("stale cleanup removed 0 terminal capsule(s)")
+    return actions
+
+
+def diagnose_plugin_package() -> dict[str, Any]:
     try:
-        args = _update_args(argv)
-    except ValueError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(1) from None
-    result = integrity.verify_package(ROOT, profile="update-bootstrap")
-    if result.get("ok") is not True:
-        _bootstrap_failure(result, as_json=args.json)
-    command = [sys.executable, str(UPDATER)]
-    if args.codex_home is not None:
-        command.extend(["--codex-home", args.codex_home])
-    if args.json:
-        command.append("--json")
-    raise SystemExit(subprocess.call(command))
+        payload = _read_json(PLUGIN)
+    except DoctorError as exc:
+        return layer("Plugin package", "FAIL", str(exc))
+    version = payload.get("version")
+    if (
+        payload.get("name") != "subagents-dispatch"
+        or payload.get("skills") != "./skills/"
+        or not isinstance(version, str)
+        or not version.strip()
+    ):
+        return layer("Plugin package", "FAIL", "plugin identity is malformed")
+    actual = sorted(path.name for path in SKILLS.iterdir() if path.is_dir()) if SKILLS.is_dir() else []
+    if actual != sorted(EXPECTED_SKILLS):
+        return layer(
+            "Plugin package",
+            "FAIL",
+            "public Skill surface is invalid",
+            expected=list(EXPECTED_SKILLS),
+            actual=actual,
+        )
+    return layer(
+        "Plugin package",
+        "OK",
+        "package identity and two-Skill surface are intact",
+        version=version,
+        skills=list(EXPECTED_SKILLS),
+    )
+
+
+def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
+    try:
+        roles = _read_json(POLICY)["roles"]
+    except (DoctorError, KeyError, TypeError) as exc:
+        return layer("Managed Agents", "FAIL", f"profile policy is unavailable: {exc}")
+    if not isinstance(roles, Mapping) or set(roles) != set(EXPECTED_PROFILES):
+        return layer("Managed Agents", "FAIL", "managed role set is invalid")
+    mismatches: list[str] = []
+    for role, (model, effort) in EXPECTED_PROFILES.items():
+        spec = roles.get(role)
+        if not isinstance(spec, Mapping) or not isinstance(spec.get("profile_file"), str):
+            mismatches.append(role)
+            continue
+        try:
+            profile = tomllib.loads(
+                (PROFILE_DIR / str(spec["profile_file"])).read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+            mismatches.append(role)
+            continue
+        if (
+            spec.get("model") != model
+            or spec.get("effort") != effort
+            or profile.get("model") != model
+            or profile.get("model_reasoning_effort") != effort
+        ):
+            mismatches.append(role)
+    if mismatches:
+        return layer("Managed Agents", "FAIL", "bundled managed Agent profile contract is inconsistent", mismatches=mismatches)
+
+    verifier = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "install-agents.py"), "--codex-home", str(codex_home), "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if verifier.returncode == 0:
+        return layer("Managed Agents", "OK", "5/5 managed Agent profiles are installed exactly", profiles=5)
+    diagnostic = (verifier.stderr or verifier.stdout).strip()
+    recoverable = any(diagnostic.startswith(prefix) for prefix in RECOVERABLE_PROFILE_CHECK_PREFIXES)
+    if recoverable:
+        return layer(
+            "Managed Agents",
+            "WARN",
+            "managed Agent profiles are absent or safely repairable",
+            action="Run Doctor repair, then start a fresh Codex task if profiles changed.",
+            diagnostic=diagnostic,
+            profiles=5,
+        )
+    return layer(
+        "Managed Agents",
+        "FAIL",
+        "managed Agent profile ownership or filesystem safety check failed",
+        action="Resolve the reported ownership or filesystem conflict before repair.",
+        diagnostic=diagnostic,
+        profiles=5,
+    )
+
+
+def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
+    if host_evidence is None:
+        return layer(
+            "Host integration",
+            "UNKNOWN",
+            "no current Host capability evidence was supplied",
+            action="Capture current Native Subagent capability evidence when execution readiness must be proven.",
+        )
+    try:
+        evidence = _read_json(host_evidence)
+        normalized = host_capabilities.normalize_host_capabilities(evidence)
+    except (DoctorError, host_capabilities.HostCapabilityError) as exc:
+        return layer("Host integration", "FAIL", f"Host evidence is invalid: {exc}")
+    if normalized["execution_ready"] is not True:
+        return layer(
+            "Host integration",
+            "FAIL",
+            "required Native Subagent capabilities are missing",
+            missing=normalized["missing"],
+        )
+    return layer(
+        "Host integration",
+        "OK",
+        "required Native Subagent capabilities are present",
+        capabilities=normalized["capabilities"],
+        fork_turns_none=normalized["fork_turns_none"],
+        max_spawned_threads=normalized["max_spawned_threads"],
+    )
+
+
+def diagnose_orchestration_state(thread_id: str | None, temp_root: Path) -> dict[str, Any]:
+    if thread_id is None:
+        return layer("Orchestration state", "UNKNOWN", "no thread id was supplied for active-state inspection")
+    try:
+        current = state_v4.load_state(thread_id, temp_root=temp_root)
+    except (state_v4.StateError, ValueError) as exc:
+        return layer("Orchestration state", "FAIL", f"V4 state is unsafe or corrupt: {exc}")
+    if current is None:
+        return layer("Orchestration state", "OK", "no active V4 orchestration capsule exists")
+    active = [
+        item["execution_id"]
+        for item in current["executions"]
+        if item["lifecycle"] in {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
+    ]
+    lease = current.get("writer_lease")
+    return layer(
+        "Orchestration state",
+        "OK",
+        "V4 Native Core state is valid",
+        state_revision=current["state_revision"],
+        active_executions=active,
+        writer_state=lease.get("state") if isinstance(lease, Mapping) else None,
+    )
+
+
+def diagnose_legacy(codex_home: Path) -> dict[str, Any]:
+    try:
+        migration = detect_legacy_state(codex_home)
+    except Exception as exc:
+        return layer("Legacy compatibility", "FAIL", f"legacy installation state is unsafe: {exc}")
+    status = format_migration_state(migration)
+    if migration.ownership_unknown:
+        return layer(
+            "Legacy compatibility",
+            "WARN",
+            "legacy ownership is unknown and automatic migration is blocked",
+            migration_state=status,
+        )
+    return layer("Legacy compatibility", "OK", "legacy compatibility state is classifiable", migration_state=status)
+
+
+def run_diagnosis(args: argparse.Namespace) -> dict[str, Any]:
+    actions = _explicit_actions(args, args.codex_home)
+    layers = [
+        diagnose_plugin_package(),
+        diagnose_managed_agents(args.codex_home),
+        diagnose_host_integration(args.host_evidence),
+        diagnose_orchestration_state(args.thread_id, args.temp_root),
+        diagnose_legacy(args.codex_home),
+    ]
+    return {"layers": layers, "actions": actions}
+
+
+def _print_report(report: Mapping[str, Any]) -> None:
+    for item in report["layers"]:
+        print(f"[{item['status']}] {item['name']}: {item['summary']}")
+        if item.get("action"):
+            print(f"  Action: {item['action']}")
+    for action in report.get("actions", []):
+        print(f"[OK] Action: {action}")
 
 
 def main() -> None:
-    argv = sys.argv[1:]
-    integrity = _load_integrity()
-    if "--update" in argv:
-        _run_update(argv, integrity)
-    result = integrity.verify_package(ROOT, profile="full")
-    if result.get("ok") is not True:
-        _bootstrap_failure(result, as_json="--json" in argv)
-    if RUNTIME.is_symlink() or not RUNTIME.is_file():
-        _bootstrap_failure(
-            {
-                "ok": False,
-                "missing": ["scripts/doctor_runtime.py"],
-                "mismatched": [],
-                "unsafe": [],
-                "manifest_error": None,
-            },
-            as_json="--json" in argv,
-        )
-    raise SystemExit(subprocess.call([sys.executable, str(RUNTIME), *argv]))
+    args = parse_args()
+    integrity = package_integrity.verify_package(ROOT, profile="full")
+    if integrity.get("ok") is not True:
+        message = package_integrity._format_result(integrity)
+        if args.json:
+            print(json.dumps({"integrity": integrity}, ensure_ascii=False, sort_keys=True))
+        else:
+            print(message, file=sys.stderr)
+        raise SystemExit(1)
+    try:
+        report = run_diagnosis(args)
+    except (DoctorError, legacy_state.StateError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    else:
+        _print_report(report)
+    if args.check and any(item["status"] == "FAIL" for item in report["layers"]):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
