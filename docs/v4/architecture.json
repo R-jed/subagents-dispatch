@@ -5,12 +5,6 @@
       "declared-output-only",
       "bounded-source-write"
     ],
-    "writer_effect_values": [
-      "NONE",
-      "RESERVE",
-      "RETAIN",
-      "REVOKE"
-    ],
     "writer_owner_kinds": [
       "main",
       "execution"
@@ -29,8 +23,8 @@
     },
     "INTERRUPT": {
       "host_primitive": "interrupt",
-      "interrupt_ack_releases_writer": false,
-      "requires_fresh_post_control_observation": true
+      "interrupt_result_releases_writer": false,
+      "requires_current_generation_settlement": true
     },
     "TAKEOVER": {
       "host_primitive": "composite",
@@ -39,7 +33,6 @@
   },
   "delegation": {
     "fork_turns": "none",
-    "host_capacity_excludes_primary": true,
     "initial_managed_children_max": 2,
     "max_depth": 1,
     "product_managed_children_max": 3
@@ -65,29 +58,6 @@
         "failure_origin",
         "blocker",
         "quarantine_reason"
-      ]
-    },
-    "PendingControl": {
-      "fields": [
-        "control_id",
-        "unit_id",
-        "execution_id",
-        "operation",
-        "target",
-        "payload_digest",
-        "expected_team_plan_revision",
-        "expected_control_epoch",
-        "next_control_epoch",
-        "expected_lease_epoch",
-        "writer_effect",
-        "state",
-        "tool_use_id"
-      ],
-      "operations": [
-        "SPAWN",
-        "FOLLOWUP",
-        "CONTINUE",
-        "INTERRUPT"
       ]
     },
     "WorkUnit": {
@@ -137,7 +107,10 @@
     "parallel_isolated_writers",
     "peer_delegation",
     "persistent_scheduler_database",
-    "daemon_scheduler"
+    "daemon_scheduler",
+    "plugin_hook_correctness_dependency",
+    "pending_control_protocol",
+    "operation_intent_receipt_ledger"
   ],
   "execution": {
     "control_epoch_scope": "execution_binding",
@@ -153,80 +126,40 @@
       "CLOSED"
     ]
   },
-  "guard": {
-    "exact_exposed_tool_identity_coverage": true,
-    "host_hook_coverage_is_release_gate": true,
-    "managed_lifecycle_authority_owner": "main",
-    "managed_peer_message_pre_guard": true,
-    "post_tool_use_acknowledges_control": true,
-    "pre_tool_use_consumes_prepared_control": true,
-    "subagent_stop_forces_no_auto_continue": true
-  },
   "host_capability_requirements": [
     "spawn",
     "observe",
-    "wait_or_wakeup",
     "followup",
     "interrupt",
-    "pre_tool_use_guard",
-    "post_tool_use_guard",
-    "host_observation_guard",
-    "peer_message_guard",
-    "subagent_stop_veto"
+    "fresh_context_spawn",
+    "managed_child_collaboration_disabled"
   ],
+  "host_truth": {
+    "capacity_owner": "codex_host",
+    "child_identity_owner": "codex_host",
+    "lifecycle_owner": "codex_host",
+    "materialization_owner": "codex_host",
+    "plugin_hook_required": false
+  },
   "invariants": {
     "I01": "A canonical workspace has at most one managed writer lease in RESERVED, HELD, REVOKING, or UNKNOWN.",
     "I02": "Host COMPLETED never directly marks a WorkUnit ACCEPTED or unlocks dependencies.",
     "I03": "Dependencies unlock only from WorkUnit ACCEPTED.",
     "I04": "A Host observation whose execution_id, control_epoch, or lease_epoch basis is stale is discarded.",
-    "I05": "One PendingControl authorization is consumed at most once and is bound to one tool_use_id.",
-    "I06": "Only one unresolved PendingControl may exist per ExecutionBinding.",
-    "I07": "A writing followup or continue must reserve or retain the WriterLease before Host reactivation.",
-    "I08": "interrupt acknowledgement alone never releases a WriterLease.",
-    "I09": "UNKNOWN writer ownership blocks conflicting managed mutation.",
-    "I10": "Managed children cannot spawn, followup, interrupt, resume, or otherwise control sibling managed agents.",
-    "I11": "When the Host exposes peer messaging, managed children cannot send peer messages; peer messages never grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.",
-    "I12": "Unresolved V3.x live state is never silently migrated into V4 execution.",
-    "I13": "Plan-only orchestration never acquires a WriterLease.",
-    "I14": "Main must acquire the same WriterLease abstraction before managed integration writes."
+    "I05": "A writing followup or continue must reserve or retain WriterLease before Host reactivation.",
+    "I06": "An interrupt result alone never releases WriterLease.",
+    "I07": "UNKNOWN writer ownership blocks conflicting managed mutation and replacement execution.",
+    "I08": "Managed children cannot control sibling managed agents under the verified profile contract.",
+    "I09": "Unresolved V3.x live state is never silently migrated into V4 execution.",
+    "I10": "Plan-only orchestration never acquires WriterLease.",
+    "I11": "Main must acquire the same WriterLease abstraction before managed integration writes.",
+    "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
+    "I13": "Ordinary correctness does not depend on Plugin Hook, PendingControl, or a replacement request-receipt control plane."
   },
   "migration": {
     "silent_live_state_migration": false,
     "source_family": "V3.x",
     "unresolved_live_state": "fail_closed"
-  },
-  "pending_control": {
-    "authorization_projection": {
-      "followup_task": [
-        "target"
-      ],
-      "interrupt_agent": [
-        "target"
-      ],
-      "spawn_agent": [
-        "task_name",
-        "agent_type",
-        "fork_turns"
-      ]
-    },
-    "host_owned_transport_fields": {
-      "followup_task": [
-        "message"
-      ],
-      "spawn_agent": [
-        "message"
-      ]
-    },
-    "payload_binding": "sha256_lifecycle_authorization_projection",
-    "serial_per_execution": true,
-    "single_use_binding": "tool_use_id",
-    "states": [
-      "PREPARED",
-      "IN_FLIGHT",
-      "ACKED",
-      "UNKNOWN",
-      "CANCELLED"
-    ]
   },
   "profiles": {
     "advisor": {
@@ -266,13 +199,28 @@
   ],
   "reconciliation": {
     "host_completed_maps_to_work_unit": "RESULT_READY",
-    "mode": "wakeup_driven",
+    "mode": "main_driven_native_host_reconciliation",
     "observation_basis": [
       "execution_id",
       "control_epoch",
       "lease_epoch"
     ],
+    "persist_pre_tool_basis": false,
     "stale_observation_action": "discard"
+  },
+  "release": {
+    "freeze_after_implementation_and_verification": true,
+    "host_campaign": [
+      "N0_route_model_effort_fork_turns",
+      "N1_child_collaboration_absent",
+      "N2_spawn_identity_binding",
+      "N3_capacity_rejection_no_materialization",
+      "N4_followup_continue_same_child",
+      "N5_interrupt_settlement",
+      "N6_writer_takeover_settlement",
+      "N7_rollout_reconciliation_privacy",
+      "N8_final_review_and_sandbox_truth"
+    ]
   },
   "review": {
     "artifact_mutation_invalidates_verdict": true,
@@ -285,7 +233,14 @@
     "peer_messaging_on_correctness_path": false,
     "principle": "lowest_eligible_capability_profile"
   },
-  "schema_version": "4.0.0-freeze-1",
+  "scheduler": {
+    "acceptance_backpressure_threshold": 2,
+    "host_capacity_token_required": false,
+    "host_rejection_is_capacity_authority": true,
+    "known_host_capacity_is_advisory_ceiling": true,
+    "unknown_counts_as_blocking": true
+  },
+  "schema_version": "4.0.0-native-core-candidate-1",
   "semantic_roles": [
     "main",
     "work",
@@ -307,7 +262,6 @@
       "work_units",
       "executions",
       "writer_lease",
-      "pending_controls",
       "accounting_refs",
       "created_at",
       "updated_at",
@@ -335,6 +289,7 @@
       "REVOKING",
       "UNKNOWN"
     ],
+    "hook_guard_proof_required_for_settlement": false,
     "main_requires_lease_for_managed_write": true,
     "parallel_isolated_writers_v4": false,
     "scope": "canonical_workspace",
