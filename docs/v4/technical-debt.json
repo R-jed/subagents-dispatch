@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-technical-debt-3",
+  "schema_version": "4.0.0-technical-debt-4",
   "status": "OPEN",
   "closed_items": [
     {
@@ -22,7 +22,14 @@
       "status": "OPEN_NON_RUNTIME",
       "current_condition": "scripts/calibration_profiles_core.py still contains the original Reader-oriented evaluator transaction implementation, while calibration_profiles.py generalizes it to all roles by replacing selected core functions at import/runtime; these helpers are excluded from runtime package integrity and have no production routing, lifecycle, Doctor, or release authority",
       "target": "After V4 release-critical Native Core and exact-candidate Host validation stabilize, consolidate calibration profile transactions behind one role-neutral evaluator implementation without changing frozen experiment evidence or production policy"
+    },
+    {
+      "id": "TD-V4-STATE-PATH-TOCTOU-HARDENING",
+      "priority": "P3",
+      "status": "OPEN_SECURITY_HARDENING",
+      "current_condition": "state_storage.py rejects pre-existing symlinks, confines state under the OS temporary directory, uses private per-thread directories, O_NOFOLLOW for the lock where supported, regular-file fstat checks, bounded files, fsync, and atomic replace; directory and state-path validation still precede later path-based operations, leaving a narrow same-user namespace-swap window when an attacker can mutate that namespace concurrently",
+      "target": "If the supported threat model expands to hostile same-user namespace mutation, evaluate descriptor-relative POSIX operations such as dir_fd/openat with O_NOFOLLOW and fstat plus platform-specific Windows handling and dedicated race tests; do not add this complexity to release-critical Native Core without evidence that the stronger containment boundary is required"
     }
   ],
-  "release_policy": "Open P2 experiment/diagnostic usability debt does not replace or relax the exact-candidate N0-N8 Host release gate. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final."
+  "release_policy": "Open P2 experiment/diagnostic usability debt and P3 storage hardening debt do not replace or relax the exact-candidate N0-N8 Host release gate. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final; P3 hardening remains nonblocking unless the supported threat model is expanded to require hostile same-user namespace containment."
 }
