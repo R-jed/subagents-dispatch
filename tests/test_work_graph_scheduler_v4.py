@@ -26,55 +26,16 @@ def load_module(name: str, filename: str):
 
 
 def capability_snapshot(*, capacity: int | None = 3, ready: bool = True) -> dict:
-    host = load_module(f"p4_host_snapshot_{capacity}_{ready}", "host_capabilities.py")
-    lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
-    guarded = lifecycle + ["list_agents"]
-    post = list(guarded)
+    host = load_module(f"native_scheduler_host_{capacity}_{ready}", "host_capabilities.py")
+    tools = ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"]
     if not ready:
-        post.remove("interrupt_agent")
+        tools.remove("interrupt_agent")
     return host.normalize_host_capabilities(
         {
             "surface": "multi_agent_v2",
-            "tools": lifecycle + ["list_agents", "wait_agent"],
-            "hooks": {
-                "PreToolUse": guarded,
-                "PostToolUse": post,
-                "SubagentStop": True,
-            },
+            "tools": tools,
             "fork_turns_none": ready,
             "max_spawned_threads": capacity,
-        }
-    )
-
-
-def observe_capacity(payload: dict) -> None:
-    residents = [
-        item
-        for item in payload.get("executions", [])
-        if item.get("lifecycle") != "CLOSED"
-    ]
-    settled = sum(
-        item.get("lifecycle") in {"COMPLETED", "FAILED", "INTERRUPTED"}
-        for item in residents
-    )
-    payload["accounting_refs"] = [
-        event
-        for event in payload.get("accounting_refs", [])
-        if event.get("kind") != "host_capacity_observation"
-    ]
-    payload["accounting_refs"].append(
-        {
-            "ref": "host-capacity-observation:test",
-            "kind": "host_capacity_observation",
-            "source": "post_tool_use:list_agents",
-            "turn_id": "turn-capacity-test",
-            "tool_use_id": "tool-capacity-test",
-            "resident_children": len(residents),
-            "settled_children": settled,
-            "active_children": len(residents) - settled,
-            "managed_resident_children": len(residents),
-            "unmanaged_resident_children": 0,
-            "response_digest": "a" * 64,
         }
     )
 
@@ -117,32 +78,22 @@ def make_execution(
 
 
 def test_dependencies_unlock_only_after_work_unit_acceptance(tmp_path: Path):
-    state = load_module("p4_state_accept", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_accept", "work_graph_v4.py")
+    state = load_module("native_state_accept", "dispatch_state_v4.py")
+    graph = load_module("native_graph_accept", "work_graph_v4.py")
 
-    payload = state.new_state(thread_id="thread-p4")
-    state.write_state(payload, temp_root=tmp_path)
+    state.write_state(state.new_state(thread_id="thread-p4"), temp_root=tmp_path)
     u1 = graph.make_work_unit(
-        unit_id="U1",
-        intent="inspect",
-        goal="produce evidence",
-        output="evidence",
-        done_when="evidence is verified",
+        unit_id="U1", intent="inspect", goal="produce evidence", output="evidence", done_when="verified"
     )
     u2 = graph.make_work_unit(
         unit_id="U2",
         intent="verify",
         goal="consume accepted evidence",
-        output="verified conclusion",
+        output="conclusion",
         depends_on=["U1"],
-        done_when="conclusion is accepted",
+        done_when="accepted",
     )
-    graph.install_work_graph(
-        "thread-p4",
-        team_plan_revision=1,
-        units=[u1, u2],
-        temp_root=tmp_path,
-    )
+    graph.install_work_graph("thread-p4", team_plan_revision=1, units=[u1, u2], temp_root=tmp_path)
     state.mutate_state(
         "thread-p4",
         lambda current: (
@@ -169,112 +120,100 @@ def test_dependencies_unlock_only_after_work_unit_acceptance(tmp_path: Path):
     assert accepted["work_units"][1]["state"] == "READY"
 
 
-def test_critical_path_priority_prefers_longest_downstream_chain():
-    state = load_module("p4_state_priority", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_priority", "work_graph_v4.py")
-    scheduler = load_module("p4_scheduler_priority", "scheduler_v4.py")
+def test_critical_path_priority_and_initial_read_fanout_are_bounded_to_two():
+    state = load_module("native_state_priority", "dispatch_state_v4.py")
+    graph = load_module("native_graph_priority", "work_graph_v4.py")
+    scheduler = load_module("native_scheduler_priority", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-p4")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [
-        graph.make_work_unit(unit_id="U1", intent="inspect", goal="root long chain", output="evidence", done_when="done"),
-        graph.make_work_unit(unit_id="U2", intent="inspect", goal="root short chain", output="evidence", done_when="done"),
+        graph.make_work_unit(unit_id="U1", intent="inspect", goal="long", output="evidence", done_when="done"),
+        graph.make_work_unit(unit_id="U2", intent="inspect", goal="short", output="evidence", done_when="done"),
         graph.make_work_unit(unit_id="U3", intent="verify", goal="middle", output="evidence", depends_on=["U1"], done_when="done"),
         graph.make_work_unit(unit_id="U4", intent="review", goal="tail", output="verdict", depends_on=["U3"], done_when="done"),
         graph.make_work_unit(unit_id="U5", intent="review", goal="short tail", output="verdict", depends_on=["U2"], done_when="done"),
     ]
-    observe_capacity(payload)
     state.validate_state_payload(payload)
 
     decision = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=3),
-        wakeup_reason="USER_INPUT",
+        payload, capability_snapshot=capability_snapshot(capacity=3), wakeup_reason="USER_INPUT"
     )
+
     assert decision["ranked_frontier"][:2] == ["U1", "U2"]
-    assert [item["unit_id"] for item in decision["actions"]] == ["U1"]
-    assert decision["launch_budget"] == 1
+    assert decision["initial_fanout"] is True
+    assert [item["unit_id"] for item in decision["actions"]] == ["U1", "U2"]
+    assert decision["launch_budget"] == 2
 
 
-def test_initial_fanout_ceiling_two_refills_one_spawn_per_host_observation():
-    state = load_module("p4_state_refill", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_refill", "work_graph_v4.py")
-    scheduler = load_module("p4_scheduler_refill", "scheduler_v4.py")
+def test_known_host_capacity_caps_product_fanout_but_unknown_capacity_does_not_block():
+    state = load_module("native_state_capacity_policy", "dispatch_state_v4.py")
+    graph = load_module("native_graph_capacity_policy", "work_graph_v4.py")
+    scheduler = load_module("native_scheduler_capacity_policy", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-p4")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [
-        graph.make_work_unit(
-            unit_id=f"U{index}",
-            intent="inspect",
-            goal=f"work {index}",
-            output="evidence",
-            done_when="done",
-        )
-        for index in range(1, 5)
+        graph.make_work_unit(unit_id=f"U{i}", intent="inspect", goal=f"g{i}", output="e", done_when="done")
+        for i in range(1, 4)
     ]
-    observe_capacity(payload)
-    state.validate_state_payload(payload)
-    initial = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=3),
-        wakeup_reason="USER_INPUT",
-    )
-    assert initial["effective_capacity"] == 3
-    assert initial["initial_fanout"] is True
-    assert initial["launch_budget"] == 1
-    assert len(initial["actions"]) == 1
 
-    payload["executions"] = [
-        make_execution(unit_id="U1", execution_id="exec-1", lifecycle="RUNNING"),
-    ]
-    payload["work_units"][0]["state"] = "EXECUTING"
-    observe_capacity(payload)
-    state.validate_state_payload(payload)
-    no_progress = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=3),
-        wakeup_reason="AGENT_UPDATE",
+    known = scheduler.scheduler_decision(
+        payload, capability_snapshot=capability_snapshot(capacity=1), wakeup_reason="USER_INPUT"
     )
-    assert no_progress["initial_fanout"] is True
-    assert no_progress["active_managed_executions"] == 1
-    assert no_progress["launch_budget"] == 1
-    assert len(no_progress["actions"]) == 1
+    unknown = scheduler.scheduler_decision(
+        payload, capability_snapshot=capability_snapshot(capacity=None), wakeup_reason="USER_INPUT"
+    )
 
-    payload["executions"][0]["lifecycle"] = "COMPLETED"
-    payload["work_units"][0].update(
-        {
-            "state": "ACCEPTED",
-            "accepted_result_ref": "result:u1",
-            "accepted_execution_id": "exec-1",
-            "accepted_control_epoch": 0,
-        }
+    assert known["host_capacity"] == 1
+    assert known["launch_budget"] == 1
+    assert unknown["host_capacity"] is None
+    assert unknown["effective_capacity"] == 2
+    assert unknown["launch_budget"] == 2
+
+
+def test_writer_is_singleton_phase_and_never_shares_batch_with_read_work():
+    state = load_module("native_state_phase", "dispatch_state_v4.py")
+    graph = load_module("native_graph_phase", "work_graph_v4.py")
+    scheduler = load_module("native_scheduler_phase", "scheduler_v4.py")
+
+    payload = state.new_state(thread_id="thread-p4")
+    payload["team_plan_revision"] = 1
+    writer = graph.make_work_unit(
+        unit_id="U1",
+        intent="implement",
+        goal="write",
+        output="change",
+        done_when="done",
+        ownership_write=["src/owned.py"],
+        authority_ceiling="bounded-source-write",
+        write_scope_ceiling=["src/owned.py"],
     )
-    observe_capacity(payload)
+    reader = graph.make_work_unit(unit_id="U2", intent="inspect", goal="read", output="e", done_when="done")
+    payload["work_units"] = [writer, reader]
     state.validate_state_payload(payload)
-    progressed = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=3),
-        wakeup_reason="AGENT_COMPLETED",
+
+    decision = scheduler.scheduler_decision(
+        payload, capability_snapshot=capability_snapshot(capacity=3), wakeup_reason="USER_INPUT"
     )
-    assert progressed["initial_fanout"] is False
-    assert progressed["active_managed_executions"] == 0
-    assert progressed["occupied_host_residents"] == 1
-    assert progressed["launch_budget"] == 1
-    assert len(progressed["actions"]) == 1
+
+    assert len(decision["actions"]) == 1
+    selected = decision["actions"][0]["unit_id"]
+    assert selected in {"U1", "U2"}
+    assert any(item["reason"] == "phase_batch_boundary" for item in decision["waiting"])
 
 
 def test_acceptance_backpressure_stops_refill_at_two_unaccepted_results():
-    state = load_module("p4_state_backpressure", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_backpressure", "work_graph_v4.py")
-    scheduler = load_module("p4_scheduler_backpressure", "scheduler_v4.py")
+    state = load_module("native_state_backpressure", "dispatch_state_v4.py")
+    graph = load_module("native_graph_backpressure", "work_graph_v4.py")
+    scheduler = load_module("native_scheduler_backpressure", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-p4")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [
-        graph.make_work_unit(unit_id="U1", intent="inspect", goal="r1", output="evidence", done_when="done"),
-        graph.make_work_unit(unit_id="U2", intent="inspect", goal="r2", output="evidence", done_when="done"),
-        graph.make_work_unit(unit_id="U3", intent="inspect", goal="new", output="evidence", done_when="done"),
+        graph.make_work_unit(unit_id="U1", intent="inspect", goal="r1", output="e", done_when="done"),
+        graph.make_work_unit(unit_id="U2", intent="inspect", goal="r2", output="e", done_when="done"),
+        graph.make_work_unit(unit_id="U3", intent="inspect", goal="new", output="e", done_when="done"),
     ]
     payload["work_units"][0]["state"] = "RESULT_READY"
     payload["work_units"][1]["state"] = "VERIFYING"
@@ -282,86 +221,57 @@ def test_acceptance_backpressure_stops_refill_at_two_unaccepted_results():
         make_execution(unit_id="U1", execution_id="exec-1", lifecycle="COMPLETED"),
         make_execution(unit_id="U2", execution_id="exec-2", lifecycle="COMPLETED"),
     ]
-    observe_capacity(payload)
     state.validate_state_payload(payload)
 
     decision = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=3),
-        wakeup_reason="AGENT_COMPLETED",
+        payload, capability_snapshot=capability_snapshot(capacity=3), wakeup_reason="AGENT_COMPLETED"
     )
+
     assert decision["backpressure"] is True
     assert decision["result_backlog"] == 2
     assert decision["actions"] == []
     assert decision["stop_reason"] == "acceptance_backpressure"
 
 
-def test_unknown_host_capacity_uses_conservative_single_child_path():
-    state = load_module("p4_state_unknown_capacity", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_unknown_capacity", "work_graph_v4.py")
-    scheduler = load_module("p4_scheduler_unknown_capacity", "scheduler_v4.py")
+def test_unknown_execution_counts_as_active_and_blocks_capacity_replacement():
+    state = load_module("native_state_unknown_exec", "dispatch_state_v4.py")
+    graph = load_module("native_graph_unknown_exec", "work_graph_v4.py")
+    scheduler = load_module("native_scheduler_unknown_exec", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-p4")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [
-        graph.make_work_unit(unit_id="U1", intent="inspect", goal="a", output="evidence", done_when="done"),
-        graph.make_work_unit(unit_id="U2", intent="inspect", goal="b", output="evidence", done_when="done"),
-    ]
-    observe_capacity(payload)
-    state.validate_state_payload(payload)
-    decision = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=None),
-        wakeup_reason="USER_INPUT",
-    )
-    assert decision["effective_capacity"] == 1
-    assert len(decision["actions"]) == 1
-
-
-def test_unknown_execution_occupies_capacity_and_fails_closed():
-    state = load_module("p4_state_unknown_exec", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_unknown_exec", "work_graph_v4.py")
-    scheduler = load_module("p4_scheduler_unknown_exec", "scheduler_v4.py")
-
-    payload = state.new_state(thread_id="thread-p4")
-    payload["team_plan_revision"] = 1
-    payload["work_units"] = [
-        graph.make_work_unit(unit_id="U1", intent="inspect", goal="ambiguous", output="evidence", done_when="done"),
-        graph.make_work_unit(unit_id="U2", intent="inspect", goal="other", output="evidence", done_when="done"),
+        graph.make_work_unit(unit_id="U1", intent="inspect", goal="ambiguous", output="e", done_when="done"),
+        graph.make_work_unit(unit_id="U2", intent="inspect", goal="other", output="e", done_when="done"),
     ]
     payload["work_units"][0]["state"] = "EXECUTING"
     unknown = make_execution(unit_id="U1", execution_id="exec-1", lifecycle="RUNNING")
-    unknown["lifecycle"] = "UNKNOWN"
-    unknown["failure_origin"] = "runtime_ambiguous"
-    unknown["blocker"] = "investigation"
-    unknown["quarantine_reason"] = "host_ambiguous"
+    unknown.update(
+        lifecycle="UNKNOWN",
+        failure_origin="runtime_ambiguous",
+        blocker="investigation",
+        quarantine_reason="host_ambiguous",
+    )
     payload["executions"] = [unknown]
-    observe_capacity(payload)
     state.validate_state_payload(payload)
 
     decision = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=capability_snapshot(capacity=1),
-        wakeup_reason="AGENT_UPDATE",
+        payload, capability_snapshot=capability_snapshot(capacity=1), wakeup_reason="AGENT_UPDATE"
     )
+
     assert decision["active_managed_executions"] == 1
-    assert decision["occupied_host_residents"] == 1
     assert decision["actions"] == []
-    assert decision["stop_reason"] == "host_capacity_full"
+    assert decision["stop_reason"] == "product_or_known_host_capacity_full"
 
 
-def test_plan_only_and_missing_host_never_return_launch_actions():
-    state = load_module("p4_state_planonly", "dispatch_state_v4.py")
-    graph = load_module("p4_graph_planonly", "work_graph_v4.py")
-    scheduler = load_module("p4_scheduler_planonly", "scheduler_v4.py")
+def test_plan_only_and_missing_host_capability_never_return_launch_actions():
+    state = load_module("native_state_planonly", "dispatch_state_v4.py")
+    graph = load_module("native_graph_planonly", "work_graph_v4.py")
+    scheduler = load_module("native_scheduler_planonly", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-p4")
     payload["team_plan_revision"] = 1
-    payload["work_units"] = [
-        graph.make_work_unit(unit_id="U1", intent="inspect", goal="plan", output="evidence", done_when="done")
-    ]
-    observe_capacity(payload)
-    state.validate_state_payload(payload)
+    payload["work_units"] = [graph.make_work_unit(unit_id="U1", intent="inspect", goal="plan", output="e", done_when="done")]
 
     planned = scheduler.scheduler_decision(
         payload,
@@ -369,21 +279,19 @@ def test_plan_only_and_missing_host_never_return_launch_actions():
         wakeup_reason="USER_INPUT",
         plan_only=True,
     )
-    assert planned["actions"] == []
-    assert planned["stop_reason"] == "plan_only"
-
     missing = scheduler.scheduler_decision(
         payload,
-        capability_snapshot=None,
+        capability_snapshot=capability_snapshot(capacity=3, ready=False),
         wakeup_reason="USER_INPUT",
     )
-    assert missing["actions"] == []
-    assert missing["stop_reason"] == "host_not_execution_ready"
+
+    assert planned["actions"] == [] and planned["stop_reason"] == "plan_only"
+    assert missing["actions"] == [] and missing["stop_reason"] == "host_not_execution_ready"
 
 
 def test_scheduler_rejects_unrecognized_wakeup_reason():
-    state = load_module("p4_state_bad_wakeup", "dispatch_state_v4.py")
-    scheduler = load_module("p4_scheduler_bad_wakeup", "scheduler_v4.py")
+    state = load_module("native_state_bad_wakeup", "dispatch_state_v4.py")
+    scheduler = load_module("native_scheduler_bad_wakeup", "scheduler_v4.py")
     payload = state.new_state(thread_id="thread-p4")
 
     with pytest.raises(scheduler.SchedulerError, match="wakeup"):
