@@ -32,7 +32,7 @@ Production model/effort remains fixed:
 
 ```text
 Reader / Worker        Luna Max
-Investigator           Terra High
+Investigator           Terra XHigh
 Solver / Advisor       Sol High
 ```
 
