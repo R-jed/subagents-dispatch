@@ -11,7 +11,7 @@
 ### Fixed execution profiles
 
 - Reader and Worker: Luna Max.
-- Investigator: Terra High.
+- Investigator: Terra XHigh.
 - Solver and Advisor: Sol High.
 - Dynamic reasoning-effort routing remains outside V4.0.0.
 
@@ -32,9 +32,9 @@
 
 ### Complexity reduction
 
-- Remove Plugin Hook lifecycle authority from the V4 correctness path.
-- Remove PendingControl, Guard receipts, Hook-derived capacity tokens, Hook identity normalization and Hook-specific release diagnostics.
-- Do not replace that machinery with OperationIntent/OperationReceipt or another persisted request/receipt control plane.
+- Remove the earlier lifecycle interception control plane from the active V4 runtime.
+- Remove PendingControl, Guard receipts, capacity tokens, identity-normalization machinery and related release diagnostics.
+- Do not replace that machinery with another persisted request/receipt control plane.
 - Keep optional allowlisted rollout inspection only for recovery or validation when native Host evidence is insufficient.
 - Remove the retired V3 orchestration state engine and its receipt/recovery accounting from the active V4 runtime surface.
 
