@@ -75,7 +75,7 @@ contracts/final-review.md
 -> exact-candidate independent review
 ```
 
-Historical RC designs and Hook-era contracts do not override the active Native Core decision.
+Historical RC designs and Hook-era contracts do not override the active Native Core decision. Plugin Hooks are not a correctness authority in Native Core.
 
 ## Runtime owners
 
@@ -87,7 +87,7 @@ scripts/orchestrate_v4.py
 -> admission, routing and user control facade
 
 scripts/dispatch_state_v4.py
--> bounded session-scoped state and Host reconciliation
+-> bounded session-scoped state and Host lifecycle reconciliation
 
 scripts/work_graph_v4.py
 -> WorkUnit truth, dependency and acceptance transitions
@@ -96,16 +96,13 @@ scripts/scheduler_v4.py
 -> wakeup-driven product admission, fanout and backpressure
 
 scripts/execution_lifecycle_v4.py
--> ExecutionBinding allocation and same-child lifecycle operations
+-> ExecutionBinding allocation, same-child lifecycle operations, and direct Host observation facade
 
 scripts/writer_lease_v4.py
 -> canonical WriterLease ownership and settlement
 
 scripts/managed_execution_v4.py
 -> responsibility projection and managed spawn payload
-
-scripts/host_evidence_v4.py
--> native Host lifecycle observation normalization and reconciliation
 
 scripts/host_capabilities.py
 -> native Host capability normalization
