@@ -84,10 +84,16 @@ def test_check_update_verifies_source_then_refreshes_marketplace_and_never_insta
 
     report = module.check_update(codex_home=home)
 
+    assert set(report) == {
+        "schema_version",
+        "marketplace_refreshed",
+        "plugin_install_performed",
+        "managed_profiles_mutated",
+        "installation",
+    }
     assert report["marketplace_refreshed"] is True
     assert report["plugin_install_performed"] is False
     assert report["managed_profiles_mutated"] is False
-    assert report["hook_trust_mutated"] is False
     assert report["installation"]["details"]["update_available"] is True
     assert all(call[0:2] != ("plugin", "add") for call in calls)
     assert calls == [
