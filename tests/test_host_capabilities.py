@@ -26,49 +26,34 @@ def load_module():
         sys.path.remove(scripts)
 
 
-def evidence(*, post: bool = True, stop: bool = True, capacity: int | None = 4) -> dict:
-    lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
-    pre_guarded = [*lifecycle, "list_agents", "send_message"]
-    post_guarded = [*lifecycle, "list_agents"]
+def evidence(*, capacity: int | None = 4, fork_turns_none: bool = True) -> dict:
     return {
         "surface": "multi_agent_v2",
         "tools": [
             "spawn_agent",
-            "send_message",
             "followup_task",
             "wait_agent",
             "list_agents",
             "interrupt_agent",
         ],
-        "hooks": {
-            "PreToolUse": pre_guarded,
-            "PostToolUse": post_guarded
-            if post
-            else ["spawn_agent", "interrupt_agent", "list_agents"],
-            "SubagentStop": stop,
-        },
-        "fork_turns_none": True,
+        "fork_turns_none": fork_turns_none,
         "max_spawned_threads": capacity,
     }
 
 
-def trust(**overrides) -> dict:
-    value = {
-        "manifest_sha256": "b" * 64,
-        "trusted_current_definition": True,
-        "evidence_ref": "host-smoke:H00",
-    }
-    value.update(overrides)
-    return value
-
-
-def test_complete_evidence_normalizes_to_execution_ready_snapshot():
+def test_complete_native_evidence_normalizes_to_execution_ready_snapshot():
     module = load_module()
     snapshot = module.normalize_host_capabilities(evidence())
 
     assert snapshot["execution_ready"] is True
     assert snapshot["missing"] == []
-    assert all(snapshot["capabilities"].values())
+    assert snapshot["capabilities"] == {
+        "spawn": True,
+        "observe": True,
+        "wait_or_wakeup": True,
+        "followup": True,
+        "interrupt": True,
+    }
     assert snapshot["capacity_excludes_primary"] is True
     assert snapshot["max_spawned_threads"] == 4
     assert module.effective_managed_child_limit(snapshot, product_limit=3) == 3
@@ -104,58 +89,24 @@ def test_malformed_agent_status_fails_closed():
             module.normalize_agent_status(status)
 
 
-def test_missing_lifecycle_post_hook_fails_closed():
-    module = load_module()
-    snapshot = module.normalize_host_capabilities(evidence(post=False))
-
-    assert snapshot["execution_ready"] is False
-    assert snapshot["capabilities"]["post_tool_use_guard"] is False
-    assert "post_tool_use_guard" in snapshot["missing"]
-
-
-def test_host_observation_requires_paired_pre_and_post_hooks():
+def test_missing_native_primitive_marks_snapshot_not_execution_ready():
     module = load_module()
     payload = evidence()
-    payload["hooks"]["PreToolUse"] = [
-        "spawn_agent",
-        "followup_task",
-        "interrupt_agent",
-        "send_message",
-    ]
+    payload["tools"].remove("interrupt_agent")
+
     snapshot = module.normalize_host_capabilities(payload)
 
     assert snapshot["execution_ready"] is False
-    assert snapshot["capabilities"]["host_observation_guard"] is False
-    assert "host_observation_guard" in snapshot["missing"]
-
-
-def test_missing_peer_message_guard_fails_closed_when_tool_is_exposed():
-    module = load_module()
-    payload = evidence()
-    payload["hooks"]["PreToolUse"].remove("send_message")
-    snapshot = module.normalize_host_capabilities(payload)
-
-    assert snapshot["execution_ready"] is False
-    assert snapshot["capabilities"]["peer_message_guard"] is False
-    assert "peer_message_guard" in snapshot["missing"]
-
-
-def test_missing_subagent_stop_veto_fails_closed():
-    module = load_module()
-    snapshot = module.normalize_host_capabilities(evidence(stop=False))
-
-    assert snapshot["execution_ready"] is False
-    assert "subagent_stop_veto" in snapshot["missing"]
+    assert snapshot["capabilities"]["interrupt"] is False
+    assert snapshot["missing"] == ["interrupt"]
 
 
 def test_fresh_context_capability_is_required_for_execution():
     module = load_module()
-    payload = evidence()
-    payload["fork_turns_none"] = False
-    snapshot = module.normalize_host_capabilities(payload)
+    snapshot = module.normalize_host_capabilities(evidence(fork_turns_none=False))
 
     assert snapshot["execution_ready"] is False
-    assert "fresh_context_spawn" in snapshot["missing"]
+    assert snapshot["missing"] == ["fresh_context_spawn"]
 
 
 def test_unknown_host_capacity_stays_unknown_instead_of_inventing_default():
@@ -167,7 +118,7 @@ def test_unknown_host_capacity_stays_unknown_instead_of_inventing_default():
     assert module.effective_managed_child_limit(snapshot) is None
 
 
-def test_product_limit_is_capped_by_spawned_thread_capacity_excluding_primary():
+def test_product_limit_is_capped_by_known_spawned_thread_capacity():
     module = load_module()
     snapshot = module.normalize_host_capabilities(evidence(capacity=2))
 
@@ -178,7 +129,7 @@ def test_product_limit_is_capped_by_spawned_thread_capacity_excluding_primary():
 def test_malformed_or_partial_evidence_is_rejected():
     module = load_module()
     payload = evidence()
-    del payload["hooks"]
+    del payload["tools"]
     with pytest.raises(module.HostCapabilityError, match="missing fields"):
         module.normalize_host_capabilities(payload)
 
@@ -187,8 +138,13 @@ def test_malformed_or_partial_evidence_is_rejected():
     with pytest.raises(module.HostCapabilityError, match="positive integer"):
         module.normalize_host_capabilities(payload)
 
+    payload = evidence()
+    payload["hooks"] = {}
+    with pytest.raises(module.HostCapabilityError, match="unsupported fields"):
+        module.normalize_host_capabilities(payload)
 
-def test_unclassified_flattened_collaboration_identity_is_rejected():
+
+def test_unclassified_collaboration_identity_is_rejected_for_host_adaptation():
     module = load_module()
     payload = evidence()
     payload["tools"].append("multi_agent_spawn")
@@ -197,93 +153,50 @@ def test_unclassified_flattened_collaboration_identity_is_rejected():
         module.normalize_host_capabilities(payload)
 
 
-def test_namespaced_model_identity_requires_flattened_hook_coverage():
+def test_namespaced_native_identities_map_to_same_semantics_without_hook_aliases():
     module = load_module()
     payload = evidence()
-    payload["tools"].append("collaboration.spawn_agent")
-
-    snapshot = module.normalize_host_capabilities(payload)
-
-    assert snapshot["execution_ready"] is False
-    assert snapshot["capabilities"]["pre_tool_use_guard"] is False
-    assert snapshot["capabilities"]["post_tool_use_guard"] is False
-
-
-def test_namespaced_model_identity_can_pass_with_exact_flattened_hook_coverage():
-    module = load_module()
-    payload = evidence()
-    payload["tools"].append("collaboration.spawn_agent")
-    payload["hooks"]["PreToolUse"].append("collaborationspawn_agent")
-    payload["hooks"]["PostToolUse"].append("collaborationspawn_agent")
+    payload["tools"] = [
+        "collaboration.spawn_agent",
+        "collaboration.followup_task",
+        "collaboration.wait_agent",
+        "collaboration.list_agents",
+        "collaboration.interrupt_agent",
+    ]
 
     snapshot = module.normalize_host_capabilities(payload)
 
     assert snapshot["execution_ready"] is True
     assert snapshot["missing"] == []
+    assert all(snapshot["capabilities"].values())
 
 
-def test_dotted_compatibility_identity_does_not_count_as_exact_hook_coverage():
+def test_send_message_is_classified_but_not_required_for_main_led_correctness():
     module = load_module()
     payload = evidence()
-    payload["tools"].append("collaboration.spawn_agent")
-    payload["hooks"]["PreToolUse"].append("collaboration.spawn_agent")
-    payload["hooks"]["PostToolUse"].append("collaboration.spawn_agent")
+    payload["tools"].append("send_message")
 
     snapshot = module.normalize_host_capabilities(payload)
 
-    assert snapshot["execution_ready"] is False
-    assert module.canonical_hook_tool_name("collaboration.spawn_agent") == "spawn_agent"
-    assert module.canonical_hook_tool_name("collaborationspawn_agent") == "spawn_agent"
+    assert snapshot["execution_ready"] is True
+    assert set(snapshot["capabilities"]) == set(module.REQUIRED_CAPABILITIES)
 
 
-def test_required_hook_tool_set_is_exact_lifecycle_surface():
+def test_normalized_snapshot_validation_rejects_shape_drift():
     module = load_module()
-    assert module.required_lifecycle_hook_tools() == (
-        "spawn_agent",
-        "followup_task",
-        "interrupt_agent",
-    )
+    snapshot = module.normalize_host_capabilities(evidence())
+    drifted = dict(snapshot)
+    drifted["capabilities"] = {**snapshot["capabilities"], "pre_tool_use_guard": True}
+
+    with pytest.raises(module.HostCapabilityError, match="capability set"):
+        module.validate_normalized_snapshot(drifted)
 
 
-def test_guard_coverage_proof_requires_execution_ready_host_and_current_trust():
+def test_capability_snapshot_copy_is_validated_and_detached():
     module = load_module()
-    snapshot = module.normalize_host_capabilities(evidence(capacity=3))
-    proof = module.build_guard_coverage_proof(
-        snapshot,
-        session_id="thread-proof",
-        trust_evidence=trust(),
-    )
-    assert proof == {
-        "schema_version": "4.0",
-        "authority": "diagnostic_only",
-        "session_id": "thread-proof",
-        "manifest_sha256": "b" * 64,
-        "trusted_current_definition": True,
-        "pre_tool_use": True,
-        "post_tool_use": True,
-        "host_observation_guard": True,
-        "peer_message_guard": True,
-        "subagent_stop_veto": True,
-        "evidence_ref": "host-smoke:H00",
-    }
+    snapshot = module.normalize_host_capabilities(evidence())
+    copied = module.capability_snapshot_copy(snapshot)
 
-    with pytest.raises(module.HostCapabilityError, match="not proven trusted"):
-        module.build_guard_coverage_proof(
-            snapshot,
-            session_id="thread-proof",
-            trust_evidence=trust(trusted_current_definition=False),
-        )
-
-
-def test_guard_coverage_proof_rejects_incomplete_lifecycle_hook_snapshot():
-    module = load_module()
-    payload = evidence(capacity=3)
-    payload["hooks"]["PostToolUse"] = ["spawn_agent", "followup_task", "list_agents"]
-    snapshot = module.normalize_host_capabilities(payload)
-    assert snapshot["execution_ready"] is False
-    with pytest.raises(module.HostCapabilityError, match="execution-ready"):
-        module.build_guard_coverage_proof(
-            snapshot,
-            session_id="thread-proof",
-            trust_evidence=trust(),
-        )
+    assert copied == snapshot
+    assert copied is not snapshot
+    assert copied["capabilities"] is not snapshot["capabilities"]
