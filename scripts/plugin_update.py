@@ -191,22 +191,22 @@ def installation_layer_from_payload(
 ) -> dict[str, Any]:
     rows = payload.get("installed")
     if not isinstance(rows, list):
-        return _layer("FAIL", "Codex Plugin inventory is missing its installed array", matches=0)
+        return _layer("FAIL", "Codex Plugin information is unavailable", matches=0)
 
     matches = _matching_installed(payload)
     if len(matches) == 0:
         return _layer(
             "WARN",
-            "subagents-dispatch is not present in the active Codex Plugin inventory",
-            action="Install subagents-dispatch from its configured Marketplace, then start a fresh Codex session.",
+            "subagents-dispatch is not installed",
+            action="Install subagents-dispatch, then start a fresh Codex session.",
             matches=0,
             package_version=package_version,
         )
     if len(matches) != 1:
         return _layer(
             "FAIL",
-            "Codex reports duplicate installed identities for subagents-dispatch",
-            action="Resolve the duplicate Plugin installation before running Orchestrate or Update.",
+            "Multiple subagents-dispatch installations were found",
+            action="Resolve the duplicate Plugin installation before using Orchestrate or updating.",
             matches=len(matches),
             package_version=package_version,
         )
@@ -230,8 +230,9 @@ def installation_layer_from_payload(
     if source_issue is not None:
         return _layer(
             "FAIL",
-            source_issue,
-            action="Restore the canonical R-jed/subagents-dispatch Git Marketplace before any update check or update.",
+            "Installed Plugin source cannot be verified",
+            action="Restore the official R-jed/subagents-dispatch Marketplace source before updating.",
+            source_issue=source_issue,
             **base_details,
         )
 
@@ -241,8 +242,9 @@ def installation_layer_from_payload(
     except UpdateError as exc:
         return _layer(
             "FAIL",
-            str(exc),
-            action="Repair the canonical Marketplace checkout before using the installed Plugin.",
+            "Plugin source cannot be verified",
+            action="Repair or reinstall from the official Marketplace source before using the Plugin.",
+            source_error=str(exc),
             **base_details,
         )
 
@@ -250,7 +252,7 @@ def installation_layer_from_payload(
     if not isinstance(installed_version, str) or not installed_version.strip():
         return _layer(
             "FAIL",
-            "installed subagents-dispatch has no usable version identity",
+            "Installed Plugin version cannot be verified",
             source_mode=source_mode,
             **base_details,
         )
@@ -260,8 +262,8 @@ def installation_layer_from_payload(
     if installed_core is None:
         return _layer(
             "FAIL",
-            "installed Plugin version is not a stable semantic version",
-            action="Review the installed Plugin identity before updating.",
+            "Installed Plugin version is invalid",
+            action="Review or reinstall the Plugin before updating.",
             installed_version=installed_version,
             available_version=available_version,
             source_mode=source_mode,
@@ -285,7 +287,7 @@ def installation_layer_from_payload(
     if source_older:
         return _layer(
             "FAIL",
-            "Marketplace checkout contains a release older than the installed Plugin cache",
+            "Marketplace version is older than the installed Plugin",
             action="Review the configured Marketplace source before changing the installed Plugin.",
             **details,
         )
@@ -293,40 +295,40 @@ def installation_layer_from_payload(
         return _layer(
             "WARN",
             "subagents-dispatch is installed but disabled in Codex",
-            action="Enable the installed Plugin and start a fresh Codex session before using Orchestrate.",
+            action="Enable the Plugin and start a fresh Codex session before using Orchestrate.",
             **details,
         )
     if update_available:
         return _layer(
             "WARN",
-            "a newer stable version is present in the canonical Marketplace checkout",
-            action="Run the explicit Plugin updater, then start a fresh Codex session.",
+            "A newer stable version is available",
+            action="Run the Plugin updater, then start a fresh Codex session.",
             **details,
         )
     if package_cache_skew:
         return _layer(
             "WARN",
-            "the currently executing Plugin package differs from Codex's installed cache version",
-            action="Start a fresh Codex session so the active task loads the installed Plugin version.",
+            "This Codex session is using a different Plugin version than the installed version",
+            action="Start a fresh Codex session to load the installed Plugin version.",
             **details,
         )
     if available_version is None:
         return _layer(
             "UNKNOWN",
-            "installed Plugin identity is canonical, but a stable available version cannot be derived from the legacy source",
-            action="Refresh the canonical Marketplace so the Plugin source resolves through the managed checkout.",
+            "Available Plugin version could not be determined",
+            action="Refresh the Marketplace, then check again.",
             **details,
         )
     if available_version != installed_version:
         return _layer(
             "WARN",
-            "Marketplace release identity and installed Plugin version differ",
-            action="Run the explicit Plugin updater and review the resulting installed identity.",
+            "Marketplace and installed Plugin versions differ",
+            action="Run the Plugin updater, then review the installed version.",
             **details,
         )
     return _layer(
         "OK",
-        "Codex installed cache, canonical Marketplace checkout, and executing package version agree",
+        "Installed Plugin is current",
         **details,
     )
 
@@ -396,8 +398,8 @@ def diagnose_installation(
     if payload is None:
         return _layer(
             "UNKNOWN",
-            "Codex installed Plugin inventory is unavailable; supported limitation",
-            action="Run Doctor inside a Codex environment with a current `codex plugin list --json` command to inspect installed identity.",
+            "Installed Plugin status could not be checked",
+            action="Run Doctor in a Codex environment with the Codex CLI available.",
             package_version=package_version_value,
             observed=False,
             limitation=error,
@@ -510,19 +512,19 @@ def _verify_new_package(
         env=env,
     )
     if doctor_result.returncode != 0:
-        raise UpdateError("updated Plugin Doctor reported a blocking product-health failure")
+        raise UpdateError("updated Plugin health check reported a blocking failure")
     try:
         report = json.loads(doctor_result.stdout)
     except json.JSONDecodeError as exc:
-        raise UpdateError("updated Plugin Doctor returned invalid JSON") from exc
+        raise UpdateError("updated Plugin health check returned invalid JSON") from exc
     if not isinstance(report, dict) or set(report) != {"layers", "actions"}:
-        raise UpdateError("updated Plugin Doctor report does not match the Native Core contract")
+        raise UpdateError("updated Plugin health report format is unsupported")
     layers = report.get("layers")
     actions = report.get("actions")
     if not isinstance(layers, list) or not isinstance(actions, list):
-        raise UpdateError("updated Plugin Doctor report is invalid")
+        raise UpdateError("updated Plugin health report is invalid")
     if actions:
-        raise UpdateError("post-update Doctor performed an unexpected maintenance action")
+        raise UpdateError("post-update health check performed an unexpected maintenance action")
 
     observed = {
         item.get("name"): item.get("status")
@@ -537,17 +539,17 @@ def _verify_new_package(
         "Legacy compatibility",
     }
     if set(observed) != expected_layers:
-        raise UpdateError("updated Plugin Doctor layer contract is unsupported")
+        raise UpdateError("updated Plugin health report is unsupported")
     if observed["Plugin package"] != "OK":
-        raise UpdateError("updated Plugin Doctor did not verify the Plugin package")
+        raise UpdateError("updated Plugin health check did not verify the Plugin package")
     if observed["Managed Agents"] != "OK":
-        raise UpdateError("updated Plugin Doctor did not verify managed Agent profiles")
+        raise UpdateError("updated Plugin health check did not verify managed Agent profiles")
     if observed["Host integration"] not in {"OK", "WARN", "UNKNOWN"}:
-        raise UpdateError("updated Plugin Doctor reported an unsafe Host integration state")
+        raise UpdateError("updated Plugin health check reported an unsafe Host integration state")
     if observed["Orchestration state"] != "OK":
-        raise UpdateError("updated Plugin Doctor reported an unsafe orchestration state")
+        raise UpdateError("updated Plugin health check reported an unsafe orchestration state")
     if observed["Legacy compatibility"] not in {"OK", "WARN"}:
-        raise UpdateError("updated Plugin Doctor reported unsafe legacy compatibility")
+        raise UpdateError("updated Plugin health check reported unsafe legacy compatibility")
     if package_version(root) != expected_version:
         raise UpdateError("updated package version changed during post-update verification")
 
@@ -599,8 +601,8 @@ def update_plugin(
             "marketplace_version": target_version,
             "restart_required": package_version() != before_version,
             "steps": [
-                {"name": "Marketplace", "status": "OK", "summary": "canonical Marketplace checkout is current"},
-                {"name": "Plugin package", "status": "OK", "summary": "installed Plugin version is already current"},
+                {"name": "Marketplace", "status": "OK", "summary": "Marketplace is current"},
+                {"name": "Plugin", "status": "OK", "summary": "Installed Plugin is already current"},
             ],
         }
 
@@ -636,10 +638,10 @@ def update_plugin(
         "installed_root": str(installed_root),
         "restart_required": True,
         "steps": [
-            {"name": "Marketplace", "status": "OK", "summary": f"canonical checkout exposes {target_version}"},
-            {"name": "Plugin package", "status": "OK", "summary": f"installed and verified {installed_version}"},
-            {"name": "Managed Agent profiles", "status": "OK", "summary": "reconciled and verified by the updated package"},
-            {"name": "Post-update Doctor", "status": "OK", "summary": "updated package product-health contract verified"},
+            {"name": "Marketplace", "status": "OK", "summary": f"Version {target_version} is available"},
+            {"name": "Plugin", "status": "OK", "summary": f"Installed {installed_version}"},
+            {"name": "Managed Agent profiles", "status": "OK", "summary": "Managed Agent profiles are current"},
+            {"name": "Health check", "status": "OK", "summary": "Passed"},
         ],
     }
 
@@ -651,9 +653,9 @@ def render_update(report: Mapping[str, Any]) -> str:
             lines.append(f"[{item.get('status', 'UNKNOWN')}] {item.get('name', 'Unknown')}: {item.get('summary', '')}")
     lines.extend(["", f"Version: {report.get('from_version')} -> {report.get('to_version')}"])
     if report.get("restart_required") is True:
-        lines.append("[RESTART] Start a fresh Codex session to activate the installed Plugin package.")
+        lines.append("[RESTART] Start a fresh Codex session to use the installed version.")
     else:
-        lines.append("[OK] No Plugin package change is required.")
+        lines.append("[OK] Installed Plugin is already current.")
     lines.extend(["", "Overall: UPDATE COMPLETE"])
     return "\n".join(lines)
 
