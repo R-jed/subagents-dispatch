@@ -35,7 +35,13 @@
         "all five managed profiles disable child Agent creation",
         "all five managed profiles disable multi_agent_v2",
         "managed child collaboration tools are absent in the target Host"
-      ]
+      ],
+      "compatibility_boundary": {
+        "field": "features.multi_agent_v2=false",
+        "status": "retain_until_target_host_evidence",
+        "reason": "The exact target Host has not yet proven whether agents.enabled=false alone removes managed child collaboration capability.",
+        "removal_condition": "During N1, prove on the recorded target Host build that profiles without features.multi_agent_v2 still expose no managed child collaboration tools; then remove the field and its Doctor/N1 requirements together in a new exact candidate."
+      }
     },
     {
       "id": "N2",
