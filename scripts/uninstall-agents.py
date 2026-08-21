@@ -166,10 +166,7 @@ def uninstall(codex_home_arg: Path) -> None:
             target.unlink()
         manifest_path.unlink()
 
-    print(
-        "UNINSTALL COMPLETE: exact owned managed Agent profiles and ownership manifest removed; "
-        "installer lock retained."
-    )
+    print("Managed Agent profiles removed.")
 
 
 def main() -> None:
