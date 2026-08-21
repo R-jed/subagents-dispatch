@@ -64,6 +64,9 @@ scripts/orchestrate_v4.py
 scripts/dispatch_state_v4.py
 -> bounded session-scoped state
 
+scripts/state_storage.py
+-> schema-neutral thread identity, path safety, locking and atomic persistence
+
 scripts/work_graph_v4.py
 -> WorkUnit construction, dependency and acceptance truth
 
@@ -94,11 +97,11 @@ Plugin Hook lifecycle authority, PendingControl, Guard receipts, Hook capacity t
 ## Compatibility owners
 
 ```text
-scripts/dispatch_state.py
--> hardened V3 storage compatibility primitives still used for legacy detection and safe cleanup
+scripts/legacy_state_cleanup.py
+-> minimal ownership-safe cleanup for stale terminal V3 orchestration capsules
 
 scripts/legacy_migration.py
--> ownership-checked V3 profile/state migration and compatibility diagnosis
+-> ownership-checked V3 profile migration and compatibility diagnosis
 
 scripts/doctor_runtime.py
 scripts/doctor_runtime_core.py
@@ -110,11 +113,11 @@ Compatibility code does not define current V4 routing, lifecycle, acceptance, re
 ## Fixed profiles
 
 ```text
-Reader        gpt-5.6-luna   max   behavioral read-only
-Worker        gpt-5.6-luna   max   bounded source write when granted
-Investigator  gpt-5.6-terra  high  behavioral read-only
-Solver        gpt-5.6-sol    high  bounded source write when granted
-Advisor       gpt-5.6-sol    high  behavioral read-only review
+Reader        gpt-5.6-luna   max    behavioral read-only
+Worker        gpt-5.6-luna   max    bounded source write when granted
+Investigator  gpt-5.6-terra  xhigh  behavioral read-only
+Solver        gpt-5.6-sol    high   bounded source write when granted
+Advisor       gpt-5.6-sol    high   behavioral read-only review
 ```
 
 Managed child profiles disable child multi-agent capability. Configured read-only sandbox is intent only until the Host proves the effective sandbox.
