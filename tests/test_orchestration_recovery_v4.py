@@ -119,7 +119,7 @@ def test_ambiguous_native_spawn_quarantines_execution_and_writer(tmp_path: Path)
     assert current["executions"][0]["lifecycle"] == "UNKNOWN"
     assert current["writer_lease"]["state"] == "UNKNOWN"
 
-    with pytest.raises(lifecycle.ExecutionLifecycleError, match="prior fresh attempt is not settled"):
+    with pytest.raises(lifecycle.ExecutionLifecycleError):
         lifecycle.allocate_execution(
             "thread-recovery",
             unit_id="U1",
@@ -131,6 +131,13 @@ def test_ambiguous_native_spawn_quarantines_execution_and_writer(tmp_path: Path)
             writer_lease_id="lease-2",
             temp_root=tmp_path,
         )
+
+    blocked = state.load_state("thread-recovery", temp_root=tmp_path)
+    assert blocked is not None
+    assert [item["execution_id"] for item in blocked["executions"]] == ["exec-1"]
+    assert blocked["executions"][0]["lifecycle"] == "UNKNOWN"
+    assert blocked["writer_lease"]["owner_id"] == "exec-1"
+    assert blocked["writer_lease"]["state"] == "UNKNOWN"
 
 
 def test_interrupt_result_does_not_release_writer_until_current_host_settlement(tmp_path: Path):
