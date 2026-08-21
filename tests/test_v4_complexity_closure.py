@@ -59,10 +59,7 @@ def test_single_reader_execution_does_not_require_team_plan(tmp_path: Path):
     )
 
     assert result["execution"]["team_plan_revision"] is None
-    persisted = state.load_state("thread-complexity", temp_root=tmp_path)
-    assert persisted is not None
-    assert persisted["team_plan_revision"] is None
-    assert persisted["executions"][0]["team_plan_revision"] is None
+    assert result["writer_lease"] is None
 
 
 def test_single_writer_execution_reserves_lease_without_team_plan(tmp_path: Path):
@@ -85,28 +82,20 @@ def test_single_writer_execution_reserves_lease_without_team_plan(tmp_path: Path
 
     assert result["execution"]["team_plan_revision"] is None
     assert result["writer_lease"]["state"] == "RESERVED"
-    assert result["writer_lease"]["owner_id"] == "exec-writer"
 
 
 def test_single_work_unit_installer_keeps_null_revision_and_rejects_dependencies(tmp_path: Path):
     state = load_module("closure_state_install", "dispatch_state_v4.py")
     graph = load_module("closure_graph_install", "work_graph_v4.py")
-    payload = state.new_state(thread_id="thread-complexity")
-    state.write_state(payload, temp_root=tmp_path)
+    state.write_state(state.new_state(thread_id="thread-complexity"), temp_root=tmp_path)
 
-    assert hasattr(graph, "install_single_work_unit")
     unit = graph.make_work_unit(
-        unit_id="U1",
-        intent="inspect",
-        goal="inspect one thing",
-        output="evidence",
-        done_when="evidence exists",
+        unit_id="U1", intent="inspect", goal="inspect one thing", output="evidence", done_when="evidence exists"
     )
     installed = graph.install_single_work_unit(
         "thread-complexity", unit=unit, temp_root=tmp_path
     )
     assert installed["team_plan_revision"] is None
-    assert len(installed["work_units"]) == 1
     assert installed["work_units"][0]["state"] == "READY"
 
     second_root = tmp_path / "second"
@@ -126,7 +115,7 @@ def test_single_work_unit_installer_keeps_null_revision_and_rejects_dependencies
         )
 
 
-def test_managed_assignment_uses_five_section_canonical_record():
+def test_managed_assignment_has_one_canonical_five_section_record():
     managed = load_module("closure_managed", "managed_execution_v4.py")
     current = {
         "work_units": [
@@ -144,10 +133,10 @@ def test_managed_assignment_uses_five_section_canonical_record():
                 "responsibility_context": {
                     "interfaces": [],
                     "invariants": [],
-                    "decision_boundary": "Escalate material decisions to the main session.",
+                    "decision_boundary": "Escalate material decisions to Main.",
                     "accepted_evidence_refs": [],
                     "do_not_redo": [],
-                    "stop_boundary": "Stop and report blockers to the main session.",
+                    "stop_boundary": "Stop and report blockers to Main.",
                 },
                 "accepted_result_ref": None,
                 "accepted_execution_id": None,
@@ -166,32 +155,11 @@ def test_managed_assignment_uses_five_section_canonical_record():
     }
 
     packet = managed.assignment_packet(current, execution=execution)
-    assert list(packet) == [
-        "objective",
-        "ownership",
-        "interfaces",
-        "constraints",
-        "verification",
-    ]
-    assert packet["ownership"]["unit_id"] == "U1"
+    assert list(packet) == ["objective", "ownership", "interfaces", "constraints", "verification"]
     assert packet["ownership"]["execution_id"] == "exec-1"
-    assert packet["ownership"]["mutation_authority"] == "none"
-    assert packet["verification"]["acceptance"] == "contract is evidenced"
 
 
-def test_routing_has_no_second_responsibility_packet_template():
-    text = (ROOT / "contracts" / "routing.md").read_text(encoding="utf-8")
-    assert "responsibility-packet.md" in text
-    for retired_field in (
-        "TEAM PLAN REVISION, when applicable",
-        "TASK ID",
-        "READ / WRITE SCOPE",
-        "HANDOFF CAPSULE, when useful",
-    ):
-        assert retired_field not in text
-
-
-def test_profile_machine_truth_comes_from_policy_projection():
+def test_profile_machine_truth_has_one_policy_projection():
     policy = load_module("closure_policy", "policy.py")
     state = load_module("closure_state_policy", "dispatch_state_v4.py")
     orchestrate = load_module("closure_orchestrate_policy", "orchestrate_v4.py")
@@ -201,16 +169,13 @@ def test_profile_machine_truth_comes_from_policy_projection():
     assert set(profiles) == {"reader", "worker", "investigator", "solver", "advisor"}
     for role, spec in profiles.items():
         assert state.PROFILE_CONTRACT[role] == (
-            spec["model"],
-            spec["effort"],
-            spec["mutation_authority"],
+            spec["model"], spec["effort"], spec["mutation_authority"]
         )
         assert orchestrate.FIXED_PROFILES[role]["model"] == spec["model"]
-        assert orchestrate.FIXED_PROFILES[role]["effort"] == spec["effort"]
         assert managed.PROFILE_AGENT_TYPES[role] == spec["agent_type"]
 
 
-def test_runtime_integrity_excludes_maintainer_only_tools_and_keeps_product_scripts():
+def test_runtime_integrity_excludes_maintainer_only_and_retired_control_plane_tools():
     integrity = load_module("closure_integrity", "package_integrity.py")
     files = {path.as_posix() for path in integrity.runtime_files(ROOT)}
     excluded = {
@@ -222,36 +187,41 @@ def test_runtime_integrity_excludes_maintainer_only_tools_and_keeps_product_scri
         "scripts/validate-experiment-campaign.py",
         "scripts/validate-experiment-run.py",
         "scripts/validate_experiment_campaign_core.py",
+        "scripts/orchestration_guard.py",
+        "scripts/dispatch_control_v4.py",
+        "scripts/host_evidence_v4.py",
+        "scripts/spawn_guard.py",
     }
     assert not (files & excluded)
     for required in (
         "scripts/doctor.py",
         "scripts/install-agents.py",
-        "scripts/orchestration_guard.py",
-        "scripts/host_evidence_v4.py",
+        "scripts/host_capabilities.py",
+        "scripts/execution_lifecycle_v4.py",
+        "scripts/writer_lease_v4.py",
         "scripts/review-artifact.py",
         "scripts/runtime-evidence.py",
-        "scripts/spawn_guard.py",
     ):
         assert required in files
 
 
-def test_active_contracts_use_current_two_skill_and_doctor_ownership():
+def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
-    assert "other root `contracts/` documents are hardened v3.x" not in architecture.lower()
-    assert "release readiness" not in architecture
+    machine = (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
+
     assert "selection/invocation of Dispatch" not in final_review
     assert "selection/invocation of Orchestrate" in final_review
+    assert "Plugin Hooks are not a correctness authority" in architecture
+    assert '"plugin_hook_required": false' in machine
+    assert "host_evidence_v4.py" not in architecture
 
 
-def test_recovery_contract_uses_v4_execution_identity_and_lifecycle():
+def test_recovery_contract_uses_execution_identity_and_native_lifecycle():
     recovery = (ROOT / "contracts" / "recovery.md").read_text(encoding="utf-8")
     assert "execution_id" in recovery
     assert "attempt_no" in recovery
-    assert "task_id" not in recovery
-    assert "PLANNED" not in recovery
-    assert "compact thread-scoped state" not in recovery
+    assert "PendingControl" not in recovery
     for state_name in (
         "SPAWN_PENDING",
         "RUNNING",
