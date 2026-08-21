@@ -140,15 +140,17 @@ def test_check_missing_home_does_not_create_it(tmp_path: Path):
     assert result.returncode != 0
     assert not home.exists()
 
-def test_not_installed_guidance_matches_automatic_first_use_restart_contract(tmp_path: Path):
+def test_not_installed_guidance_is_product_facing_and_actionable(tmp_path: Path):
     home = tmp_path / 'codex-home'
     home.mkdir()
     result = _install_agents__run(home, '--check')
     combined = result.stdout + result.stderr
     assert result.returncode != 0
     assert 'Not installed' in combined
-    assert 'provision these plugin-owned profiles automatically' in combined
-    assert 'fresh Codex task/session before spawn' in combined
+    assert 'Run Orchestrate when delegation is needed, or run Doctor repair.' in combined
+    assert 'Start a fresh Codex session after profiles are installed.' in combined
+    assert 'spawn_agent' not in combined
+    assert 'plugin-owned' not in combined
     assert 'ask permission' not in combined
 ROOT = Path(__file__).resolve().parents[1]
 _installer_concurrency__INSTALLER = ROOT / 'scripts' / 'install-agents.py'
@@ -376,7 +378,7 @@ def test_uninstall_removes_only_exact_owned_profiles_and_manifest(tmp_path: Path
     before = unrelated.read_bytes()
     result = _uninstall_agents__run(UNINSTALLER, home)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert 'UNINSTALL COMPLETE' in result.stdout
+    assert 'Managed Agent profiles removed.' in result.stdout
     assert all((not (home / 'agents' / filename).exists() for filename in PROFILE_FILES))
     assert not (home / MANIFEST).exists()
     assert (home / LOCK).is_file()
