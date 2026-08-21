@@ -74,7 +74,7 @@ def native_host_evidence() -> dict:
     }
 
 
-def test_doctor_reports_native_core_product_layers_with_host_unknown(tmp_path: Path):
+def test_doctor_reports_product_health_layers_with_host_unknown(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--check")
@@ -89,10 +89,13 @@ def test_doctor_reports_native_core_product_layers_with_host_unknown(tmp_path: P
     ]
     positions = [result.stdout.index(f"] {name}:") for name in order]
     assert positions == sorted(positions)
-    assert "[OK] Plugin package: package identity and two-Skill surface are intact" in result.stdout
-    assert "[OK] Managed Agents: 5/5 managed Agent profiles are installed exactly" in result.stdout
-    assert "[UNKNOWN] Host integration: no current Host capability evidence was supplied" in result.stdout
-    assert "[OK] Orchestration state: no active V4 orchestration capsule exists" in result.stdout
+    assert "[OK] Plugin package: Plugin files and public skills are valid" in result.stdout
+    assert (
+        "[OK] Managed Agents: All 5 managed Agent profiles are installed and match this Plugin version"
+        in result.stdout
+    )
+    assert "[UNKNOWN] Host integration: Current Host capabilities were not checked" in result.stdout
+    assert "[OK] Orchestration state: No active orchestration state" in result.stdout
 
 
 def test_doctor_json_has_only_current_layers_and_actions(tmp_path: Path):
@@ -123,7 +126,7 @@ def test_doctor_accepts_current_native_host_capability_snapshot(tmp_path: Path):
     result = run_doctor(home, tmp_path, "--host-evidence", str(evidence), "--check")
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "[OK] Host integration: required Native Subagent capabilities are present" in result.stdout
+    assert "[OK] Host integration: Native Subagent capabilities are ready" in result.stdout
 
 
 def test_doctor_rejects_missing_required_native_host_primitive(tmp_path: Path):
@@ -137,7 +140,7 @@ def test_doctor_rejects_missing_required_native_host_primitive(tmp_path: Path):
     result = run_doctor(home, tmp_path, "--host-evidence", str(evidence), "--check")
 
     assert result.returncode != 0
-    assert "[FAIL] Host integration: required Native Subagent capabilities are missing" in result.stdout
+    assert "[FAIL] Host integration: Required Native Subagent capabilities are unavailable" in result.stdout
 
 
 def test_valid_v4_state_is_diagnosed_directly(tmp_path: Path):
@@ -149,7 +152,7 @@ def test_valid_v4_state_is_diagnosed_directly(tmp_path: Path):
     result = run_doctor(home, tmp_path, "--check")
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "[OK] Orchestration state: V4 Native Core state is valid" in result.stdout
+    assert "[OK] Orchestration state: Current orchestration state is healthy" in result.stdout
 
 
 def test_missing_managed_profiles_are_warning_and_repairable(tmp_path: Path):
@@ -159,7 +162,7 @@ def test_missing_managed_profiles_are_warning_and_repairable(tmp_path: Path):
     result = run_doctor(home, tmp_path, "--check")
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "[WARN] Managed Agents: managed Agent profiles are absent or safely repairable" in result.stdout
+    assert "[WARN] Managed Agents: Managed Agent profiles need setup or repair" in result.stdout
     assert not home.exists()
 
 
@@ -172,7 +175,7 @@ def test_modified_owned_profile_blocks_doctor(tmp_path: Path):
     result = run_doctor(home, tmp_path, "--check")
 
     assert result.returncode != 0
-    assert "[FAIL] Managed Agents: managed Agent profile ownership or filesystem safety check failed" in result.stdout
+    assert "[FAIL] Managed Agents: Managed Agent profiles cannot be changed safely" in result.stdout
 
 
 def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: Path):
@@ -222,7 +225,7 @@ def test_doctor_can_explicitly_uninstall_only_owned_managed_profiles(tmp_path: P
     result = run_doctor(home, tmp_path, "--uninstall-managed")
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "[OK] Action: owned managed Agent profiles removed" in result.stdout
+    assert "[OK] Action: Managed Agent profiles removed" in result.stdout
     assert "[WARN] Managed Agents:" in result.stdout
 
     verifier = subprocess.run(
