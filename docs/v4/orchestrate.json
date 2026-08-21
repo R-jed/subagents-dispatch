@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-orchestrate-2",
+  "schema_version": "4.0.0-orchestrate-3",
   "public_target": [
     "orchestrate",
     "doctor"
@@ -18,7 +18,6 @@
   "plan_only": {
     "creates_state": false,
     "acquires_writer_lease": false,
-    "prepares_pending_control": false,
     "host_actions": 0
   },
   "routing": {
@@ -45,5 +44,8 @@
     ]
   },
   "host_execution": "native_host_only",
-  "lifecycle_hooks": "active_default_plugin_hook_release_gated_by_exact_candidate_h00_h20"
+  "lifecycle_authority": "codex_host",
+  "plugin_hooks_required": false,
+  "pending_control_required": false,
+  "child_collaboration_policy": "disabled_by_managed_profiles"
 }
