@@ -87,7 +87,7 @@ def test_v4_runtime_separates_workunit_execution_and_writer_truth():
     assert payload["executions"] == []
     assert payload["writer_lease"] is None
     assert "pending_controls" not in payload
-    assert "control_epoch" in state.EXECUTION_FIELDS
+    assert state.validate_state_payload(payload) == payload
 
 
 def test_public_surface_contains_only_the_two_supported_skills():
