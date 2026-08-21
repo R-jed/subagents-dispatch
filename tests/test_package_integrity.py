@@ -46,7 +46,7 @@ def test_committed_integrity_manifest_is_generated_from_native_runtime_scope():
     assert committed["algorithm"] == "sha256"
     assert committed["normalization"] == "utf-8-lf"
     assert "scripts/host_capabilities.py" in committed["files"]
-    assert "scripts/release_evidence_v4.py" in committed["files"]
+    assert "scripts/release_evidence_v4.py" not in committed["files"]
     assert all(not path.startswith("hooks/") for path in committed["files"])
     assert "docs/v4/hooks.json" not in committed["files"]
 
