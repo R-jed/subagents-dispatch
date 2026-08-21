@@ -66,11 +66,11 @@ No speculative spawn is used to probe a known-stale registry boundary. A fresh t
 ## Current exact roles
 
 ```text
-subagents_dispatch_reader        -> gpt-5.6-luna  / max  / mutation none
-subagents_dispatch_worker        -> gpt-5.6-luna  / max  / bounded source write when granted
-subagents_dispatch_investigator  -> gpt-5.6-terra / high / mutation none
-subagents_dispatch_solver        -> gpt-5.6-sol   / high / bounded source write when granted
-subagents_dispatch_advisor       -> gpt-5.6-sol   / high / mutation none
+subagents_dispatch_reader        -> gpt-5.6-luna  / max   / mutation none
+subagents_dispatch_worker        -> gpt-5.6-luna  / max   / bounded source write when granted
+subagents_dispatch_investigator  -> gpt-5.6-terra / xhigh / mutation none
+subagents_dispatch_solver        -> gpt-5.6-sol   / high  / bounded source write when granted
+subagents_dispatch_advisor       -> gpt-5.6-sol   / high  / mutation none
 ```
 
 Managed child profiles disable child multi-agent capability. Profile configuration proves intent only; observed model, effort and sandbox require Host evidence when those facts are material.
