@@ -33,7 +33,7 @@ Managed profiles remain fixed:
 | --- | --- | --- | --- |
 | Reader | Luna Max | none | Work |
 | Worker | Luna Max | bounded-source-write | Work |
-| Investigator | Terra High | none | Work |
+| Investigator | Terra XHigh | none | Work |
 | Solver | Sol High | bounded-source-write | Work |
 | Advisor | Sol High | none | Review |
 
@@ -71,6 +71,9 @@ contracts/interaction.md
 contracts/recovery.md
 -> WorkUnit / ExecutionBinding recovery behavior
 
+contracts/receipt.md
+-> user-facing factual execution summary only; no lifecycle ledger authority
+
 contracts/final-review.md
 -> exact-candidate independent review
 ```
@@ -87,7 +90,13 @@ scripts/orchestrate_v4.py
 -> admission, routing and user control facade
 
 scripts/dispatch_state_v4.py
--> bounded session-scoped state and Host lifecycle reconciliation
+-> bounded session-scoped V4 state and Host lifecycle reconciliation
+
+scripts/state_storage.py
+-> schema-neutral thread identity, path safety, locking and atomic persistence
+
+scripts/legacy_state_cleanup.py
+-> explicit cleanup compatibility for stale terminal V3 capsules only
 
 scripts/work_graph_v4.py
 -> WorkUnit truth, dependency and acceptance transitions
@@ -111,7 +120,7 @@ scripts/inspect-collaboration-runtime.py
 -> optional allowlisted rollout evidence for recovery and release attestation
 ```
 
-Plugin Hook interception, PendingControl, Hook-specific tool-name normalization, Hook capacity tokens, Guard coverage proof, and replacement request/receipt ledgers are outside the Native Core correctness path.
+The retired V3 orchestration state engine, separate Team Ledger, Plugin Hook interception, PendingControl, Hook-specific tool-name normalization, Hook capacity tokens, Guard coverage proof, and replacement request/receipt ledgers are outside the Native Core correctness path.
 
 ## Single responsibility and coordinated work
 
@@ -197,7 +206,7 @@ Git-backed deliverables use `scripts/review-artifact.py`; non-Git deliverables u
 
 ## Migration
 
-V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed.
+V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed. Explicit stale cleanup understands only the minimum legacy schema needed to prove a terminal V3 capsule safe to remove.
 
 RC5 Native Core is pre-release and carries no compatibility promise for experimental V4 state containing PendingControl. Development and release validation use fresh Native Core state after schema cutover.
 
@@ -221,8 +230,8 @@ N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and truthful sandbox reporting
 ```
 
-A repository search must find no active production correctness dependency on Plugin Hook, PendingControl, or a replacement persisted request/receipt control plane before freeze.
+A repository search must find no active production correctness dependency on Plugin Hook, PendingControl, the retired V3 orchestration state engine, a separate Team Ledger, or a replacement persisted request/receipt control plane before freeze.
 
 ## V4.0.0 exclusions
 
-The release excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, parallel isolated managed writers, Plugin Hook lifecycle authority, PendingControl, and replacement operation-receipt ledgers.
+The release excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, parallel isolated managed writers, Plugin Hook lifecycle authority, PendingControl, the retired V3 orchestration engine, separate Team Ledger state, and replacement operation-receipt ledgers.
