@@ -32,7 +32,7 @@ Production model/effort remains fixed:
 
 ```text
 Reader / Worker        Luna Max
-Investigator           Terra High
+Investigator           Terra XHigh
 Solver / Advisor       Sol High
 ```
 
@@ -58,10 +58,12 @@ interrupt return alone never releases WriterLease
 one focused same-child followup remains bounded
 CONTINUE preserves the same interrupted ExecutionBinding
 V3 active/corrupt state is never silently migrated
+V4 state depends only on schema-neutral state_storage primitives
+legacy stale cleanup does not load the retired V3 orchestration engine
 plan-only creates no runtime state, lease or Host action
 ```
 
-A repository search must find no active production correctness dependency on Plugin Hook lifecycle authority, PendingControl, Guard receipts or a replacement persisted request/receipt control plane.
+A repository search must find no active production correctness dependency on Plugin Hook lifecycle authority, PendingControl, Guard receipts, the retired V3 orchestration state engine, a separate Team Ledger, or a replacement persisted request/receipt control plane.
 
 ## 4. Real Codex Host gate
 
