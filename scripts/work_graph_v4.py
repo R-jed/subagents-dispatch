@@ -2,7 +2,7 @@
 """V4 compact Work Graph mutations.
 
 The Work Graph owns dependency and acceptance truth. Host lifecycle completion is
-only execution evidence; a dependency becomes ready only after the predecessor
+execution evidence; a dependency becomes ready only after the predecessor
 WorkUnit reaches ACCEPTED.
 """
 
@@ -94,7 +94,6 @@ def make_work_unit(
     do_not_redo: Sequence[str] = (),
     stop_boundary: str = DEFAULT_STOP_BOUNDARY,
 ) -> dict[str, Any]:
-    """Build one compact WorkUnit with its bounded managed-child responsibility context."""
     dependencies = list(depends_on)
     return {
         "unit_id": unit_id,
@@ -125,7 +124,6 @@ def make_work_unit(
 
 
 def refresh_dependency_states(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a copy whose BLOCKED/READY states reflect ACCEPTED dependencies."""
     current = copy.deepcopy(dict(payload))
     state.validate_state_payload(current)
     by_id = {unit["unit_id"]: unit for unit in current["work_units"]}
@@ -144,7 +142,6 @@ def ready_frontier(payload: Mapping[str, Any]) -> list[str]:
 
 
 def critical_path_lengths(payload: Mapping[str, Any]) -> dict[str, int]:
-    """Return downstream critical-path lengths for the current compact DAG."""
     current = refresh_dependency_states(payload)
     by_id = {unit["unit_id"]: unit for unit in current["work_units"]}
     children: dict[str, list[str]] = {unit_id: [] for unit_id in by_id}
@@ -174,7 +171,6 @@ def install_single_work_unit(
     unit: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Install one dependency-free WorkUnit without creating TeamPlan truth."""
     supplied = copy.deepcopy(dict(unit))
     if supplied.get("depends_on") != []:
         raise WorkGraphError("single WorkUnit path cannot carry a dependency")
@@ -186,8 +182,8 @@ def install_single_work_unit(
             raise WorkGraphError("single WorkUnit path cannot attach to TeamPlan")
         if current["work_units"] or current["executions"]:
             raise WorkGraphError("single WorkUnit can only be installed into an empty orchestration")
-        if current["writer_lease"] is not None or current["pending_controls"]:
-            raise WorkGraphError("single WorkUnit requires no lease or PendingControl")
+        if current["writer_lease"] is not None:
+            raise WorkGraphError("single WorkUnit requires no WriterLease")
         current["work_units"] = [supplied]
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
@@ -200,7 +196,6 @@ def install_work_graph(
     units: Sequence[Mapping[str, Any]],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Install the initial TeamPlan Work Graph into an empty V4 orchestration."""
     if (
         not isinstance(team_plan_revision, int)
         or isinstance(team_plan_revision, bool)
@@ -214,8 +209,8 @@ def install_work_graph(
     def mutate(current: dict[str, Any]) -> None:
         if current["work_units"] or current["executions"]:
             raise WorkGraphError("initial Work Graph can only be installed into an empty orchestration")
-        if current["writer_lease"] is not None or current["pending_controls"]:
-            raise WorkGraphError("initial Work Graph requires no lease or PendingControl")
+        if current["writer_lease"] is not None:
+            raise WorkGraphError("initial Work Graph requires no WriterLease")
         current["team_plan_revision"] = team_plan_revision
         current["work_units"] = supplied
         refreshed = refresh_dependency_states(current)
@@ -231,8 +226,6 @@ def begin_verification(
     execution_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Move RESULT_READY to VERIFYING without accepting dependency truth."""
-
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
         if unit["state"] != "RESULT_READY":
@@ -256,7 +249,6 @@ def accept_work_unit(
     control_epoch: int,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Accept one exact current execution generation and unlock only its dependents."""
     if not _nonempty(result_ref):
         raise WorkGraphError("result_ref must be non-empty")
     if not isinstance(control_epoch, int) or isinstance(control_epoch, bool) or control_epoch < 0:
@@ -273,13 +265,6 @@ def accept_work_unit(
             raise WorkGraphError("accepted execution must be current and Host COMPLETED")
         if execution["control_epoch"] != control_epoch:
             raise WorkGraphError("acceptance control_epoch is stale")
-        execution_ids = {item["execution_id"] for item in _executions(current, unit_id)}
-        if any(
-            control["execution_id"] in execution_ids
-            and control["state"] in state.UNRESOLVED_CONTROL_STATES
-            for control in current["pending_controls"]
-        ):
-            raise WorkGraphError("acceptance is blocked by unresolved PendingControl")
         unit["state"] = "ACCEPTED"
         unit["accepted_result_ref"] = result_ref
         unit["accepted_execution_id"] = execution_id
@@ -297,8 +282,6 @@ def reject_work_unit(
     execution_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Reject a produced candidate without unlocking dependencies."""
-
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
         if unit["state"] not in {"RESULT_READY", "VERIFYING"}:
@@ -319,8 +302,6 @@ def reopen_rejected_work_unit(
     unit_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Reopen a rejected unit for one remaining fresh Agent attempt."""
-
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
         if unit["state"] != "REJECTED":
@@ -330,12 +311,6 @@ def reopen_rejected_work_unit(
             raise WorkGraphError("fresh Agent attempt limit is exhausted")
         if any(item["lifecycle"] not in FRESH_RETRY_EXECUTION_STATES for item in executions):
             raise WorkGraphError("fresh retry requires all prior executions to be settled")
-        if any(
-            control["execution_id"] in {item["execution_id"] for item in executions}
-            and control["state"] in state.UNRESOLVED_CONTROL_STATES
-            for control in current["pending_controls"]
-        ):
-            raise WorkGraphError("fresh retry is blocked by unresolved PendingControl")
         by_id = {item["unit_id"]: item for item in current["work_units"]}
         unit["state"] = (
             "READY"
@@ -352,8 +327,6 @@ def cancel_work_unit(
     unit_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Cancel work only when no active or ambiguous execution/control remains."""
-
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
         if unit["state"] == "ACCEPTED":
@@ -361,13 +334,6 @@ def cancel_work_unit(
         executions = _executions(current, unit_id)
         if any(item["lifecycle"] in ACTIVE_OR_AMBIGUOUS_EXECUTION_STATES for item in executions):
             raise WorkGraphError("cannot cancel WorkUnit with active or ambiguous execution")
-        execution_ids = {item["execution_id"] for item in executions}
-        if any(
-            control["execution_id"] in execution_ids
-            and control["state"] in state.UNRESOLVED_CONTROL_STATES
-            for control in current["pending_controls"]
-        ):
-            raise WorkGraphError("cannot cancel WorkUnit with unresolved PendingControl")
         unit["state"] = "CANCELLED"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
