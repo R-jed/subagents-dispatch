@@ -26,7 +26,7 @@
     "scripts/dispatch_state.py": "8eaefbbd9b713d58c7f9aa4f9bed970669daced578f468f9a24af957639d5052",
     "scripts/dispatch_state_v4.py": "ba800de341be8bc9fe35fea6d2fc643b93301e40087723519ce6b5ab858ede2d",
     "scripts/dispatch_state_v4_core.py": "de0e4a0a39b401baa8687f43089f5cda5b9feb0476a050c46b19bc76154d5ced",
-    "scripts/doctor.py": "2ab9754cc51850f3696d04d218959dd55ea019453767360be881918b5c9eb998",
+    "scripts/doctor.py": "8e148446f28d230ce48a7e58d90e111f4869904d3d24f80aa51562dc87c2f176",
     "scripts/doctor_runtime.py": "866036d203ee463c5be37b5bff5002ad475876d555738a44239fdb5e4d6f6340",
     "scripts/doctor_runtime_core.py": "413e6a70d60e541eb7b51d5135bf5b92a6f2f3054e8393ab72b7628593a32e86",
     "scripts/execution_lifecycle_v4.py": "962803b0937821df741c4cd65ef2dae2739ded4aa32630da213f6374b98471d9",
