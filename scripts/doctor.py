@@ -97,6 +97,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _validate_thread_input(thread_id: str | None) -> None:
+    if thread_id is not None and not thread_id.strip():
+        raise DoctorError("explicit --thread-id must be non-empty")
+
+
 def _run_owned_action(command: list[str], *, label: str) -> None:
     result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -211,10 +216,18 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
             or spec.get("effort") != effort
             or profile.get("model") != model
             or profile.get("model_reasoning_effort") != effort
+            or profile.get("agents", {}).get("enabled") is not False
+            or profile.get("features", {}).get("multi_agent_v2") is not False
+            or "Do not create or manage further subagents" not in str(profile.get("developer_instructions", ""))
         ):
             mismatches.append(role)
     if mismatches:
-        return layer("Managed Agents", "FAIL", "bundled managed Agent profile contract is inconsistent", mismatches=mismatches)
+        return layer(
+            "Managed Agents",
+            "FAIL",
+            "bundled managed Agent profile contract is inconsistent",
+            mismatches=mismatches,
+        )
 
     verifier = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "install-agents.py"), "--codex-home", str(codex_home), "--check"],
@@ -318,6 +331,7 @@ def diagnose_legacy(codex_home: Path) -> dict[str, Any]:
 
 
 def run_diagnosis(args: argparse.Namespace) -> dict[str, Any]:
+    _validate_thread_input(args.thread_id)
     actions = _explicit_actions(args, args.codex_home)
     layers = [
         diagnose_plugin_package(),
@@ -329,11 +343,15 @@ def run_diagnosis(args: argparse.Namespace) -> dict[str, Any]:
     return {"layers": layers, "actions": actions}
 
 
-def _print_report(report: Mapping[str, Any]) -> None:
+def _print_report(report: Mapping[str, Any], *, legacy_details: bool = False) -> None:
     for item in report["layers"]:
         print(f"[{item['status']}] {item['name']}: {item['summary']}")
         if item.get("action"):
             print(f"  Action: {item['action']}")
+        if legacy_details and item["name"] == "Legacy compatibility":
+            migration_state = item.get("details", {}).get("migration_state")
+            if migration_state:
+                print(f"  Migration state: {migration_state}")
     for action in report.get("actions", []):
         print(f"[OK] Action: {action}")
 
@@ -356,7 +374,7 @@ def main() -> None:
     if args.json:
         print(json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     else:
-        _print_report(report)
+        _print_report(report, legacy_details=args.legacy)
     if args.check and any(item["status"] == "FAIL" for item in report["layers"]):
         raise SystemExit(1)
 
