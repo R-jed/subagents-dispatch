@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-10",
+  "schema_version": "4.0.0-phase-status-11",
   "candidate_branch": "v4/rc5-native-core",
   "architecture": "native_core",
   "repository_phases": {
@@ -10,13 +10,18 @@
     "public_orchestrate_doctor_surface": "PASS",
     "hook_control_plane_removal": "PASS",
     "product_plane_closure": "PASS",
-    "model_effort_alignment": "PENDING_CURRENT_CHANGE_VALIDATION",
-    "v3_residue_closure": "PENDING_CURRENT_CHANGE_VALIDATION"
+    "model_effort_alignment": "PASS",
+    "v3_residue_closure": "PASS",
+    "rc4_native_core_behavior_comparison": "PASS"
   },
   "fixed_profiles": {
     "luna": "max",
     "terra": "high",
     "sol": "high"
+  },
+  "behavior_comparison": {
+    "contract": "docs/v4/rc4-native-core-behavior-comparison.json",
+    "result": "READY_FOR_EXACT_CANDIDATE_HOST_VALIDATION"
   },
   "current_runtime_owners": [
     "scripts/orchestrate_v4.py",
