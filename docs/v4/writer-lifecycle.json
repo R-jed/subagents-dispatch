@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-writer-lifecycle-3",
+  "schema_version": "4.0.0-writer-lifecycle-4",
   "writer_lease": {
     "scope": "canonical_workspace",
     "states": ["RESERVED", "HELD", "REVOKING", "UNKNOWN", "RELEASED"],
@@ -18,8 +18,6 @@
       "matching lease_epoch when present",
       "observed non-active Host lifecycle"
     ],
-    "plugin_hook_receipt_required": false,
-    "pending_control_required": false,
     "interrupt_return_alone_releases_writer": false
   },
   "same_child": {

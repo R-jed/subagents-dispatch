@@ -139,7 +139,7 @@ def test_malformed_or_partial_evidence_is_rejected():
         module.normalize_host_capabilities(payload)
 
     payload = evidence()
-    payload["hooks"] = {}
+    payload["unexpected"] = {}
     with pytest.raises(module.HostCapabilityError, match="unsupported fields"):
         module.normalize_host_capabilities(payload)
 
@@ -153,7 +153,7 @@ def test_unclassified_collaboration_identity_is_rejected_for_host_adaptation():
         module.normalize_host_capabilities(payload)
 
 
-def test_namespaced_native_identities_map_to_same_semantics_without_hook_aliases():
+def test_namespaced_native_identities_map_to_same_semantics():
     module = load_module()
     payload = evidence()
     payload["tools"] = [
@@ -186,7 +186,7 @@ def test_normalized_snapshot_validation_rejects_shape_drift():
     module = load_module()
     snapshot = module.normalize_host_capabilities(evidence())
     drifted = dict(snapshot)
-    drifted["capabilities"] = {**snapshot["capabilities"], "pre_tool_use_guard": True}
+    drifted["capabilities"] = {**snapshot["capabilities"], "unknown_capability": True}
 
     with pytest.raises(module.HostCapabilityError, match="capability set"):
         module.validate_normalized_snapshot(drifted)

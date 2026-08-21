@@ -1,15 +1,8 @@
 {
-  "schema_version": "4.0.0-orchestrate-3",
+  "schema_version": "4.0.0-orchestrate-4",
   "public_target": [
     "orchestrate",
     "doctor"
-  ],
-  "retired_public_skills": [
-    "dispatch",
-    "preview",
-    "status",
-    "steer",
-    "takeover"
   ],
   "session_targeting": {
     "control_requires_exact_orchestration_id": true,
@@ -45,7 +38,5 @@
   },
   "host_execution": "native_host_only",
   "lifecycle_authority": "codex_host",
-  "plugin_hooks_required": false,
-  "pending_control_required": false,
   "child_collaboration_policy": "disabled_by_managed_profiles"
 }

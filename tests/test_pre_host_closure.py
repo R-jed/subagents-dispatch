@@ -139,8 +139,14 @@ def test_machine_contracts_assign_host_and_profile_requirements_to_separate_owne
         "fresh_context_spawn",
     ]
     assert architecture["managed_profile_requirements"] == ["child_collaboration_disabled"]
-    assert architecture["host_truth"]["plugin_hook_required"] is False
-    assert orchestrate["plugin_hooks_required"] is False
+    assert architecture["host_truth"] == {
+        "capacity_owner": "codex_host",
+        "child_identity_owner": "codex_host",
+        "lifecycle_owner": "codex_host",
+        "materialization_owner": "codex_host",
+    }
+    assert orchestrate["host_execution"] == "native_host_only"
+    assert orchestrate["lifecycle_authority"] == "codex_host"
     assert orchestrate["child_collaboration_policy"] == "disabled_by_managed_profiles"
 
 

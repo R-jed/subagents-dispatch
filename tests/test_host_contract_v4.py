@@ -124,7 +124,7 @@ def test_known_host_capacity_is_advisory_scheduler_ceiling():
     assert len(decision["actions"]) == 1
 
 
-def test_unknown_host_capacity_does_not_invent_a_blocking_token():
+def test_unknown_host_capacity_allows_bounded_product_admission():
     state = load_module("native_unknown_capacity_state", "dispatch_state_v4.py")
     host = load_module("native_unknown_capacity_host", "host_capabilities.py")
     scheduler = load_module("native_unknown_capacity_scheduler", "scheduler_v4.py")
@@ -156,7 +156,7 @@ def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():
             "wait_or_wakeup": True,
             "followup": True,
             "interrupt": True,
-            "pre_tool_use_guard": True,
+            "unknown_capability": True,
         },
         "fork_turns_none": True,
         "max_spawned_threads": 3,
@@ -168,14 +168,13 @@ def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():
         scheduler.scheduler_decision(payload, capability_snapshot=forged, wakeup_reason="USER_INPUT")
 
 
-def test_release_identity_binds_native_host_contract_digest_without_hook_digest():
+def test_release_identity_binds_native_host_contract_digest():
     release = load_module("native_release_contract", "release_evidence_v4.py")
     identity = release.current_candidate_identity(ROOT)
 
     assert release.HOST_CAMPAIGN_CONTRACT_VERSION == "4.0.0-native-host-smoke-1"
     assert release.REQUIRED_HOST_PROBES == tuple(f"N{index}" for index in range(9))
     assert "host_contract_sha256" in identity
-    assert "production_hook_sha256" not in identity
     assert len(identity["host_contract_sha256"]) == 64
 
 

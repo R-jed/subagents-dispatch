@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-scheduler-3",
+  "schema_version": "4.0.0-scheduler-4",
   "mode": "wakeup_driven_reconcile",
   "background_daemon": false,
   "wakeup_reasons": [
@@ -16,7 +16,6 @@
   "host_capacity_owner": "codex_host",
   "known_host_capacity_is_advisory_ceiling": true,
   "unknown_host_capacity_blocks_spawn": false,
-  "capacity_observation_token_required": false,
   "initial_managed_children_max": 2,
   "product_managed_children_max": 3,
   "progressive_refill": true,
