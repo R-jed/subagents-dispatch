@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""V4 Orchestrate production facade.
+"""V4 Native Core Orchestrate production facade.
 
-This module keeps orchestration decisions deterministic and Host-neutral. It can
-prepare state/control intents, while native Host tool execution is performed by
-the Host-facing lifecycle layer.
+Orchestrate owns deterministic routing and project decisions. Main invokes native
+Host lifecycle tools and feeds observed lifecycle truth into the lifecycle layer.
 """
 
 from __future__ import annotations
@@ -43,7 +42,6 @@ def route_profile(
     stalled_or_high_judgment: bool = False,
     review: bool = False,
 ) -> dict[str, Any]:
-    """Select one fixed V4 profile without changing model or reasoning effort."""
     if review:
         profile_id = "advisor"
     elif stalled_or_high_judgment:
@@ -64,7 +62,6 @@ def route_profile(
 
 
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
-    """Compile a plan preview without reading or creating active state."""
     if not isinstance(goal, str) or not goal.strip():
         raise OrchestrateError("goal must be non-empty")
     units: list[dict[str, Any]] = []
@@ -111,12 +108,7 @@ def _unresolved(payload: Mapping[str, Any]) -> bool:
     ):
         return True
     lease = payload.get("writer_lease")
-    if isinstance(lease, Mapping) and lease.get("state") in state.WRITER_BLOCKING_STATES:
-        return True
-    return any(
-        control["state"] in state.UNRESOLVED_CONTROL_STATES
-        for control in payload.get("pending_controls", [])
-    )
+    return isinstance(lease, Mapping) and lease.get("state") in state.WRITER_BLOCKING_STATES
 
 
 def admission_decision(
@@ -126,7 +118,6 @@ def admission_decision(
     new_task: bool,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Prevent an unrelated request from silently attaching to active orchestration."""
     current = _load(thread_id, temp_root)
     if current is None:
         return {"decision": "NEW_ALLOWED", "orchestration_id": None}
@@ -190,15 +181,6 @@ def status_view(
                     "execution_id": execution["execution_id"],
                     "state": execution["lifecycle"],
                     "blocker": execution["blocker"],
-                }
-            )
-    for control_item in current["pending_controls"]:
-        if control_item["state"] in state.UNRESOLVED_CONTROL_STATES:
-            blockers.append(
-                {
-                    "kind": "control",
-                    "control_id": control_item["control_id"],
-                    "state": control_item["state"],
                 }
             )
     view.update(
