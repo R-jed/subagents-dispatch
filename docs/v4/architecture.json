@@ -178,7 +178,7 @@
       "semantic_role": "review"
     },
     "investigator": {
-      "effort": "xhigh",
+      "effort": "high",
       "model": "gpt-5.6-terra",
       "mutation_authority": "none",
       "semantic_role": "work"
