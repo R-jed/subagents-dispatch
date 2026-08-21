@@ -21,22 +21,15 @@ import dispatch_state_v4 as state_v4
 import host_capabilities
 import legacy_state_cleanup as legacy_state
 import package_integrity
+import policy as policy_contract
 from legacy_migration import detect_legacy_state, format_migration_state
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
-POLICY = ROOT / "contracts" / "policy.json"
 PROFILE_DIR = ROOT / "agent-profiles"
 SKILLS = ROOT / "skills"
 EXPECTED_SKILLS = ("orchestrate", "doctor")
-EXPECTED_PROFILES = {
-    "reader": ("gpt-5.6-luna", "max"),
-    "worker": ("gpt-5.6-luna", "max"),
-    "investigator": ("gpt-5.6-terra", "xhigh"),
-    "solver": ("gpt-5.6-sol", "high"),
-    "advisor": ("gpt-5.6-sol", "high"),
-}
 RECOVERABLE_PROFILE_CHECK_PREFIXES = (
     "Not installed:",
     "Required Codex home is missing:",
@@ -206,29 +199,21 @@ def diagnose_plugin_package() -> dict[str, Any]:
 
 def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
     try:
-        roles = _read_json(POLICY)["roles"]
-    except (DoctorError, KeyError, TypeError) as exc:
+        profiles = policy_contract.profile_contracts()
+    except RuntimeError as exc:
         return layer("Managed Agents", "FAIL", f"Managed Agent configuration is unavailable: {exc}")
-    if not isinstance(roles, Mapping) or set(roles) != set(EXPECTED_PROFILES):
-        return layer("Managed Agents", "FAIL", "Managed Agent configuration is invalid")
     mismatches: list[str] = []
-    for role, (model, effort) in EXPECTED_PROFILES.items():
-        spec = roles.get(role)
-        if not isinstance(spec, Mapping) or not isinstance(spec.get("profile_file"), str):
-            mismatches.append(role)
-            continue
+    for role, spec in profiles.items():
         try:
             profile = tomllib.loads(
-                (PROFILE_DIR / str(spec["profile_file"])).read_text(encoding="utf-8")
+                (PROFILE_DIR / spec["profile_file"]).read_text(encoding="utf-8")
             )
         except (OSError, UnicodeError, tomllib.TOMLDecodeError):
             mismatches.append(role)
             continue
         if (
-            spec.get("model") != model
-            or spec.get("effort") != effort
-            or profile.get("model") != model
-            or profile.get("model_reasoning_effort") != effort
+            profile.get("model") != spec["model"]
+            or profile.get("model_reasoning_effort") != spec["effort"]
             or not _profile_disables_child_collaboration(profile)
         ):
             mismatches.append(role)
