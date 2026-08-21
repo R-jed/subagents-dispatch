@@ -65,7 +65,9 @@ def test_installation_layer_fails_wrong_plugin_git_source():
         package_version="3.0.1",
     )
     assert result["status"] == "FAIL"
-    assert "Git source" in result["summary"]
+    assert result["summary"] == "Installed Plugin source cannot be verified"
+    assert "Git source" not in result["summary"]
+    assert "Git source" in result["details"]["source_issue"]
 
 
 def test_installation_layer_fails_wrong_marketplace_origin():
@@ -75,7 +77,9 @@ def test_installation_layer_fails_wrong_marketplace_origin():
         package_version="3.0.1",
     )
     assert result["status"] == "FAIL"
-    assert "Marketplace origin" in result["summary"]
+    assert result["summary"] == "Installed Plugin source cannot be verified"
+    assert "Marketplace origin" not in result["summary"]
+    assert "Marketplace origin" in result["details"]["source_issue"]
 
 
 def test_prerelease_ref_is_not_accepted_as_stable_release_identity():
