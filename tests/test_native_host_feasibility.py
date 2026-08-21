@@ -14,7 +14,7 @@ CHILD = "22222222-2222-7222-8222-222222222222"
 PROFILES = {
     "subagents-dispatch-reader.toml": ("gpt-5.6-luna", "max", "read-only"),
     "subagents-dispatch-worker.toml": ("gpt-5.6-luna", "max", None),
-    "subagents-dispatch-investigator.toml": ("gpt-5.6-terra", "high", "read-only"),
+    "subagents-dispatch-investigator.toml": ("gpt-5.6-terra", "xhigh", "read-only"),
     "subagents-dispatch-solver.toml": ("gpt-5.6-sol", "high", None),
     "subagents-dispatch-advisor.toml": ("gpt-5.6-sol", "high", "read-only"),
 }
