@@ -1,21 +1,28 @@
 {
-  "schema_version": "4.0.0-technical-debt-2",
+  "schema_version": "4.0.0-technical-debt-3",
   "status": "OPEN",
-  "items": [
+  "closed_items": [
     {
       "id": "TD-V4-STATE-STORAGE-DECOUPLE",
-      "priority": "P2",
-      "status": "DEFERRED_POST_HOST_VALIDATION",
-      "current_condition": "dispatch_state_v4_core imports legacy dispatch_state for hardened storage, locking, path, timestamp, and atomic-write helpers",
-      "risk_of_now": "Refactoring the storage boundary before real Host validation would invalidate a large already-green state and lifecycle surface without resolving any current release blocker",
-      "target": "Extract schema-neutral storage primitives behind a dedicated module so V4 state no longer depends on the full V3 state implementation",
-      "acceptance": [
-        "V4 state core imports only schema-neutral storage primitives",
-        "legacy V3.x state uses an explicit compatibility adapter",
-        "state path, lock, atomic replace, private-file, symlink, bounded-size, and crash-window tests remain green",
-        "no change to state v4 schema or Host lifecycle semantics"
-      ]
+      "status": "CLOSED_PRE_N0",
+      "resolution": "schema-neutral state_storage.py now owns path, lock, timestamp, private-file and atomic-write primitives; Native Core state no longer imports the V3 orchestration engine; stale terminal V3 cleanup is isolated in legacy_state_cleanup.py"
     }
   ],
-  "release_policy": "This structural item is tracked debt and is not a substitute for the real Host H00-H20 gate. It remains deferred while the exact RC is awaiting external candidate-bound Host validation."
+  "items": [
+    {
+      "id": "TD-V4-DOCTOR-HOST-EVIDENCE-UX",
+      "priority": "P2",
+      "status": "OPEN_POST_N0_OBSERVATION",
+      "current_condition": "Doctor can validate caller-supplied Native Host capability evidence, but ordinary users do not yet have a simple product-owned capture flow",
+      "target": "Use N0-N8 Host observations to decide whether a smaller evidence-capture UX is justified without introducing another runtime control plane"
+    },
+    {
+      "id": "TD-V4-EXPERIMENT-PLANE-CONSOLIDATION",
+      "priority": "P2",
+      "status": "OPEN_NON_RUNTIME",
+      "current_condition": "calibration and benchmark helpers retain legacy internal facade/core structure and historical experiment vocabulary",
+      "target": "Consolidate experiment-only internals after release-critical Native Core and exact-candidate Host validation are stable"
+    }
+  ],
+  "release_policy": "Open P2 experiment/diagnostic usability debt does not replace or relax the exact-candidate N0-N8 Host release gate. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final."
 }
