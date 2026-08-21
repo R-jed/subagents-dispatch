@@ -91,6 +91,22 @@ docs/v4/host-smoke.json
 
 Plugin Hook lifecycle authority, PendingControl, Guard receipts, Hook capacity tokens, and a replacement request/receipt control plane are retired from Native Core.
 
+## Compatibility owners
+
+```text
+scripts/dispatch_state.py
+-> hardened V3 storage compatibility primitives still used for legacy detection and safe cleanup
+
+scripts/legacy_migration.py
+-> ownership-checked V3 profile/state migration and compatibility diagnosis
+
+scripts/doctor_runtime.py
+scripts/doctor_runtime_core.py
+-> legacy module names retained only as thin aliases to the current Native Core Doctor
+```
+
+Compatibility code does not define current V4 routing, lifecycle, acceptance, release or Host authority.
+
 ## Fixed profiles
 
 ```text

@@ -6,7 +6,7 @@ Use this checklist for the exact Native Core V4.0.0 candidate. Repository comple
 
 Record the exact candidate commit/tree, Plugin version, Marketplace identity, package-integrity manifest, managed profile contract digest, Host campaign contract, Codex Host version/build, and operating systems used for validation.
 
-`.codex-plugin/plugin.json`, Marketplace metadata and the V4 changelog must agree on `4.0.0` before tagging.
+`.codex-plugin/plugin.json`, Marketplace metadata and the V4 changelog must agree on `4.0.0` before tagging. Use a versioned semantic-version tag only after all release gates pass, then verify Marketplace installation resolves the exact tagged candidate. This checklist does not claim platform-enforced tag immutability.
 
 ## 2. Repository gates
 
@@ -35,6 +35,8 @@ Reader / Worker        Luna Max
 Investigator           Terra High
 Solver / Advisor       Sol High
 ```
+
+Supported removal commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Release verification must require unrelated configuration semantics and other Codex state to remain unchanged.
 
 ## 3. Native Core state and recovery gates
 
@@ -132,7 +134,7 @@ external release evidence verifies
 installed Doctor has no blocking failure
 human two-Skill App observation PASS
 merge approved candidate
-create v4.0.0 tag
+create v4.0.0 versioned semantic-version tag
 verify Marketplace resolves the exact tagged candidate
 publish release notes
 ```

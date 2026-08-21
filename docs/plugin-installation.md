@@ -124,4 +124,6 @@ codex plugin remove subagents-dispatch@subagents-dispatch
 codex plugin marketplace remove subagents-dispatch
 ```
 
+The supported removal commands may update `config.toml` only to persist removal of this Plugin and Marketplace registration. Unrelated configuration semantics and other Codex state must remain unchanged.
+
 Modified, ambiguous, symlinked, or unowned managed files are preserved and reported. Do not replace a refused ownership check with wildcard or manual deletion.
