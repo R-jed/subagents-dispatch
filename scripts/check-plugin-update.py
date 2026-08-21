@@ -73,8 +73,8 @@ def render(report: Mapping[str, Any]) -> str:
     lines = [
         "Subagents Dispatch Update Check",
         "",
-        "[OK] Marketplace: refreshed canonical subagents-dispatch snapshot",
-        f"[{status}] Plugin installation: {item.get('summary', '')}",
+        "[OK] Marketplace: refreshed",
+        f"[{status}] Plugin: {item.get('summary', '')}",
         f"Installed: {detail_map.get('installed_version', 'UNKNOWN')}",
         f"Available: {detail_map.get('available_version', 'UNKNOWN')}",
     ]
@@ -95,7 +95,7 @@ def render(report: Mapping[str, Any]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Refresh the canonical subagents-dispatch Marketplace and report update state without installing a Plugin."
+        description="Refresh the subagents-dispatch Marketplace and report update state without installing a Plugin."
     )
     parser.add_argument(
         "--codex-home",
