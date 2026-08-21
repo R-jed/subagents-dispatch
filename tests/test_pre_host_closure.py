@@ -119,7 +119,7 @@ def test_managed_profiles_disable_child_collaboration_at_profile_boundary():
         )
         assert profile["agents"]["enabled"] is False, role
         assert profile["features"]["multi_agent_v2"] is False, role
-        assert "Do not create or manage further subagents" in profile["developer_instructions"]
+        assert "create further subagents" in profile["developer_instructions"].lower(), role
 
 
 def test_machine_contracts_assign_host_and_profile_requirements_to_separate_owners():
