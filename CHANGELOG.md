@@ -11,7 +11,7 @@
 ### Fixed execution profiles
 
 - Reader and Worker: Luna Max.
-- Investigator: Terra High.
+- Investigator: Terra XHigh.
 - Solver and Advisor: Sol High.
 - Dynamic reasoning-effort routing remains outside V4.0.0.
 
@@ -27,6 +27,8 @@
 - Require current-generation Host settlement before writer release or takeover. Interrupt return alone is insufficient.
 - Keep one dependency-free delegated responsibility on the compact path with `team_plan_revision = null`; create TeamPlan only when coordination structure needs it.
 - Keep the one five-section responsibility record and bounded reusable accepted evidence context.
+- Extract schema-neutral private state storage into `state_storage.py`; V4 state no longer imports the retired V3 orchestration engine.
+- Isolate stale terminal V3 capsule cleanup in `legacy_state_cleanup.py` and remove the old Team Ledger from the V4 runtime package.
 
 ### Complexity reduction
 
@@ -34,6 +36,7 @@
 - Remove PendingControl, Guard receipts, Hook-derived capacity tokens, Hook identity normalization and Hook-specific release diagnostics.
 - Do not replace that machinery with OperationIntent/OperationReceipt or another persisted request/receipt control plane.
 - Keep optional allowlisted rollout inspection only for recovery or validation when native Host evidence is insufficient.
+- Remove the retired V3 orchestration state engine and its receipt/recovery accounting from the active V4 runtime surface.
 
 ### Managed child containment
 
