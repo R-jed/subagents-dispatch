@@ -153,6 +153,38 @@ def require_control_session(
     return current
 
 
+def _current_control_execution(
+    current: Mapping[str, Any], *, execution_id: str
+) -> Mapping[str, Any]:
+    matches = [
+        item
+        for item in current.get("executions", [])
+        if isinstance(item, Mapping) and item.get("execution_id") == execution_id
+    ]
+    if len(matches) != 1:
+        raise OrchestrateError("execution_id does not resolve exactly once")
+    execution = matches[0]
+    current_execution = state.current_execution_for_unit(
+        current, unit_id=str(execution["unit_id"])
+    )
+    if current_execution is None or current_execution.get("execution_id") != execution_id:
+        raise OrchestrateError("control request targets a superseded execution")
+    return execution
+
+
+def _validate_message_control_input(
+    tool_input: Mapping[str, Any], *, target: str
+) -> dict[str, Any]:
+    if not isinstance(tool_input, Mapping):
+        raise OrchestrateError("native control tool_input must be an object")
+    if set(tool_input) != {"target", "message"} or tool_input.get("target") != target:
+        raise OrchestrateError("native control tool_input does not match ExecutionBinding")
+    message = tool_input.get("message")
+    if not isinstance(message, str) or not message.strip():
+        raise OrchestrateError("native control message must be non-empty")
+    return copy.deepcopy(dict(tool_input))
+
+
 def status_view(
     thread_id: str,
     *,
@@ -226,8 +258,54 @@ def prepare_steer(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    """Validate focused guidance for one currently running child without mutating project state."""
+    current = require_control_session(
+        thread_id, orchestration_id=orchestration_id, temp_root=temp_root
+    )
+    execution = _current_control_execution(current, execution_id=execution_id)
+    if execution["lifecycle"] != "RUNNING":
+        raise OrchestrateError("Steer requires a RUNNING execution")
+    validated_input = _validate_message_control_input(
+        tool_input, target=str(execution["native_task_name"])
+    )
+    return {
+        "operation": "STEER",
+        "execution_id": execution_id,
+        "tool_input": validated_input,
+        "control_epoch": execution["control_epoch"],
+        "observation_basis": state.observation_basis(current, execution_id=execution_id),
+    }
+
+
+def prepare_correction(
+    thread_id: str,
+    *,
+    orchestration_id: str,
+    execution_id: str,
+    tool_input: Mapping[str, Any],
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Prepare the one bounded post-completion same-child correction."""
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
     return lifecycle.prepare_same_child_followup(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        temp_root=temp_root,
+    )
+
+
+def prepare_continue(
+    thread_id: str,
+    *,
+    orchestration_id: str,
+    execution_id: str,
+    tool_input: Mapping[str, Any],
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Prepare continuation of the same interrupted child without spending correction budget."""
+    require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
+    return lifecycle.prepare_same_child_continue(
         thread_id,
         execution_id=execution_id,
         tool_input=tool_input,
