@@ -115,7 +115,7 @@ Calibration and benchmark helpers under `scripts/calibration_*`, `scripts/valida
 ```text
 Reader        gpt-5.6-luna   max    behavioral read-only
 Worker        gpt-5.6-luna   max    bounded source write when granted
-Investigator  gpt-5.6-terra  xhigh  behavioral read-only
+Investigator  gpt-5.6-terra  high   behavioral read-only
 Solver        gpt-5.6-sol    high   bounded source write when granted
 Advisor       gpt-5.6-sol    high   behavioral read-only review
 ```
