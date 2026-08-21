@@ -1,277 +1,123 @@
-# Dispatch Receipt
+# Execution Receipt
 
-This contract owns the user-facing summary of subagents-dispatch orchestration. It reports how Subagents were dispatched and controlled. It does not summarize the user's task result, implementation details, business outcome, or Main's final answer.
+This contract owns the optional user-facing summary of subagents-dispatch orchestration. It is a presentation view over current Native Core facts. It is not a lifecycle protocol, persisted event ledger, retry authority, acceptance authority, or replacement control plane.
 
-## Reporting axes
+## Source of truth
 
-The normal receipt uses three independent axes. Recovery is shown only when it actually occurred.
-
-```text
-Dispatch / 编排
-Control / 控制
-Review / 验收
-Recovery / 恢复   # exceptional only
-```
-
-Do not merge task completion state, Final Review verdicts, Agent lifecycle, retry history, and role names into one opaque line.
-
-## Language
-
-Choose presentation language from the substantive user task that established the active orchestration. Persist that locale in the thread-scoped active state so later command-only turns such as `Status` or `Steer` do not accidentally switch language.
-
-Supported presentation policy:
+A receipt may be derived only from facts already established by current owners:
 
 ```text
-Chinese user task
--> Chinese labels, actions, lifecycle explanations, and receipt prose
--> keep model family, reasoning effort, and canonical control-skill names in English
-
-English user task
--> native English presentation
-
-other / unresolved language
--> English fallback unless the user explicitly requests another language
+WorkUnit
+ExecutionBinding
+current Host lifecycle observation
+Main acceptance
+Final Review state when applicable
+explicit user control intent when the current interaction records it
 ```
 
-For a stateless Preview, infer language from the preview task itself.
+Do not create receipt-only state to make a summary possible. `accounting_refs` remains bounded Native Core evidence such as current-generation Host observations; it is not a receipt event store.
 
-## Public activity vocabulary
+## Language and vocabulary
 
-Internal role names are orchestration implementation details. Present the materialized work by model lane and user-understandable activity.
-
-| Internal responsibility | Chinese | English |
-| --- | --- | --- |
-| Reader | 读取 | Read |
-| Investigator | 调研 | Investigate |
-| Worker | 执行 | Execute |
-| Solver | 执行 | Execute |
-| Advisor material judgment | 决策 | Decide |
-| Advisor Final Review | 验收 | Review |
-
-Keep model family and effort in their canonical English form, for example:
+Use the language of the substantive user task. Canonical model/effort labels stay in English:
 
 ```text
 Luna Max
-Sol High
 Terra XHigh
+Sol High
 ```
 
-For Chinese users, do not leak `Reader`, `Worker`, `Solver`, `Investigator`, or `Advisor` into the normal receipt.
+Normal user-facing activity labels may summarize managed work as:
 
-Canonical control entry names remain `Status`, `Steer`, and `Takeover` so the receipt matches the controls the user selected from the Skill surface.
+| Responsibility | Chinese | English |
+| --- | --- | --- |
+| Reader | 读取 | Read |
+| Investigator | 调研 | Investigate |
+| Worker / Solver | 执行 | Execute |
+| Advisor judgment | 决策 | Decide |
+| Advisor Final Review | 验收 | Review |
 
-## Dispatch axis
+Internal role names do not need to appear in the normal receipt.
 
-The Dispatch axis reports materialized delegated work passes in first-materialization order. When the materialized unit is bound to a selected project model lane, the receipt may show that lane. `Luna Max`, `Sol High`, or `Terra XHigh` in an ordinary receipt means the project selected and materialized that configured policy lane; it does not claim that live Host telemetry independently re-observed the model or reasoning effort during that run.
+## What may be reported
 
-Configured/selected route truth and observed runtime truth remain separate. If native evidence is available and contradicts the selected lane, fail closed and surface the route mismatch rather than relabeling the receipt. Doctor live-route diagnostics own explicit observed model/reasoning verification. If no selected lane is safely bound, report the public activity without a model name.
-
-Chinese example:
+Report only facts that can be reconstructed without inventing history:
 
 ```text
-编排: Luna Max 读取×2 · Luna Max 执行×2 · Sol High 决策 · Sol High 验收×2
+materialized managed executions and their selected configured lanes
+current or terminal lifecycle when Host evidence establishes it
+whether Main accepted the WorkUnit
+whether an independent Final Review was required and its current verdict
+whether an explicit same-child followup or continuation is represented by the current ExecutionBinding state
+blocking UNKNOWN or unresolved writer ownership
 ```
 
-English example:
+Configured route truth and observed runtime truth stay separate. Showing `Luna Max`, `Terra XHigh`, or `Sol High` means the execution was bound to that project profile. It does not claim the Host independently re-observed model and effort unless separate Host evidence proves that fact.
+
+A pre-materialization spawn rejection is not a materialized Agent attempt. A same-child continuation does not become a fresh attempt. Do not infer a retry or rework count from the final capsule when the current state does not retain enough history to prove it.
+
+## Compact presentation
+
+A successful delegated run may use a compact form such as:
 
 ```text
-Dispatch: Luna Max Read×2 · Luna Max Execute×2 · Sol High Decide · Sol High Review×2
+编排: Luna Max 读取 · Terra XHigh 调研 · Luna Max 执行
+验收: Main 已接受 3 个职责 · 独立复核未触发
 ```
-
-A work pass is not a tool-call count.
-
-Count one materialized pass when:
 
 ```text
-a new native child identity is returned for a valid delegated attempt
-or
-a permitted same-Agent focused follow-up actually starts another bounded correction pass
+Dispatch: Luna Max Read · Terra XHigh Investigate · Luna Max Execute
+Review: Main accepted 3 responsibilities · independent review not triggered
 ```
 
-Do not count:
+When current truth is uncertain, say so explicitly:
 
 ```text
-pre-child Host rejection
-Status
-Steer
-wait / observation
-resuming an INTERRUPTED child in the same attempt
-Main reading
-Main implementation
-Main integration
-Main decision-making
+编排: U2 状态 UNKNOWN，未启动替代执行
+验收: 阻塞
 ```
 
-A failed materialized Agent attempt still counts as a real dispatched pass. Any replacement-attempt reason is reported separately under Recovery.
+Do not convert `UNKNOWN` into failure, completion, ownership transfer, or acceptance.
 
-## Idempotent accounting
+## Zero-child orchestration
 
-Do not rely only on mutable integer increments. Persist a small set of unique accounting references so interruption or reconciliation cannot double-count the same work.
+When the user explicitly asks Orchestrate to evaluate delegation and Main correctly keeps all work local, a minimal acknowledgement is enough:
+
+```text
+编排: 未调度子代理
+验收: 由 Main 完成
+```
+
+```text
+Dispatch: no Subagents dispatched
+Review: completed by Main
+```
+
+Plan-only does not need a terminal execution receipt because it creates no runtime state or Host actions.
+
+## Final Review
+
+If `contracts/final-review.md` requires independent review, report only the current exact-candidate review state. A prior verdict invalidated by candidate mutation must not be presented as current.
 
 Examples:
 
 ```text
-attempt:U1:A1
-followup:U1:A1:F1
-attempt:U2:A1
-review:U3:A1
+验收: 独立复核待执行
+验收: 独立复核 ship
+验收: 独立复核 fix-first，候选尚未完成
+验收: 独立复核证据不足
 ```
 
-The active root-thread capsule stores the structured event bound to each reference. Every materialized attempt, follow-up, or reviewer-attempt event carries its exact `unit_id`, integer `attempt`, and non-empty `agent_id`; that identity must match a materialized unit in the same capsule. One child attempt contributes at most one attempt or reviewer-attempt pass, and at most one bounded focused follow-up pass, even if a caller supplies different refs for the same identity. `persist_receipt_events` checks these bindings while holding the state lock, then merges and writes the events. Identical references are idempotent, while fabricated identities, duplicate identity bindings, or conflicting reuse of one reference fail closed. Visible totals are always derived from the persisted unique events.
+## Boundary with the task-facing response
 
-The materialized unit owns its selected `model_lane`. An accounting event cannot relabel that unit to another lane. `model_evidence_source`, when present, distinguishes `configured`, `native`, or `both`; it never upgrades configured route intent into observed runtime truth. Contradictory native evidence is a route-integrity problem, not a presentation override.
-
-Aggregation is derived from unique materialized references plus their activity and bound lane. Seeing the same Host event again after resume must not increment the visible count twice.
-
-Use distinct stable refs for distinct accounting facts:
+The receipt does not replace Main's final response. Main still owns:
 
 ```text
-materialized attempt    -> Dispatch pass
-focused follow-up       -> Dispatch pass + focused-follow-up fact
-replacement retry       -> Recovery retry; its new attempt ref reports the pass
-verification gap        -> Main acceptance evidence; no Dispatch pass or Review round by itself
-semantic rework         -> Review-axis rework only when a correction pass actually begins from one bound gap
-reviewer attempt        -> Dispatch pass, even if no verdict is produced
-review round            -> Review round only after an actual verdict
-explicit control        -> Control use
+what changed
+what evidence was verified
+what tests passed or failed
+remaining risks
+whether the user's requested outcome was achieved
 ```
 
-One ref may be observed repeatedly but contributes once. Reusing one ref for conflicting facts is corrupt accounting and fails closed. Reconciliation itself is not a work pass, retry, rework, or review round.
-
-## Control axis
-
-Show Control only when an explicit control entry point was used against the active orchestration.
-
-Chinese:
-
-```text
-控制: Status×3 · Steer×1
-```
-
-English:
-
-```text
-Control: Status×3 · Steer×1
-```
-
-Status is read-only with respect to user artifacts, native child execution, TeamPlan semantics, authority, and ownership. It may update only subagents-dispatch's own ephemeral receipt metadata so an observed `Status×N` remains factual.
-
-A control action does not create a delegated work pass by itself.
-
-## Review axis
-
-The Review axis reports the quality loop: independent Final Review rounds plus evidence-bound semantic rework. A rework count does not imply that independent Final Review ran, and this axis does not claim that the overall user task is complete.
-
-A review round exists only when a materialized fresh independent Advisor produces an actual verdict against the exact candidate. Both the reviewer-attempt and round events bind the same reviewer `unit_id`, `attempt`, `agent_id`, and candidate `review_artifact_id`; one reviewer attempt and one artifact identity can each contribute at most one round.
-
-Chinese states may include:
-
-```text
-验收: 未触发
-验收: 1轮 · 通过
-验收: 1轮 · 需返工
-验收: 1轮 · 需重新设计
-验收: 1轮 · 证据不足
-验收: 2轮 · 返工1次 · 通过
-```
-
-English equivalents:
-
-```text
-Review: not triggered
-Review: 1 round · passed
-Review: 1 round · rework required
-Review: 1 round · redesign required
-Review: 1 round · insufficient evidence
-Review: 2 rounds · rework×1 · passed
-```
-
-A reviewer attempt that crashes before producing a verdict contributes to Dispatch as a materialized Agent pass but does not increment the Review round count.
-
-When Main deterministic verification finds the gap and no independent Final Review ran, keep that distinction visible:
-
-```text
-验收: 未触发独立复核 · 返工1次
-Review: independent review not triggered · rework×1
-```
-
-## Rework versus retry
-
-Rework and retry are different axes.
-
-Rework increments only when:
-
-```text
-a candidate or complete delegated result exists
--> Main verification or independent review identifies a concrete acceptance gap
--> a correction pass actually begins
-```
-
-A review-driven rework binds that materialized focused follow-up and the `review_artifact_id` of the review round that reported the concrete gap.
-
-A Main-verification-driven rework first records a typed `verification_gap` event with a stable ref, the exact candidate `verification_artifact_id` (`sha256:<64 hex>`), and a non-empty deterministic `oracle_ref` identifying the acceptance check that exposed the gap. The `semantic_rework` event then binds the same materialized focused follow-up to that `verification_gap_ref`. Raw test output is not persisted in the receipt event.
-
-A semantic rework must bind exactly one gap source: independent Review or Main verification. A caller-supplied rework count, free-form `rebind` label, or correction with no evidence-bound gap is not a rework.
-
-Runtime failure, timeout, tool failure, or a replacement Agent attempt is not rework.
-
-Recovery retry increments only when a confirmed materialized Agent attempt is replaced under the bounded Recovery contract: the first attempt is confirmed `FAILED`, and its replacement is the materialized second attempt. The retry event carries and matches that replacement's exact `unit_id`, `attempt=2`, and `agent_id`; duplicate refs cannot recount the same replacement. A pre-child spawn rejection is never a retry.
-
-Generic runtime recovery claims are not counted because the terminal capsule does not retain enough transition history to prove them. Record only the evidence-bound retry fact above; do not infer a recovery count from a normal materialized child or caller-supplied `rebind` label.
-
-When retry occurred, add an exceptional line:
-
-```text
-恢复: 重试1次
-Recovery: retry×1
-```
-
-If recovery did not occur, omit the line entirely.
-
-## Zero-child explicit Dispatch
-
-Explicit Dispatch is itself a user request to evaluate orchestration. If routing correctly keeps all work in Main and no child is spawned, acknowledge the result with a minimal receipt:
-
-Chinese:
-
-```text
-编排: 未调度子代理
-验收: 未触发
-```
-
-English:
-
-```text
-Dispatch: no Subagents dispatched
-Review: not triggered
-```
-
-This does not create persistent dispatch state.
-
-Preview and Status-only requests do not emit a terminal Dispatch Receipt.
-
-## Preview presentation
-
-Preview uses the same public vocabulary but must remain explicitly predictive:
-
-```text
-预计编排: Luna Max 读取×2 · Luna Max 执行 · Sol High 验收
-Likely dispatch: Luna Max Read×2 · Luna Max Execute · Sol High Review
-```
-
-Preview never materializes accounting references, creates active state, spawns children, or mutates artifacts.
-
-## Boundary with Main response
-
-The receipt must not summarize:
-
-```text
-what code changed
-what files were fixed
-whether the user's business goal succeeded
-full test results
-the final deliverable contents
-Main's own implementation or reasoning
-```
-
-Main owns the task-facing final response. The receipt answers only: what Subagent orchestration occurred, which explicit controls were used, whether independent review ran, and whether delegated recovery happened.
+The receipt answers only what managed orchestration materially occurred and what acceptance/review state can be proven from current Native Core truth.
