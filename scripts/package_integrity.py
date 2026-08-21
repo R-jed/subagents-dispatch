@@ -30,7 +30,6 @@ RUNTIME_SCRIPT_FILES = tuple(
     PurePosixPath(path)
     for path in (
         "scripts/check-plugin-update.py",
-        "scripts/dispatch_state.py",
         "scripts/dispatch_state_v4.py",
         "scripts/dispatch_state_v4_core.py",
         "scripts/doctor.py",
@@ -43,6 +42,7 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/inspect-collaboration-runtime.py",
         "scripts/install-agents.py",
         "scripts/legacy_migration.py",
+        "scripts/legacy_state_cleanup.py",
         "scripts/managed_execution_v4.py",
         "scripts/orchestrate_v4.py",
         "scripts/package_integrity.py",
@@ -51,8 +51,8 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/review-artifact.py",
         "scripts/runtime-evidence.py",
         "scripts/scheduler_v4.py",
+        "scripts/state_storage.py",
         "scripts/uninstall-agents.py",
-        "scripts/validate_team_ledger.py",
         "scripts/validate_team_plan.py",
         "scripts/work_graph_v4.py",
         "scripts/writer_lease_v4.py",
