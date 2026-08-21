@@ -1,27 +1,25 @@
 # Architecture
 
-subagents-dispatch V4.0.0 is a bounded orchestration layer over Codex Native Subagents. Codex remains the Agent runtime. The project does not add a daemon, event bus, persistent scheduler database, private Agent runtime, automatic worktree manager, or nested managed delegation.
+subagents-dispatch V4.0.0 is a bounded orchestration layer over Codex Native Subagents. Codex remains the Agent runtime and the authoritative source for native child materialization, collaboration-call acceptance or rejection, lifecycle status, and actual Host capacity behavior.
 
-The user-facing main session owns user intent, authorization, decomposition, integration, WorkUnit acceptance, lifecycle control decisions, and the final response. Native Host observations own Agent lifecycle truth.
+The user-facing Main session owns user intent, authorization, decomposition, routing, scheduling policy, WriterLease, artifact verification, WorkUnit acceptance, and the final response.
 
-The normative V4 architecture freeze is `docs/v4/architecture.json`. This document is the human-readable owner map for that active design.
+The normative V4 candidate architecture is `docs/v4/architecture.json`. `docs/rc5-hookless-core-design.md` records the active Native Core decision and its implementation constraints. RC5 is not frozen until implementation and release verification complete.
 
 ## Public surface
 
-V4 exposes exactly two explicit Skills:
+V4 exposes two explicit Skills:
 
 ```text
 Orchestrate
 Doctor
 ```
 
-`Orchestrate` owns plan-only routing, delegated execution, status, correction, continuation, interruption, cancellation, takeover, integration, and consequence-based independent review. `Doctor` diagnoses the installed product across Plugin package, Managed Agents, Host integration, Orchestration state, and Legacy compatibility. Repository publication, CI, H00-H20 campaigns, calibration, experiments, and release-candidate evidence remain maintainer workflows outside public Doctor.
-
-Retired V3 public orchestration Skills are historical compatibility material only and are not V4 entrypoints.
+`Orchestrate` owns plan-only routing, delegated execution, status, correction, continuation, interruption, cancellation, takeover, integration, and consequence-based independent review. `Doctor` diagnoses the installed Plugin package, managed profiles, Host capability surface, orchestration state, and legacy compatibility.
 
 ## Semantic and capability model
 
-The semantic model is deliberately small:
+The semantic model stays small:
 
 ```text
 main session
@@ -29,7 +27,7 @@ Work
 Review
 ```
 
-Physical Agent profiles remain separate capability and authority boundaries:
+Managed profiles remain fixed:
 
 | Profile | Model / effort | Ordinary authority | Semantic role |
 | --- | --- | --- | --- |
@@ -39,66 +37,63 @@ Physical Agent profiles remain separate capability and authority boundaries:
 | Solver | Sol High | bounded-source-write | Work |
 | Advisor | Sol High | none | Review |
 
-V4.0.0 never changes reasoning effort dynamically. Routing chooses among the five fixed profiles. Read-only and writable profiles remain physically distinct because mutation authority and sandbox behavior are real Host boundaries.
+V4 does not change reasoning effort dynamically. Managed child profiles disable child multi-agent capability. A release Host that unexpectedly exposes child collaboration capability fails the managed profile contract.
+
+Configured read-only sandbox remains least-privilege intent. RC5 does not claim Host-enforced read-only unless the running Host proves it.
 
 ## Active contract owners
 
-The current Orchestrate reasoning path uses one V4 contract generation:
-
 ```text
 contracts/policy.json
--> five fixed managed profile identities, delegation invariants, review triggers
+-> fixed profile identities, delegation invariants, review triggers
 
 contracts/routing.md
--> delegation value, capability selection, responsibility semantics, semantic coverage
+-> delegation value, capability selection, responsibility semantics
 
 contracts/responsibility-packet.md
--> the one serialized five-section responsibility record
+-> serialized responsibility record
 
 contracts/team-plan.md
--> multi-responsibility dependency and integration truth
+-> optional multi-responsibility dependency and integration truth
 
 contracts/guardrails.md
 -> authority, depth, mutation, writer, consent and external-action boundaries
 
 contracts/handoff.md
--> optional main-session-accepted evidence bridge between responsibilities
+-> optional Main-accepted evidence bridge
 
 contracts/evidence-artifact.md
--> complete inspectable evidence provenance when compact references are insufficient
+-> inspectable evidence provenance
 
 contracts/interaction.md
 -> user-visible Orchestrate controls
 
 contracts/recovery.md
--> current WorkUnit / ExecutionBinding lifecycle and bounded recovery
+-> WorkUnit / ExecutionBinding recovery behavior
 
 contracts/final-review.md
 -> exact-candidate independent review
 ```
 
-Other supporting contracts may refine current V4 boundaries when referenced by an active owner. Historical V3 state or receipt semantics do not override the V4 state machine or the two-Skill product surface. Historical RC stage specifications live under `docs/history/`.
+Historical RC designs and Hook-era contracts do not override the active Native Core decision.
 
 ## Runtime owners
 
 ```text
 docs/v4/architecture.json
--> frozen V4 product and safety invariants
+-> candidate V4 product and safety invariants
 
 scripts/orchestrate_v4.py
--> Orchestrate admission, plan-only, routing and control facade
+-> admission, routing and user control facade
 
 scripts/dispatch_state_v4.py
--> bounded session-scoped V4 state, validation and Host reconciliation
+-> bounded session-scoped state and Host reconciliation
 
 scripts/work_graph_v4.py
--> WorkUnit truth, bounded responsibility context, single-WorkUnit installation, dependency and acceptance transitions
+-> WorkUnit truth, dependency and acceptance transitions
 
 scripts/scheduler_v4.py
--> wakeup-driven admission, ready frontier, Host capacity, fanout and backpressure
-
-scripts/dispatch_control_v4.py
--> PendingControl authorization, PreToolUse consumption and PostToolUse acknowledgement
+-> wakeup-driven product admission, fanout and backpressure
 
 scripts/execution_lifecycle_v4.py
 -> ExecutionBinding allocation and same-child lifecycle operations
@@ -107,125 +102,130 @@ scripts/writer_lease_v4.py
 -> canonical WriterLease ownership and settlement
 
 scripts/managed_execution_v4.py
--> exact five-section responsibility projection and managed spawn payload
+-> responsibility projection and managed spawn payload
 
 scripts/host_evidence_v4.py
--> paired current Host lifecycle/capacity evidence
+-> native Host lifecycle observation normalization and reconciliation
 
 scripts/host_capabilities.py
--> Host capability normalization and exact exposed tool-identity Hook coverage
+-> native Host capability normalization
 
-scripts/orchestration_guard.py
--> active V4 lifecycle, peer-message containment and Host-observation Guard
-
-hooks/hooks.json
--> authoritative installed lifecycle Hook manifest for the exact real-Host candidate
-
-docs/v4/host-smoke.json
--> real Host release gate
+scripts/inspect-collaboration-runtime.py
+-> optional allowlisted rollout evidence for recovery and release attestation
 ```
+
+Plugin Hook interception, PendingControl, Hook-specific tool-name normalization, Hook capacity tokens, Guard coverage proof, and replacement request/receipt ledgers are outside the Native Core correctness path.
 
 ## Single responsibility and coordinated work
 
 Zero delegated responsibilities create no orchestration state.
 
-One dependency-free delegated responsibility may use one WorkUnit with `team_plan_revision = null`. It still uses the same ExecutionBinding, PendingControl, WriterLease when writable, Host evidence, and scheduler/admission owner. This is a smaller shape inside the V4 runtime, not a second runtime.
+One independent delegated responsibility may use one WorkUnit with `team_plan_revision = null`. Multiple unresolved responsibilities use TeamPlan only when dependency or integration order matters.
 
-When two or more delegated responsibilities remain concurrently unresolved, or dependency/integration order becomes materially important, TeamPlan supplies the positive revision and Work Graph structural truth. The same scheduler remains the sole admission owner.
+WorkUnit records stable responsibility and acceptance truth. ExecutionBinding records one concrete native Agent attempt and route. One unchanged WorkUnit may use at most two fresh Agent attempts. One focused same-child FOLLOWUP remains inside an ExecutionBinding and has a bounded correction budget. CONTINUE resumes the same interrupted ExecutionBinding without consuming fresh-attempt or correction budget.
 
-## WorkUnit and responsibility context
+Host `COMPLETED` produces candidate work and maps to `WorkUnit.RESULT_READY`. Main verifies the actual artifact and explicitly accepts the WorkUnit. Dependencies unlock only from `ACCEPTED`.
 
-A WorkUnit records stable responsibility and acceptance truth. An ExecutionBinding records one concrete Agent attempt and route. This separation lets one responsibility survive retry, reroute, same-child correction, interruption, or main-session takeover without making profile identity part of responsibility identity.
+## Native lifecycle
 
-Current WorkUnits created for managed delegation carry one bounded `responsibility_context` containing concrete interfaces, invariants, the main-session decision boundary, accepted evidence references, valid discovery that should not be repeated, and the stop boundary. The persisted schema keeps this field optional so pre-closure V4 state can still be diagnosed, but any managed spawn requires a complete valid context and fails closed without it.
+Fresh spawn follows this order:
 
-`managed_execution_v4.py` projects that state into exactly five top-level sections: `objective`, `ownership`, `interfaces`, `constraints`, and `verification`. This is the only child wire representation. Handoff Capsules and Evidence Artifacts remain main-session-owned provenance mechanisms and are referenced narrowly when useful; they do not create another assignment schema.
+```text
+validate responsibility / route / budget / authority
+allocate ExecutionBinding as SPAWN_PENDING
+reserve WriterLease if writable
+invoke native spawn_agent
+reconcile Host result
+```
 
-Host `COMPLETED` means an execution produced a candidate result. It maps to `WorkUnit.RESULT_READY`. Main-session verification and explicit WorkUnit acceptance are required before the unit becomes `ACCEPTED`. Dependencies unlock only from `ACCEPTED`.
+Recognized success binds observed child identity and lifecycle. A recognized pre-materialization rejection may roll back provisional activation only when evidence establishes that no child materialized. Ambiguous materialization becomes `UNKNOWN`. Writable ambiguity keeps WriterLease blocking.
 
-One unchanged WorkUnit may use at most two fresh Agent attempts. A focused same-child `FOLLOWUP` stays inside one ExecutionBinding and has its own bounded correction budget. `CONTINUE` resumes the same interrupted ExecutionBinding and does not consume that correction budget.
+FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch` before a later Host generation may become current. Writable reactivation reserves or retains WriterLease first.
+
+INTERRUPT requests native interruption. The call result alone never releases WriterLease. Current-generation Host settlement is required before writer transfer or takeover.
+
+`UNKNOWN` blocks replacement execution, conflicting writer ownership, and final acceptance until reconciled.
+
+## Host observations
+
+Host observations are reconciled against a current observation basis:
+
+```text
+execution_id
+control_epoch
+lease_epoch when applicable
+```
+
+The basis does not require a persisted PreToolUse record. Stale-generation observations are discarded. Delayed evidence from an older epoch cannot reactivate or settle the current generation.
+
+`list_agents` supports Status, recovery, takeover settlement, and ambiguity reconciliation. The allowlisted rollout inspector remains optional and is used when exact raw collaboration evidence is required. It is not a mandatory per-call receipt subsystem.
 
 ## Scheduling
 
-Scheduling is wakeup-driven reconciliation. A wakeup means Host or user state may have changed; it is never lifecycle truth by itself.
-
-V4 policy remains:
+Scheduling is wakeup-driven and enforces product policy:
 
 ```text
 initial managed children <= 2
-normal managed children <= 3
-Host capacity is an additional ceiling
-longer downstream critical path wins coordinated ties before unit id
->= 2 RESULT_READY/VERIFYING units stops fresh fanout growth
-empty capacity never justifies decorative work
+ordinary managed children <= 3
+result backlog >= 2 stops fresh fanout growth
+one canonical managed writer
+UNKNOWN counts as blocking occupancy
 ```
 
-For one WorkUnit, the same scheduler naturally degenerates to one ready candidate without DAG ceremony. Host capacity still limits admission.
+Known Host capacity may reduce an advisory launch ceiling. Unknown Host capacity does not require an occupancy token before a bounded spawn attempt. Codex Host owns actual capacity and may reject the call.
 
-## PendingControl
-
-Managed lifecycle operations use a single-use PendingControl. The correctness-bearing unresolved states remain `PREPARED`, `IN_FLIGHT`, and `UNKNOWN`; the current schema also retains existing terminal vocabulary until real Host evidence and a later consumer audit justify simplification.
-
-Supported operations are `SPAWN`, `FOLLOWUP`, `CONTINUE`, and `INTERRUPT`. A PendingControl binds the WorkUnit/ExecutionBinding identity, applicable TeamPlan revision, execution control epoch, optional WriterLease epoch, exact lifecycle target, canonical tool-input digest, writer effect, and one Host `tool_use_id`.
-
-`PreToolUse` consumes exactly one matching prepared control. PostToolUse may acknowledge that exact in-flight control only when the real Host event semantics prove the required success/failure distinction. Ambiguous acknowledgement remains fail closed. Missing PostToolUse never becomes an inferred acknowledgement. H07 and H08 are explicit feasibility gates for outcome reliability and message representation before managed delegated execution can be trusted on the target Host.
+A writable Worker or Solver is admitted only when no other managed child is active in the canonical checkout. Read-oriented managed children may run together when independent. Final Review waits for the writer to settle. These phase rules reduce checkout interference and do not claim OS containment.
 
 ## WriterLease
 
-V4.0.0 supports one canonical managed writer at a time. `WriterLease` is an orchestration mutual-exclusion permit, not an operating-system filesystem lock.
+V4 keeps one canonical managed writer. WriterLease is project scheduling ownership, not a filesystem or OS lock.
 
-Writing SPAWN, FOLLOWUP, and CONTINUE require the matching execution-owned WriterLease before Host activation. A valid lifecycle acknowledgement applies the authorized writer effect in the same state transaction as the PendingControl acknowledgement.
+A writable activation acquires or retains the lease before Host activation. A writer in RUNNING, REVOKING, or UNKNOWN remains blocking. INTERRUPT return alone cannot release it. Release or transfer requires current-generation Host lifecycle settlement evidence.
 
-Interrupt acknowledgement alone never releases or transfers a writer. Release or transfer requires current-generation Host settlement evidence, matching lease and control epochs, no unresolved PendingControl, and current managed lifecycle Guard coverage evidence. `UNKNOWN` blocks conflicting managed mutation and never expires automatically.
+WriterLease settlement does not depend on PendingControl acknowledgement or Guard coverage proof.
 
-Main-session integration writes use the same WriterLease abstraction. User takeover cannot bypass writer settlement.
+WriterLease schema simplification is deferred until native interrupt, takeover, UNKNOWN, and crash-recovery behavior are verified after Hook removal.
 
-## Host observations and exact tool identity
+## Child coordination
 
-V4 state normalizes only lifecycle evidence needed by orchestration. Every observation is captured against an execution identity and control epoch, with WriterLease epoch when applicable. Observations captured against an older generation are discarded.
+Main is the sole managed coordinator. Managed child profiles disable native multi-agent capability and receive behavioral instructions not to create further subagents. Peer messages have no authority semantics and are not part of the correctness path.
 
-Within one control epoch, delayed Host evidence must not reactivate a settled execution. Legal same-child reactivation first passes through FOLLOWUP or CONTINUE, which advances the control epoch, then fresh Host evidence may establish RUNNING for that new generation.
-
-Host uncertainty stays explicit. Missing or conflicting identity evidence produces `UNKNOWN`; it never authorizes replacement work, writer transfer, or dependency acceptance.
-
-Host capability normalization keeps three distinct facts: the model-visible collaboration identity, the semantic collaboration tool, and the exact Hook-serialized `tool_name`. Bare V2 identities map to themselves. A default namespace model identity such as `collaboration.spawn_agent` maps to semantic `spawn_agent` and the flattened Hook identity `collaborationspawn_agent`. Unknown namespace or flattening is unclassified and fails execution readiness until Host adaptation. Coverage of one identity never proves coverage of another mapping.
-
-If the Host exposes `send_message`, every model-visible peer-message identity must map to an exact PreToolUse Hook identity. Managed children are blocked before peer delivery. Root/non-managed messaging remains outside PendingControl. Peer messages never grant authority, transfer WriterLease, satisfy acceptance, or unlock dependencies.
-
-## Lifecycle Guard and release gate
-
-The exact V4 real-Host candidate uses the default Plugin Hook path `hooks/hooks.json`:
-
-```text
-PreToolUse   -> authorize managed lifecycle calls, bind Host observation, block managed-child peer messaging
-PostToolUse  -> bind exact lifecycle/Host observation results without inventing missing Host truth
-SubagentStop -> prevent autonomous continuation of managed leaf Agents
-```
-
-`docs/v4/hooks.json` is a non-runtime campaign reference copy. Tests require its `hooks` object to stay exactly equivalent to the active manifest, and package integrity protects both files during this campaign window. Runtime discovery, Doctor diagnostics, H00 evidence, and release authority bind to `hooks/hooks.json`.
-
-Repository tests can validate state machines and Hook scripts, but cannot prove the target Codex Host build loads the active Hook source, trusts it, invokes every exposed identity with the expected serialized `tool_name`, or supplies reliable outcome semantics.
-
-`docs/v4/host-smoke.json` therefore remains a blocking V4.0.0 release contract. H00-H20 must bind direct Host evidence to the exact candidate before publication. H00 first proves the active `hooks/hooks.json` digest and trust state. The first feasibility wave then settles identity coverage, PostToolUse outcome reliability, message representation, profile selectors/tool surface, peer-message containment, and assignment completeness before spending the full campaign budget.
-
-There is no post-campaign Hook-copy or promotion step. Any material candidate mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated.
+If a future Host exposes managed child collaboration despite the verified profile configuration, the Host/build fails release readiness until adapted and re-tested.
 
 ## Final Review
 
-After the main session establishes Candidate Ready, `contracts/final-review.md` decides whether consequence-based triggers require a fresh independent Advisor review of the exact candidate.
+After Main establishes Candidate Ready, `contracts/final-review.md` decides whether consequence-based triggers require a fresh Advisor review of the exact candidate.
 
-Git-backed deliverables use `scripts/review-artifact.py`; non-Git deliverables use a deterministic SHA-256 serialization boundary. Any material candidate mutation invalidates the previous verdict.
+Git-backed deliverables use `scripts/review-artifact.py`; non-Git deliverables use deterministic SHA-256 serialization. Any material candidate mutation invalidates the previous verdict.
 
 ## Migration
 
-V3.x live state is legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, V4 `WriterLease.UNKNOWN`, or unresolved PendingControl remains fail closed. Terminal proven-owned legacy state may be explicitly cleaned through supported maintenance paths.
+V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed.
 
-The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata only, not raw prompts, child transcripts, reasoning traces, source copies, or full Host output.
+RC5 Native Core is pre-release and carries no compatibility promise for experimental V4 state containing PendingControl. Development and release validation use fresh Native Core state after schema cutover.
 
-`dispatch_state.py`, `spawn_guard.py`, and legacy migration remain compatibility owners while proven consumers remain. `spawn_guard.py` is retained compatibility code and is not the active Hook implementation for the exact V4 real-Host candidate. The shared storage primitives are not extracted from the V3 module before the Host feasibility gate because doing so would widen the state-storage regression surface.
+The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata, not raw prompts, child transcripts, reasoning traces, source copies, or arbitrary Host output.
+
+## Release verification
+
+RC5 freezes after deterministic verification, behavior comparison, Host verification, and adversarial review.
+
+The Native Core Host campaign is:
+
+```text
+N0 exact role / model / effort / fork_turns
+N1 managed child collaboration capability absent
+N2 fresh spawn success and identity binding
+N3 explicit capacity rejection with no materialization
+N4 same-child followup and continue
+N5 interrupt and settlement observation
+N6 writer takeover blocked until settlement
+N7 rollout reconciliation and privacy allowlist
+N8 final Advisor review and truthful sandbox reporting
+```
+
+A repository search must find no active production correctness dependency on Plugin Hook, PendingControl, or a replacement persisted request/receipt control plane before freeze.
 
 ## V4.0.0 exclusions
 
-The release intentionally excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, parallel isolated managed writers, and cross-WorkUnit Agent reuse by default.
-
-These exclusions keep V4 centered on verifiable native lifecycle control, bounded delegation, and one-writer correctness.
+The release excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, parallel isolated managed writers, Plugin Hook lifecycle authority, PendingControl, and replacement operation-receipt ledgers.
