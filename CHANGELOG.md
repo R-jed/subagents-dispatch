@@ -11,7 +11,7 @@
 ### Fixed execution profiles
 
 - Reader and Worker: Luna Max.
-- Investigator: Terra XHigh.
+- Investigator: Terra High.
 - Solver and Advisor: Sol High.
 - Dynamic reasoning-effort routing remains outside V4.0.0.
 
