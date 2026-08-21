@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 from pathlib import Path
 import sys
@@ -21,6 +22,17 @@ def load_module(name: str, filename: str):
         return module
     finally:
         sys.path.remove(scripts)
+
+
+def imported_modules(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+    return modules
 
 
 def test_dispatch_state_facade_has_explicit_supported_surface():
@@ -61,3 +73,19 @@ def test_execution_lifecycle_facade_exports_only_supported_operations():
     assert "_execution" not in module.__all__
     assert "writer" not in module.__all__
     assert "Path" not in module.__all__
+
+
+def test_production_scripts_reach_core_modules_only_through_facades():
+    allowed_consumers = {
+        "dispatch_state_v4_core": {"dispatch_state_v4.py"},
+        "execution_lifecycle_v4_core": {"execution_lifecycle_v4.py"},
+    }
+
+    violations: list[str] = []
+    for path in sorted(SCRIPTS.glob("*.py")):
+        imports = imported_modules(path)
+        for core_module, allowed_files in allowed_consumers.items():
+            if core_module in imports and path.name not in allowed_files:
+                violations.append(f"{path.name} imports {core_module}")
+
+    assert violations == []
