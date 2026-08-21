@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""V4 bounded orchestration state foundation.
+"""V4 Native Core orchestration state and Host reconciliation.
 
-This module owns the V4 schema and reconciliation contract used by Orchestrate.
-It currently reuses the hardened storage boundary, locking, and atomic replace
-helpers from legacy ``dispatch_state``. Legacy V3.x state remains available only
-for compatibility diagnostics and explicit migration handling.
+The module reuses the hardened V3 storage boundary for private per-thread files,
+locking, and atomic replace. The V4 payload contains project orchestration state
+only. Host lifecycle truth is reconciled into ExecutionBinding generations.
 """
 
 from __future__ import annotations
@@ -25,6 +24,8 @@ SCHEMA_VERSION = "4.0"
 DEFAULT_MAX_BYTES = 64 * 1024
 CANONICAL_WORKSPACE_ID = "canonical"
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
+HOST_AGENT_NAME_PATTERN = re.compile(r"[a-z0-9_]+\Z")
+HOST_RESERVED_AGENT_NAMES = {"root", ".", ".."}
 
 TOP_LEVEL_FIELDS = {
     "schema_version",
@@ -34,7 +35,6 @@ TOP_LEVEL_FIELDS = {
     "work_units",
     "executions",
     "writer_lease",
-    "pending_controls",
     "accounting_refs",
     "created_at",
     "updated_at",
@@ -93,21 +93,6 @@ WRITER_LEASE_FIELDS = {
     "owner_id",
     "state",
 }
-PENDING_CONTROL_FIELDS = {
-    "control_id",
-    "unit_id",
-    "execution_id",
-    "operation",
-    "target",
-    "payload_digest",
-    "expected_team_plan_revision",
-    "expected_control_epoch",
-    "next_control_epoch",
-    "expected_lease_epoch",
-    "writer_effect",
-    "state",
-    "tool_use_id",
-}
 OWNERSHIP_FIELDS = {"write", "forbidden"}
 
 WORK_UNIT_STATES = {
@@ -131,10 +116,6 @@ EXECUTION_STATES = {
 }
 WRITER_LEASE_STATES = {"RESERVED", "HELD", "REVOKING", "UNKNOWN", "RELEASED"}
 WRITER_BLOCKING_STATES = {"RESERVED", "HELD", "REVOKING", "UNKNOWN"}
-PENDING_CONTROL_STATES = {"PREPARED", "IN_FLIGHT", "ACKED", "UNKNOWN", "CANCELLED"}
-UNRESOLVED_CONTROL_STATES = {"PREPARED", "IN_FLIGHT", "UNKNOWN"}
-CONTROL_OPERATIONS = {"SPAWN", "FOLLOWUP", "CONTINUE", "INTERRUPT"}
-WRITER_EFFECTS = {"NONE", "RESERVE", "RETAIN", "REVOKE"}
 WRITER_OWNER_KINDS = {"main", "execution"}
 WORK_INTENTS = {"inspect", "implement", "verify", "review"}
 MUTATION_AUTHORITIES = {"none", "declared-output-only", "bounded-source-write"}
@@ -166,7 +147,6 @@ HOST_STATE_MAP = {
     "shutdown": "CLOSED",
 }
 HOST_UNCERTAIN_STATES = {"not_found", "notFound"}
-
 
 StateError = storage.StateError
 StateIdentityError = storage.StateIdentityError
@@ -214,36 +194,47 @@ def _require_allowed_fields(
     return value
 
 
-def _validate_string_list(value: Any, *, label: str, unique: bool = True) -> list[str]:
+def _validate_string_list(value: Any, *, label: str) -> list[str]:
     if not isinstance(value, list) or not all(_nonempty(item) for item in value):
         raise StatePayloadError(f"{label} must be an array of non-empty strings")
-    if unique and len(value) != len(set(value)):
+    if len(value) != len(set(value)):
         raise StatePayloadError(f"{label} must not contain duplicates")
     return value
 
 
-def _validate_relative_scope(value: str, *, label: str) -> None:
+def _canonical_scope(value: str, *, label: str) -> str:
     if not _nonempty(value):
         raise StatePayloadError(f"{label} must be a non-empty relative path")
     normalized = value.replace("\\", "/")
     path = PurePosixPath(normalized)
     if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
         raise StatePayloadError(f"{label} must be a safe relative path")
+    canonical = path.as_posix()
+    if canonical != value:
+        raise StatePayloadError(f"{label} must use canonical repository-relative POSIX form")
+    return canonical
 
 
 def _validate_scope_list(value: Any, *, label: str) -> list[str]:
     values = _validate_string_list(value, label=label)
     for item in values:
-        _validate_relative_scope(item, label=label)
+        _canonical_scope(item, label=label)
     return values
+
+
+def _scope_overlaps(left: str, right: str) -> bool:
+    left_parts = PurePosixPath(left).parts
+    right_parts = PurePosixPath(right).parts
+    shortest = min(len(left_parts), len(right_parts))
+    return left_parts[:shortest] == right_parts[:shortest]
 
 
 def _validate_ownership(value: Any, *, label: str) -> dict[str, Any]:
     ownership = _require_exact_fields(value, OWNERSHIP_FIELDS, label=label)
     write = _validate_scope_list(ownership["write"], label=f"{label}.write")
     forbidden = _validate_scope_list(ownership["forbidden"], label=f"{label}.forbidden")
-    if set(write) & set(forbidden):
-        raise StatePayloadError(f"{label} write and forbidden scopes must not overlap")
+    if any(_scope_overlaps(writable, denied) for writable in write for denied in forbidden):
+        raise StatePayloadError(f"{label} write and forbidden scopes overlap by ancestry")
     return ownership
 
 
@@ -257,6 +248,19 @@ def _validate_responsibility_context(value: Any, *, label: str) -> dict[str, Any
         if not _nonempty(context[field]):
             raise StatePayloadError(f"{label}.{field} must be non-empty text")
     return context
+
+
+def validate_native_task_name(value: Any) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in HOST_RESERVED_AGENT_NAMES
+        or HOST_AGENT_NAME_PATTERN.fullmatch(value) is None
+    ):
+        raise StatePayloadError(
+            "native_task_name must match Host agent name grammar: lowercase letters, digits, underscores"
+        )
+    return value
 
 
 def _validate_work_units(units: Any) -> dict[str, dict[str, Any]]:
@@ -378,9 +382,10 @@ def _validate_executions(
         model, effort, profile_authority = PROFILE_CONTRACT[profile]
         if execution["model"] != model or execution["effort"] != effort:
             raise StatePayloadError(f"execution {execution_id} model/effort drift from fixed profile")
-        if not _nonempty(execution["native_task_name"]) or execution["native_task_name"] in native_names:
-            raise StatePayloadError(f"execution {execution_id} has invalid or duplicate native_task_name")
-        native_names.add(execution["native_task_name"])
+        task_name = validate_native_task_name(execution["native_task_name"])
+        if task_name in native_names:
+            raise StatePayloadError(f"execution {execution_id} duplicates native_task_name")
+        native_names.add(task_name)
         lifecycle = execution["lifecycle"]
         if lifecycle not in EXECUTION_STATES:
             raise StatePayloadError(f"execution {execution_id} has invalid lifecycle")
@@ -440,6 +445,23 @@ def _validate_executions(
     return by_id
 
 
+def current_execution_for_unit(
+    payload: Mapping[str, Any], *, unit_id: str
+) -> Mapping[str, Any] | None:
+    executions = [
+        item
+        for item in payload.get("executions", [])
+        if isinstance(item, Mapping) and item.get("unit_id") == unit_id
+    ]
+    if not executions:
+        return None
+    greatest = max(item.get("attempt_no", 0) for item in executions)
+    matches = [item for item in executions if item.get("attempt_no") == greatest]
+    if len(matches) != 1:
+        raise StatePayloadError(f"work unit {unit_id} current execution is ambiguous")
+    return matches[0]
+
+
 def _validate_writer_lease(
     value: Any,
     *,
@@ -475,91 +497,48 @@ def _validate_writer_lease(
     return lease
 
 
-def _validate_pending_controls(
-    value: Any,
-    *,
+def _has_completed_observation(
+    state: Mapping[str, Any], *, execution_id: str, control_epoch: int
+) -> bool:
+    return any(
+        isinstance(event, Mapping)
+        and event.get("kind") == "host_observation"
+        and event.get("execution_id") == execution_id
+        and event.get("control_epoch") == control_epoch
+        and event.get("lifecycle") == "COMPLETED"
+        for event in state.get("accounting_refs", [])
+    )
+
+
+def _validate_acceptance_truth(
+    state: Mapping[str, Any],
     work_units: Mapping[str, Mapping[str, Any]],
     executions: Mapping[str, Mapping[str, Any]],
-    active_team_plan_revision: int | None,
-    lease: Mapping[str, Any] | None,
-) -> None:
-    if not isinstance(value, list):
-        raise StatePayloadError("pending_controls must be an array")
-    control_ids: set[str] = set()
-    tool_use_ids: set[str] = set()
-    unresolved_by_execution: set[str] = set()
-    for index, raw in enumerate(value):
-        control = _require_exact_fields(raw, PENDING_CONTROL_FIELDS, label=f"pending control {index}")
-        control_id = control["control_id"]
-        execution_id = control["execution_id"]
-        unit_id = control["unit_id"]
-        if not _nonempty(control_id) or control_id in control_ids:
-            raise StatePayloadError(f"pending control {index} has invalid or duplicate control_id")
-        control_ids.add(control_id)
-        execution = executions.get(execution_id)
-        if execution is None or unit_id not in work_units or execution["unit_id"] != unit_id:
-            raise StatePayloadError(f"pending control {control_id} has invalid execution/unit binding")
-        if control["operation"] not in CONTROL_OPERATIONS:
-            raise StatePayloadError(f"pending control {control_id} has invalid operation")
-        if control["target"] != execution["native_task_name"]:
-            raise StatePayloadError(f"pending control {control_id} target must match native_task_name")
-        digest = control["payload_digest"]
-        if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
-            raise StatePayloadError(f"pending control {control_id} has invalid payload_digest")
-        revision = control["expected_team_plan_revision"]
-        if revision != active_team_plan_revision:
-            raise StatePayloadError(f"pending control {control_id} uses stale TeamPlan revision")
-        expected_epoch = control["expected_control_epoch"]
-        next_epoch = control["next_control_epoch"]
-        if not _strict_int(expected_epoch) or not _strict_int(next_epoch):
-            raise StatePayloadError(f"pending control {control_id} has invalid control epoch")
-        if expected_epoch != execution["control_epoch"]:
-            raise StatePayloadError(f"pending control {control_id} uses stale control_epoch")
-        expected_next = expected_epoch if control["operation"] == "SPAWN" else expected_epoch + 1
-        if next_epoch != expected_next:
-            raise StatePayloadError(f"pending control {control_id} has invalid next_control_epoch")
-        lease_epoch = control["expected_lease_epoch"]
-        if lease_epoch is not None and not _strict_int(lease_epoch, minimum=1):
-            raise StatePayloadError(f"pending control {control_id} has invalid expected_lease_epoch")
-        if lease_epoch is not None and (lease is None or lease_epoch != lease["lease_epoch"]):
-            raise StatePayloadError(f"pending control {control_id} uses stale lease_epoch")
-        if control["writer_effect"] not in WRITER_EFFECTS:
-            raise StatePayloadError(f"pending control {control_id} has invalid writer_effect")
-        if control["state"] not in PENDING_CONTROL_STATES:
-            raise StatePayloadError(f"pending control {control_id} has invalid state")
-        tool_use_id = control["tool_use_id"]
-        if control["state"] == "PREPARED":
-            if tool_use_id is not None:
-                raise StatePayloadError(f"pending control {control_id} PREPARED cannot bind tool_use_id")
-        elif control["state"] in {"IN_FLIGHT", "ACKED"}:
-            if not _nonempty(tool_use_id):
-                raise StatePayloadError(f"pending control {control_id} requires tool_use_id")
-        elif tool_use_id is not None and not _nonempty(tool_use_id):
-            raise StatePayloadError(f"pending control {control_id} has invalid tool_use_id")
-        if isinstance(tool_use_id, str):
-            if tool_use_id in tool_use_ids:
-                raise StatePayloadError(f"pending control {control_id} duplicates tool_use_id")
-            tool_use_ids.add(tool_use_id)
-        if control["state"] in UNRESOLVED_CONTROL_STATES:
-            if execution_id in unresolved_by_execution:
-                raise StatePayloadError(f"execution {execution_id} has multiple unresolved controls")
-            unresolved_by_execution.add(execution_id)
-
-
-def _validate_acceptance_bindings(
-    work_units: Mapping[str, Mapping[str, Any]], executions: Mapping[str, Mapping[str, Any]]
 ) -> None:
     for unit_id, unit in work_units.items():
         if unit["state"] != "ACCEPTED":
             continue
-        execution = executions.get(unit["accepted_execution_id"])
-        if execution is None or execution["unit_id"] != unit_id:
-            raise StatePayloadError(f"accepted work unit {unit_id} references invalid execution")
-        if unit["accepted_control_epoch"] > execution["control_epoch"]:
-            raise StatePayloadError(f"accepted work unit {unit_id} references future control epoch")
+        producer = current_execution_for_unit(state, unit_id=unit_id)
+        if producer is None:
+            raise StatePayloadError(f"accepted work unit {unit_id} requires a producing execution")
+        if unit["accepted_execution_id"] != producer["execution_id"]:
+            raise StatePayloadError(f"accepted work unit {unit_id} must reference current execution")
+        if unit["accepted_control_epoch"] != producer["control_epoch"]:
+            raise StatePayloadError(f"accepted work unit {unit_id} control epoch must match current producer")
+        if producer["lifecycle"] == "COMPLETED":
+            continue
+        if producer["lifecycle"] == "CLOSED" and _has_completed_observation(
+            state,
+            execution_id=str(producer["execution_id"]),
+            control_epoch=int(producer["control_epoch"]),
+        ):
+            continue
+        raise StatePayloadError(
+            f"accepted work unit {unit_id} producer must be COMPLETED or proven CLOSED"
+        )
 
 
-def _validate_accounting_refs(value: Any) -> None:
+def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, Any]]) -> None:
     if not isinstance(value, list):
         raise StatePayloadError("accounting_refs must be an array")
     refs: set[str] = set()
@@ -570,6 +549,26 @@ def _validate_accounting_refs(value: Any) -> None:
         if ref in refs:
             raise StatePayloadError("accounting_refs must contain unique stable refs")
         refs.add(ref)
+        if event.get("kind") == "host_observation":
+            required = {
+                "ref",
+                "kind",
+                "execution_id",
+                "control_epoch",
+                "lease_epoch",
+                "lifecycle",
+            }
+            if set(event) != required:
+                raise StatePayloadError("host_observation accounting ref has invalid fields")
+            execution = executions.get(event["execution_id"])
+            if execution is None:
+                raise StatePayloadError("host_observation references unknown execution")
+            if not _strict_int(event["control_epoch"]):
+                raise StatePayloadError("host_observation has invalid control_epoch")
+            if event["lease_epoch"] is not None and not _strict_int(event["lease_epoch"], minimum=1):
+                raise StatePayloadError("host_observation has invalid lease_epoch")
+            if event["lifecycle"] not in EXECUTION_STATES:
+                raise StatePayloadError("host_observation has invalid lifecycle")
 
 
 def _serialized_payload(payload: Mapping[str, Any], *, max_bytes: int) -> bytes:
@@ -595,7 +594,9 @@ def validate_state_payload(
     storage._reject_forbidden_persisted_fields(state)
     if state["schema_version"] != SCHEMA_VERSION:
         raise StatePayloadError("unsupported V4 state schema_version")
-    identity = storage.resolve_thread_id(thread_id if thread_id is not None else state["root_session_id"])
+    identity = storage.resolve_thread_id(
+        thread_id if thread_id is not None else state["root_session_id"]
+    )
     if state["root_session_id"] != identity:
         raise StatePayloadError("root_session_id does not match CODEX_THREAD_ID")
     if state["locale"] not in {"zh", "en"}:
@@ -609,21 +610,14 @@ def validate_state_payload(
     executions = _validate_executions(
         state["executions"], work_units=work_units, active_team_plan_revision=revision
     )
-    _validate_acceptance_bindings(work_units, executions)
-    lease = _validate_writer_lease(
+    _validate_writer_lease(
         state["writer_lease"],
         root_session_id=identity,
         work_units=work_units,
         executions=executions,
     )
-    _validate_pending_controls(
-        state["pending_controls"],
-        work_units=work_units,
-        executions=executions,
-        active_team_plan_revision=revision,
-        lease=lease,
-    )
-    _validate_accounting_refs(state["accounting_refs"])
+    _validate_accounting_refs(state["accounting_refs"], executions)
+    _validate_acceptance_truth(state, work_units, executions)
     for field in ("created_at", "updated_at"):
         try:
             storage._parse_timestamp(state[field])
@@ -650,7 +644,6 @@ def new_state(
         "work_units": [],
         "executions": [],
         "writer_lease": None,
-        "pending_controls": [],
         "accounting_refs": [],
         "created_at": timestamp,
         "updated_at": timestamp,
@@ -724,7 +717,6 @@ def mutate_state(
     max_bytes: int = DEFAULT_MAX_BYTES,
     now: datetime | str | None = None,
 ) -> dict[str, Any]:
-    """Atomically mutate V4 state with optional state-revision compare-and-swap."""
     identity = storage.resolve_thread_id(thread_id)
     with storage.state_lock(identity, temp_root=temp_root):
         current = load_state(identity, temp_root=temp_root, max_bytes=max_bytes)
@@ -744,12 +736,14 @@ def mutate_state(
 
 
 def observation_basis(payload: Mapping[str, Any], *, execution_id: str) -> dict[str, Any]:
-    state = validate_state_payload(copy.deepcopy(dict(payload)))
-    matches = [item for item in state["executions"] if item["execution_id"] == execution_id]
+    current = validate_state_payload(copy.deepcopy(dict(payload)))
+    matches = [item for item in current["executions"] if item["execution_id"] == execution_id]
     if len(matches) != 1:
         raise StatePayloadError("observation execution_id does not resolve exactly")
     execution = matches[0]
-    lease_epoch = state["writer_lease"]["lease_epoch"] if state["writer_lease"] is not None else None
+    lease_epoch = (
+        current["writer_lease"]["lease_epoch"] if current["writer_lease"] is not None else None
+    )
     return {
         "execution_id": execution_id,
         "control_epoch": execution["control_epoch"],
@@ -757,18 +751,18 @@ def observation_basis(payload: Mapping[str, Any], *, execution_id: str) -> dict[
     }
 
 
-def _basis_is_current(state: Mapping[str, Any], basis: Mapping[str, Any]) -> bool:
+def _basis_is_current(current: Mapping[str, Any], basis: Mapping[str, Any]) -> bool:
     if not isinstance(basis, Mapping):
         return False
     execution_id = basis.get("execution_id")
-    matches = [item for item in state["executions"] if item["execution_id"] == execution_id]
+    matches = [item for item in current["executions"] if item["execution_id"] == execution_id]
     if len(matches) != 1:
         return False
     execution = matches[0]
     if basis.get("control_epoch") != execution["control_epoch"]:
         return False
     current_lease_epoch = (
-        state["writer_lease"]["lease_epoch"] if state["writer_lease"] is not None else None
+        current["writer_lease"]["lease_epoch"] if current["writer_lease"] is not None else None
     )
     return basis.get("lease_epoch") == current_lease_epoch
 
@@ -782,20 +776,14 @@ def reconcile_execution_observation(
     failure_origin: str = "tool_failure",
     now: datetime | str | None = None,
 ) -> dict[str, Any]:
-    """Apply one normalized Host snapshot when its captured basis is current.
-
-    ``native_task_name`` is the required V2 execution identity. ``agent_id`` is
-    optional reinforcing evidence because V2 spawn/list tools do not guarantee a
-    thread id. A stale observation is discarded. Reconciliation never releases
-    WriterLease and never marks WorkUnit ACCEPTED.
-    """
-    state = copy.deepcopy(dict(payload))
-    validate_state_payload(state)
-    if not _basis_is_current(state, basis):
-        return {"reconcile_status": "stale", "state": state}
-    before = copy.deepcopy(state)
+    """Apply one Host observation only while its ExecutionBinding basis is current."""
+    current = copy.deepcopy(dict(payload))
+    validate_state_payload(current)
+    if not _basis_is_current(current, basis):
+        return {"reconcile_status": "stale", "state": current}
+    before = copy.deepcopy(current)
     execution = next(
-        item for item in state["executions"] if item["execution_id"] == basis["execution_id"]
+        item for item in current["executions"] if item["execution_id"] == basis["execution_id"]
     )
     if host_state in HOST_UNCERTAIN_STATES:
         execution["lifecycle"] = "UNKNOWN"
@@ -834,14 +822,14 @@ def reconcile_execution_observation(
                 execution["failure_origin"] = "none"
                 execution["blocker"] = "none"
             if mapped == "COMPLETED":
-                work_unit = next(
-                    unit for unit in state["work_units"] if unit["unit_id"] == execution["unit_id"]
+                unit = next(
+                    item for item in current["work_units"] if item["unit_id"] == execution["unit_id"]
                 )
-                if work_unit["state"] == "EXECUTING":
-                    work_unit["state"] = "RESULT_READY"
-    if state == before:
-        return {"reconcile_status": "noop", "state": state}
-    state["state_revision"] += 1
-    state["updated_at"] = storage._utc_text(now)
-    validate_state_payload(state)
-    return {"reconcile_status": "applied", "state": state}
+                if unit["state"] == "EXECUTING":
+                    unit["state"] = "RESULT_READY"
+    if current == before:
+        return {"reconcile_status": "noop", "state": current}
+    current["state_revision"] += 1
+    current["updated_at"] = storage._utc_text(now)
+    validate_state_payload(current)
+    return {"reconcile_status": "applied", "state": current}
