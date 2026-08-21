@@ -59,10 +59,26 @@ def run_doctor(home: Path, temp_root: Path, *extra: str) -> subprocess.Completed
     )
 
 
-def test_doctor_reports_product_layers_with_staged_hook_unverified(tmp_path: Path):
+def native_host_evidence() -> dict:
+    return {
+        "surface": "multi_agent_v2",
+        "tools": [
+            "spawn_agent",
+            "followup_task",
+            "wait_agent",
+            "list_agents",
+            "interrupt_agent",
+        ],
+        "fork_turns_none": True,
+        "max_spawned_threads": 5,
+    }
+
+
+def test_doctor_reports_native_core_product_layers_with_host_unknown(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--check")
+
     assert result.returncode == 0, result.stdout + result.stderr
     order = [
         "Plugin package",
@@ -73,27 +89,21 @@ def test_doctor_reports_product_layers_with_staged_hook_unverified(tmp_path: Pat
     ]
     positions = [result.stdout.index(f"] {name}:") for name in order]
     assert positions == sorted(positions)
-    assert "[OK] Plugin package:" in result.stdout
+    assert "[OK] Plugin package: package identity and two-Skill surface are intact" in result.stdout
     assert "[OK] Managed Agents: 5/5 managed Agent profiles are installed exactly" in result.stdout
-    assert (
-        "[UNKNOWN] Host integration: installed lifecycle Hooks validate; "
-        "no explicit Host capability snapshot was supplied"
-    ) in result.stdout
-    assert "[OK] Orchestration state: no thread-scoped orchestration state is active" in result.stdout
-    assert "Health: HEALTHY" in result.stdout
-    assert "Verification: UNVERIFIED" in result.stdout
+    assert "[UNKNOWN] Host integration: no current Host capability evidence was supplied" in result.stdout
+    assert "[OK] Orchestration state: no active V4 orchestration capsule exists" in result.stdout
 
 
-def test_doctor_json_separates_health_from_host_verification_completeness(tmp_path: Path):
+def test_doctor_json_has_only_current_layers_and_actions(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--json", "--check")
+
     assert result.returncode == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
-    assert payload["schema_version"] == 6
-    assert payload["healthy"] is True
-    assert payload["status"] == "HEALTHY"
-    assert payload["verification"] == "UNVERIFIED"
+    assert set(payload) == {"layers", "actions"}
+    assert payload["actions"] == []
     assert [item["name"] for item in payload["layers"]] == [
         "Plugin package",
         "Managed Agents",
@@ -101,66 +111,68 @@ def test_doctor_json_separates_health_from_host_verification_completeness(tmp_pa
         "Orchestration state",
         "Legacy compatibility",
     ]
-    assert "release_ready" not in payload
-    assert "development_layers" not in payload
+    assert payload["layers"][2]["status"] == "UNKNOWN"
 
 
-def test_valid_v4_state_is_diagnosed_without_legacy_migration(tmp_path: Path):
+def test_doctor_accepts_current_native_host_capability_snapshot(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    evidence = tmp_path / "host.json"
+    evidence.write_text(json.dumps(native_host_evidence()), encoding="utf-8")
+
+    result = run_doctor(home, tmp_path, "--host-evidence", str(evidence), "--check")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[OK] Host integration: required Native Subagent capabilities are present" in result.stdout
+
+
+def test_doctor_rejects_missing_required_native_host_primitive(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    payload = native_host_evidence()
+    payload["tools"].remove("interrupt_agent")
+    evidence = tmp_path / "host.json"
+    evidence.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = run_doctor(home, tmp_path, "--host-evidence", str(evidence), "--check")
+
+    assert result.returncode != 0
+    assert "[FAIL] Host integration: required Native Subagent capabilities are missing" in result.stdout
+
+
+def test_valid_v4_state_is_diagnosed_directly(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     state = load_module("doctor_v4_state", "dispatch_state_v4.py")
     state.write_state(state.new_state(thread_id=THREAD), temp_root=tmp_path)
+
     result = run_doctor(home, tmp_path, "--check")
+
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "[OK] Orchestration state: thread-scoped V4 orchestration state validates" in result.stdout
-    assert "[OK] Legacy compatibility: active thread uses V4 state;" in result.stdout
+    assert "[OK] Orchestration state: V4 Native Core state is valid" in result.stdout
 
 
-def test_unresolved_v3_state_blocks_plugin_health_and_is_not_silently_migrated(tmp_path: Path):
+def test_missing_managed_profiles_are_warning_and_repairable(tmp_path: Path):
+    home = tmp_path / "missing-codex-home"
+    assert not home.exists()
+
+    result = run_doctor(home, tmp_path, "--check")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[WARN] Managed Agents: managed Agent profiles are absent or safely repairable" in result.stdout
+    assert not home.exists()
+
+
+def test_modified_owned_profile_blocks_doctor(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
-    legacy = load_module("doctor_legacy_state", "dispatch_state.py")
-    payload = legacy.new_state(thread_id=THREAD)
-    payload["units"].append(
-        {
-            "unit_id": "U1",
-            "task_id": "task-1",
-            "attempt": 1,
-            "native_task_name": "sd_u1_a1_execute",
-            "agent_id": None,
-            "role": "worker",
-            "model_lane": "Luna Max",
-            "responsibility": {"outcome": "bounded change", "acceptance": "focused test passes"},
-            "authority": {"write_scope": ["owned.py"]},
-            "writer": True,
-            "control_state": "SPAWN_PENDING",
-            "adopted": False,
-            "accepted": False,
-            "failure_origin": "none",
-            "blocker": "none",
-            "quarantine_reason": None,
-        }
-    )
-    legacy.write_state(payload, temp_root=tmp_path)
-    result = run_doctor(home, tmp_path, "--check")
-    assert result.returncode != 0
-    assert "[FAIL] Orchestration state: unresolved legacy orchestration state blocks managed execution" in result.stdout
-    assert "[FAIL] Legacy compatibility: legacy orchestration state will not be silently migrated" in result.stdout
-    assert "Health: BLOCKED" in result.stdout
+    profile = home / "agents" / "subagents-dispatch-reader.toml"
+    profile.write_bytes(profile.read_bytes() + b"\n# mutation\n")
 
-
-def test_corrupt_state_fails_closed_without_traceback(tmp_path: Path):
-    home = tmp_path / "codex-home"
-    install(home)
-    legacy = load_module("doctor_corrupt_path", "dispatch_state.py")
-    path = legacy.state_path(THREAD, temp_root=tmp_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("{broken", encoding="utf-8")
     result = run_doctor(home, tmp_path, "--check")
+
     assert result.returncode != 0
-    assert "[FAIL] Orchestration state: thread state is unsafe or corrupt" in result.stdout
-    assert "Health: BLOCKED" in result.stdout
-    assert "Traceback" not in result.stdout + result.stderr
+    assert "[FAIL] Managed Agents: managed Agent profile ownership or filesystem safety check failed" in result.stdout
 
 
 def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: Path):
@@ -183,12 +195,13 @@ def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: P
         capture_output=True,
         check=False,
     )
+
     assert result.returncode != 0
-    assert "valid CODEX_THREAD_ID" in result.stderr
+    assert "explicit --thread-id must be non-empty" in result.stderr
     assert "Traceback" not in result.stderr
 
 
-def test_legacy_flag_remains_managed_profile_migration_diagnostic(tmp_path: Path):
+def test_legacy_flag_displays_current_migration_state_without_mutation(tmp_path: Path):
     result = subprocess.run(
         [sys.executable, str(DOCTOR), "--codex-home", str(tmp_path / "codex-home"), "--legacy"],
         cwd=ROOT,
@@ -196,17 +209,20 @@ def test_legacy_flag_remains_managed_profile_migration_diagnostic(tmp_path: Path
         capture_output=True,
         check=False,
     )
+
     assert result.returncode == 0
-    assert "Legacy Migration Diagnostics" in result.stdout
-    assert "State:" in result.stdout
+    assert "[" in result.stdout
+    assert "Legacy compatibility" in result.stdout
+    assert "Migration state:" in result.stdout
 
 
 def test_doctor_can_explicitly_uninstall_only_owned_managed_profiles(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--uninstall-managed")
+
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "[OK] owned managed Agent profiles removed" in result.stdout
+    assert "[OK] Action: owned managed Agent profiles removed" in result.stdout
     assert "[WARN] Managed Agents:" in result.stdout
 
     verifier = subprocess.run(
