@@ -1,132 +1,177 @@
-# RC5 Hookless Core Design Freeze
+# RC5 Native Core Architecture Decision
 
-Status: FROZEN FOR IMPLEMENTATION
+Status: IMPLEMENTATION CANDIDATE, NOT FROZEN
 
-Frozen from feasibility branch after Host campaign on Codex Desktop runtime `0.148.0-alpha.15`, Desktop build `26.814.41407 (6720)`, macOS `27.0 (26A5416b)`, arm64.
+This decision supersedes the earlier RC5 Hookless Core freeze that proposed `OperationIntent` and `OperationReceipt` as a replacement control plane.
 
 ## Decision
 
-V4 RC5 removes Hook interception from the correctness path. The product is an orchestration system over Codex Native Subagents. It does not claim to be a Host security monitor.
+V4 RC5 removes Plugin Hook interception and the Hook-shaped control protocol from the production correctness path.
 
-The required runtime shape is:
+The runtime core is:
 
 ```text
 Main
-  -> validates responsibility and authority
-  -> prepares OperationIntent
-  -> invokes native collaboration tool
-  -> records OperationReceipt from Host result
-  -> reconciles native lifecycle evidence when needed
-  -> verifies artifact/mutation outcome
+  -> decomposes work when useful
+  -> owns WorkUnit / TeamPlan decisions
+  -> allocates an ExecutionBinding
+  -> reserves WriterLease before writable activation
+  -> invokes Codex Native Subagents directly
+  -> reconciles Host lifecycle truth
+  -> verifies the resulting artifact
   -> alone accepts or rejects work
 ```
 
-`hooks/hooks.json`, `orchestration_guard.py`, PendingControl PreToolUse consumption, PostToolUse acknowledgement, and Hook-owned lifecycle authorization are not part of the RC5 core design.
+The implementation must not introduce a second lifecycle authorization protocol to replace Hooks.
 
-## Feasibility evidence
+The following are not RC5 core primitives:
 
-### F1 managed child capability surface
+- `hooks/hooks.json`;
+- `PreToolUse`, `PostToolUse`, or `SubagentStop` interception;
+- `orchestration_guard.py` or Hook compatibility guards;
+- `PendingControl`;
+- Host `tool_use_id` as project authority;
+- Hook capacity observation tokens;
+- Guard coverage proofs;
+- `OperationIntent`;
+- `OperationReceipt`;
+- a new persisted phase/receipt protocol whose purpose is to recreate Hook acknowledgement semantics.
 
-Host campaign thread: `01a02040-93bc-7da1-8f74-2f81f05b4666`.
+## Evidence baseline
 
-Reader spawn call: `call_YPEaDdIm3ls66Sp2IJ6agnIe`.
+The feasibility campaign on Codex Desktop runtime `0.148.0-alpha.15`, Desktop build `26.814.41407 (6720)`, macOS `27.0 (26A5416b)`, arm64 established:
 
-Confirmed:
+- managed Reader role routing: PASS;
+- configured model and reasoning effort observation: PASS;
+- `fork_turns = none`: PASS;
+- managed Reader collaboration surface absent: PASS;
+- managed Reader child collaboration calls absent: PASS;
+- configured read-only sandbox enforcement: FAIL on the tested MultiAgentV2 path because the child observed `danger-full-access`;
+- explicit Host capacity rejection before child materialization in the tested capacity path: PASS;
+- exact root collaboration rollout binding and privacy-safe inspection: PASS.
 
-- exact managed Reader role selected;
-- observed model `gpt-5.6-luna`;
-- observed reasoning effort `max`;
-- `fork_turns = none`;
-- child collaboration tools were absent;
-- child made no collaboration function calls;
-- child changed no repository files.
+These facts justify removing Hook correctness dependencies. They do not justify claiming hostile-code containment.
 
-Host limitation confirmed:
+## Authority model
 
-- role requested `sandbox_mode = read-only`;
-- actual child permission state was `danger-full-access` because MultiAgentV2 reapplies the live parent/environment permission profile after role configuration.
+### Host-owned lifecycle truth
 
-Therefore a configured read-only profile remains least-privilege intent and optional Host hardening. RC5 correctness does not depend on Host honoring that sandbox request.
+Codex Native Subagents own the observable facts of whether a native collaboration request is accepted or rejected, whether a child materializes, child identity, and current native lifecycle status.
 
-### F2 Host capacity rejection
+Project code may cache or reconcile these facts. It must not replace them with a competing lifecycle authority.
 
-The same Host campaign kept five Reader children running and attempted `rc5_f2_reader_7`.
+### Main-owned orchestration truth
 
-Rejected call: `call_1nrAGaV4Fp4xKg1lavfH9fqI`.
+Main owns:
 
-Host result: `collab spawn failed: agent thread limit reached`.
+- user intent and decomposition;
+- WorkUnit responsibility and acceptance;
+- TeamPlan only when a real multi-responsibility dependency graph is useful;
+- ExecutionBinding allocation and bounded fresh-attempt accounting;
+- mutation authority and declared write scope;
+- WriterLease scheduling ownership;
+- final verification and acceptance.
 
-Confirmed after rejection:
+A child result is candidate evidence. It cannot accept a WorkUnit, broaden its mutation authority, transfer WriterLease, or prove its own Host route.
 
-- no child identity;
-- no `sub_agent_activity`;
-- no agent path;
-- no `list_agents` entry;
-- no child rollout;
-- no other materialization evidence.
+## Minimal persistent runtime state
 
-RC5 may treat an explicit, reconciled pre-materialization Host rejection as no child attempt. Ambiguous failure remains `UNKNOWN` and never authorizes replacement work.
+RC5 keeps the existing primitives that still carry independent product value:
 
-### F3 collaboration receipt evidence
+- WorkUnit;
+- optional TeamPlan revision;
+- ExecutionBinding;
+- `control_epoch` as the generation counter for same-child reactivation and stale-observation rejection;
+- WriterLease for one managed writer in the canonical checkout;
+- bounded accounting references that record accepted project results or Host observations where recovery needs them.
 
-The exact root rollout binds:
+`PendingControl` is removed.
 
-```text
-function_call
-  call_id
-  task_name
-  agent_type
-  fork_turns
+No new persisted request/receipt state machine may be added unless a later failure case demonstrates that `ExecutionBinding + control_epoch + WriterLease + Host reconciliation` cannot represent the required safety property.
 
-sub_agent_activity
-  event_id == call_id
-  child thread id
-  child path
-  kind
+## Native lifecycle rules
 
-function_call_output
-  call_id
-  recognized Host result
-```
+### Fresh spawn
 
-The allowlisted inspector emits no assignment body, reasoning, nickname, transcript body, or arbitrary tool output.
+1. Main validates responsibility, profile, attempt budget, authority, and writer availability.
+2. Main allocates an `ExecutionBinding` in `SPAWN_PENDING`.
+3. A writable execution reserves WriterLease before the native Host mutation.
+4. Main invokes native `spawn_agent`.
+5. Recognized success binds the materialized child and reconciles lifecycle state.
+6. An explicit recognized pre-materialization rejection may remove the provisional activation and release a merely reserved writer only when evidence establishes that no child materialized.
+7. Any ambiguous outcome becomes `UNKNOWN`.
 
-This is sufficient for post-call `OperationReceipt` and recovery reconciliation without Hook interception.
+An ambiguous writable spawn keeps WriterLease blocking until reconciliation proves the prior writer did not materialize or has settled.
 
-## Trust model
+### Same-child followup and continue
 
-### Host-owned truth
+A focused followup or continuation:
 
-Codex Native Subagents own:
+- reuses the same ExecutionBinding;
+- increments `control_epoch` before the new Host activation is considered current;
+- keeps the existing focused-followup budget;
+- reserves or retains WriterLease for writable execution;
+- reconciles native Host state after the call.
 
-- whether a collaboration call is accepted or rejected;
-- materialized child identity and path;
-- current native lifecycle status;
-- runtime model/effort/permission evidence when exposed;
-- Host capacity limits.
+Stale observations from an earlier `control_epoch` are ignored.
 
-### subagents-dispatch-owned truth
+### Interrupt and takeover
 
-Main and the bounded state capsule own:
+For a writable execution:
 
-- WorkUnit responsibility;
-- TeamPlan revision;
-- ExecutionBinding generation;
-- mutation authority and write scope;
-- WriterLease;
-- OperationIntent;
-- OperationReceipt and reconciliation status;
-- acceptance and retry accounting.
+1. WriterLease enters `REVOKING` before Main requests native interrupt.
+2. The interrupt call result alone does not release write ownership.
+3. Main observes or reconciles Host lifecycle state.
+4. WriterLease remains blocking while lifecycle is active or `UNKNOWN`.
+5. Transfer or Main takeover is allowed only after current-generation evidence proves the prior managed writer settled.
 
-A child result is candidate evidence. It never grants authority, transfers WriterLease, accepts a WorkUnit, or proves its own runtime route.
+### UNKNOWN
 
-## Capability containment
+`UNKNOWN` is fail closed:
 
-Reader, Investigator, and Advisor have mutation authority `none`.
+- no replacement execution;
+- no WriterLease transfer;
+- no final acceptance;
+- no claim that the child did or did not materialize;
+- reconciliation is required before progress that would conflict with the unresolved responsibility.
 
-Worker and Solver may receive `bounded-source-write` only from Main and only inside declared scope.
+## Host observation
 
-All managed child profiles disable child multi-agent capability:
+`list_agents` remains useful for Status, recovery, takeover settlement, and ambiguity reconciliation.
+
+RC5 does not persist a PreToolUse preparation record merely to authorize a later PostToolUse result.
+
+Before a Host observation, Main captures the current project observation basis for each relevant ExecutionBinding. The basis includes the execution identity and current generation information already used by state reconciliation. The returned native observation is accepted only if that basis is still current. A stale basis is discarded.
+
+The allowlisted collaboration rollout inspector remains a recovery and release-attestation tool. It does not become a per-call mandatory receipt subsystem.
+
+## Capacity policy
+
+The scheduler enforces product policy, not a mirrored Host occupancy protocol.
+
+Keep:
+
+- bounded initial and normal fanout;
+- acceptance backpressure;
+- dependency readiness;
+- fresh-attempt budget;
+- WriterLease exclusion;
+- `UNKNOWN` as blocking occupancy.
+
+Remove:
+
+- mandatory fresh Host-capacity observation before every spawn;
+- one-shot capacity tokens;
+- capacity-token invalidation after every lifecycle mutation;
+- Hook-derived resident/reclaim authorization.
+
+Known Host capacity may be used as an advisory ceiling. If capacity is unknown, RC5 may make a bounded native spawn attempt. The Host remains authoritative and may reject it.
+
+An explicit capacity rejection is treated as pre-materialization only for a recognized path whose reconciliation establishes no child identity, activity, path, listing, or rollout materialization. Other errors remain ambiguous.
+
+## Managed child capability containment
+
+Managed child profiles keep child collaboration disabled:
 
 ```toml
 [agents]
@@ -136,199 +181,71 @@ enabled = false
 multi_agent_v2 = false
 ```
 
-This Host-visible capability boundary is required for RC5. The behavioral instruction to create no further subagents remains defense in depth.
+This is a release-tested Host capability boundary for the exact candidate. If a future Host exposes child collaboration despite the managed profile, the candidate fails its capability gate.
 
-## Phase isolation
+Reader, Investigator, and Advisor retain project mutation authority `none`. Worker and Solver may receive bounded write authority from Main.
 
-Because current MultiAgentV2 can inherit `danger-full-access` into a role that requested read-only, RC5 does not run a behavioral read-only child concurrently with a writing child in the canonical checkout.
+The tested Host does not prove that a read-role process is technically unable to write when the parent runs with broader filesystem permissions. RC5 therefore does not claim OS containment from role configuration.
 
-Canonical-checkout phases are:
+## Canonical writer invariant
 
-```text
-READ / INVESTIGATION PHASE
-  Reader / Investigator / Advisor may run in parallel
-  active writing child = 0
+This refactor retains WriterLease because single-writer ownership and fail-closed takeover remain independent product requirements.
 
-barrier
-  all read-phase children settled
-  repository mutation audit passes
+This refactor does not redesign WriterLease solely for code-count reduction. After Hook removal is stable, WriterLease may be evaluated separately for simplification if the same takeover and ambiguity properties can be demonstrated with less state.
 
-WRITE PHASE
-  at most one Worker or Solver owns WriterLease
-  all other managed children = 0
-  Main performs no conflicting write
+## Verification boundary
 
-barrier
-  writer settled
-  declared-scope mutation verification passes
+Main accepts work only after verifying the actual candidate artifact and relevant checks.
 
-FINAL REVIEW PHASE
-  Advisor may run
-  active writing child = 0
-```
+Host lifecycle completion is necessary evidence for settlement. It is not proof that the work is correct.
 
-Main may perform read-only inspection while a writer owns WriterLease, but no other managed child is admitted until that writer settles.
+Read-role and review-role claims remain untrusted until Main verifies the cited evidence. Writer-reported changed files remain claims until inspected.
 
-## Mutation audit
+## Release claims
 
-Hard read-only sandbox is not assumed. For every behavioral read-only phase, Main records enough repository state to detect unauthorized mutation before accepting the phase or starting a writer.
+RC5 may claim, after release-candidate verification:
 
-Minimum checks:
-
-- repository HEAD identity when applicable;
-- tracked working-tree changes;
-- untracked paths;
-- protected orchestration/runtime state paths;
-- any task-specific protected path hashes required by acceptance.
-
-For a role with mutation authority `none`, unexplained mutation invalidates the child result and blocks the phase barrier.
-
-For a writer, mutations outside granted write scope invalidate the result and block acceptance.
-
-Mutation audit detects repository effects. It is not described as an OS sandbox and does not claim to prevent a malicious full-access process from altering arbitrary external user files. Tasks that require hard OS-level read-only isolation remain blocked unless the Host proves such isolation.
-
-## WriterLease
-
-WriterLease remains a Main-side scheduling invariant.
-
-A writable ExecutionBinding reserves the lease before its native spawn. The lease remains blocking across `RUNNING`, `INTERRUPTED`, `UNKNOWN`, and takeover revocation until native evidence proves the prior writer settled.
-
-`UNKNOWN` never releases or transfers write ownership.
-
-Hook evidence is not required for WriterLease settlement. Settlement uses explicit Host lifecycle observation and, when ambiguity exists, exact rollout reconciliation.
-
-## OperationIntent
-
-PendingControl is replaced in RC5 by `OperationIntent`.
-
-Required fields:
-
-```text
-operation_id
-unit_id
-execution_id
-operation
- target
- authorization_digest
-expected_team_plan_revision
-expected_control_epoch
-next_control_epoch
-expected_lease_epoch
-writer_effect
-state = PREPARED | UNKNOWN
-```
-
-The authorization digest covers stable lifecycle authorization fields only:
-
-- spawn: `task_name`, `agent_type`, `fork_turns`;
-- followup: `target`;
-- interrupt: `target`.
-
-Host-owned message transport is required to be present where the native tool requires it, but message contents do not enter the digest.
-
-There is no synthetic `IN_FLIGHT` state because the Plugin cannot reliably observe the exact instant the Host handler begins mutation.
-
-## OperationReceipt
-
-A successful or explicitly rejected native call creates an immutable receipt bound to its OperationIntent.
-
-Minimum fields:
-
-```text
-operation_id
-execution_id
-operation
-target
-authorization_digest
-call_id
-result = accepted | rejected | reconciled
-source = native_result | runtime_rollout | host_reconciliation
-child_thread_id? 
-child_path?
-host_status?
-control_epoch
-```
-
-If the process or Host result is ambiguous after mutation may have occurred:
-
-```text
-OperationIntent -> UNKNOWN
-ExecutionBinding -> UNKNOWN when lifecycle truth is affected
-WriterLease -> remains blocking when writer truth is affected
-```
-
-Recovery then uses `list_agents` and the allowlisted root collaboration inspector. Replacement work is forbidden until ambiguity is resolved.
-
-## Capacity policy
-
-subagents-dispatch enforces only its product ceilings and phase rules. It does not require a fresh authoritative Host-capacity token before every spawn.
-
-Host capacity rejection is handled as follows:
-
-- explicit rejection + reconciliation proving no materialized child: record rejected receipt, no fresh-attempt consumption;
-- any materialization evidence or ambiguity: `UNKNOWN`, no replacement.
-
-`list_agents` remains useful for Status, reconciliation, takeover settlement, crash recovery, and diagnostics.
-
-## Child-to-child communication
-
-RC5 has no child-to-child coordination protocol. Main is the sole coordinator.
-
-Managed children do not own collaboration tools. If a future Host exposes them despite the managed profile contract, the runtime capability check fails closed for that Host/build.
-
-## Claims RC5 may make
-
-RC5 may claim:
-
-- fixed managed role/model/effort configuration;
-- fresh-context managed child spawn with `fork_turns = none`;
-- managed child multi-agent capability disabled when verified by Host campaign;
-- parent-controlled responsibility, mutation authority, WriterLease, acceptance, retry, and phase ordering;
-- exact post-call Host receipt and optional rollout reconciliation;
-- mutation verification before behavioral read-only phase acceptance and before writer admission;
-- one active writer in the canonical checkout.
+- fixed managed role/model/effort routing;
+- fresh-context managed spawn with `fork_turns = none`;
+- managed child collaboration disabled on the tested Host/build;
+- bounded project fanout and fresh-attempt policy;
+- Main-owned acceptance;
+- one managed project writer in the canonical checkout;
+- fail-closed `UNKNOWN` handling;
+- native Host lifecycle reconciliation.
 
 RC5 must not claim:
 
-- arbitrary native spawn is technically impossible outside Main policy;
-- Hook interception protects every lifecycle call;
+- Hook interception protects lifecycle calls;
+- arbitrary native calls are technically impossible outside Main policy;
 - configured `sandbox_mode = read-only` proves Host-enforced read-only;
-- a managed read-only child is technically incapable of filesystem mutation under a full-access parent;
-- mutation audit is an OS security sandbox.
+- one managed WriterLease means only one same-user OS process can physically write;
+- repository verification is a hostile-code containment boundary.
 
-## Replacement F1 release gate
+## Migration order
 
-The old aggregate F1 sandbox requirement is retired.
+The production refactor is executed in reviewable stages:
 
-The RC5 capability-containment gate passes only when all of the following are verified on the release Host/build:
+1. establish this architecture decision and adversarially review it;
+2. add direct native Host observation/reconciliation without Hook pairing;
+3. switch lifecycle and WriterLease settlement away from PendingControl and Guard acknowledgement;
+4. simplify scheduler and Host capability checks by removing Hook/capacity-token requirements;
+5. remove PendingControl from the V4 state schema and delete dead Hook/control runtime;
+6. remove Hook-specific Doctor, CI, package-integrity, release, and installation contracts;
+7. update public documentation, remove dead compatibility surface, and run the full verification campaign.
 
-1. exact role/model/effort route;
-2. `fork_turns = none`;
-3. managed child collaboration capability absent;
-4. no child collaboration function calls;
-5. mutation-authority contract encoded in state/role responsibility;
-6. behavioral read-only phase cannot cross the writer barrier until all children settle and mutation audit passes;
-7. child output cannot directly accept work or transfer WriterLease;
-8. hard sandbox state, when observed, is reported separately and never inferred from configuration.
-
-## Implementation order
-
-1. introduce `OperationIntent` / `OperationReceipt` validation and tests beside the existing RC4 control module;
-2. extend V4 state schema to store intents/receipts without Hook `tool_use_id` semantics;
-3. migrate spawn/followup/interrupt lifecycle transitions;
-4. add phase-isolation and mutation-audit gates;
-5. move runtime collaboration inspector into recovery/release attestation paths;
-6. remove Hook runtime and PendingControl production dependencies;
-7. remove dead Hook contracts/tests and update package integrity;
-8. run the new Native Core Host campaign before release.
+Temporary dual paths are allowed only during the migration commit in which the production caller still requires them. Once the native path is active, the old path is deleted rather than retained as dormant compatibility code.
 
 ## Freeze rule
 
-This design is frozen for implementation. Material changes to these boundaries require a new explicit architecture decision:
+This document is not frozen merely because implementation has begun.
 
-- restoring Hook to the correctness path;
-- permitting read-only and writable managed children concurrently in one canonical checkout while Host read-only is unproven;
-- allowing child-to-child collaboration;
-- releasing WriterLease on `UNKNOWN`;
-- treating configured sandbox as observed enforcement;
-- accepting ambiguous Host materialization as a safe rejection.
+RC5 may freeze only after:
+
+- deterministic lifecycle, recovery, writer, scheduler, state, Doctor, packaging, and public-surface tests pass;
+- the complete diff against the RC4 behavior contract has been reviewed;
+- the Native Core Host campaign passes on the release candidate;
+- an independent final review finds no unresolved P0 or P1 issue;
+- repository search shows no production correctness dependency on Hook or PendingControl semantics.
+
+Restoring Hook to the correctness path, allowing WriterLease transfer on `UNKNOWN`, allowing child-to-child collaboration, or replacing Host lifecycle truth with a project-owned synthetic lifecycle protocol requires a new explicit architecture decision.
