@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""V4 ExecutionBinding lifecycle helpers for fresh starts and same-child reuse."""
+"""Native Core ExecutionBinding lifecycle helpers.
+
+Lifecycle authorization is Main-owned and lifecycle truth is Host-owned. These
+helpers mutate only project state. They do not depend on Plugin Hook callbacks,
+PendingControl, synthetic acknowledgements, or Host tool-use identifiers.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,6 @@ import os
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-import dispatch_control_v4 as control
 import dispatch_state_v4 as state
 import managed_execution_v4 as managed_execution
 import policy as policy_contract
@@ -19,7 +23,7 @@ _PROFILE_SPECS = policy_contract.profile_contracts()
 
 
 class ExecutionLifecycleError(RuntimeError):
-    """An ExecutionBinding lifecycle request violates the frozen V4 contract."""
+    """An ExecutionBinding lifecycle request violates the V4 Native Core contract."""
 
 
 def _execution(current: Mapping[str, Any], execution_id: str) -> dict[str, Any]:
@@ -52,7 +56,6 @@ def _authority_rank(value: str) -> int:
 
 
 def _validate_fresh_plan_binding(current: Mapping[str, Any], unit: Mapping[str, Any]) -> None:
-    """Allow null TeamPlan revision only for one dependency-free WorkUnit."""
     if current.get("team_plan_revision") is not None:
         return
     work_units = current.get("work_units", [])
@@ -78,7 +81,7 @@ def allocate_execution(
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Allocate one fresh attempt and reserve WriterLease atomically when writable."""
+    """Allocate one provisional fresh activation and reserve writer ownership atomically."""
     if profile_id not in _PROFILE_SPECS:
         raise ExecutionLifecycleError("profile_id is outside fixed V4 profiles")
     if not isinstance(execution_id, str) or not execution_id.strip():
@@ -175,7 +178,6 @@ def build_managed_spawn_tool_input(
     execution_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Return the one canonical Host spawn payload for an ExecutionBinding."""
     current = state.load_state(thread_id, temp_root=temp_root)
     if current is None:
         raise ExecutionLifecycleError("active V4 state is unavailable")
@@ -191,14 +193,17 @@ def prepare_spawn(
     thread_id: str,
     *,
     execution_id: str,
-    control_id: str,
     tool_input: Mapping[str, Any],
+    control_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    """Validate the direct native spawn input and return a transient action summary."""
     current = state.load_state(thread_id, temp_root=temp_root)
     if current is None:
         raise ExecutionLifecycleError("active V4 state is unavailable")
     execution = _execution(current, execution_id)
+    if execution["lifecycle"] != "SPAWN_PENDING":
+        raise ExecutionLifecycleError("direct spawn requires SPAWN_PENDING execution")
     try:
         expected = managed_execution.expected_spawn_input_for_execution(
             current, execution_id=execution_id
@@ -209,38 +214,97 @@ def prepare_spawn(
         raise ExecutionLifecycleError(
             "managed spawn tool_input does not match profile, fresh-context, or assignment contract"
         )
-    effect = "NONE" if execution["granted_authority"] == "none" else "RESERVE"
-    return control.prepare_control(
-        thread_id,
-        control_id=control_id,
-        execution_id=execution_id,
-        operation="SPAWN",
-        tool_input=expected,
-        writer_effect=effect,
-        temp_root=temp_root,
-    )
+    return {
+        "operation": "SPAWN",
+        "execution_id": execution_id,
+        "tool_input": copy.deepcopy(expected),
+        "observation_basis": state.observation_basis(current, execution_id=execution_id),
+    }
+
+
+def rollback_pre_materialization_spawn(
+    thread_id: str,
+    *,
+    execution_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Remove a provisional fresh attempt only after Main proves no child materialized."""
+    rolled_back: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        execution = _execution(current, execution_id)
+        unit = _unit(current, execution["unit_id"])
+        current_execution = state.current_execution_for_unit(
+            current, unit_id=execution["unit_id"]
+        )
+        if current_execution is None or current_execution.get("execution_id") != execution_id:
+            raise ExecutionLifecycleError("only the current provisional execution may roll back")
+        if execution["lifecycle"] != "SPAWN_PENDING" or execution["agent_id"] is not None:
+            raise ExecutionLifecycleError("spawn rollback requires unmaterialized SPAWN_PENDING execution")
+        if any(
+            isinstance(event, Mapping)
+            and event.get("kind") == "host_observation"
+            and event.get("execution_id") == execution_id
+            for event in current.get("accounting_refs", [])
+        ):
+            raise ExecutionLifecycleError("spawn rollback is unsafe after Host materialization evidence")
+        lease = current.get("writer_lease")
+        if isinstance(lease, Mapping) and lease.get("owner_id") == execution_id:
+            if lease.get("owner_kind") != "execution" or lease.get("state") != "RESERVED":
+                raise ExecutionLifecycleError("spawn rollback requires merely RESERVED WriterLease")
+            current["writer_lease"] = None
+        current["executions"].remove(execution)
+        unit["state"] = "READY"
+        unit["accepted_result_ref"] = None
+        unit["accepted_execution_id"] = None
+        unit["accepted_control_epoch"] = None
+        rolled_back.update(copy.deepcopy(execution))
+
+    state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    return rolled_back
 
 
 def _same_child_unit_is_mutable(current: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
     unit = _unit(current, execution["unit_id"])
     if unit["state"] in {"ACCEPTED", "CANCELLED"}:
         raise ExecutionLifecycleError("accepted or cancelled WorkUnit cannot reactivate same child")
+    current_execution = state.current_execution_for_unit(current, unit_id=execution["unit_id"])
+    if current_execution is None or current_execution.get("execution_id") != execution.get("execution_id"):
+        raise ExecutionLifecycleError("superseded execution cannot reactivate same child")
 
 
-def _has_historical_followup(current: Mapping[str, Any], execution_id: str) -> bool:
-    if any(
-        item["execution_id"] == execution_id and item["operation"] == "FOLLOWUP"
-        for item in current["pending_controls"]
+def _validate_target(tool_input: Mapping[str, Any], *, target: str, message_required: bool) -> None:
+    if not isinstance(tool_input, Mapping):
+        raise ExecutionLifecycleError("native lifecycle tool_input must be an object")
+    expected = {"target", "message"} if message_required else {"target"}
+    if set(tool_input) != expected or tool_input.get("target") != target:
+        raise ExecutionLifecycleError("native lifecycle tool_input does not match ExecutionBinding")
+    if message_required and (
+        not isinstance(tool_input.get("message"), str) or not tool_input["message"].strip()
     ):
-        return True
-    prefix = f"followup:{execution_id}:"
-    return any(
-        isinstance(event, Mapping)
-        and event.get("kind") == "control_ack"
-        and isinstance(event.get("control_id"), str)
-        and event["control_id"].startswith(prefix)
-        for event in current["accounting_refs"]
-    )
+        raise ExecutionLifecycleError("same-child activation requires non-empty message")
+
+
+def _reserve_writer_for_reactivation(
+    current: dict[str, Any], execution: Mapping[str, Any], lease_id: str
+) -> None:
+    existing = current.get("writer_lease")
+    if isinstance(existing, dict) and existing.get("state") in state.WRITER_BLOCKING_STATES:
+        if existing.get("owner_kind") != "execution" or existing.get("owner_id") != execution["execution_id"]:
+            raise ExecutionLifecycleError("canonical workspace already has another managed writer")
+        if existing.get("state") not in {"RESERVED", "HELD"}:
+            raise ExecutionLifecycleError("existing WriterLease cannot reactivate this execution")
+        return
+    epoch = 1 if existing is None else existing["lease_epoch"] + 1
+    current["writer_lease"] = {
+        "lease_id": lease_id,
+        "lease_epoch": epoch,
+        "workspace_id": state.CANONICAL_WORKSPACE_ID,
+        "unit_id": execution["unit_id"],
+        "owner_kind": "execution",
+        "owner_id": execution["execution_id"],
+        "state": "RESERVED",
+    }
 
 
 def prepare_same_child_followup(
@@ -251,47 +315,43 @@ def prepare_same_child_followup(
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Prepare the single focused correction without consuming a fresh attempt."""
-    current = state.load_state(thread_id, temp_root=temp_root)
-    if current is None:
-        raise ExecutionLifecycleError("active V4 state is unavailable")
-    execution = _execution(current, execution_id)
-    _same_child_unit_is_mutable(current, execution)
-    if execution["lifecycle"] != "COMPLETED":
-        raise ExecutionLifecycleError("same-child FOLLOWUP requires COMPLETED execution")
-    if execution["followup_count"] >= 1 or _has_historical_followup(current, execution_id):
-        raise ExecutionLifecycleError("focused same-child followup budget is exhausted")
+    """Advance the same execution generation for its single focused correction."""
+    prepared: dict[str, Any] = {}
 
-    if execution["granted_authority"] != "none":
-        if not isinstance(writer_lease_id, str) or not writer_lease_id.strip():
-            writer_lease_id = f"lease-followup-{execution_id}-{execution['control_epoch'] + 1}"
-        writer.ensure_execution_writer_reserved(
-            thread_id,
-            execution_id=execution_id,
-            lease_id=writer_lease_id,
-            temp_root=temp_root,
+    def mutate(current: dict[str, Any]) -> None:
+        execution = _execution(current, execution_id)
+        _same_child_unit_is_mutable(current, execution)
+        if execution["lifecycle"] != "COMPLETED":
+            raise ExecutionLifecycleError("same-child FOLLOWUP requires COMPLETED execution")
+        if execution["followup_count"] >= 1:
+            raise ExecutionLifecycleError("focused same-child followup budget is exhausted")
+        _validate_target(tool_input, target=execution["native_task_name"], message_required=True)
+        if execution["granted_authority"] != "none":
+            lease_id = writer_lease_id
+            if not isinstance(lease_id, str) or not lease_id.strip():
+                lease_id = f"lease-followup-{execution_id}-{execution['control_epoch'] + 1}"
+            _reserve_writer_for_reactivation(current, execution, lease_id)
+        execution["control_epoch"] += 1
+        execution["followup_count"] = 1
+        execution["lifecycle"] = "SPAWN_PENDING"
+        execution["failure_origin"] = "none"
+        execution["blocker"] = "none"
+        execution["quarantine_reason"] = None
+        unit = _unit(current, execution["unit_id"])
+        unit["state"] = "EXECUTING"
+        prepared.update(
+            {
+                "operation": "FOLLOWUP",
+                "execution_id": execution_id,
+                "tool_input": copy.deepcopy(dict(tool_input)),
+                "control_epoch": execution["control_epoch"],
+            }
         )
-        effect = "RETAIN"
-    else:
-        effect = "NONE"
 
-    control_id = f"followup:{execution_id}:e{execution['control_epoch'] + 1}"
-    prepared = control.prepare_control(
-        thread_id,
-        control_id=control_id,
-        execution_id=execution_id,
-        operation="FOLLOWUP",
-        tool_input=tool_input,
-        writer_effect=effect,
-        temp_root=temp_root,
+    persisted = state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    prepared["observation_basis"] = state.observation_basis(
+        persisted, execution_id=execution_id
     )
-
-    def reserve_budget(updated: dict[str, Any]) -> None:
-        target = _execution(updated, execution_id)
-        if target["followup_count"] == 0:
-            target["followup_count"] = 1
-
-    state.mutate_state(thread_id, reserve_budget, temp_root=temp_root)
     return prepared
 
 
@@ -303,35 +363,40 @@ def prepare_same_child_continue(
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    current = state.load_state(thread_id, temp_root=temp_root)
-    if current is None:
-        raise ExecutionLifecycleError("active V4 state is unavailable")
-    execution = _execution(current, execution_id)
-    _same_child_unit_is_mutable(current, execution)
-    if execution["lifecycle"] != "INTERRUPTED":
-        raise ExecutionLifecycleError("CONTINUE requires INTERRUPTED same child")
-    if execution["granted_authority"] != "none":
-        if not isinstance(writer_lease_id, str) or not writer_lease_id.strip():
-            writer_lease_id = f"lease-continue-{execution_id}-{execution['control_epoch'] + 1}"
-        writer.ensure_execution_writer_reserved(
-            thread_id,
-            execution_id=execution_id,
-            lease_id=writer_lease_id,
-            temp_root=temp_root,
+    prepared: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        execution = _execution(current, execution_id)
+        _same_child_unit_is_mutable(current, execution)
+        if execution["lifecycle"] != "INTERRUPTED":
+            raise ExecutionLifecycleError("CONTINUE requires INTERRUPTED same child")
+        _validate_target(tool_input, target=execution["native_task_name"], message_required=True)
+        if execution["granted_authority"] != "none":
+            lease_id = writer_lease_id
+            if not isinstance(lease_id, str) or not lease_id.strip():
+                lease_id = f"lease-continue-{execution_id}-{execution['control_epoch'] + 1}"
+            _reserve_writer_for_reactivation(current, execution, lease_id)
+        execution["control_epoch"] += 1
+        execution["lifecycle"] = "SPAWN_PENDING"
+        execution["failure_origin"] = "none"
+        execution["blocker"] = "none"
+        execution["quarantine_reason"] = None
+        unit = _unit(current, execution["unit_id"])
+        unit["state"] = "EXECUTING"
+        prepared.update(
+            {
+                "operation": "CONTINUE",
+                "execution_id": execution_id,
+                "tool_input": copy.deepcopy(dict(tool_input)),
+                "control_epoch": execution["control_epoch"],
+            }
         )
-        effect = "RETAIN"
-    else:
-        effect = "NONE"
-    control_id = f"continue:{execution_id}:e{execution['control_epoch'] + 1}"
-    return control.prepare_control(
-        thread_id,
-        control_id=control_id,
-        execution_id=execution_id,
-        operation="CONTINUE",
-        tool_input=tool_input,
-        writer_effect=effect,
-        temp_root=temp_root,
+
+    persisted = state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    prepared["observation_basis"] = state.observation_basis(
+        persisted, execution_id=execution_id
     )
+    return prepared
 
 
 def prepare_interrupt(
@@ -341,59 +406,69 @@ def prepare_interrupt(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    current = state.load_state(thread_id, temp_root=temp_root)
-    if current is None:
-        raise ExecutionLifecycleError("active V4 state is unavailable")
-    execution = _execution(current, execution_id)
-    if execution["lifecycle"] != "RUNNING":
-        raise ExecutionLifecycleError("INTERRUPT requires RUNNING execution")
-    if execution["granted_authority"] == "none":
-        effect = "NONE"
-    else:
-        lease = current.get("writer_lease")
-        if not isinstance(lease, Mapping):
-            raise ExecutionLifecycleError("writing INTERRUPT requires WriterLease")
-        writer.begin_revoke_execution_writer(
-            thread_id,
-            execution_id=execution_id,
-            lease_id=lease["lease_id"],
-            lease_epoch=lease["lease_epoch"],
-            temp_root=temp_root,
+    """Advance generation and revoke writer authority before native interrupt."""
+    prepared: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        execution = _execution(current, execution_id)
+        if execution["lifecycle"] != "RUNNING":
+            raise ExecutionLifecycleError("INTERRUPT requires RUNNING execution")
+        _validate_target(tool_input, target=execution["native_task_name"], message_required=False)
+        if execution["granted_authority"] != "none":
+            lease = current.get("writer_lease")
+            if not isinstance(lease, dict):
+                raise ExecutionLifecycleError("writing INTERRUPT requires WriterLease")
+            if lease.get("owner_kind") != "execution" or lease.get("owner_id") != execution_id:
+                raise ExecutionLifecycleError("writing INTERRUPT requires execution-owned WriterLease")
+            if lease.get("state") not in {"RESERVED", "HELD", "REVOKING"}:
+                raise ExecutionLifecycleError("writing INTERRUPT requires active WriterLease")
+            lease["state"] = "REVOKING"
+        execution["control_epoch"] += 1
+        prepared.update(
+            {
+                "operation": "INTERRUPT",
+                "execution_id": execution_id,
+                "tool_input": copy.deepcopy(dict(tool_input)),
+                "control_epoch": execution["control_epoch"],
+            }
         )
-        effect = "REVOKE"
-    current = state.load_state(thread_id, temp_root=temp_root)
-    assert current is not None
-    execution = _execution(current, execution_id)
-    control_id = f"interrupt:{execution_id}:e{execution['control_epoch'] + 1}"
-    return control.prepare_control(
-        thread_id,
-        control_id=control_id,
-        execution_id=execution_id,
-        operation="INTERRUPT",
-        tool_input=tool_input,
-        writer_effect=effect,
-        temp_root=temp_root,
+
+    persisted = state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    prepared["observation_basis"] = state.observation_basis(
+        persisted, execution_id=execution_id
     )
+    return prepared
 
 
-def acknowledge_lifecycle_control(
+def mark_execution_unknown(
     thread_id: str,
     *,
-    tool_name: str,
-    tool_input: Mapping[str, Any],
-    tool_response: Any,
-    tool_use_id: str,
+    execution_id: str,
+    reason: str = "native_lifecycle_ambiguous",
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Persist the Host ACK and authorized WriterLease effect in one transaction."""
-    return control.acknowledge_control(
-        thread_id,
-        tool_name=tool_name,
-        tool_input=tool_input,
-        tool_response=tool_response,
-        tool_use_id=tool_use_id,
-        temp_root=temp_root,
-    )
+    """Fail closed after a native call whose materialization or lifecycle is ambiguous."""
+    changed: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        execution = _execution(current, execution_id)
+        execution["lifecycle"] = "UNKNOWN"
+        execution["failure_origin"] = "runtime_ambiguous"
+        execution["blocker"] = "investigation"
+        execution["quarantine_reason"] = reason
+        lease = current.get("writer_lease")
+        if (
+            execution["granted_authority"] != "none"
+            and isinstance(lease, dict)
+            and lease.get("owner_kind") == "execution"
+            and lease.get("owner_id") == execution_id
+            and lease.get("state") != "RELEASED"
+        ):
+            lease["state"] = "UNKNOWN"
+        changed.update(copy.deepcopy(execution))
+
+    state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    return changed
 
 
 def fresh_observation_basis(
@@ -434,7 +509,6 @@ def takeover_to_main(
     old_lease_id: str,
     old_lease_epoch: int,
     main_lease_id: str,
-    guard_coverage: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     return writer.transfer_settled_execution_writer_to_main(
@@ -443,7 +517,6 @@ def takeover_to_main(
         lease_id=old_lease_id,
         lease_epoch=old_lease_epoch,
         main_lease_id=main_lease_id,
-        guard_coverage=guard_coverage,
         temp_root=temp_root,
     )
 
