@@ -21,7 +21,7 @@ Doctor
 | --- | --- | --- | --- |
 | Reader | Luna Max | none | Work |
 | Worker | Luna Max | bounded-source-write | Work |
-| Investigator | Terra High | none | Work |
+| Investigator | Terra XHigh | none | Work |
 | Solver | Sol High | bounded-source-write | Work |
 | Advisor | Sol High | none | Review |
 
