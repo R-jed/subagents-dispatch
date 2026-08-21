@@ -2,9 +2,9 @@
 """Pure V4 managed-execution contract derivation.
 
 This module derives the only valid Host spawn payload for a persisted
-ExecutionBinding. It performs no state mutation and no Host calls so both the
-lifecycle layer and the production Guard can verify the same contract
-independently.
+ExecutionBinding. It performs no state mutation and no Host calls. The lifecycle
+layer uses it to validate exact managed profile, responsibility, and fresh-context
+semantics before Main invokes the native Host.
 """
 
 from __future__ import annotations
@@ -192,14 +192,7 @@ def expected_spawn_input_for_task(
 def validate_actual_spawn_input(
     current: Mapping[str, Any], *, tool_input: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Validate the managed spawn control envelope at the Host boundary.
-
-    The canonical plaintext assignment is constructed and checked before the
-    Host call is prepared. Codex V2 owns transport of ``message`` and may expose
-    an opaque encrypted representation to Hooks, so the Guard verifies only
-    that the transport field is present and non-empty while continuing to bind
-    task identity, managed profile, and fresh-context behavior exactly.
-    """
+    """Validate one managed native spawn request before Main sends it to the Host."""
     if not isinstance(tool_input, Mapping):
         raise ManagedExecutionContractError("managed spawn tool_input must be an object")
     task_name = tool_input.get("task_name")
@@ -215,4 +208,6 @@ def validate_actual_spawn_input(
         raise ManagedExecutionContractError(
             "managed spawn input does not match profile, fresh-context, or control contract"
         )
+    if actual.get("message") != expected.get("message"):
+        raise ManagedExecutionContractError("managed spawn assignment message drifted from WorkUnit truth")
     return expected
