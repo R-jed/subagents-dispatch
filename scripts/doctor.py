@@ -87,7 +87,7 @@ def _profile_disables_child_collaboration(profile: Mapping[str, Any]) -> bool:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Diagnose subagents-dispatch Native Core.")
+    parser = argparse.ArgumentParser(description="Check subagents-dispatch health and safe maintenance options.")
     parser.add_argument(
         "--codex-home",
         type=Path,
@@ -142,7 +142,11 @@ def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
             command.append("--migrate-legacy")
         label_text = "managed profile migration" if args.migrate_legacy else "managed profile repair"
         _run_owned_action(command, label=label_text)
-        actions.append(f"{label_text} completed")
+        actions.append(
+            "Legacy managed profiles migrated"
+            if args.migrate_legacy
+            else "Managed Agent profiles repaired"
+        )
     if args.uninstall_managed:
         _run_owned_action(
             [
@@ -153,7 +157,7 @@ def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
             ],
             label="managed profile uninstall",
         )
-        actions.append("owned managed Agent profiles removed")
+        actions.append("Managed Agent profiles removed")
     if args.cleanup_stale:
         active = args.thread_id or os.environ.get("CODEX_THREAD_ID")
         if active:
@@ -163,9 +167,9 @@ def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
                 temp_root=args.temp_root,
                 active_thread_id=active,
             )
-            actions.append(f"stale cleanup removed {len(report['removed'])} terminal capsule(s)")
+            actions.append(f"Removed {len(report['removed'])} stale terminal state item(s)")
         else:
-            actions.append("stale cleanup removed 0 terminal capsule(s)")
+            actions.append("Removed 0 stale terminal state item(s)")
     return actions
 
 
@@ -181,20 +185,20 @@ def diagnose_plugin_package() -> dict[str, Any]:
         or not isinstance(version, str)
         or not version.strip()
     ):
-        return layer("Plugin package", "FAIL", "plugin identity is malformed")
+        return layer("Plugin package", "FAIL", "Plugin package is invalid")
     actual = sorted(path.name for path in SKILLS.iterdir() if path.is_dir()) if SKILLS.is_dir() else []
     if actual != sorted(EXPECTED_SKILLS):
         return layer(
             "Plugin package",
             "FAIL",
-            "public Skill surface is invalid",
+            "Public skills are incomplete or unexpected",
             expected=list(EXPECTED_SKILLS),
             actual=actual,
         )
     return layer(
         "Plugin package",
         "OK",
-        "package identity and two-Skill surface are intact",
+        "Plugin files and public skills are valid",
         version=version,
         skills=list(EXPECTED_SKILLS),
     )
@@ -204,9 +208,9 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
     try:
         roles = _read_json(POLICY)["roles"]
     except (DoctorError, KeyError, TypeError) as exc:
-        return layer("Managed Agents", "FAIL", f"profile policy is unavailable: {exc}")
+        return layer("Managed Agents", "FAIL", f"Managed Agent configuration is unavailable: {exc}")
     if not isinstance(roles, Mapping) or set(roles) != set(EXPECTED_PROFILES):
-        return layer("Managed Agents", "FAIL", "managed role set is invalid")
+        return layer("Managed Agents", "FAIL", "Managed Agent configuration is invalid")
     mismatches: list[str] = []
     for role, (model, effort) in EXPECTED_PROFILES.items():
         spec = roles.get(role)
@@ -232,7 +236,7 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         return layer(
             "Managed Agents",
             "FAIL",
-            "bundled managed Agent profile contract is inconsistent",
+            "Managed Agent profiles do not match this Plugin version",
             mismatches=mismatches,
         )
 
@@ -244,23 +248,28 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         check=False,
     )
     if verifier.returncode == 0:
-        return layer("Managed Agents", "OK", "5/5 managed Agent profiles are installed exactly", profiles=5)
+        return layer(
+            "Managed Agents",
+            "OK",
+            "All 5 managed Agent profiles are installed and match this Plugin version",
+            profiles=5,
+        )
     diagnostic = (verifier.stderr or verifier.stdout).strip()
     recoverable = any(diagnostic.startswith(prefix) for prefix in RECOVERABLE_PROFILE_CHECK_PREFIXES)
     if recoverable:
         return layer(
             "Managed Agents",
             "WARN",
-            "managed Agent profiles are absent or safely repairable",
-            action="Run Doctor repair, then start a fresh Codex task if profiles changed.",
+            "Managed Agent profiles need setup or repair",
+            action="Run Doctor repair. Start a fresh Codex session if profiles change.",
             diagnostic=diagnostic,
             profiles=5,
         )
     return layer(
         "Managed Agents",
         "FAIL",
-        "managed Agent profile ownership or filesystem safety check failed",
-        action="Resolve the reported ownership or filesystem conflict before repair.",
+        "Managed Agent profiles cannot be changed safely",
+        action="Resolve the reported file ownership or filesystem conflict, then run Doctor repair.",
         diagnostic=diagnostic,
         profiles=5,
     )
@@ -271,25 +280,25 @@ def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
         return layer(
             "Host integration",
             "UNKNOWN",
-            "no current Host capability evidence was supplied",
-            action="Capture current Native Subagent capability evidence when execution readiness must be proven.",
+            "Current Host capabilities were not checked",
+            action="Provide current Host capability evidence when delegated execution must be verified.",
         )
     try:
         evidence = _read_json(host_evidence)
         normalized = host_capabilities.normalize_host_capabilities(evidence)
     except (DoctorError, host_capabilities.HostCapabilityError) as exc:
-        return layer("Host integration", "FAIL", f"Host evidence is invalid: {exc}")
+        return layer("Host integration", "FAIL", f"Host capability data is invalid: {exc}")
     if normalized["execution_ready"] is not True:
         return layer(
             "Host integration",
             "FAIL",
-            "required Native Subagent capabilities are missing",
+            "Required Native Subagent capabilities are unavailable",
             missing=normalized["missing"],
         )
     return layer(
         "Host integration",
         "OK",
-        "required Native Subagent capabilities are present",
+        "Native Subagent capabilities are ready",
         capabilities=normalized["capabilities"],
         fork_turns_none=normalized["fork_turns_none"],
         max_spawned_threads=normalized["max_spawned_threads"],
@@ -298,13 +307,17 @@ def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
 
 def diagnose_orchestration_state(thread_id: str | None, temp_root: Path) -> dict[str, Any]:
     if thread_id is None:
-        return layer("Orchestration state", "UNKNOWN", "no thread id was supplied for active-state inspection")
+        return layer(
+            "Orchestration state",
+            "UNKNOWN",
+            "No active task was selected for state inspection",
+        )
     try:
         current = state_v4.load_state(thread_id, temp_root=temp_root)
     except (state_v4.StateError, ValueError) as exc:
-        return layer("Orchestration state", "FAIL", f"V4 state is unsafe or corrupt: {exc}")
+        return layer("Orchestration state", "FAIL", f"Current orchestration state is invalid: {exc}")
     if current is None:
-        return layer("Orchestration state", "OK", "no active V4 orchestration capsule exists")
+        return layer("Orchestration state", "OK", "No active orchestration state")
     active = [
         item["execution_id"]
         for item in current["executions"]
@@ -314,7 +327,7 @@ def diagnose_orchestration_state(thread_id: str | None, temp_root: Path) -> dict
     return layer(
         "Orchestration state",
         "OK",
-        "V4 Native Core state is valid",
+        "Current orchestration state is healthy",
         state_revision=current["state_revision"],
         active_executions=active,
         writer_state=lease.get("state") if isinstance(lease, Mapping) else None,
@@ -325,24 +338,29 @@ def diagnose_legacy(codex_home: Path) -> dict[str, Any]:
     try:
         migration = detect_legacy_state(codex_home)
     except Exception as exc:
-        return layer("Legacy compatibility", "FAIL", f"legacy installation state is unsafe: {exc}")
+        return layer("Legacy compatibility", "FAIL", f"Legacy installation data cannot be checked safely: {exc}")
     status = format_migration_state(migration)
     if migration.ownership_unknown:
         return layer(
             "Legacy compatibility",
             "WARN",
-            "legacy ownership is unknown. Automatic migration is blocked",
+            "Legacy installation ownership is unclear. Automatic migration is blocked",
             migration_state=status,
         )
     if status == "current_with_preserved_legacy_modified":
         return layer(
             "Legacy compatibility",
             "OK",
-            "legacy compatibility state is classifiable",
-            action="Do not repeat automatic migration; preserve the modified legacy profile and ownership evidence.",
+            "Legacy installation is preserved safely",
+            action="Keep the modified legacy profile in place unless you explicitly resolve or remove it.",
             migration_state=status,
         )
-    return layer("Legacy compatibility", "OK", "legacy compatibility state is classifiable", migration_state=status)
+    return layer(
+        "Legacy compatibility",
+        "OK",
+        "Legacy compatibility is healthy",
+        migration_state=status,
+    )
 
 
 def run_diagnosis(args: argparse.Namespace) -> dict[str, Any]:
