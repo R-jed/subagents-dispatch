@@ -135,12 +135,17 @@ def test_modified_legacy_profile_has_stable_preserved_terminal_state(tmp_path: P
     assert (home / LEGACY_MANIFEST).exists(), "ownership evidence must be preserved"
     for filename in LEGACY_PROFILE_FILES[1:]:
         assert not (home / "agents" / filename).exists()
-    assert "current_with_preserved_legacy_modified" in result.stdout
+    assert "Review them before running migration again." in result.stdout
+    assert "current_with_preserved_legacy_modified" not in result.stdout
+
+    legacy = load_legacy_module()
+    migration = legacy.detect_legacy_state(home)
+    assert legacy.format_migration_state(migration) == "current_with_preserved_legacy_modified"
 
     doctor = run_doctor(home, "--legacy")
     assert doctor.returncode == 0
     assert "current_with_preserved_legacy_modified" in doctor.stdout
-    assert "Do not repeat automatic migration" in doctor.stdout
+    assert "Keep the modified legacy profile in place" in doctor.stdout
 
     before = state(home)
     rerun = run_installer(home, "--migrate-legacy")
