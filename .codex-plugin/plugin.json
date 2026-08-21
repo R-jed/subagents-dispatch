@@ -1,7 +1,7 @@
 {
   "name": "subagents-dispatch",
   "version": "4.0.0",
-  "description": "Main-led Codex subagent orchestration with bounded delegation, one-writer safety, native lifecycle reconciliation, and evidence-bound acceptance.",
+  "description": "Coordinate complex Codex coding work with bounded subagents, safe write ownership, and verified results.",
   "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",
   "repository": "https://github.com/R-jed/subagents-dispatch",
@@ -10,8 +10,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "subagents-dispatch",
-    "shortDescription": "Bounded Main-led Subagent orchestration and diagnostics.",
-    "longDescription": "subagents-dispatch V4 exposes two explicit Skills. Orchestrate plans, executes, observes, corrects, resumes, takes over, verifies, and integrates bounded Subagent work through WorkUnit, optional TeamPlan, ExecutionBinding, WriterLease, and Codex Native Subagent lifecycle reconciliation. Doctor diagnoses the installed Plugin package, managed Agent profiles, Native Subagent Host capabilities, orchestration state, and legacy compatibility, with explicit ownership-aware maintenance only when requested.",
+    "shortDescription": "Coordinate complex coding work with bounded subagents and verified results.",
+    "longDescription": "Split complex coding tasks into focused responsibilities when delegation helps. Orchestrate coordinates investigation, implementation, status, correction, takeover, review, and integration while Main stays responsible for the final result. Doctor checks installation health and performs only explicitly requested maintenance on Plugin-owned configuration.",
     "developerName": "R-jed",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
