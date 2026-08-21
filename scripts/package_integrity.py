@@ -48,7 +48,6 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/package_integrity.py",
         "scripts/plugin_update.py",
         "scripts/policy.py",
-        "scripts/release_evidence_v4.py",
         "scripts/review-artifact.py",
         "scripts/runtime-evidence.py",
         "scripts/scheduler_v4.py",
@@ -60,6 +59,7 @@ RUNTIME_SCRIPT_FILES = tuple(
     )
 )
 IGNORED_PARTS = {"__pycache__"}
+IGNORED_NAMES = {".DS_Store"}
 IGNORED_SUFFIXES = {".pyc", ".pyo"}
 UPDATE_BOOTSTRAP_PATHS = (
     ".codex-plugin/plugin.json",
@@ -119,7 +119,11 @@ def _iter_directory_files(root: Path, relative_dir: PurePosixPath) -> Iterable[P
         raise IntegrityError(f"runtime directory is missing: {relative_dir.as_posix()}")
     for candidate in sorted(directory.rglob("*"), key=lambda item: item.as_posix()):
         relative = PurePosixPath(candidate.relative_to(root).as_posix())
-        if any(part in IGNORED_PARTS for part in relative.parts) or candidate.suffix in IGNORED_SUFFIXES:
+        if (
+            any(part in IGNORED_PARTS for part in relative.parts)
+            or candidate.name in IGNORED_NAMES
+            or candidate.suffix in IGNORED_SUFFIXES
+        ):
             continue
         if candidate.is_symlink():
             raise IntegrityError(f"symlinked runtime path is not allowed: {relative.as_posix()}")
