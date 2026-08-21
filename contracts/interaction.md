@@ -1,6 +1,6 @@
 # Interaction Control
 
-This file owns the user-visible control semantics for an active Orchestrate workflow. It defines plan-only Preview, Status, Steer, Takeover, cancel, continue, correction, and the Dispatch Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Orchestrate workflow. It defines plan-only Preview, Status, Steer, Takeover, cancel, continue, correction, and the Execution Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
 `routing.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
 
@@ -99,7 +99,7 @@ Completed
 
 Prefer native Host state when it is exposed. When Host evidence is insufficient, report `UNKNOWN` exactly and place that unit under the attention/uncertain presentation rather than relabeling it as failed. Status must not convert `UNKNOWN` to failure, trigger a retry, create replacement work, or mutate artifacts.
 
-Status performs at most one Host observation and one reconciliation pass. For persisted active state, use the state contract's locked reconciliation path so newer Host truth is written back without overwriting concurrent receipt/control metadata. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
+Status performs at most one Host observation and one reconciliation pass. For persisted active state, use the state contract's locked reconciliation path so newer Host truth is written back without overwriting concurrent current state. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
 
 An optional exact unit-id zoom may add only current accepted facts that help control the unit, for example:
 
@@ -141,7 +141,7 @@ If the requested guidance would materially change one of those facts, do not lab
 
 If the target cannot be resolved to one current child, report the ambiguity or missing target instead of guessing.
 
-`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Orchestrate continue/resume path and preserves its existing identity and accounting.
+`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Orchestrate continue/resume path and preserves its existing identity and ExecutionBinding generation.
 
 ## Takeover
 
@@ -182,15 +182,15 @@ Continue resumes the same interrupted child only through the current managed lif
 
 Correction sends one focused same-child followup when the responsibility remains the same and the bounded recovery policy permits it. A material change to goal, output, scope, authority, or acceptance is a recompiled responsibility, not a correction.
 
-## Dispatch Receipt
+## Execution Receipt
 
-`receipt.md` is the single source of truth for receipt accounting and presentation. Derive every axis from unique stable event references; repeated Status or reconciliation of the same event is idempotent. Keep materialized passes, focused follow-ups, retries, semantic rework, reviewer attempts, review rounds, and recovery as distinct facts.
+`receipt.md` owns the optional factual presentation of current orchestration state. It must derive from current WorkUnit, ExecutionBinding, Host observation, Main acceptance, explicit current control intent, and Final Review facts that are actually available. It does not create a persistent receipt ledger or reconstruct unavailable retry/rework/control history.
 
-An ordinary delegated terminal response emits the applicable Dispatch, Control, Review, and exceptional Recovery axes after Main's result or blocker summary, whether the requested work completed successfully or ended blocked/partial. This also applies to `UNKNOWN` and takeover-pending outcomes.
+An ordinary delegated terminal response may include a compact execution receipt after Main's result or blocker summary. `UNKNOWN` and takeover-pending outcomes must remain explicitly uncertain.
 
-Explicit Orchestrate with zero materialized children emits the minimal receipt defined by `receipt.md` and creates no persistent state. Plan-only Preview and Status-only Orchestrate intents emit no terminal Dispatch Receipt.
+Explicit Orchestrate with zero materialized children may emit the minimal acknowledgement defined by `receipt.md` and creates no persistent state. Plan-only Preview and Status-only Orchestrate intents do not require a terminal execution receipt.
 
-The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and never exposes the internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
+The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and need not expose internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
 
 The receipt may report only inspectable orchestration facts. Never expose private reasoning, raw child transcripts, credentials, source contents, or unrelated tool logs.
 
