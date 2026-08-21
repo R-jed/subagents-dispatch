@@ -33,8 +33,6 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/dispatch_state_v4.py",
         "scripts/dispatch_state_v4_core.py",
         "scripts/doctor.py",
-        "scripts/doctor_runtime.py",
-        "scripts/doctor_runtime_core.py",
         "scripts/execution_lifecycle_v4.py",
         "scripts/execution_lifecycle_v4_core.py",
         "scripts/host_capabilities.py",
