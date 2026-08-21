@@ -10,8 +10,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRITY = ROOT / "scripts" / "package_integrity.py"
 MANIFEST = ROOT / ".codex-plugin" / "package-integrity.json"
-NON_BOOTSTRAP_RUNTIME = Path("scripts/host_capabilities.py")
-STAGED_HOST_HOOK = Path("docs/v4/hooks.json")
+NON_BOOTSTRAP_RUNTIME = Path("scripts/managed_execution_v4.py")
+NORMALIZED_TEXT_RUNTIME = Path("skills/orchestrate/SKILL.md")
 
 
 def load_integrity():
@@ -37,7 +37,7 @@ def copy_manifest_package(tmp_path: Path):
     return module, package_root
 
 
-def test_committed_integrity_manifest_is_generated_from_runtime_scope():
+def test_committed_integrity_manifest_is_generated_from_native_runtime_scope():
     module = load_integrity()
     committed = module.load_manifest(ROOT)
     assert committed == module.build_manifest(ROOT)
@@ -45,14 +45,17 @@ def test_committed_integrity_manifest_is_generated_from_runtime_scope():
     assert committed["plugin_version"] == "4.0.0"
     assert committed["algorithm"] == "sha256"
     assert committed["normalization"] == "utf-8-lf"
-    assert STAGED_HOST_HOOK.as_posix() in committed["files"]
+    assert "scripts/host_capabilities.py" in committed["files"]
+    assert "scripts/release_evidence_v4.py" in committed["files"]
+    assert all(not path.startswith("hooks/") for path in committed["files"])
+    assert "docs/v4/hooks.json" not in committed["files"]
 
 
-def test_selected_staged_hook_is_integrity_protected(tmp_path: Path):
+def test_native_runtime_file_is_integrity_protected(tmp_path: Path):
     module, package_root = copy_manifest_package(tmp_path)
-    target = package_root / STAGED_HOST_HOOK
+    target = package_root / NON_BOOTSTRAP_RUNTIME
     target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
-    assert STAGED_HOST_HOOK.as_posix() in module.verify_package(package_root)["mismatched"]
+    assert NON_BOOTSTRAP_RUNTIME.as_posix() in module.verify_package(package_root)["mismatched"]
 
 
 def test_verifier_detects_missing_modified_and_symlinked_runtime_files(tmp_path: Path):
@@ -72,13 +75,13 @@ def test_verifier_detects_missing_modified_and_symlinked_runtime_files(tmp_path:
 
 def test_verifier_normalizes_text_line_endings(tmp_path: Path):
     module, package_root = copy_manifest_package(tmp_path)
-    target = package_root / "hooks" / "run-python.cmd"
-    text = target.read_text(encoding="utf-8").replace("\r\n", "\n")
+    target = package_root / NORMALIZED_TEXT_RUNTIME
+    text = target.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
     target.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
     assert module.verify_package(package_root)["ok"] is True
 
 
-def test_doctor_integrity_bootstrap_fails_before_internal_imports(tmp_path: Path):
+def test_doctor_reports_integrity_failure_without_import_traceback_for_runtime_damage(tmp_path: Path):
     _, package_root = copy_manifest_package(tmp_path)
     (package_root / NON_BOOTSTRAP_RUNTIME).unlink()
     result = subprocess.run(
@@ -88,7 +91,7 @@ def test_doctor_integrity_bootstrap_fails_before_internal_imports(tmp_path: Path
         check=False,
     )
     assert result.returncode != 0
-    assert "[FAIL] Plugin package integrity:" in result.stdout
+    assert "PACKAGE INTEGRITY FAIL" in result.stdout + result.stderr
     assert "Traceback" not in result.stdout + result.stderr
 
 
