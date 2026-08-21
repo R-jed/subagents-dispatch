@@ -12,7 +12,6 @@ import json
 import os
 import stat
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any, Mapping
 
 import state_storage as storage
