@@ -40,8 +40,8 @@ NORMALIZED_SNAPSHOT_FIELDS = {
     "surface",
     "capabilities",
     "fork_turns_none",
-    "max_spawned_threads",
-    "capacity_excludes_primary",
+    "max_concurrent_threads_per_session",
+    "capacity_includes_primary",
     "execution_ready",
     "missing",
 }
@@ -96,7 +96,12 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     """Return a deterministic Native Subagent capability snapshot."""
     if not isinstance(evidence, Mapping):
         raise HostCapabilityError("Host evidence must be an object")
-    required_fields = {"surface", "tools", "fork_turns_none", "max_spawned_threads"}
+    required_fields = {
+        "surface",
+        "tools",
+        "fork_turns_none",
+        "max_concurrent_threads_per_session",
+    }
     extra = set(evidence) - required_fields
     missing = required_fields - set(evidence)
     if extra:
@@ -110,11 +115,13 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     _reject_unclassified_collaboration_tools(tools)
     if not isinstance(evidence["fork_turns_none"], bool):
         raise HostCapabilityError("fork_turns_none must be boolean")
-    capacity = evidence["max_spawned_threads"]
+    capacity = evidence["max_concurrent_threads_per_session"]
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
     ):
-        raise HostCapabilityError("max_spawned_threads must be null or a positive integer")
+        raise HostCapabilityError(
+            "max_concurrent_threads_per_session must be null or a positive integer"
+        )
 
     capabilities = {
         capability: bool(_tool_identities(tools, semantics))
@@ -130,8 +137,8 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "surface": evidence["surface"],
         "capabilities": capabilities,
         "fork_turns_none": evidence["fork_turns_none"],
-        "max_spawned_threads": capacity,
-        "capacity_excludes_primary": True,
+        "max_concurrent_threads_per_session": capacity,
+        "capacity_includes_primary": True,
         "execution_ready": not missing_capabilities,
         "missing": missing_capabilities,
     }
@@ -150,13 +157,15 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     fork_none = snapshot.get("fork_turns_none")
     if not isinstance(fork_none, bool):
         raise HostCapabilityError("normalized Host snapshot fork_turns_none must be boolean")
-    capacity = snapshot.get("max_spawned_threads")
+    capacity = snapshot.get("max_concurrent_threads_per_session")
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
     ):
-        raise HostCapabilityError("normalized Host snapshot has invalid max_spawned_threads")
-    if snapshot.get("capacity_excludes_primary") is not True:
-        raise HostCapabilityError("normalized Host snapshot must exclude primary from capacity")
+        raise HostCapabilityError(
+            "normalized Host snapshot has invalid max_concurrent_threads_per_session"
+        )
+    if snapshot.get("capacity_includes_primary") is not True:
+        raise HostCapabilityError("normalized Host snapshot must count the primary agent in capacity")
     expected_missing = [
         capability for capability in REQUIRED_CAPABILITIES if capabilities[capability] is not True
     ]
