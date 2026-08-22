@@ -55,5 +55,3 @@
 
 - Repository and CI checks may complete before real Host evidence.
 - V4.0.0 publication remains blocked until the exact candidate passes the N0-N8 Host campaign in `docs/v4/host-smoke.json`, fresh exact-candidate Final Review and candidate-bound release evidence verification.
-
-Complete V3.x and earlier release history is preserved in [CHANGELOG_V3.md](CHANGELOG_V3.md).
