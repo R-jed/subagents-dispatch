@@ -35,7 +35,7 @@ def capability_snapshot(*, capacity: int | None = 4, ready: bool = True) -> dict
             "surface": "multi_agent_v2",
             "tools": tools,
             "fork_turns_none": ready,
-            "max_spawned_threads": capacity,
+            "max_concurrent_threads_per_session": capacity,
         }
     )
 
@@ -89,7 +89,8 @@ def test_constraint_snapshot_exposes_capacity_without_selecting_work():
     assert decision["selection_owner"] == "main"
     assert decision["product_child_limit"] == 4
     assert decision["ready_frontier"] == ["U1", "U2", "U3"]
-    assert decision["available_launch_slots"] == 4
+    assert decision["host_session_capacity"] == 4
+    assert decision["available_launch_slots"] == 3
     assert decision["actions"] == []
 
 
@@ -105,18 +106,18 @@ def test_known_host_capacity_reduces_available_slots_and_unknown_capacity_is_not
     ]
 
     known = scheduler.constraint_snapshot(
-        payload, capability_snapshot=capability_snapshot(capacity=1), wakeup_reason="USER_INPUT"
+        payload, capability_snapshot=capability_snapshot(capacity=2), wakeup_reason="USER_INPUT"
     )
     unknown = scheduler.constraint_snapshot(
         payload, capability_snapshot=capability_snapshot(capacity=None), wakeup_reason="USER_INPUT"
     )
-    assert known["host_capacity"] == 1
+    assert known["host_session_capacity"] == 2
     assert known["available_launch_slots"] == 1
-    assert unknown["host_capacity"] is None
+    assert unknown["host_session_capacity"] is None
     assert unknown["available_launch_slots"] == 4
 
 
-def test_unknown_execution_counts_against_product_capacity():
+def test_unknown_execution_counts_against_product_and_host_capacity():
     state = load_module("constraint_state_unknown", "dispatch_state_v4.py")
     graph = load_module("constraint_graph_unknown", "work_graph_v4.py")
     scheduler = load_module("constraint_scheduler_unknown", "scheduler_v4.py")
@@ -139,7 +140,7 @@ def test_unknown_execution_counts_against_product_capacity():
         payload, capability_snapshot=capability_snapshot(capacity=4), wakeup_reason="AGENT_UPDATE"
     )
     assert decision["active_managed_executions"] == 1
-    assert decision["available_launch_slots"] == 3
+    assert decision["available_launch_slots"] == 2
 
 
 def test_execution_facade_enforces_single_product_child_ceiling(tmp_path: Path):
@@ -179,11 +180,14 @@ def test_plan_only_missing_host_and_cancel_never_offer_launch_slots():
     ]
     planned = scheduler.constraint_snapshot(payload, capability_snapshot=capability_snapshot(), wakeup_reason="USER_INPUT", plan_only=True)
     missing = scheduler.constraint_snapshot(payload, capability_snapshot=capability_snapshot(ready=False), wakeup_reason="USER_INPUT")
+    absent = scheduler.constraint_snapshot(payload, capability_snapshot=None, wakeup_reason="USER_INPUT")
     cancelled = scheduler.constraint_snapshot(payload, capability_snapshot=capability_snapshot(), wakeup_reason="USER_CANCEL")
     assert planned["available_launch_slots"] == 0
     assert missing["available_launch_slots"] == 0
+    assert absent["available_launch_slots"] == 0
+    assert absent["host_missing"] == ["capability_snapshot"]
     assert cancelled["available_launch_slots"] == 0
-    assert planned["actions"] == missing["actions"] == cancelled["actions"] == []
+    assert planned["actions"] == missing["actions"] == absent["actions"] == cancelled["actions"] == []
 
 
 def test_constraint_projection_rejects_unrecognized_wakeup_reason():
