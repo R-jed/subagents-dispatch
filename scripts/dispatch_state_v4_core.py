@@ -14,8 +14,8 @@ import os
 import re
 import stat
 from datetime import datetime
-from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Mapping
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any, Callable, Mapping, Sequence
 
 import policy as policy_contract
 import state_storage as storage
@@ -203,7 +203,13 @@ def _canonical_scope(value: str, *, label: str) -> str:
         raise StatePayloadError(f"{label} must be a non-empty relative path")
     normalized = value.replace("\\", "/")
     path = PurePosixPath(normalized)
-    if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+    windows = PureWindowsPath(value)
+    if (
+        path.is_absolute()
+        or bool(windows.drive)
+        or not path.parts
+        or any(part in {"", ".", ".."} for part in path.parts)
+    ):
         raise StatePayloadError(f"{label} must be a safe relative path")
     canonical = path.as_posix()
     if canonical != value:
@@ -218,11 +224,19 @@ def _validate_scope_list(value: Any, *, label: str) -> list[str]:
     return values
 
 
+def _scope_contains(parent: str, child: str) -> bool:
+    parent_parts = PurePosixPath(parent).parts
+    child_parts = PurePosixPath(child).parts
+    return len(parent_parts) <= len(child_parts) and child_parts[: len(parent_parts)] == parent_parts
+
+
+def scopes_within(child_scopes: Sequence[str], parent_scopes: Sequence[str]) -> bool:
+    """Return whether every canonical child scope is contained by a parent scope."""
+    return all(any(_scope_contains(parent, child) for parent in parent_scopes) for child in child_scopes)
+
+
 def _scope_overlaps(left: str, right: str) -> bool:
-    left_parts = PurePosixPath(left).parts
-    right_parts = PurePosixPath(right).parts
-    shortest = min(len(left_parts), len(right_parts))
-    return left_parts[:shortest] == right_parts[:shortest]
+    return _scope_contains(left, right) or _scope_contains(right, left)
 
 
 def _validate_ownership(value: Any, *, label: str) -> dict[str, Any]:
@@ -294,7 +308,7 @@ def _validate_work_units(units: Any) -> dict[str, dict[str, Any]]:
         ceiling = _validate_scope_list(
             unit["write_scope_ceiling"], label=f"work unit {unit_id}.write_scope_ceiling"
         )
-        if not set(ceiling).issubset(set(ownership["write"])):
+        if not scopes_within(ceiling, ownership["write"]):
             raise StatePayloadError(
                 f"work unit {unit_id} write_scope_ceiling must be inside ownership.write"
             )
@@ -403,7 +417,7 @@ def _validate_executions(
         granted_scope = _validate_scope_list(
             execution["granted_write_scope"], label=f"execution {execution_id}.granted_write_scope"
         )
-        if not set(granted_scope).issubset(set(work_units[unit_id]["write_scope_ceiling"])):
+        if not scopes_within(granted_scope, work_units[unit_id]["write_scope_ceiling"]):
             raise StatePayloadError(f"execution {execution_id} exceeds WorkUnit write scope ceiling")
         if granted == "none" and granted_scope:
             raise StatePayloadError(f"execution {execution_id} authority none requires empty write scope")
@@ -539,6 +553,7 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
         raise StatePayloadError("accounting_refs must be an array")
     refs: set[str] = set()
     history_units: set[str] = set()
+    recovery_executions: set[str] = set()
     for index, event in enumerate(value):
         if not isinstance(event, dict) or not _nonempty(event.get("ref")):
             raise StatePayloadError(f"accounting_refs[{index}] requires stable ref")
@@ -552,6 +567,8 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
                 "ref",
                 "kind",
                 "execution_id",
+                "unit_id",
+                "attempt_no",
                 "control_epoch",
                 "lease_epoch",
                 "lifecycle",
@@ -561,8 +578,10 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
             execution = executions.get(event["execution_id"])
             if execution is None:
                 raise StatePayloadError("host_observation references unknown execution")
-            if not _strict_int(event["control_epoch"]):
-                raise StatePayloadError("host_observation has invalid control_epoch")
+            if event["unit_id"] != execution["unit_id"] or event["attempt_no"] != execution["attempt_no"]:
+                raise StatePayloadError("host_observation generation does not match execution")
+            if event["control_epoch"] != execution["control_epoch"]:
+                raise StatePayloadError("host_observation must describe the current control epoch")
             if event["lease_epoch"] is not None and not _strict_int(event["lease_epoch"], minimum=1):
                 raise StatePayloadError("host_observation has invalid lease_epoch")
             if event["lifecycle"] not in EXECUTION_STATES:
@@ -610,14 +629,21 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
             }
             if set(event) != required:
                 raise StatePayloadError("recovery_basis accounting ref has invalid fields")
-            if event["execution_id"] not in executions:
+            execution_id = event["execution_id"]
+            execution = executions.get(execution_id)
+            if execution is None:
                 raise StatePayloadError("recovery_basis references unknown execution")
+            if execution_id in recovery_executions:
+                raise StatePayloadError("recovery_basis keeps at most one current record per execution")
+            recovery_executions.add(execution_id)
             if event["action"] != "FOLLOWUP":
                 raise StatePayloadError("recovery_basis action is unsupported")
             if not isinstance(event["basis_hash"], str) or HEX64.fullmatch(event["basis_hash"]) is None:
                 raise StatePayloadError("recovery_basis basis_hash must be sha256 hex")
-            if not _strict_int(event["control_epoch"], minimum=1):
-                raise StatePayloadError("recovery_basis control_epoch must be positive")
+            if event["control_epoch"] != execution["control_epoch"] or not _strict_int(
+                event["control_epoch"], minimum=1
+            ):
+                raise StatePayloadError("recovery_basis must describe the current positive control epoch")
 
 
 def _serialized_payload(payload: Mapping[str, Any], *, max_bytes: int) -> bytes:
@@ -763,6 +789,7 @@ def mutate_state(
     temp_root: str | os.PathLike[str] | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
     now: datetime | str | None = None,
+    skip_noop: bool = False,
 ) -> dict[str, Any]:
     identity = storage.resolve_thread_id(thread_id)
     with storage.state_lock(identity, temp_root=temp_root):
@@ -773,6 +800,8 @@ def mutate_state(
             raise StatePayloadError("state_revision compare-and-swap failed")
         updated = copy.deepcopy(current)
         mutator(updated)
+        if skip_noop and updated == current:
+            return current
         updated["state_revision"] = current["state_revision"] + 1
         updated["updated_at"] = storage._utc_text(now)
         validate_state_payload(updated, thread_id=identity, max_bytes=max_bytes)
@@ -808,6 +837,8 @@ def observation_basis(payload: Mapping[str, Any], *, execution_id: str) -> dict[
     execution = matches[0]
     return {
         "execution_id": execution_id,
+        "unit_id": execution["unit_id"],
+        "attempt_no": execution["attempt_no"],
         "control_epoch": execution["control_epoch"],
         "lease_epoch": _execution_writer_lease_epoch(current, execution),
     }
@@ -821,6 +852,10 @@ def _basis_is_current(current: Mapping[str, Any], basis: Mapping[str, Any]) -> b
     if len(matches) != 1:
         return False
     execution = matches[0]
+    if basis.get("unit_id") != execution["unit_id"]:
+        return False
+    if basis.get("attempt_no") != execution["attempt_no"]:
+        return False
     if basis.get("control_epoch") != execution["control_epoch"]:
         return False
     return basis.get("lease_epoch") == _execution_writer_lease_epoch(current, execution)
