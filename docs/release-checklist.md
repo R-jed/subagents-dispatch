@@ -85,7 +85,7 @@ N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and effective sandbox truth
 ```
 
-For N4, a successful `followup_task` call is not sufficient by itself. Release evidence must show that the RUNNING Steer targeted the original canonical task address, stayed bound to the original Host child with no replacement materialized, and was consumed by that same child. Steer must preserve the ExecutionBinding, `attempt_no`, `control_epoch`, and `followup_count`. Correction and Continue remain same-child controls and must not create a fresh attempt.
+For N4, successful `followup_task` tool-call acceptance is not sufficient by itself. Release evidence must show that the RUNNING Steer targeted the original canonical task address, stayed bound to the original Host child with no replacement materialized, and was consumed by that same child. Steer must preserve the ExecutionBinding, `attempt_no`, `control_epoch`, and `followup_count`. Correction and Continue remain same-child controls and must not create a fresh attempt.
 
 Offline CI, source inspection, profile configuration, model self-report or evidence from another candidate cannot substitute for these Host facts.
 
