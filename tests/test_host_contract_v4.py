@@ -201,6 +201,8 @@ def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     assert identity["spawn_result_binds_canonical_task_address"] is True
     assert identity["host_activity_binds_thread_identity"] is True
     assert identity["task_address_is_not_thread_identity"] is True
+    assert identity["durable_child_identity_owner"] == "codex_host"
+    assert identity["resident_runtime_owner"] == "codex_host"
 
     steer = architecture["control_semantics"]["STEER"]
     assert steer["v2_host_tool"] == "followup_task"
@@ -213,7 +215,8 @@ def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     assert scheduler["host_capacity_public_config_key"] == "agents.max_concurrent_threads_per_session"
     assert scheduler["host_capacity_public_config_includes_primary"] is False
     assert scheduler["host_capacity_normalization"] == "public_spawned_agent_limit_plus_primary"
-    assert scheduler["host_capacity_semantics"] == "root_inclusive_internal_v2_session_limit"
+    assert scheduler["host_capacity_semantics"] == "session_concurrency_includes_primary"
+    assert scheduler["host_capacity_internal_v2_semantics"] == "root_inclusive_internal_v2_session_limit"
     assert scheduler["host_capacity_requires_runtime_binding"] is True
     assert scheduler["host_rejection_cause_may_be_ambiguous"] is True
 
