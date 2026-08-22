@@ -259,7 +259,7 @@ def allocate_execution(
             raise ExecutionLifecycleError("granted authority exceeds WorkUnit ceiling")
         if _authority_rank(granted_authority) > _authority_rank(profile_authority):
             raise ExecutionLifecycleError("granted authority exceeds fixed profile capability")
-        if not set(scope).issubset(set(unit["write_scope_ceiling"])):
+        if not state.scopes_within(scope, unit["write_scope_ceiling"]):
             raise ExecutionLifecycleError("granted write scope exceeds WorkUnit ceiling")
         if granted_authority == "none" and scope:
             raise ExecutionLifecycleError("read-only execution requires empty write scope")
