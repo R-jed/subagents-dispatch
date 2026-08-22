@@ -25,7 +25,7 @@ contracts/policy.json
 
 Do not make the Skill maintain an ontology merely because an eval field exists.
 
-`evals/interaction-cases.json` is the deterministic policy fixture for Preview, first-use readiness, Status, Steer, Takeover, Dispatch Receipt, and Handoff Capsule boundaries. `evals/coordination-cases.json` covers structural and semantic coordination invariants. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
+`evals/interaction-cases.json` is the deterministic policy fixture for Orchestrate Preview, first-use readiness, Status, Steer, Takeover, Execution Receipt, and Handoff Capsule boundaries. `evals/coordination-cases.json` covers structural and semantic coordination invariants. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
 
 ## Primary product questions
 
@@ -38,9 +38,9 @@ The live suite asks:
 5. When Luna encounters a material semantic blocker, does correct rerouting reduce wrong edits/rework compared with simply continuing Luna?
 6. For stable semantics and read-only work, does Terra provide useful quality/context depth at lower total cost than a Sol judgment lane, and when does narrow Luna Reader remain sufficient?
 7. Does consequence-driven Final Review catch material issues while avoiding decorative review caused only by process history?
-8. Does explicit user selection of Dispatch plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
-9. Does the independent-axis Dispatch Receipt improve orchestration transparency without mixing in Main's task-result summary, and does explicit zero-child Dispatch remain transparent with its minimal Receipt?
-10. Does Preview help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
+8. Does explicit user selection of Orchestrate plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
+9. Does the independent-axis Execution Receipt improve orchestration transparency without mixing in Main's task-result summary, and does explicit zero-child Orchestrate remain transparent with its minimal Receipt?
+10. Does the Preview control help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
 11. Do Status, Steer, and Takeover improve user control while preserving `UNKNOWN`, stable responsibility identity, and one-writer safety?
 12. Does a small evidence-bound Handoff Capsule reduce repeated discovery without increasing stale-context or inherited-claim errors?
 13. Does multi-responsibility decomposition preserve every material task obligation and cross-unit seam without forcing decorative Agent work?
@@ -325,7 +325,7 @@ For the process-history negative control, use a candidate where Terra/Solver/rec
 
 ## Experiment H: first-use readiness
 
-Measure the first explicit task run through Dispatch when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
+Measure the first explicit task run through Orchestrate when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
 
 The current candidate should:
 
@@ -339,16 +339,16 @@ identify that delegation will be useful
 -> set readiness outcome RESTART_REQUIRED
 -> perform 0 child spawns in the current task
 -> show one concise fresh-task handoff
--> rerun the original request through Dispatch in a fresh task/session
+-> rerun the original request through Orchestrate in a fresh task/session
 -> verify exact role availability there before spawning
 ```
 
-There is no separate routine provisioning confirmation prompt in this clean first-use path. Explicit user selection/invocation of Dispatch is the narrow authorization for plugin-owned provisioning after delegation is already justified.
+There is no separate routine provisioning confirmation prompt in this clean first-use path. Explicit user selection/invocation of Orchestrate is the narrow authorization for plugin-owned provisioning after delegation is already justified.
 
 Hard negative controls:
 
 ```text
-Preview or Status with profiles absent
+Orchestrate Preview or Status with profiles absent
 -> 0 provisioning
 
 profile collision / symlink / modified-unowned state
@@ -366,14 +366,14 @@ fresh task still lacks the exact role
 
 Record onboarding interruptions, first-use provisioning prompts, stale-session spawn attempts, whether the user understood the single fresh-task instruction, and whether any unrelated state was modified. The release target is one unavoidable fresh-task handoff caused by Host registration timing, not an additional plugin-generated setup prompt plus a failed spawn.
 
-## Experiment I: Dispatch Receipt clarity
+## Experiment I: Execution Receipt clarity
 
 Compare delegated tasks with the current independent-axis Receipt against the prior completion style without a default orchestration receipt.
 
 The Main response should still focus on the task-facing result, verification, and remaining material risk. The Receipt separately reports only orchestration facts:
 
 ```text
-Dispatch / 编排
+Orchestrate / 编排
 Control / 控制       # only when used
 Review / 验收
 Recovery / 恢复     # exceptional only
@@ -384,22 +384,22 @@ Measure whether users can correctly answer which project lanes performed materia
 Negative controls:
 
 ```text
-explicit Dispatch with zero materialized children
--> minimal zero-child Dispatch + Review receipt
+explicit Orchestrate with zero materialized children
+-> minimal zero-child Orchestrate + Review receipt
 -> no active state
 
-Preview-only request
+Orchestrate Preview-only request
 -> predictive presentation only
--> no terminal Dispatch Receipt
+-> no terminal Execution Receipt
 
-Status-only request
+Orchestrate Status-only request
 -> status snapshot only
--> no terminal Dispatch Receipt
+-> no terminal Execution Receipt
 ```
 
 ## Experiment J: Preview and live control
 
-Select **Preview** through the Host UI and supply the same substantive task later used for a real Dispatch run. Do not assume or record a literal slash string unless the App directly renders one.
+Select **Orchestrate** through the Host UI, request its Preview control, and supply the same substantive task later used for a real Orchestrate run. Do not assume or record a literal slash string unless the App directly renders one.
 
 Verify:
 
@@ -419,7 +419,7 @@ Steer workload sends focused guidance that stays inside the same responsibility.
 
 Takeover workload includes a writing child. Verify that Main does not perform a conflicting write before the native child is settled. Add a Host-ambiguity case where stop/terminal state cannot be established; the expected result is pending/UNKNOWN rather than forced ownership transfer.
 
-The static adversarial set in `evals/interaction-cases.json` covers the fifteen WORK §63 boundaries: `missing-thread-id`; `spawn-pending-no-match`, `spawn-pending-single-match`, and `spawn-pending-multiple-match`; `corrupt-capsule-active-writer`; `multi-targetless-steer` and `single-targetless-steer`; `interrupted-takeover`; `fix-first-without-correction`; `retry-then-rework`; `locale-persistence`; `unrelated-dispatch-with-unresolved-writer`; `repeated-status-dedupe`; `same-child-resume`; and `route-mismatch`.
+The current deterministic interaction boundaries are defined directly by `evals/interaction-cases.json`. Do not maintain a second hand-written case inventory in this protocol; the fixture IDs are the authoritative static case list.
 
 ## Experiment K: Handoff Capsule
 
@@ -471,7 +471,7 @@ derive material obligations from current task truth
 Negative controls:
 
 ```text
-valid TeamPlan structure with one dropped material obligation
+valid TeamPlan compatibility structure with one dropped material obligation
 -> Candidate Ready forbidden
 
 valid integration order with an unowned material seam
@@ -528,6 +528,6 @@ Interaction and semantic-coordination experiments may initially use structured n
 
 Do not claim improved quality, lower cost, reduced rework, Solver superiority, Terra value, onboarding improvement, receipt usability, takeover usability, Handoff Capsule efficiency, semantic-coverage improvement, or phase-transition improvement until named live workloads on named runtime versions support that claim.
 
-Static contract tests can prove that Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, that capsules require accepted evidence, that structural TeamPlan validity is not treated as semantic completeness, and that later-phase readiness does not create authority. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
+Static contract tests can prove that Orchestrate Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, that capsules require accepted evidence, that structural TeamPlan compatibility validity is not treated as semantic completeness, and that later-phase readiness does not create authority. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
 
 The runtime mechanism defines where each role and control is allowed to operate. Behavioral evidence determines whether those choices create user value in practice.
