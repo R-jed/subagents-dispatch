@@ -84,6 +84,15 @@ def test_orchestrate_keeps_engineering_narration_out_of_user_deliverables():
         assert internal_process in text
 
 
+def test_compaction_never_authorizes_execution_identity_reuse():
+    skill = (SKILLS / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
+    recovery = (ROOT / "contracts" / "recovery.md").read_text(encoding="utf-8")
+    state = (ROOT / "contracts" / "state.md").read_text(encoding="utf-8")
+    assert "Never reuse an `execution_id` or `native_task_name`" in skill
+    assert "History compaction never authorizes reuse of either identity" in recovery
+    assert "Neither identity may be reused" in state
+
+
 def test_marketplace_plugin_source_is_exact_checkout_root():
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
     assert market["plugins"][0]["source"] == {"source": "local", "path": "./"}
