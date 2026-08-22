@@ -20,7 +20,7 @@ PROFILES = {
 }
 
 
-def test_all_managed_profiles_disable_child_multi_agent_without_route_drift():
+def test_all_managed_profiles_request_leaf_collaboration_posture_without_route_drift():
     for filename, (model, effort, sandbox) in PROFILES.items():
         payload = tomllib.loads((ROOT / "agent-profiles" / filename).read_text(encoding="utf-8"))
         assert payload["model"] == model
