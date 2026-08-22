@@ -27,7 +27,7 @@ Before the first child spawn, require the exact selected managed profile and nev
 
 Delegated execution requires the Native Subagent lifecycle capabilities needed by the selected operation. Managed child profiles must expose no child collaboration surface. Missing required native capability stops delegated execution. Do not infer Host-enforced read-only solely from profile configuration.
 
-Main drives lifecycle reconciliation. Before a reconciliation-sensitive Host observation, capture the current ExecutionBinding observation basis. Apply native state only while that basis remains current. Stale observations are discarded. `UNKNOWN` never authorizes conflicting replacement, writer transfer, or final acceptance. Elapsed time or wait timeout alone never converts `UNKNOWN` into `FAILED`.
+Main drives lifecycle reconciliation. Before a reconciliation-sensitive Host observation, capture the current ExecutionBinding observation basis. Apply native state only while that basis remains current. Stale observations are discarded. `UNKNOWN` never authorizes conflicting replacement, writer transfer, or final acceptance. Elapsed time or wait timeout alone never converts `UNKNOWN` into `FAILED`. Never reuse an `execution_id` or `native_task_name` within the same orchestration, including identities from compacted attempts.
 
 Load control contracts only when relevant. Read `../../contracts/interaction.md` for status, steer, takeover, or cancel intent. Read `../../contracts/recovery.md` for interrupted, blocked, retried, reactivated, or uncertain execution. Continue and focused correction are recovery mechanics inside Orchestrate. Read `../../contracts/final-review.md` only when consequence-based review policy applies.
 
