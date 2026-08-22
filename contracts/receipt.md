@@ -19,11 +19,11 @@ Do not create receipt-only state to make a summary possible. `accounting_refs` r
 
 ## Language and vocabulary
 
-Use the language of the substantive user task. Canonical model/effort labels stay in English:
+Use the language of the substantive user task. Canonical model/effort labels derive from the fixed profiles in `policy.json` and stay in English:
 
 ```text
 Luna Max
-Terra XHigh
+Terra High
 Sol High
 ```
 
@@ -52,7 +52,7 @@ whether an explicit same-child followup or continuation is represented by the cu
 blocking UNKNOWN or unresolved writer ownership
 ```
 
-Configured route truth and observed runtime truth stay separate. Showing `Luna Max`, `Terra XHigh`, or `Sol High` means the execution was bound to that project profile. It does not claim the Host independently re-observed model and effort unless separate Host evidence proves that fact.
+Configured route truth and observed runtime truth stay separate. Showing `Luna Max`, `Terra High`, or `Sol High` means the execution was bound to that project profile. It does not claim the Host independently re-observed model and effort unless separate Host evidence proves that fact.
 
 A pre-materialization spawn rejection is not a materialized Agent attempt. A same-child continuation does not become a fresh attempt. Do not infer a retry or rework count from the final capsule when the current state does not retain enough history to prove it.
 
@@ -61,12 +61,12 @@ A pre-materialization spawn rejection is not a materialized Agent attempt. A sam
 A successful delegated run may use a compact form such as:
 
 ```text
-编排: Luna Max 读取 · Terra XHigh 调研 · Luna Max 执行
+编排: Luna Max 读取 · Terra High 调研 · Luna Max 执行
 验收: Main 已接受 3 个职责 · 独立复核未触发
 ```
 
 ```text
-Dispatch: Luna Max Read · Terra XHigh Investigate · Luna Max Execute
+Dispatch: Luna Max Read · Terra High Investigate · Luna Max Execute
 Review: Main accepted 3 responsibilities · independent review not triggered
 ```
 
