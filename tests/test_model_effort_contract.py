@@ -25,6 +25,7 @@ CURRENT_DOCS = (
     "docs/architecture.md",
     "docs/native-subagent-runtime.md",
     "docs/release-checklist.md",
+    "evals/README.md",
 )
 
 
