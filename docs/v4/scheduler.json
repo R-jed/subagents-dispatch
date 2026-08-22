@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-scheduler-5",
+  "schema_version": "4.0.0-scheduler-6",
   "mode": "constraint_projection",
   "background_daemon": false,
   "wakeup_reasons": [
@@ -19,7 +19,9 @@
   "fixed_acceptance_backpressure": false,
   "result_backlog_reported": true,
   "host_capacity_owner": "codex_host",
-  "known_host_capacity_is_advisory_ceiling": true,
+  "host_capacity_semantics": "session_concurrency_includes_primary",
+  "known_host_session_capacity_is_advisory_ceiling": true,
+  "missing_capability_snapshot_blocks_spawn": true,
   "unknown_host_capacity_blocks_spawn": false,
   "product_managed_children_max": 4,
   "writer_lease_admission": "fail_closed_before_canonical_workspace_execution",
