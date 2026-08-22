@@ -286,7 +286,8 @@ def diagnose_host_integration(host_evidence: Path | None) -> dict[str, Any]:
         "Native Subagent capabilities are ready",
         capabilities=normalized["capabilities"],
         fork_turns_none=normalized["fork_turns_none"],
-        max_spawned_threads=normalized["max_spawned_threads"],
+        max_concurrent_threads_per_session=normalized["max_concurrent_threads_per_session"],
+        capacity_includes_primary=normalized["capacity_includes_primary"],
     )
 
 
