@@ -1,22 +1,22 @@
 {
-  "schema_version": "4.0.0-phase-status-16",
+  "schema_version": "4.0.0-phase-status-17",
   "candidate_branch": "fix/documentation-truth-closure",
   "architecture": "native_core",
   "repository_phases": {
-    "architecture_and_state": "REMEDIATION",
+    "architecture_and_state": "PASS",
     "native_host_lifecycle": "PASS",
     "work_graph_scheduler": "PASS",
     "writer_lease_recovery": "PASS",
-    "public_orchestrate_doctor_surface": "REMEDIATION",
-    "product_plane_closure": "REMEDIATION",
+    "public_orchestrate_doctor_surface": "PASS",
+    "product_plane_closure": "PASS",
     "model_effort_alignment": "PASS",
-    "v3_residue_closure": "REMEDIATION"
+    "v3_residue_closure": "PASS"
   },
   "repository_validation": {
-    "status": "REMEDIATION_REQUIRED",
-    "candidate_sha": null,
-    "workflow_run_id": null,
-    "attestation_scope": "A repository-wide documentation truth review found current-surface terminology drift, one stale recovery eval oracle, an over-strong compaction statement, a dead V3 changelog link, insufficient history isolation, and closure tests that did not scan the complete current-authority document set. Repository validation must be rerun after remediation."
+    "status": "PASS",
+    "candidate_sha": "6ad0cce30ab24259fe423588ff5fb07942832d29",
+    "workflow_run_id": 32588144574,
+    "attestation_scope": "Verified remediation basis 6ad0cce30ab24259fe423588ff5fb07942832d29 passed the complete GitHub Actions matrix on Ubuntu Python 3.11 and 3.12, macOS Python 3.11, and Windows Python 3.11. The run passed generated package-integrity verification, the pinned official OpenAI Plugin validator where applicable, Ruff, the full pytest suite, managed Agent install/check/Doctor/uninstall/reinstall lifecycle, and the repository-wide current-authority/history/eval truth-closure regressions. Phase-status and task bookkeeping are applied after this verified basis and require one final exact-head CI run before this remediation branch can advance."
   },
   "fixed_profiles": {
     "luna": "max",
