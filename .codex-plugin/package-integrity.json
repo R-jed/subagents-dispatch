@@ -27,7 +27,7 @@
     "scripts/dispatch_state_v4_core.py": "6d42e88000b07f99c4d6aa8d4736e9da7db42a9bd304981c5dc2b2ba3a97db01",
     "scripts/doctor.py": "20453f5f5ab23a9cb7c0710070e198ef2bcaf1396b749a06237bfe9e6d4b7912",
     "scripts/execution_lifecycle_v4.py": "a790af89de9c2ecbab1def922df2efa524bb17c73e6632edad07dd77b4751f7c",
-    "scripts/execution_lifecycle_v4_core.py": "fb1b6f507cd135cd71e4c6a7bf0013ff16258f4aecc781fab19a47ae5d79d07a",
+    "scripts/execution_lifecycle_v4_core.py": "6c5826fa17b2e7e340532719a836a8a9987fc09e24f4617e285c06f2e7257835",
     "scripts/host_capabilities.py": "22ff7d61f41a80c7ca0d26180d64483783f15357905947b4657d4fffd0beebe1",
     "scripts/inspect-agent-runtime.py": "4bd179811d6e2ed415243995a09866d4566bed5e466e42f2097ad349187c4453",
     "scripts/inspect-collaboration-runtime.py": "b8138517eb370111fb87b526b9896e0e17aa1369633e99817eb4fc816ef60b28",
