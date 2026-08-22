@@ -42,6 +42,7 @@ StateCorruptError = _core.StateCorruptError
 StateLockError = _core.StateLockError
 
 validate_native_task_name = _core.validate_native_task_name
+scopes_within = _core.scopes_within
 current_execution_for_unit = _core.current_execution_for_unit
 validate_state_payload = _core.validate_state_payload
 new_state = _core.new_state
@@ -166,6 +167,7 @@ __all__ = [
     "observation_basis",
     "reconcile_execution_observation",
     "remove_terminal_state",
+    "scopes_within",
     "state_path",
     "validate_native_task_name",
     "validate_state_payload",
