@@ -1,22 +1,22 @@
 {
-  "schema_version": "4.0.0-phase-status-15",
-  "candidate_branch": "v4/rc5-review-remediation",
+  "schema_version": "4.0.0-phase-status-16",
+  "candidate_branch": "fix/documentation-truth-closure",
   "architecture": "native_core",
   "repository_phases": {
-    "architecture_and_state": "PASS",
+    "architecture_and_state": "REMEDIATION",
     "native_host_lifecycle": "PASS",
     "work_graph_scheduler": "PASS",
     "writer_lease_recovery": "PASS",
-    "public_orchestrate_doctor_surface": "PASS",
-    "product_plane_closure": "PASS",
+    "public_orchestrate_doctor_surface": "REMEDIATION",
+    "product_plane_closure": "REMEDIATION",
     "model_effort_alignment": "PASS",
-    "v3_residue_closure": "PASS"
+    "v3_residue_closure": "REMEDIATION"
   },
   "repository_validation": {
-    "status": "PASS",
-    "candidate_sha": "3c09aaef72115979df32c9698876799306cf01f4",
-    "workflow_run_id": 32580684187,
-    "attestation_scope": "Verified repository code, contracts, package integrity, official Plugin validation, tests, managed profile lifecycle, and removal of CHANGELOG_V3.md, PRIVACY.md, TERMS.md, and THIRD_PARTY_NOTICES.md. Third-party MIT attribution remains preserved in LICENSE and the derived source points to it. The resulting status-only exact head still requires the final CI regression run."
+    "status": "REMEDIATION_REQUIRED",
+    "candidate_sha": null,
+    "workflow_run_id": null,
+    "attestation_scope": "A repository-wide documentation truth review found current-surface terminology drift, one stale recovery eval oracle, an over-strong compaction statement, a dead V3 changelog link, insufficient history isolation, and closure tests that did not scan the complete current-authority document set. Repository validation must be rerun after remediation."
   },
   "fixed_profiles": {
     "luna": "max",
