@@ -223,7 +223,10 @@ def persist_host_observation(
         execution_id = basis.get("execution_id") if isinstance(basis, Mapping) else None
         if not isinstance(execution_id, str):
             raise StaleObservation("Host observation basis has no execution identity")
-        current_basis = state.observation_basis(current, execution_id=execution_id)
+        try:
+            current_basis = state.observation_basis(current, execution_id=execution_id)
+        except state.StatePayloadError as exc:
+            raise StaleObservation("Host observation execution is no longer active") from exc
         if dict(current_basis) != dict(basis):
             raise StaleObservation("Host observation basis is stale")
         current_execution = _execution(current, execution_id)

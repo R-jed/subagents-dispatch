@@ -30,7 +30,7 @@ DEFAULT_STOP_BOUNDARY = (
     "Stop and report contract, judgment, investigation, stalled, scope, or safety blockers "
     "to the main session."
 )
-_COMPAT_MULTI_UNIT_REVISION = 1
+_LEGACY_TEAM_PLAN_REVISION = 1
 
 
 def _nonempty(value: Any) -> bool:
@@ -88,10 +88,6 @@ def _require_installable_unit(unit: Mapping[str, Any]) -> None:
         )
     ):
         raise WorkGraphError("new WorkUnit cannot carry accepted result bindings")
-
-
-def _needs_compat_revision(units: Sequence[Mapping[str, Any]]) -> bool:
-    return len(units) > 1 or any(unit.get("depends_on") for unit in units)
 
 
 def make_work_unit(
@@ -223,10 +219,10 @@ def install_work_graph(
 ) -> dict[str, Any]:
     """Install the one authoritative WorkGraph.
 
-    ``team_plan_revision`` is accepted only as a legacy call-shape compatibility
-    argument. It has no planning or revision semantics.
+    ``team_plan_revision`` remains accepted only for legacy callers. It does not
+    create or authorize a TeamPlan and never changes WorkGraph runtime truth.
     """
-    if team_plan_revision not in {None, _COMPAT_MULTI_UNIT_REVISION}:
+    if team_plan_revision not in {None, _LEGACY_TEAM_PLAN_REVISION}:
         raise WorkGraphError("legacy team_plan_revision compatibility value must be null or 1")
     supplied = copy.deepcopy([dict(unit) for unit in units])
     if not supplied:
@@ -242,9 +238,6 @@ def install_work_graph(
         if current["writer_lease"] is not None:
             raise WorkGraphError("initial Work Graph requires no WriterLease")
         current["work_units"] = supplied
-        current["team_plan_revision"] = (
-            _COMPAT_MULTI_UNIT_REVISION if _needs_compat_revision(supplied) else None
-        )
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
@@ -272,8 +265,6 @@ def append_work_units(
         if any(unit_id in existing_ids for unit_id in supplied_ids):
             raise WorkGraphError("appended WorkUnit unit_id already exists")
         current["work_units"].extend(supplied)
-        if _needs_compat_revision(current["work_units"]):
-            current["team_plan_revision"] = _COMPAT_MULTI_UNIT_REVISION
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
@@ -301,11 +292,6 @@ def update_unstarted_work_unit(
             )
         index = current["work_units"].index(existing)
         current["work_units"][index] = supplied
-        current["team_plan_revision"] = (
-            _COMPAT_MULTI_UNIT_REVISION
-            if _needs_compat_revision(current["work_units"])
-            else None
-        )
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
@@ -408,13 +394,11 @@ def reopen_rejected_work_unit(
         if unit["state"] != "REJECTED":
             raise WorkGraphError("only REJECTED WorkUnit can be reopened")
         executions = _executions(current, unit_id)
-        if len(executions) >= 2:
-            raise WorkGraphError("fresh Agent attempt limit is exhausted")
         if any(
             item["lifecycle"] not in FRESH_RETRY_EXECUTION_STATES
             for item in executions
         ):
-            raise WorkGraphError("fresh retry requires all prior executions to be settled")
+            raise WorkGraphError("fresh retry requires all retained executions to be settled")
         by_id = {item["unit_id"]: item for item in current["work_units"]}
         unit["state"] = (
             "READY"

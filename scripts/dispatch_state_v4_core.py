@@ -343,7 +343,6 @@ def _validate_executions(
     executions: Any,
     *,
     work_units: Mapping[str, Mapping[str, Any]],
-    active_team_plan_revision: int | None,
 ) -> dict[str, dict[str, Any]]:
     if not isinstance(executions, list):
         raise StatePayloadError("executions must be an array")
@@ -369,16 +368,10 @@ def _validate_executions(
             raise StatePayloadError(f"execution {execution_id} has invalid execution_basis_ref")
         revision = execution["team_plan_revision"]
         if revision is not None and not _strict_int(revision, minimum=1):
-            raise StatePayloadError(f"execution {execution_id} has invalid team_plan_revision")
-        if active_team_plan_revision is None and revision is not None:
-            raise StatePayloadError(f"execution {execution_id} cannot bind a TeamPlan revision without TeamPlan")
-        if active_team_plan_revision is not None and revision is None:
-            raise StatePayloadError(f"execution {execution_id} requires team_plan_revision")
-        if active_team_plan_revision is not None and revision > active_team_plan_revision:
-            raise StatePayloadError(f"execution {execution_id} references a future TeamPlan revision")
+            raise StatePayloadError(f"execution {execution_id} has invalid compatibility revision")
         attempt = execution["attempt_no"]
-        if not _strict_int(attempt, minimum=1) or attempt > 2:
-            raise StatePayloadError(f"execution {execution_id} attempt_no must be 1 or 2")
+        if not _strict_int(attempt, minimum=1):
+            raise StatePayloadError(f"execution {execution_id} attempt_no must be positive")
         attempts_by_unit.setdefault(unit_id, []).append(attempt)
         profile = execution["profile_id"]
         if profile not in PROFILE_CONTRACT:
@@ -418,8 +411,8 @@ def _validate_executions(
             raise StatePayloadError(f"execution {execution_id} must use canonical workspace in V4.0.0")
         if not _strict_int(execution["control_epoch"]):
             raise StatePayloadError(f"execution {execution_id} has invalid control_epoch")
-        if not _strict_int(execution["followup_count"]) or execution["followup_count"] > 1:
-            raise StatePayloadError(f"execution {execution_id} followup_count must be 0 or 1")
+        if not _strict_int(execution["followup_count"]):
+            raise StatePayloadError(f"execution {execution_id} has invalid followup_count")
         if execution["failure_origin"] not in FAILURE_ORIGINS:
             raise StatePayloadError(f"execution {execution_id} has invalid failure_origin")
         if execution["blocker"] not in TASK_BLOCKERS:
@@ -443,9 +436,8 @@ def _validate_executions(
         by_id[execution_id] = execution
 
     for unit_id, attempts in attempts_by_unit.items():
-        ordered = sorted(attempts)
-        if ordered != list(range(1, len(ordered) + 1)) or len(ordered) != len(set(ordered)):
-            raise StatePayloadError(f"work unit {unit_id} execution attempts must be contiguous from 1")
+        if len(attempts) != len(set(attempts)) or attempts != sorted(attempts):
+            raise StatePayloadError(f"work unit {unit_id} execution attempts must be unique and increasing")
     return by_id
 
 
@@ -546,6 +538,7 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
     if not isinstance(value, list):
         raise StatePayloadError("accounting_refs must be an array")
     refs: set[str] = set()
+    history_units: set[str] = set()
     for index, event in enumerate(value):
         if not isinstance(event, dict) or not _nonempty(event.get("ref")):
             raise StatePayloadError(f"accounting_refs[{index}] requires stable ref")
@@ -553,7 +546,8 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
         if ref in refs:
             raise StatePayloadError("accounting_refs must contain unique stable refs")
         refs.add(ref)
-        if event.get("kind") == "host_observation":
+        kind = event.get("kind")
+        if kind == "host_observation":
             required = {
                 "ref",
                 "kind",
@@ -573,6 +567,57 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
                 raise StatePayloadError("host_observation has invalid lease_epoch")
             if event["lifecycle"] not in EXECUTION_STATES:
                 raise StatePayloadError("host_observation has invalid lifecycle")
+        elif kind == "execution_history":
+            required = {
+                "ref",
+                "kind",
+                "unit_id",
+                "compacted_attempts",
+                "max_attempt_no",
+                "last_execution_id",
+                "last_lifecycle",
+                "last_basis_ref",
+                "last_followup_count",
+            }
+            if set(event) != required:
+                raise StatePayloadError("execution_history accounting ref has invalid fields")
+            unit_id = event["unit_id"]
+            if not _nonempty(unit_id) or unit_id in history_units:
+                raise StatePayloadError("execution_history requires one unique record per WorkUnit")
+            history_units.add(unit_id)
+            if not _strict_int(event["compacted_attempts"], minimum=1):
+                raise StatePayloadError("execution_history compacted_attempts must be positive")
+            if not _strict_int(event["max_attempt_no"], minimum=1):
+                raise StatePayloadError("execution_history max_attempt_no must be positive")
+            if event["max_attempt_no"] < event["compacted_attempts"]:
+                raise StatePayloadError("execution_history max_attempt_no is inconsistent")
+            if not _nonempty(event["last_execution_id"]):
+                raise StatePayloadError("execution_history requires last_execution_id")
+            if event["last_lifecycle"] not in {"COMPLETED", "FAILED", "CLOSED"}:
+                raise StatePayloadError("execution_history requires settled last_lifecycle")
+            if event["last_basis_ref"] is not None and not _nonempty(event["last_basis_ref"]):
+                raise StatePayloadError("execution_history last_basis_ref must be null or non-empty")
+            if not _strict_int(event["last_followup_count"]):
+                raise StatePayloadError("execution_history last_followup_count must be non-negative")
+        elif kind == "recovery_basis":
+            required = {
+                "ref",
+                "kind",
+                "execution_id",
+                "action",
+                "basis_hash",
+                "control_epoch",
+            }
+            if set(event) != required:
+                raise StatePayloadError("recovery_basis accounting ref has invalid fields")
+            if event["execution_id"] not in executions:
+                raise StatePayloadError("recovery_basis references unknown execution")
+            if event["action"] != "FOLLOWUP":
+                raise StatePayloadError("recovery_basis action is unsupported")
+            if not isinstance(event["basis_hash"], str) or HEX64.fullmatch(event["basis_hash"]) is None:
+                raise StatePayloadError("recovery_basis basis_hash must be sha256 hex")
+            if not _strict_int(event["control_epoch"], minimum=1):
+                raise StatePayloadError("recovery_basis control_epoch must be positive")
 
 
 def _serialized_payload(payload: Mapping[str, Any], *, max_bytes: int) -> bytes:
@@ -602,18 +647,16 @@ def validate_state_payload(
         thread_id if thread_id is not None else state["root_session_id"]
     )
     if state["root_session_id"] != identity:
-        raise StatePayloadError("root_session_id does not match CODEX_THREAD_ID")
+        raise StatePayloadError("root_session_id does not match active orchestration identity")
     if state["locale"] not in {"zh", "en"}:
         raise StatePayloadError("locale must be zh or en")
     if not _strict_int(state["state_revision"]):
         raise StatePayloadError("state_revision must be a non-negative integer")
     revision = state["team_plan_revision"]
     if revision is not None and not _strict_int(revision, minimum=1):
-        raise StatePayloadError("team_plan_revision must be null or a positive integer")
+        raise StatePayloadError("team_plan_revision compatibility marker must be null or positive")
     work_units = _validate_work_units(state["work_units"])
-    executions = _validate_executions(
-        state["executions"], work_units=work_units, active_team_plan_revision=revision
-    )
+    executions = _validate_executions(state["executions"], work_units=work_units)
     _validate_writer_lease(
         state["writer_lease"],
         root_session_id=identity,

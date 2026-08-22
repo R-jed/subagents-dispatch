@@ -9,6 +9,7 @@ PendingControl, synthetic acknowledgements, or Host tool-use identifiers.
 from __future__ import annotations
 
 import copy
+import hashlib
 import os
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -20,6 +21,9 @@ import writer_lease_v4 as writer
 
 
 _PROFILE_SPECS = policy_contract.profile_contracts()
+_SETTLED_EXECUTION_STATES = {"COMPLETED", "FAILED", "CLOSED"}
+_HISTORY_KIND = "execution_history"
+_RECOVERY_BASIS_KIND = "recovery_basis"
 
 
 class ExecutionLifecycleError(RuntimeError):
@@ -59,18 +63,99 @@ def _nonempty(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def _validate_fresh_plan_binding(current: Mapping[str, Any], unit: Mapping[str, Any]) -> None:
-    if current.get("team_plan_revision") is not None:
+def _history(current: Mapping[str, Any], unit_id: str) -> dict[str, Any] | None:
+    matches = [
+        event
+        for event in current.get("accounting_refs", [])
+        if isinstance(event, dict)
+        and event.get("kind") == _HISTORY_KIND
+        and event.get("unit_id") == unit_id
+    ]
+    if len(matches) > 1:
+        raise ExecutionLifecycleError("WorkUnit execution history is ambiguous")
+    return matches[0] if matches else None
+
+
+def _retained_executions(current: Mapping[str, Any], unit_id: str) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in current.get("executions", [])
+        if isinstance(item, dict) and item.get("unit_id") == unit_id
+    ]
+
+
+def _next_attempt_no(current: Mapping[str, Any], unit_id: str) -> int:
+    retained = _retained_executions(current, unit_id)
+    greatest = max((int(item.get("attempt_no", 0)) for item in retained), default=0)
+    history = _history(current, unit_id)
+    if history is not None:
+        greatest = max(greatest, int(history["max_attempt_no"]))
+    return greatest + 1
+
+
+def _prior_execution_basis_refs(current: Mapping[str, Any], unit_id: str) -> set[str]:
+    refs = {
+        str(item["execution_basis_ref"])
+        for item in _retained_executions(current, unit_id)
+        if _nonempty(item.get("execution_basis_ref"))
+    }
+    history = _history(current, unit_id)
+    if history is not None and _nonempty(history.get("last_basis_ref")):
+        refs.add(str(history["last_basis_ref"]))
+    return refs
+
+
+def _compact_settled_execution_history(current: dict[str, Any], unit_id: str) -> None:
+    """Retain the newest execution and summarize older safely settled attempts."""
+    retained = sorted(
+        _retained_executions(current, unit_id),
+        key=lambda item: int(item.get("attempt_no", 0)),
+    )
+    if len(retained) <= 1:
         return
-    work_units = current.get("work_units", [])
-    if len(work_units) != 1 or work_units[0].get("unit_id") != unit.get("unit_id"):
-        raise ExecutionLifecycleError(
-            "fresh execution without TeamPlan requires exactly one WorkUnit"
+
+    compacted = retained[:-1]
+    if any(item.get("lifecycle") not in _SETTLED_EXECUTION_STATES for item in compacted):
+        raise ExecutionLifecycleError("only safely settled historical executions can be compacted")
+
+    last = compacted[-1]
+    prior_history = _history(current, unit_id)
+    compacted_count = len(compacted)
+    if prior_history is not None:
+        compacted_count += int(prior_history["compacted_attempts"])
+
+    summary = {
+        "ref": f"execution-history:{unit_id}",
+        "kind": _HISTORY_KIND,
+        "unit_id": unit_id,
+        "compacted_attempts": compacted_count,
+        "max_attempt_no": int(last["attempt_no"]),
+        "last_execution_id": last["execution_id"],
+        "last_lifecycle": last["lifecycle"],
+        "last_basis_ref": last.get("execution_basis_ref"),
+        "last_followup_count": int(last["followup_count"]),
+    }
+
+    compacted_ids = {item["execution_id"] for item in compacted}
+    remaining_refs = [
+        event
+        for event in current["accounting_refs"]
+        if not (
+            isinstance(event, Mapping)
+            and (
+                (event.get("kind") == _HISTORY_KIND and event.get("unit_id") == unit_id)
+                or (
+                    event.get("kind") in {"host_observation", _RECOVERY_BASIS_KIND}
+                    and event.get("execution_id") in compacted_ids
+                )
+            )
         )
-    if unit.get("depends_on"):
-        raise ExecutionLifecycleError(
-            "fresh execution without TeamPlan cannot carry delegated dependencies"
-        )
+    ]
+    remaining_refs.append(summary)
+    current["accounting_refs"] = remaining_refs
+    current["executions"] = [
+        item for item in current["executions"] if item.get("execution_id") not in compacted_ids
+    ]
 
 
 def _fresh_execution_state_is_eligible(
@@ -88,6 +173,14 @@ def _fresh_execution_state_is_eligible(
     return False
 
 
+def _require_no_conflicting_writer(current: Mapping[str, Any]) -> None:
+    lease = current.get("writer_lease")
+    if isinstance(lease, Mapping) and lease.get("state") in state.WRITER_BLOCKING_STATES:
+        raise ExecutionLifecycleError(
+            "blocking WriterLease must settle before another canonical-workspace execution"
+        )
+
+
 def allocate_execution(
     thread_id: str,
     *,
@@ -101,7 +194,7 @@ def allocate_execution(
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Allocate one provisional fresh activation and reserve writer ownership atomically."""
+    """Allocate one evidence-bound fresh activation and reserve writer ownership atomically."""
     if profile_id not in _PROFILE_SPECS:
         raise ExecutionLifecycleError("profile_id is outside fixed V4 profiles")
     if not isinstance(execution_id, str) or not execution_id.strip():
@@ -119,42 +212,32 @@ def allocate_execution(
 
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
-        _validate_fresh_plan_binding(current, unit)
         if any(item["execution_id"] == execution_id for item in current["executions"]):
             raise ExecutionLifecycleError("execution_id is already present")
         if any(item["native_task_name"] == native_task_name for item in current["executions"]):
             raise ExecutionLifecycleError("native_task_name is already present")
-        prior = [item for item in current["executions"] if item["unit_id"] == unit_id]
+
+        prior = _retained_executions(current, unit_id)
         if not _fresh_execution_state_is_eligible(unit, prior):
             raise ExecutionLifecycleError(
-                "fresh execution requires READY work or a settled unresolved current execution"
+                "fresh execution requires READY work or a safely settled unresolved current execution"
             )
-        attempt_no = len(prior) + 1
-        if attempt_no > 2:
-            raise ExecutionLifecycleError("fresh Agent attempt limit is exhausted")
-        if any(item["lifecycle"] not in {"COMPLETED", "FAILED", "CLOSED"} for item in prior):
+        if any(item["lifecycle"] not in _SETTLED_EXECUTION_STATES for item in prior):
             raise ExecutionLifecycleError("prior fresh attempt is not settled")
 
+        _require_no_conflicting_writer(current)
+
+        attempt_no = _next_attempt_no(current, unit_id)
         basis_ref = execution_basis_ref
-        if prior:
-            prior_basis_refs = {
-                item.get("execution_basis_ref")
-                for item in prior
-                if _nonempty(item.get("execution_basis_ref"))
-            }
+        if attempt_no == 1:
             if basis_ref is None:
-                if unit.get("state") == "READY" and not prior_basis_refs:
-                    basis_ref = f"legacy-reopen:{execution_id}"
-                else:
-                    raise ExecutionLifecycleError(
-                        "fresh retry requires a new execution_basis_ref"
-                    )
-            if basis_ref in prior_basis_refs:
-                raise ExecutionLifecycleError(
-                    "fresh retry execution_basis_ref must differ from prior attempts"
-                )
+                basis_ref = f"initial:{execution_id}"
         elif basis_ref is None:
-            basis_ref = f"initial:{execution_id}"
+            raise ExecutionLifecycleError("fresh retry requires a new execution_basis_ref")
+        if basis_ref in _prior_execution_basis_refs(current, unit_id):
+            raise ExecutionLifecycleError(
+                "fresh retry execution_basis_ref must differ from retained recovery evidence"
+            )
 
         if granted_authority not in state.MUTATION_AUTHORITIES:
             raise ExecutionLifecycleError("granted_authority is invalid")
@@ -166,6 +249,14 @@ def allocate_execution(
             raise ExecutionLifecycleError("granted write scope exceeds WorkUnit ceiling")
         if granted_authority == "none" and scope:
             raise ExecutionLifecycleError("read-only execution requires empty write scope")
+        if granted_authority == "none" and writer_lease_id is not None:
+            raise ExecutionLifecycleError("read-only fresh execution cannot request WriterLease")
+        if granted_authority != "none" and (
+            not isinstance(writer_lease_id, str) or not writer_lease_id.strip()
+        ):
+            raise ExecutionLifecycleError("writable fresh execution requires writer_lease_id")
+
+        _compact_settled_execution_history(current, unit_id)
 
         execution = {
             "execution_id": execution_id,
@@ -191,16 +282,9 @@ def allocate_execution(
         current["executions"].append(execution)
         unit["state"] = "EXECUTING"
 
-        lease = current.get("writer_lease")
-        if granted_authority == "none":
-            if writer_lease_id is not None:
-                raise ExecutionLifecycleError("read-only fresh execution cannot request WriterLease")
-        else:
-            if not isinstance(writer_lease_id, str) or not writer_lease_id.strip():
-                raise ExecutionLifecycleError("writable fresh execution requires writer_lease_id")
-            if isinstance(lease, Mapping) and lease.get("state") in state.WRITER_BLOCKING_STATES:
-                raise ExecutionLifecycleError("canonical workspace already has a managed writer")
-            lease_epoch = 1 if lease is None else lease["lease_epoch"] + 1
+        if granted_authority != "none":
+            previous_lease = current.get("writer_lease")
+            lease_epoch = 1 if previous_lease is None else previous_lease["lease_epoch"] + 1
             current["writer_lease"] = {
                 "lease_id": writer_lease_id,
                 "lease_epoch": lease_epoch,
@@ -354,15 +438,23 @@ def _reserve_writer_for_reactivation(
     }
 
 
+def _followup_basis_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def prepare_same_child_followup(
     thread_id: str,
     *,
     execution_id: str,
     tool_input: Mapping[str, Any],
+    correction_basis_ref: str,
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Advance the same execution generation for its single focused correction."""
+    """Advance the same execution only for a new, explicit correction basis."""
+    if not _nonempty(correction_basis_ref):
+        raise ExecutionLifecycleError("FOLLOWUP requires a non-empty correction_basis_ref")
+    basis_hash = _followup_basis_hash(correction_basis_ref)
     prepared: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
@@ -370,28 +462,46 @@ def prepare_same_child_followup(
         _same_child_unit_is_mutable(current, execution)
         if execution["lifecycle"] != "COMPLETED":
             raise ExecutionLifecycleError("same-child FOLLOWUP requires COMPLETED execution")
-        if execution["followup_count"] >= 1:
-            raise ExecutionLifecycleError("focused same-child followup budget is exhausted")
         _validate_target(tool_input, target=execution["native_task_name"], message_required=True)
+        if any(
+            isinstance(event, Mapping)
+            and event.get("kind") == _RECOVERY_BASIS_KIND
+            and event.get("execution_id") == execution_id
+            and event.get("action") == "FOLLOWUP"
+            and event.get("basis_hash") == basis_hash
+            for event in current.get("accounting_refs", [])
+        ):
+            raise ExecutionLifecycleError("same-child FOLLOWUP correction basis was already used")
         if execution["granted_authority"] != "none":
             lease_id = writer_lease_id
             if not isinstance(lease_id, str) or not lease_id.strip():
                 lease_id = f"lease-followup-{execution_id}-{execution['control_epoch'] + 1}"
             _reserve_writer_for_reactivation(current, execution, lease_id)
         execution["control_epoch"] += 1
-        execution["followup_count"] = 1
+        execution["followup_count"] += 1
         execution["lifecycle"] = "SPAWN_PENDING"
         execution["failure_origin"] = "none"
         execution["blocker"] = "none"
         execution["quarantine_reason"] = None
         unit = _unit(current, execution["unit_id"])
         unit["state"] = "EXECUTING"
+        current["accounting_refs"].append(
+            {
+                "ref": f"recovery-basis:{execution_id}:FOLLOWUP:{basis_hash}",
+                "kind": _RECOVERY_BASIS_KIND,
+                "execution_id": execution_id,
+                "action": "FOLLOWUP",
+                "basis_hash": basis_hash,
+                "control_epoch": execution["control_epoch"],
+            }
+        )
         prepared.update(
             {
                 "operation": "FOLLOWUP",
                 "execution_id": execution_id,
                 "tool_input": copy.deepcopy(dict(tool_input)),
                 "control_epoch": execution["control_epoch"],
+                "correction_basis_hash": basis_hash,
             }
         )
 
