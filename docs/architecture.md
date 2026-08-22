@@ -100,7 +100,7 @@ Recognized success binds observed child identity and lifecycle. A recognized pre
 
 FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch` before a later Host generation may become current. Writable reactivation reserves or retains WriterLease first.
 
-STEER targets a currently RUNNING child through the native followup primitive without changing lifecycle generation.
+STEER targets a currently RUNNING child through the current V2 `followup_task` primitive without creating a replacement child or changing the ExecutionBinding generation. Release qualification requires post-guidance evidence that the original child consumed the guidance; successful tool-call acceptance alone is insufficient proof of application.
 
 INTERRUPT requests native interruption. The call result alone never releases WriterLease. Current-generation Host settlement is required before writer transfer or takeover.
 
@@ -169,14 +169,16 @@ The Native Core Host campaign is:
 ```text
 N0 exact role / model / effort / fork_turns
 N1 managed child collaboration containment
-N2 fresh spawn success and identity binding
-N3 explicit capacity rejection with no materialization
-N4 same-child followup and continue
+N2 canonical task address plus Host-thread identity evidence binding
+N3 Host admission rejection with no child identity or resident runtime materialization
+N4 RUNNING Steer via followup_task plus same-child correction and continue
 N5 interrupt and settlement observation
 N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and effective sandbox truth
 ```
+
+N4 requires evidence that the Steer stays on the original Host child, that no replacement identity materializes, and that the same child consumes the guidance while `ExecutionBinding`, `attempt_no`, `control_epoch`, and `followup_count` remain unchanged. Correction and Continue remain same-child controls and do not create fresh attempts.
 
 Repository CI supports delivery by catching regressions. It cannot substitute for real Host behavior, installed-product checks, or Main acceptance semantics.
 
