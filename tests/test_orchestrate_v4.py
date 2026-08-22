@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 POLICY = ROOT / "contracts" / "policy.json"
+ORCHESTRATE_SKILL = ROOT / "skills" / "orchestrate" / "SKILL.md"
 
 
 def load_module(name: str, filename: str):
@@ -57,10 +58,21 @@ def test_main_selects_one_fixed_profile_explicitly():
     for profile_id in ("reader", "worker", "investigator", "solver", "advisor"):
         selected = orchestrate.select_profile(profile_id=profile_id, intent="bounded work")
         assert selected["profile_id"] == profile_id
+        assert selected["agent_type"] == roles[profile_id]["agent_type"]
         assert selected["model"] == roles[profile_id]["model"]
         assert selected["effort"] == roles[profile_id]["effort"]
     with pytest.raises(orchestrate.OrchestrateError, match="fixed managed profiles"):
         orchestrate.select_profile(profile_id="automatic-best-agent", intent="work")
+
+
+def test_orchestrate_skill_names_every_exact_managed_agent_type():
+    roles = json.loads(POLICY.read_text(encoding="utf-8"))["roles"]
+    text = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
+    for profile_id in ("reader", "worker", "investigator", "solver", "advisor"):
+        assert f"`{roles[profile_id]['agent_type']}`" in text
+    assert "generic Host Agent" in text
+    assert "build_managed_spawn_tool_input" in text
+    assert "prepare_spawn" in text
 
 
 def test_plan_only_requires_explicit_profile_and_never_creates_runtime_state(tmp_path: Path):
