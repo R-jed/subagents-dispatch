@@ -12,6 +12,8 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 CHANGELOG_V3 = ROOT / "CHANGELOG_V3.md"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
+RELEASE_CHECKLIST = ROOT / "docs" / "release-checklist.md"
+ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -58,3 +60,16 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
     assert architecture["host_truth"]["capacity_owner"] == "codex_host"
     assert architecture["host_truth"]["managed_child_collaboration_surface_owner"] == "codex_host"
     assert architecture["host_truth"]["effective_permission_owner"] == "codex_host"
+
+
+def test_human_release_summaries_include_running_steer_gate():
+    smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
+    n4 = next(probe for probe in smoke["required_probes"] if probe["id"] == "N4")
+    assert n4["v2_running_steer_tool"] == "followup_task"
+
+    for path in (RELEASE_CHECKLIST, ARCHITECTURE_DOC):
+        text = path.read_text(encoding="utf-8")
+        assert "N4 RUNNING Steer via followup_task" in text
+        assert "same child" in text
+        assert "consum" in text.lower()
+        assert "tool-call" in text.lower()
