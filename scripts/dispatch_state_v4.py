@@ -103,9 +103,10 @@ def validate_state_payload(
     *,
     thread_id: str | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
-) -> None:
-    _core.validate_state_payload(dict(payload), thread_id=thread_id, max_bytes=max_bytes)
-    _validate_execution_task_bindings(payload)
+) -> dict[str, _Any]:
+    validated = _core.validate_state_payload(dict(payload), thread_id=thread_id, max_bytes=max_bytes)
+    _validate_execution_task_bindings(validated)
+    return validated
 
 
 def load_state(
