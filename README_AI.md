@@ -2,6 +2,8 @@
 
 Current V4 product surface: `Orchestrate` and `Doctor`.
 
+Before changing V4 repository content, read `docs/v4/development-handoff.md`. It is the live development-continuity record for the current candidate, recent remediation history, upstream Codex MultiAgent V2 assumptions, validation state, known risks, and strict next-step ordering. Every repository content change must keep that handoff synchronized. The handoff does not replace the machine-readable contracts or external real-Host evidence.
+
 ## Runtime ownership
 
 Codex Host owns child materialization, lifecycle truth, identity, actual capacity, effective permission state, and managed-child collaboration surface.
