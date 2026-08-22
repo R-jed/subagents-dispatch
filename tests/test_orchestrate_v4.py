@@ -161,3 +161,35 @@ def test_running_steer_is_transient(tmp_path: Path):
     )
     assert prepared["operation"] == "STEER"
     assert state.load_state("thread-control", temp_root=tmp_path) == before
+
+
+def test_completed_correction_threads_explicit_recovery_basis(tmp_path: Path):
+    state = install_running_reader(tmp_path)
+    lifecycle = load_module("orch_lifecycle_correction", "execution_lifecycle_v4.py")
+    completion_basis = lifecycle.fresh_observation_basis(
+        "thread-control", execution_id="exec-1", temp_root=tmp_path
+    )
+    lifecycle.persist_host_observation(
+        "thread-control",
+        basis=completion_basis,
+        host_state="completed",
+        agent_id="agent-1",
+        temp_root=tmp_path,
+    )
+    orchestrate = load_module("orch_correction", "orchestrate_v4.py")
+
+    prepared = orchestrate.prepare_correction(
+        "thread-control",
+        orchestration_id="thread-control",
+        execution_id="exec-1",
+        tool_input={"target": "sd_u1_a1", "message": "Correct the verified edge case."},
+        correction_basis_ref="correction:verified-edge-case",
+        temp_root=tmp_path,
+    )
+
+    assert prepared["operation"] == "FOLLOWUP"
+    current = state.load_state("thread-control", temp_root=tmp_path)
+    assert current is not None
+    execution = next(item for item in current["executions"] if item["execution_id"] == "exec-1")
+    assert execution["lifecycle"] == "SPAWN_PENDING"
+    assert execution["followup_count"] == 1
