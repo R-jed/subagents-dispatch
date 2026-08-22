@@ -234,7 +234,7 @@ def test_phase_status_is_honest_during_or_after_documentation_truth_closure():
     phase = read_json("docs/v4/phase-status.json")
     validation = phase["repository_validation"]
 
-    assert phase["candidate_branch"] == "fix/documentation-truth-closure"
+    assert phase["candidate_branch"] == "v4/rc5-native-core"
     if validation["status"] == "REMEDIATION_REQUIRED":
         assert validation["candidate_sha"] is None
         assert validation["workflow_run_id"] is None
