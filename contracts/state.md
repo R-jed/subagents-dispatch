@@ -93,6 +93,8 @@ execution_basis_ref
 
 `attempt_no` is a positive diagnostic sequence number and has no fixed product ceiling. A fresh retry after attempt 1 requires a new execution basis. `followup_count` is a non-negative diagnostic count and has no fixed product ceiling.
 
+Main assigns every `execution_id` and `native_task_name` once per orchestration lifetime. Neither identity may be reused after its ExecutionBinding is compacted out of the active `executions` array.
+
 `control_epoch` is the generation counter for same-child followup, continue, and interrupt. A Host observation captured against an older epoch is stale and cannot settle the current activation.
 
 Lifecycle values are:
@@ -129,7 +131,7 @@ last_followup_count
 
 Only `COMPLETED`, `FAILED`, or `CLOSED` historical executions may be compacted. The newest retained execution is not compacted by fresh-attempt allocation. Removing a compacted execution also removes Host observation and recovery-basis records that refer only to that execution.
 
-A delayed Host observation for a compacted identity is stale. It cannot recreate the old execution or mutate the current generation.
+Compaction removes retained detail. It does not reset orchestration-lifetime identity uniqueness. A delayed Host observation for a compacted identity is stale. It cannot recreate the old execution or mutate the current generation.
 
 ## WriterLease
 
