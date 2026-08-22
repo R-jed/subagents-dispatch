@@ -75,6 +75,16 @@ def _require_current_execution(
     return execution
 
 
+def _require_installable_unit(unit: Mapping[str, Any]) -> None:
+    if unit.get("state") not in {"BLOCKED", "READY"}:
+        raise WorkGraphError("new WorkUnit requires BLOCKED or READY state")
+    if any(
+        unit.get(field) is not None
+        for field in ("accepted_result_ref", "accepted_execution_id", "accepted_control_epoch")
+    ):
+        raise WorkGraphError("new WorkUnit cannot carry accepted result bindings")
+
+
 def make_work_unit(
     *,
     unit_id: str,
@@ -171,40 +181,33 @@ def install_single_work_unit(
     unit: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    supplied = copy.deepcopy(dict(unit))
-    if supplied.get("depends_on") != []:
-        raise WorkGraphError("single WorkUnit path cannot carry a dependency")
-    if supplied.get("state") != "READY":
-        raise WorkGraphError("single WorkUnit path requires a READY WorkUnit")
-
-    def mutate(current: dict[str, Any]) -> None:
-        if current["team_plan_revision"] is not None:
-            raise WorkGraphError("single WorkUnit path cannot attach to TeamPlan")
-        if current["work_units"] or current["executions"]:
-            raise WorkGraphError("single WorkUnit can only be installed into an empty orchestration")
-        if current["writer_lease"] is not None:
-            raise WorkGraphError("single WorkUnit requires no WriterLease")
-        current["work_units"] = [supplied]
-
-    return state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    """Compatibility wrapper for callers that still install one WorkUnit."""
+    return install_work_graph(
+        thread_id,
+        units=[unit],
+        team_plan_revision=None,
+        temp_root=temp_root,
+    )
 
 
 def install_work_graph(
     thread_id: str,
     *,
-    team_plan_revision: int,
     units: Sequence[Mapping[str, Any]],
+    team_plan_revision: int | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    if (
+    if team_plan_revision is not None and (
         not isinstance(team_plan_revision, int)
         or isinstance(team_plan_revision, bool)
         or team_plan_revision < 1
     ):
-        raise WorkGraphError("team_plan_revision must be a positive integer")
+        raise WorkGraphError("team_plan_revision must be null or a positive integer")
     supplied = copy.deepcopy([dict(unit) for unit in units])
     if not supplied:
         raise WorkGraphError("Work Graph must contain at least one WorkUnit")
+    for unit in supplied:
+        _require_installable_unit(unit)
 
     def mutate(current: dict[str, Any]) -> None:
         if current["work_units"] or current["executions"]:
@@ -213,6 +216,62 @@ def install_work_graph(
             raise WorkGraphError("initial Work Graph requires no WriterLease")
         current["team_plan_revision"] = team_plan_revision
         current["work_units"] = supplied
+        refreshed = refresh_dependency_states(current)
+        current["work_units"] = refreshed["work_units"]
+
+    return state.mutate_state(thread_id, mutate, temp_root=temp_root)
+
+
+def append_work_units(
+    thread_id: str,
+    *,
+    units: Sequence[Mapping[str, Any]],
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Append new responsibilities to a live Work Graph without rewriting existing units."""
+    supplied = copy.deepcopy([dict(unit) for unit in units])
+    if not supplied:
+        raise WorkGraphError("append requires at least one WorkUnit")
+    for unit in supplied:
+        _require_installable_unit(unit)
+
+    def mutate(current: dict[str, Any]) -> None:
+        if current.get("team_plan_revision") is not None:
+            raise WorkGraphError("append is unavailable while legacy TeamPlan truth is active")
+        existing_ids = {item["unit_id"] for item in current["work_units"]}
+        supplied_ids = [item.get("unit_id") for item in supplied]
+        if len(supplied_ids) != len(set(supplied_ids)):
+            raise WorkGraphError("appended WorkUnits must have unique unit_id values")
+        if any(unit_id in existing_ids for unit_id in supplied_ids):
+            raise WorkGraphError("appended WorkUnit unit_id already exists")
+        current["work_units"].extend(supplied)
+        refreshed = refresh_dependency_states(current)
+        current["work_units"] = refreshed["work_units"]
+
+    return state.mutate_state(thread_id, mutate, temp_root=temp_root)
+
+
+def update_unstarted_work_unit(
+    thread_id: str,
+    *,
+    unit_id: str,
+    unit: Mapping[str, Any],
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Replace responsibility semantics only before the WorkUnit has any execution history."""
+    supplied = copy.deepcopy(dict(unit))
+    if supplied.get("unit_id") != unit_id:
+        raise WorkGraphError("replacement WorkUnit must preserve unit_id")
+    _require_installable_unit(supplied)
+
+    def mutate(current: dict[str, Any]) -> None:
+        if current.get("team_plan_revision") is not None:
+            raise WorkGraphError("unstarted WorkUnit update is unavailable while legacy TeamPlan truth is active")
+        existing = _unit(current, unit_id)
+        if _executions(current, unit_id):
+            raise WorkGraphError("WorkUnit responsibility is frozen after ExecutionBinding creation")
+        index = current["work_units"].index(existing)
+        current["work_units"][index] = supplied
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
