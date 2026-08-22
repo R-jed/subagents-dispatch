@@ -108,8 +108,8 @@
     {
       "id": "five-independent-readers-queued",
       "category": "adaptive_parallelism",
-      "prompt": "Map five independent read-only subsystems. Respect the Native Core initial/normal managed fanout ceilings and queue work that does not fit the current product batch.",
-      "expected": {"ready_dependencies": 5, "initial_managed_children_max": 2, "product_managed_children_max": 3, "queue_remainder": true, "unknown_host_capacity_blocks_bounded_spawn": false}
+      "prompt": "Map five independent read-only subsystems. Respect the Native Core managed child product ceiling and queue work that does not fit the current safe batch.",
+      "expected": {"ready_dependencies": 5, "product_managed_children_max": 4, "queue_remainder": true, "unknown_host_capacity_blocks_bounded_spawn": false}
     },
     {
       "id": "shared-workspace-worker-solver-conflict",
