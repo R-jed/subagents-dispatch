@@ -28,11 +28,11 @@ def test_release_version_identity_uses_exact_marketplace_checkout_as_plugin_sour
     assert source == {"source": "local", "path": "./"}
 
 
-def test_latest_changelog_matches_release_version_and_keeps_v3_history():
+def test_latest_changelog_matches_release_version_without_legacy_v3_file():
     text = CHANGELOG.read_text(encoding="utf-8")
     match = re.search(r"^## \[([^\]]+)\]", text, flags=re.MULTILINE)
     assert match and match.group(1) == current_version()
-    assert CHANGELOG_V3.is_file()
+    assert not CHANGELOG_V3.exists()
 
 
 def test_host_release_gate_matches_native_core_architecture_campaign():
