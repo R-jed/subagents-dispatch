@@ -158,7 +158,10 @@
     "durable_child_identity_owner": "codex_host",
     "host_activity_binds_thread_identity": true,
     "host_thread_identity_field": "agent_id",
+    "release_campaign_requires_thread_identity_binding": true,
     "resident_runtime_owner": "codex_host",
+    "runtime_agent_id_persistence_required": false,
+    "runtime_control_address_when_agent_id_unavailable": "native_task_name",
     "spawn_result_binds_canonical_task_address": true,
     "task_address_is_not_thread_identity": true
   },
