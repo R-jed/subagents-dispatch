@@ -148,17 +148,17 @@
   "host_truth": {
     "capacity_owner": "codex_host",
     "child_identity_owner": "codex_host",
-    "durable_child_identity_owner": "codex_host",
-    "effective_permission_owner": "codex_host",
     "lifecycle_owner": "codex_host",
-    "managed_child_collaboration_surface_owner": "codex_host",
     "materialization_owner": "codex_host",
-    "resident_runtime_owner": "codex_host"
+    "managed_child_collaboration_surface_owner": "codex_host",
+    "effective_permission_owner": "codex_host"
   },
   "identity_binding": {
     "canonical_native_task_address_field": "native_task_name",
-    "host_thread_identity_field": "agent_id",
+    "durable_child_identity_owner": "codex_host",
     "host_activity_binds_thread_identity": true,
+    "host_thread_identity_field": "agent_id",
+    "resident_runtime_owner": "codex_host",
     "spawn_result_binds_canonical_task_address": true,
     "task_address_is_not_thread_identity": true
   },
@@ -236,9 +236,9 @@
     "host_campaign": [
       "N0_route_model_effort_fork_turns",
       "N1_child_collaboration_containment",
-      "N2_spawn_task_and_thread_identity_binding",
-      "N3_host_admission_rejection_no_materialization",
-      "N4_steer_followup_continue_same_child",
+      "N2_spawn_identity_binding",
+      "N3_capacity_rejection_no_materialization",
+      "N4_followup_continue_same_child",
       "N5_interrupt_settlement",
       "N6_writer_takeover_settlement",
       "N7_rollout_reconciliation_privacy",
@@ -272,11 +272,12 @@
   "scheduler": {
     "automatic_launch_actions": false,
     "fixed_acceptance_backpressure": false,
+    "host_capacity_internal_v2_semantics": "root_inclusive_internal_v2_session_limit",
     "host_capacity_normalization": "public_spawned_agent_limit_plus_primary",
     "host_capacity_public_config_includes_primary": false,
     "host_capacity_public_config_key": "agents.max_concurrent_threads_per_session",
     "host_capacity_requires_runtime_binding": true,
-    "host_capacity_semantics": "root_inclusive_internal_v2_session_limit",
+    "host_capacity_semantics": "session_concurrency_includes_primary",
     "host_rejection_cause_may_be_ambiguous": true,
     "host_rejection_is_capacity_authority": true,
     "known_host_session_capacity_is_advisory_ceiling": true,
