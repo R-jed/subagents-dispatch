@@ -31,17 +31,16 @@
       "id": "N1",
       "operation": "managed child collaboration containment",
       "platform": "any",
-      "requires": [
-        "all five managed profiles disable child Agent creation",
-        "all five managed profiles disable multi_agent_v2",
-        "managed child collaboration tools are absent in the target Host"
+      "accepted_grandchild_outcomes": [
+        "collaboration_tool_absent",
+        "host_authoritative_deny"
       ],
-      "compatibility_boundary": {
-        "field": "features.multi_agent_v2=false",
-        "status": "retain_until_target_host_evidence",
-        "reason": "The exact target Host has not yet proven whether agents.enabled=false alone removes managed child collaboration capability.",
-        "removal_condition": "During N1, prove on the recorded target Host build that profiles without features.multi_agent_v2 still expose no managed child collaboration tools; then remove the field and its Doctor/N1 requirements together in a new exact candidate."
-      }
+      "requires": [
+        "record the effective child collaboration surface for every fixed managed profile",
+        "an adversarial grandchild-creation probe ends with collaboration tool absence or an authoritative Host denial",
+        "no descendant child identity materializes from the denied or unavailable grandchild attempt",
+        "profile configuration behavioral instructions and project max_depth are recorded as intent only and cannot satisfy containment evidence"
+      ]
     },
     {
       "id": "N2",
@@ -71,7 +70,8 @@
       "requires": [
         "followup targets the original native child identity",
         "continuation after interruption preserves the same ExecutionBinding identity",
-        "fresh-attempt budget is unchanged by same-child control"
+        "same-child control does not create a fresh attempt",
+        "focused correction uses a changed correction basis rather than a fixed correction-count budget"
       ]
     },
     {
@@ -111,7 +111,8 @@
       "requires": [
         "fresh Advisor review is bound to the exact candidate artifact",
         "artifact mutation invalidates the prior review verdict",
-        "effective target Host sandbox and permissions are reported from evidence rather than inferred from profile request",
+        "effective Advisor sandbox and permission state are Host-observed and satisfy the strict read-only Final Review boundary",
+        "requested profile sandbox and behavioral mutation authority are not promoted to effective Host proof",
         "known broader Host permission behavior is disclosed as a release limitation when present"
       ]
     }

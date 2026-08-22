@@ -84,6 +84,10 @@ fork_turns: none
 
 Fresh context is required even when the main session is already Sol, Sol Solver implemented part of the work, or Sol Advisor previously answered a planning question. Those uses provide capability, not independent acceptance of the final integrated candidate.
 
+Strict Final Review also requires current Host evidence that the Advisor's effective sandbox and permission state satisfy the read-only boundary. `sandbox_mode = read-only`, mutation authority `none`, profile feature flags, and developer instructions are configured or behavioral intent. They do not prove the effective Host boundary.
+
+If the required Advisor permission evidence is unavailable, return `INSUFFICIENT_EVIDENCE` and keep review pending. If the Host positively shows a broader write-capable permission state, strict Final Review is unavailable for that Host/candidate and no `ship` verdict may satisfy this gate.
+
 Give the reviewer compressed facts, the actual candidate, acceptance conditions, verification results, and known residual risks. A Handoff Capsule may contribute main-session-accepted facts/evidence, but the final reviewer still receives the exact current candidate and must not rely on stale capsule state. Do not pass raw child transcripts, dead-end narration, or tell the reviewer that another actor already believes the candidate is correct.
 
 Return:
@@ -107,7 +111,8 @@ Completion requires:
 - reviewed artifact id matches current candidate;
 - required deterministic/reproducible verification still passes;
 - artifact verification still matches after review;
-- the main session still finds the user acceptance conditions satisfied.
+- the main session still finds the user acceptance conditions satisfied;
+- effective Advisor read-only evidence remains valid for strict Final Review.
 
 ### fix-first
 
