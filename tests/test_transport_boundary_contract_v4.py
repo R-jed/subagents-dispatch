@@ -42,6 +42,8 @@ def test_native_core_keeps_main_policy_separate_from_host_transport_truth():
     assert architecture["reconciliation"]["mode"] == "main_driven_native_host_reconciliation"
     assert architecture["reconciliation"]["observation_basis"] == [
         "execution_id",
+        "unit_id",
+        "attempt_no",
         "control_epoch",
         "lease_epoch",
     ]
