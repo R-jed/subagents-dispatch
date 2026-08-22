@@ -37,7 +37,7 @@ def evidence(*, capacity: int | None = 4, fork_turns_none: bool = True) -> dict:
             "interrupt_agent",
         ],
         "fork_turns_none": fork_turns_none,
-        "max_spawned_threads": capacity,
+        "max_concurrent_threads_per_session": capacity,
     }
 
 
@@ -54,8 +54,8 @@ def test_complete_native_evidence_normalizes_to_execution_ready_snapshot():
         "followup": True,
         "interrupt": True,
     }
-    assert snapshot["capacity_excludes_primary"] is True
-    assert snapshot["max_spawned_threads"] == 4
+    assert snapshot["capacity_includes_primary"] is True
+    assert snapshot["max_concurrent_threads_per_session"] == 4
 
 
 def test_public_v2_agent_status_union_is_normalized_without_assuming_agent_id():
@@ -113,7 +113,7 @@ def test_unknown_host_capacity_stays_unknown_instead_of_inventing_default():
     snapshot = module.normalize_host_capabilities(evidence(capacity=None))
 
     assert snapshot["execution_ready"] is True
-    assert snapshot["max_spawned_threads"] is None
+    assert snapshot["max_concurrent_threads_per_session"] is None
 
 
 def test_malformed_or_partial_evidence_is_rejected():
@@ -124,7 +124,7 @@ def test_malformed_or_partial_evidence_is_rejected():
         module.normalize_host_capabilities(payload)
 
     payload = evidence()
-    payload["max_spawned_threads"] = 0
+    payload["max_concurrent_threads_per_session"] = 0
     with pytest.raises(module.HostCapabilityError, match="positive integer"):
         module.normalize_host_capabilities(payload)
 
