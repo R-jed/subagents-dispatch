@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0-native-core-1",
+  "schema_version": "4.0-native-core-2",
   "surface": {
     "public_skills": ["orchestrate", "doctor"],
     "orchestrate_control_intents": ["preview", "status", "steer", "takeover", "cancel", "continue", "correction"]
@@ -60,7 +60,7 @@
       "id": "orchestrate-correction-bounded-followup",
       "selected_skill": "orchestrate",
       "control_intent": "correction",
-      "expected": {"same_execution_binding": true, "focused_followup_limit": 1, "material_scope_change_requires_recompile": true}
+      "expected": {"same_execution_binding": true, "correction_basis_required": true, "fixed_followup_count_ceiling": false, "material_scope_change_requires_recompile": true}
     },
     {
       "id": "orchestrate-spawn-result-ambiguity",
