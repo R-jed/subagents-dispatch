@@ -49,6 +49,7 @@
       "requires": [
         "spawn success returns the canonical native task address for the child",
         "authoritative Host activity or lifecycle evidence binds the underlying child thread identity to that canonical task address",
+        "the canonical native task address and bound Host thread identity together establish the native child identity used by the ExecutionBinding",
         "Main binds both the canonical native task address and Host thread identity to the intended ExecutionBinding without conflating them",
         "native task address and selected managed profile match the assignment"
       ]
