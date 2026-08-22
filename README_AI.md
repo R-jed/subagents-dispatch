@@ -4,7 +4,7 @@ Current V4 product surface: `Orchestrate` and `Doctor`.
 
 ## Runtime ownership
 
-Codex Host owns child materialization, lifecycle truth, identity, and actual capacity.
+Codex Host owns child materialization, lifecycle truth, identity, actual capacity, effective permission state, and managed-child collaboration surface.
 
 Main owns user intent, decomposition, explicit fixed-profile selection, dispatch judgment, integration, WorkUnit acceptance, irreversible external side effects, and the final response.
 
@@ -37,6 +37,8 @@ interrupt return alone never releases WriterLease
 ```
 
 Four children is a safety ceiling, not a target. Known Host capacity may reduce available slots. Unknown capacity stays unknown. Deterministic helpers report constraints and status; they do not rank WorkUnits, apply a fixed backlog threshold, or choose automatic launch actions.
+
+Delegation depth 1 is a project policy. It does not prove V2 Host containment. Profile configuration records leaf intent only; effective managed-child collaboration surface remains a Host fact.
 
 Independent read-only work may overlap only when effective read-only behavior and responsibility isolation are verified. The canonical mutable workspace has one active managed WriterLease. Parallel writers require Host-verifiable isolated workspaces and clear integration boundaries.
 
@@ -73,7 +75,7 @@ contracts/final-review.md
   exact-candidate independent review
 ```
 
-The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. The candidate-bound real Host release campaign is `docs/v4/host-smoke.json`.
+The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. The candidate-bound real Host release campaign is `docs/v4/host-smoke.json`. `docs/v4/host-capability-matrix.json` is pre-release feasibility evidence only and has no release authority.
 
 V3 orchestration state is legacy evidence. Unresolved live V3 state is never silently migrated into V4 execution.
 

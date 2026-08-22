@@ -76,7 +76,7 @@ subagents_dispatch_solver        -> gpt-5.6-sol   / high / bounded source write 
 subagents_dispatch_advisor       -> gpt-5.6-sol   / high / mutation none
 ```
 
-Managed child profiles disable child multi-agent capability. Profile configuration proves intent only; observed model, effort and sandbox require Host evidence when those facts are material.
+Managed child profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. Profile configuration records intent only. Effective child collaboration surface, model, effort and sandbox are Host facts when those facts are material. Delegation that requires leaf containment therefore depends on observed collaboration-tool absence or an authoritative Host denial with no descendant identity materialized.
 
 ## Capacity and dispatch
 
