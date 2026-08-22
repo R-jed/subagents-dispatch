@@ -110,6 +110,7 @@
     }
   },
   "execution": {
+    "control_epoch_scope": "execution_binding",
     "attempt_no_is_diagnostic": true,
     "fresh_retry_authorization": "new_execution_basis_and_safe_settlement",
     "history_compaction": "older_safely_settled_attempts",
