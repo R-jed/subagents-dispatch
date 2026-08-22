@@ -12,7 +12,7 @@ from __future__ import annotations
 import os as _os
 import re as _re
 from pathlib import Path as _Path
-from typing import Any as _Any, Mapping as _Mapping
+from typing import Any as _Any, Callable as _Callable, Mapping as _Mapping
 
 import dispatch_state_v4_core as _core
 import state_storage as _storage
@@ -47,7 +47,6 @@ scopes_within = _core.scopes_within
 current_execution_for_unit = _core.current_execution_for_unit
 new_state = _core.new_state
 state_path = _core.state_path
-mutate_state = _core.mutate_state
 observation_basis = _core.observation_basis
 reconcile_execution_observation = _core.reconcile_execution_observation
 
@@ -119,6 +118,31 @@ def load_state(
     if current is not None:
         _validate_execution_task_bindings(current)
     return current
+
+
+def mutate_state(
+    thread_id: str | None,
+    mutator: _Callable[[dict[str, _Any]], None],
+    *,
+    expected_state_revision: int | None = None,
+    temp_root: str | _os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    now: _Any = None,
+) -> dict[str, _Any]:
+    """Mutate active state while enforcing public generation invariants before persistence."""
+
+    def guarded(updated: dict[str, _Any]) -> None:
+        mutator(updated)
+        _validate_execution_task_bindings(updated)
+
+    return _core.mutate_state(
+        thread_id,
+        guarded,
+        expected_state_revision=expected_state_revision,
+        temp_root=temp_root,
+        max_bytes=max_bytes,
+        now=now,
+    )
 
 
 def create_state_if_absent(
