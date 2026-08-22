@@ -114,7 +114,21 @@ def _compact_settled_execution_history(current: dict[str, Any], unit_id: str) ->
     if len(retained) <= 1:
         return
 
-    compacted = retained[:-1]
+    lease = current.get("writer_lease")
+    pinned_execution_id = (
+        lease.get("owner_id")
+        if isinstance(lease, Mapping)
+        and lease.get("owner_kind") == "execution"
+        and lease.get("state") == "RELEASED"
+        else None
+    )
+    compacted = [
+        item
+        for item in retained[:-1]
+        if item.get("execution_id") != pinned_execution_id
+    ]
+    if not compacted:
+        return
     if any(item.get("lifecycle") not in _SETTLED_EXECUTION_STATES for item in compacted):
         raise ExecutionLifecycleError("only safely settled historical executions can be compacted")
 
