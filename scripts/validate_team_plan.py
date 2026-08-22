@@ -151,7 +151,7 @@ def validate_team_plan_payload(payload: Any) -> dict[str, Any]:
     if not isinstance(source_refs, list) or not all(nonempty_string(item) for item in source_refs):
         errors.append("source_refs must be an array of non-empty strings")
     elif source != "ad_hoc" and not source_refs:
-        errors.append("non_ad_hoc TeamPlan requires source_refs")
+        errors.append("non-ad_hoc TeamPlan requires source_refs")
 
     if not nonempty_string(payload.get("root_goal")):
         errors.append("root_goal must be a non-empty string")
