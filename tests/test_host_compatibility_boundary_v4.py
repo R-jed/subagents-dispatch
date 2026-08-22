@@ -57,6 +57,7 @@ def test_machine_contracts_do_not_restore_retired_phase3_budgets_or_scheduler_po
     )
 
     assert "fresh_agent_attempt_limit" not in architecture["execution"]
+    assert architecture["execution"]["control_epoch_scope"] == "execution_binding"
     assert architecture["execution"]["fresh_retry_authorization"] == "new_execution_basis_and_safe_settlement"
     assert "execution_basis_ref" in architecture["entities"]["ExecutionBinding"]["fields"]
     assert architecture["scheduler"]["selection_owner"] == "main"
