@@ -37,14 +37,15 @@ class SchedulerError(RuntimeError):
 
 def _snapshot_capacity(snapshot: Mapping[str, Any] | None) -> tuple[int | None, bool, list[str]]:
     if snapshot is None:
-        return None, True, []
+        return None, False, ["capability_snapshot"]
     try:
         normalized = host_capabilities.validate_normalized_snapshot(snapshot)
     except host_capabilities.HostCapabilityError as exc:
         raise SchedulerError(str(exc)) from exc
+    capacity = normalized.get("max_concurrent_threads_per_session")
     if normalized.get("execution_ready") is not True:
-        return normalized.get("max_spawned_threads"), False, list(normalized.get("missing", []))
-    return normalized.get("max_spawned_threads"), True, []
+        return capacity, False, list(normalized.get("missing", []))
+    return capacity, True, []
 
 
 def _active_executions(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -69,14 +70,14 @@ def constraint_snapshot(
     current = work_graph.refresh_dependency_states(copy.deepcopy(dict(payload)))
     state.validate_state_payload(current)
 
-    host_capacity, host_ready, host_missing = _snapshot_capacity(capability_snapshot)
+    host_session_capacity, host_ready, host_missing = _snapshot_capacity(capability_snapshot)
     active = _active_executions(current)
     active_count = len(active)
     product_free = max(0, PRODUCT_CHILD_LIMIT - active_count)
     host_free = (
         None
-        if host_capacity is None
-        else max(0, int(host_capacity) - active_count)
+        if host_session_capacity is None
+        else max(0, int(host_session_capacity) - 1 - active_count)
     )
     available_slots = product_free if host_free is None else min(product_free, host_free)
     if not host_ready or plan_only or wakeup_reason == "USER_CANCEL":
@@ -108,7 +109,7 @@ def constraint_snapshot(
         "selection_owner": "main",
         "host_ready": host_ready,
         "host_missing": host_missing,
-        "host_capacity": host_capacity,
+        "host_session_capacity": host_session_capacity,
         "product_child_limit": PRODUCT_CHILD_LIMIT,
         "active_managed_executions": active_count,
         "available_launch_slots": available_slots,
