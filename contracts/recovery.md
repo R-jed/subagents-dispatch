@@ -22,6 +22,8 @@ execution_basis_ref
 
 `unit_id` identifies the stable WorkUnit. `execution_id` identifies one fresh Agent attempt. A fresh retry preserves the WorkUnit, receives a new `execution_id`, increments `attempt_no`, and must carry a new execution basis.
 
+Main must treat every `execution_id` and `native_task_name` as unique for the lifetime of one orchestration. History compaction never authorizes reuse of either identity.
+
 A recognized Host rejection that is proven pre-materialization may roll back the provisional `SPAWN_PENDING` ExecutionBinding. If evidence cannot establish whether a child materialized, preserve `UNKNOWN` and do not issue conflicting replacement work.
 
 ## Execution lifecycle
