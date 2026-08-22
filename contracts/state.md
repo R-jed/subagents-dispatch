@@ -6,32 +6,32 @@ This contract owns short-lived project coordination state for one active V4 Nati
 
 One Main root thread has at most one active top-level subagents-dispatch orchestration.
 
-Codex Native Subagents own native lifecycle truth. The state capsule owns project responsibility, generation, write ownership, and acceptance bookkeeping.
+Codex Host owns native child lifecycle truth. The state capsule owns WorkUnit responsibility, ExecutionBinding generation, WriterLease ownership, acceptance bookkeeping, and bounded recovery evidence.
 
 ## Storage boundary
 
-Runtime state lives under the operating-system temporary directory:
+Runtime state currently lives under the operating-system temporary directory:
 
 ```text
 <OS TEMP>/subagents-dispatch/<CODEX_THREAD_ID>/active.json
 ```
 
-Use a stable Host-provided root thread identity. Do not invent a durable identity from repository path, user text, or another unrelated property. Reject unsafe symlinks, malformed paths, oversized payloads, invalid schema, and non-private POSIX state files. Mutations use the schema-neutral short state lock and atomic replace boundary in `scripts/state_storage.py`.
+Use a stable Host-provided root thread identity. Reject unsafe symlinks, malformed paths, oversized payloads, invalid schema, and non-private POSIX state files. Mutations use the schema-neutral short state lock and atomic replace boundary in `scripts/state_storage.py`.
 
-The repository and user project tree are not orchestration-state stores.
+The repository and user project tree are not orchestration-state stores. Durable Recovery Capsule work is a separate capability and must use the official Plugin data boundary when implemented.
 
 ## Active-state lifecycle boundary
 
 `new_state()` is a pure payload factory. Persistence starts through `create_state_if_absent()`, which acquires the state lock and rejects every existing `active.json`; initialization cannot replace a live, ambiguous, or terminal capsule in place.
 
-A completed orchestration leaves the active capsule in place until `remove_terminal_state()` re-reads it under the same state lock and proves all of the following:
+A completed orchestration leaves the active capsule in place until `remove_terminal_state()` re-reads it under the same state lock and proves:
 
 - every WorkUnit is `ACCEPTED` or `CANCELLED`;
 - no ExecutionBinding is `SPAWN_PENDING`, `RUNNING`, `INTERRUPTED`, or `UNKNOWN`;
 - no WriterLease is `RESERVED`, `HELD`, `REVOKING`, or `UNKNOWN`;
 - an optional expected `state_revision` still matches.
 
-Only then may the active capsule be removed. A new orchestration for the same root thread is created after that removal. There is no supported public overwrite operation for active V4 state.
+Only then may the active capsule be removed.
 
 ## V4 Native Core schema
 
@@ -51,6 +51,8 @@ updated_at
 locale
 ```
 
+`team_plan_revision` is an RC compatibility marker only. It has no planning, routing, dependency, integration-order, or execution-authorization semantics.
+
 There is no `PendingControl`, Hook acknowledgement ledger, capacity token, `OperationIntent`, or `OperationReceipt` in the Native Core state schema.
 
 The capsule must not persist raw prompts, child transcripts, private reasoning, source-file contents, webpages, credentials, secrets, or arbitrary Host tool output. Keep the existing 64 KiB bound.
@@ -61,7 +63,7 @@ WorkUnit owns responsibility and acceptance truth. It records intent, goal, outp
 
 A dependency unlocks only when its predecessor WorkUnit reaches `ACCEPTED`. Host `COMPLETED` alone produces candidate evidence and never unlocks downstream work.
 
-A WorkUnit may reference at most two contiguous fresh execution attempts. A safe recognized pre-materialization rejection may remove a provisional `SPAWN_PENDING` execution before it becomes an attempt.
+One WorkGraph may contain one or many WorkUnits without an independent TeamPlan runtime object.
 
 ## ExecutionBinding
 
@@ -86,7 +88,10 @@ followup_count
 failure_origin
 blocker
 quarantine_reason
+execution_basis_ref
 ```
+
+`attempt_no` is a positive diagnostic sequence number and has no fixed product ceiling. A fresh retry after attempt 1 requires a new execution basis. `followup_count` is a non-negative diagnostic count and has no fixed product ceiling.
 
 `control_epoch` is the generation counter for same-child followup, continue, and interrupt. A Host observation captured against an older epoch is stale and cannot settle the current activation.
 
@@ -104,6 +109,28 @@ CLOSED
 
 `UNKNOWN` requires `runtime_ambiguous` and blocks conflicting progress.
 
+## Bounded execution history
+
+The active state keeps the current ExecutionBinding fully represented. Older safely settled fresh attempts may be compacted into one `execution_history` record per WorkUnit.
+
+An `execution_history` record contains exactly:
+
+```text
+ref
+kind = execution_history
+unit_id
+compacted_attempts
+max_attempt_no
+last_execution_id
+last_lifecycle
+last_basis_ref
+last_followup_count
+```
+
+Only `COMPLETED`, `FAILED`, or `CLOSED` historical executions may be compacted. The newest retained execution is not compacted by fresh-attempt allocation. Removing a compacted execution also removes Host observation and recovery-basis records that refer only to that execution.
+
+A delayed Host observation for a compacted identity is stale. It cannot recreate the old execution or mutate the current generation.
+
 ## WriterLease
 
 WriterLease is a project scheduling invariant for the canonical checkout. It is not an OS lock and does not prove that another same-user process cannot write.
@@ -117,35 +144,41 @@ REVOKING
 UNKNOWN
 ```
 
-Release or transfer requires current-generation Host observation proving the execution is settled. An ambiguous writer observation makes the lease `UNKNOWN`. A later clear current-generation observation may recover the lease to a settleable state. `UNKNOWN` never authorizes transfer.
+Release or transfer requires current-generation Host observation proving the execution is settled. An ambiguous writer observation makes the lease `UNKNOWN`. `UNKNOWN` never authorizes transfer.
+
+Until effective read-only isolation is proven by Host evidence, a blocking canonical WriterLease also blocks starting another managed child in that canonical workspace.
 
 ## Native lifecycle flow
 
 ### Fresh spawn
 
 ```text
-validate responsibility/profile/attempt/writer admission
+validate WorkUnit readiness/profile/authority/writer admission
+-> require a new execution basis for every retry
+-> compact only older safely settled attempts when needed
 -> persist SPAWN_PENDING ExecutionBinding
 -> reserve WriterLease when writable
 -> Main invokes native spawn_agent
 -> reconcile recognized Host result
 ```
 
-Recognized success binds the expected child identity and lifecycle.
-
 A recognized pre-materialization rejection may roll back only the current provisional `SPAWN_PENDING` execution when there is no child identity or Host materialization evidence. An ambiguous result becomes `UNKNOWN`.
 
 ### Same-child activation
 
-Followup and Continue reuse the same ExecutionBinding and advance `control_epoch`. They do not create a fresh attempt.
+FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch`.
 
-Interrupt advances the generation as well. A writing interrupt moves WriterLease to `REVOKING` before Main asks the Host to interrupt. The interrupt call result alone does not release the lease.
+FOLLOWUP requires a non-empty correction basis. State persists only the SHA-256 basis digest in a `recovery_basis` record and rejects an exact replay for that active execution. FOLLOWUP increments `followup_count`.
+
+CONTINUE applies only to an `INTERRUPTED` execution and does not increment `followup_count`.
+
+Interrupt advances the generation as well. A writing interrupt moves WriterLease to `REVOKING` before Main asks the Host to interrupt. The interrupt call return alone does not release the lease.
 
 ## Host observation basis
 
 Main is the trusted coordinator that invokes native tools and feeds observed Host lifecycle data to deterministic project state helpers.
 
-Before a reconciliation-sensitive observation, capture:
+Before reconciliation, capture:
 
 ```text
 execution_id
@@ -153,9 +186,7 @@ control_epoch
 current lease_epoch or null
 ```
 
-The reconciliation helper re-reads authoritative state. If the basis no longer matches, return `stale` and do not mutate the newer generation.
-
-Normal status/recovery may use `list_agents`. Exact rollout inspection is reserved for ambiguous recovery and release attestation. No persisted PreToolUse preparation record is required.
+The helper re-reads authoritative state. If the basis no longer matches, or the referenced execution has already been compacted, return `stale` and do not mutate the newer generation.
 
 Normalize current Host status only into the lifecycle facts the project needs:
 
@@ -173,40 +204,27 @@ Missing identity is uncertainty. It does not prove that a prior writer stopped.
 
 ## Accounting references
 
-`accounting_refs` contains bounded structured evidence facts with a stable unique `ref`. Native Core uses it for recovery-relevant Host observations and other compact accepted evidence that is required by state validation.
+`accounting_refs` contains bounded structured evidence facts with stable unique `ref` values.
 
-A `host_observation` record binds:
+Native Core currently recognizes compact forms for:
 
 ```text
-ref
-kind = host_observation
-execution_id
-control_epoch
-lease_epoch
-lifecycle
+host_observation
+execution_history
+recovery_basis
 ```
 
-Do not add user-facing receipt counters, control history, retry/rework ledgers, or a second request/receipt protocol under `accounting_refs`.
+A `host_observation` binds an active execution generation to observed Host lifecycle. A `recovery_basis` stores only the SHA-256 digest of a same-child correction basis. `execution_history` summarizes safely compacted fresh attempts.
+
+Do not add raw user-facing receipt histories, raw prompts, control transcripts, or another request/receipt protocol under `accounting_refs`.
 
 ## Acceptance truth
 
 Only Main accepts a WorkUnit after verifying the actual candidate.
 
-An accepted WorkUnit must reference its current producing ExecutionBinding and the exact current `control_epoch`. The producer must be `COMPLETED`, or `CLOSED` only when the same generation has a stored Host observation proving it previously completed.
+An accepted WorkUnit must reference its current producing ExecutionBinding and exact current `control_epoch`. The producer must be `COMPLETED`, or `CLOSED` only when the same generation has stored Host evidence proving it previously completed.
 
 Child prose, Host completion, or state transition by itself is insufficient acceptance evidence.
-
-## Simple phase isolation
-
-Because the tested Host did not enforce the requested read-only sandbox for managed read roles:
-
-- managed Reader, Investigator, and Advisor executions may overlap one another when independent;
-- a writable Worker or Solver starts only after managed read-oriented executions have settled;
-- while WriterLease is blocking, no other managed child starts in the canonical checkout;
-- Final Review starts only after the writer settles;
-- `UNKNOWN` counts as active/blocking.
-
-This is scheduler policy. It does not require persisted phase state.
 
 ## Atomicity
 
@@ -214,19 +232,19 @@ State-changing helpers:
 
 1. acquire the short state lock;
 2. re-read authoritative current state;
-3. validate the requested transition against current generation/lease identity;
+3. validate the requested transition against current generation and lease identity;
 4. mutate a copy;
 5. increment `state_revision`;
 6. validate the complete payload;
 7. atomically replace the state file.
 
-Creation and terminal removal use the same lock boundary. Creation checks absence while locked; removal re-reads and proves terminality while locked. Do not hold the state lock while waiting for child work or a Host call.
+Do not hold the state lock while waiting for child work or a Host call.
 
 ## Upgrade boundary
 
 V3.x state is legacy compatibility evidence while V4 remains pre-release. Native Core has no compatibility promise for experimental V4 capsules created by the earlier Hook/PendingControl design.
 
-After the V4 schema cutover, development/release validation starts with fresh V4 state. An old experimental V4 capsule containing removed fields is invalid and requires explicit cleanup/restart. V3.x profile/install ownership migration remains separately supported and tested.
+After the V4 schema cutover, development and release validation start with fresh V4 state. V3.x profile/install ownership migration remains separately supported and tested.
 
 ## Normal completion
 
