@@ -30,23 +30,27 @@
   - Verify: tests derived from current official OpenAI Codex semantics.
   - Files: `scripts/host_capabilities.py`, scheduler/doctor consumers, contracts, tests.
 
-- [x] Truth closure: active contract owner sweep
-  - Acceptance: no active contract gives TeamPlan runtime authority or fixed retry/followup budget semantics.
-  - Verify: contract-owner regression tests and exact-head contract review.
+- [ ] Documentation truth closure: current authority sweep
+  - Acceptance: current contracts/docs consistently describe the two-Skill Orchestrate/Doctor surface, WorkGraph authority, evidence-gated recovery, generation-safe compaction, and current V4 terminology; retired standalone Dispatch/Preview product wording is removed from current-authority prose.
+  - Verify: repository-wide current-authority regression scan plus exact-head review.
 
-- [x] Truth closure: eval migration
-  - Acceptance: current expected-behavior evals use Native Core product rules; historical experiments are explicitly historical and cannot act as current oracle.
-  - Verify: eval loader/tests.
+- [ ] Documentation truth closure: eval migration
+  - Acceptance: current expected-behavior evals use Native Core product rules; unchanged stalled work without new evidence cannot authorize a fresh same-role retry; historical experiment labels cannot act as runtime policy.
+  - Verify: eval loader/tests and direct fixture inspection.
+
+- [ ] Documentation truth closure: history isolation
+  - Acceptance: `docs/history/` has an explicit archive authority boundary and every historical Markdown document declares that it cannot guide current implementation or release decisions.
+  - Verify: archive-marker regression test.
 
 - [x] Truth closure: profile effort single source
   - Acceptance: Terra is `high` everywhere current behavior is represented; consumers derive fixed route truth from `contracts/policy.json` where practical.
   - Verify: model/effort contract tests.
 
-- [x] Truth closure: evidence-based phase status
+- [ ] Truth closure: evidence-based phase status
   - Acceptance: repository phase PASS values match the remediated, verified state; release/Host gates remain pending until real evidence exists.
   - Verify: phase-status/release-contract tests.
 
-- [x] Candidate verification
-  - Acceptance: generated integrity refreshed, Ruff clean, full pytest clean, all GitHub Actions matrix jobs pass, fresh adversarial review finds no blocking repository issue.
-  - Verified repository basis: `5bff43f9d50ca138711969e5407ac2f93ab160c7`, workflow run `32579090645`, four platform jobs plus aggregate policy check passed.
-  - Final stop check: run the same full CI once more on the status/task-record exact head; no further repository mutation follows a green result.
+- [ ] Candidate verification
+  - Acceptance: generated integrity refreshed if required, Ruff clean, full pytest clean, all GitHub Actions matrix jobs pass, fresh adversarial review finds no blocking repository issue.
+  - Previous verified basis `787b008be319553c3c6e3fa40ea3198197e957cd` / workflow `32580889070` remains historical after this remediation branch mutates the candidate.
+  - Final stop check: run the same full CI on the final exact head; no repository phase returns to PASS until that result is green.
