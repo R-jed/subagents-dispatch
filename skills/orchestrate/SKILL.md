@@ -33,6 +33,8 @@ Load control contracts only when relevant. Read `../../contracts/interaction.md`
 
 For user-visible deliverables, keep the artifact focused on the requested product or business outcome. Engineering process, agent planning, verification logs, and implementation narration belong in Main's chat response, code comments, repository documentation, or PR text unless the user explicitly asks for them.
 
+For UI, PDFs, presentations, reports, screenshots, and exported files, omit agent planning, implementation rationale, debugging chronology, verification mechanics, and future-work planning. Unless the user explicitly requests those details, keep them outside the deliverable itself.
+
 A V3.x orchestration capsule is legacy evidence. Do not silently enroll unresolved V3 state into V4. Plan-only remains available because it creates no runtime state.
 
 The canonical runtime owner map is `../../docs/v4/architecture.json#runtime_owners`. Codex Native Subagents own lifecycle truth. Do not create a second orchestration runtime, heartbeat loop, or persisted lifecycle authorization ledger inside this Skill.

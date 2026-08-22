@@ -54,6 +54,9 @@ contracts/routing.md
 contracts/responsibility-packet.md
   child responsibility serialization
 
+contracts/team-plan.md
+  RC compatibility boundary only; no runtime planning authority
+
 contracts/guardrails.md
   authority, mutation, consent and external-action boundaries
 
@@ -75,3 +78,15 @@ The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. T
 V3 orchestration state is legacy evidence. Unresolved live V3 state is never silently migrated into V4 execution.
 
 Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N8 Host evidence, Final Review, and benchmark/calibration workflows remain outside ordinary Doctor authority.
+
+## Compatibility owners
+
+```text
+scripts/legacy_state_cleanup.py
+  ownership-safe cleanup for stale terminal V3 orchestration capsules
+
+scripts/legacy_migration.py
+  ownership-checked V3 profile migration and compatibility diagnosis
+```
+
+Compatibility code and the TeamPlan compatibility marker do not define current V4 routing, lifecycle, acceptance, release, or Host authority.
