@@ -24,7 +24,7 @@ Advisor       gpt-5.6-sol    high   read-only judgment/review
 
 Main selects one fixed profile explicitly for each delegated responsibility. Runtime code validates the selection. There is no automatic Luna, Terra, Sol escalation ladder.
 
-## Dispatch invariants
+## Orchestration invariants
 
 ```text
 managed children <= 4
