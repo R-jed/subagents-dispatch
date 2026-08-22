@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # Portions incorporate MIT-licensed third-party validation logic.
-# Copyright (c) 2026 Zhijian AI / Dapeng. MIT licensed.
-# See ../THIRD_PARTY_NOTICES.md.
+# Copyright (c) 2026 Zhijian AI / Dapeng.
+# Source: zjp1997720/zhijian-skills, codex-model-routing-team,
+# revision 8b9abec4b353c70f04e8409302169309544bae95.
+# License notice is preserved in ../LICENSE.
 from __future__ import annotations
 
 import argparse
@@ -149,7 +151,7 @@ def validate_team_plan_payload(payload: Any) -> dict[str, Any]:
     if not isinstance(source_refs, list) or not all(nonempty_string(item) for item in source_refs):
         errors.append("source_refs must be an array of non-empty strings")
     elif source != "ad_hoc" and not source_refs:
-        errors.append("non-ad_hoc TeamPlan requires source_refs")
+        errors.append("non_ad_hoc TeamPlan requires source_refs")
 
     if not nonempty_string(payload.get("root_goal")):
         errors.append("root_goal must be a non-empty string")
