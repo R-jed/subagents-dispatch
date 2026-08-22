@@ -1,6 +1,8 @@
 # V4 实时开发交接记录
 
-记录时间：2026-08-22T21:58Z，对应 2026-08-23 05:58 +08:00。
+初始记录时间：2026-08-22T21:58Z，对应 2026-08-23 05:58 +08:00。
+
+最新记录时间：2026-08-22T22:02Z，对应 2026-08-23 06:02 +08:00。
 
 状态：持续维护。此文件是 V4 当前开发上下文的仓库内交接入口。新会话、新维护者或新的 Codex session 接手前，应先读本文件，再核 GitHub 当前分支、PR、CI 和真实 Host evidence。
 
@@ -24,7 +26,7 @@ PR #81 在 real Host N0 到 N8、fresh Final Review、external release evidence�
 
 PR #81 状态：OPEN、Draft、未合并。
 
-截至本记录建立前，正式候选 HEAD：
+截至 handoff PR 合并前，正式候选 HEAD：
 
 `4530382427556f20fe8fd57e56108016d5f2a3e2`
 
@@ -40,11 +42,19 @@ synthetic merge tree：
 
 `2d6499de095cfde124c85a9cc195e014af1bbf75`
 
-因此截至此时 PR #81 synthetic merge tree 与正式候选 tree 完全一致。
+因此截至 handoff PR 建立前，PR #81 synthetic merge tree 与正式候选 tree 完全一致。
 
 候选 exact-head repository CI：workflow `32600567749`。
 
 该 workflow 已确认：Ubuntu Python 3.11 PASS，Ubuntu Python 3.12 PASS，macOS Python 3.11 PASS，Windows Python 3.11 PASS，aggregate `policy-tests` PASS，generated package-integrity PASS，Ruff PASS，适用 job 的官方 OpenAI Plugin validator PASS，Doctor 和 managed Agent lifecycle PASS，完整 pytest 为 `527 passed`。
+
+当前 handoff 落仓 PR：`#90 Add live V4 development handoff`。
+
+PR #90 base：`v4/rc5-native-core@4530382427556f20fe8fd57e56108016d5f2a3e2`。
+
+PR #90 工作分支：`docs/v4-live-development-handoff`。
+
+PR #90 只修改 `docs/v4/development-handoff.md`，不改变 production runtime、machine Host contract 或 Plugin package payload。
 
 当前 `docs/v4/host-smoke.json` 仍应保持 `PENDING` 和空 `results`。repository CI 不代表 real Host gate 已完成。
 
@@ -66,7 +76,7 @@ synthetic merge tree：
 
 `docs/v4-live-development-handoff`
 
-本文件在该分支重新建立，并以真实候选状态为基础。后续应通过独立 PR 合入 `v4/rc5-native-core`。这一处理避免把旧 PR 分支上的额外提交误认为已进入候选。
+本文件在该分支重新建立，并以真实候选状态为基础，通过 PR #90 合入 `v4/rc5-native-core`。这一处理避免把旧 PR 分支上的额外提交误认为已进入候选。
 
 ## 4. 当前产品和架构边界
 
@@ -249,7 +259,7 @@ Representative flows 增加 `RUNNING Steer consumed by the same child`。
 
 PR #89 最终于 `2026-08-22T21:46:35Z` 合并，正式候选变成 `4530382427556f20fe8fd57e56108016d5f2a3e2`，tree `2d6499de095cfde124c85a9cc195e014af1bbf75`。
 
-合并后 exact-head workflow `32600567749` 再次四平台全绿，完整 pytest 为 527 passed。这是当前 handoff 建立前的正式 repository validation 基线。
+合并后 exact-head workflow `32600567749` 再次四平台全绿，完整 pytest 为 527 passed。这是当前 handoff PR 建立前的正式 repository validation 基线。
 
 ## 10. N0 到 N8 当前机器合同
 
@@ -293,15 +303,17 @@ materialization、identity 或 lifecycle 存在歧义时进入 UNKNOWN。UNKNOWN
 
 PR #88 和 PR #89 都没有改变 50-file Plugin package payload。PR #81 当前描述确认 `.codex-plugin/package-integrity.json` 与此前 exact-installed package payload byte-identical。
 
-本 handoff 文件位于 `docs/v4/`，不应进入 Plugin package payload。
+本 handoff 文件位于 `docs/v4/`，不应进入 Plugin package payload。PR #90 首轮 workflow `32601201287` 已通过 generated package-integrity check，支持这一边界没有发生意外 package 漂移。
 
-不过 candidate commit 会因为 handoff 文件落仓而变化，所以即使 package payload byte-identical，正式 release 仍要重新记录 exact candidate commit/tree，并做非修改性的 installed-package identity re-audit，确认已安装 package 与最终 frozen candidate 的 package manifest 一致。
+不过 candidate commit 会因为 handoff 文件落仓而变化，所以即使 package payload byte-identical，正式 release 仍要重新记录 exact candidate commit/tree，并做 non-mutating installed-package identity re-audit，确认已安装 package 与最终 frozen candidate 的 package manifest 一致。
 
 ## 14. 当前 remaining release gates
 
-本 handoff 文件需要通过独立短 PR 合入 `v4/rc5-native-core`，并在新 exact candidate 上重新通过 repository CI。
+PR #90 handoff 文件已经完成首轮 repository validation，但本次将 PR #90、CI 和 review 结果写回 handoff 后，PR head 会再次变化，因此必须再跑一次 final-head repository CI。
 
-handoff PR 合入后要重新记录正式 candidate HEAD/tree，并检查 PR #81 synthetic merge tree 与 candidate tree 一致。
+PR #90 final head 必须无 blocking review thread，final diff 必须仍只涉及 handoff 文档。
+
+PR #90 合入后要重新记录正式 candidate HEAD/tree，并检查 PR #81 synthetic merge tree 与 candidate tree 一致。
 
 随后进行 non-mutating installed-package identity re-audit。若需要 reinstall，则重新完成 exact local Marketplace binding、plugin reinstall、50-file identity、Doctor 和 fresh-session boundary。
 
@@ -335,17 +347,16 @@ PR #81 继续保持 Draft，publication BLOCKED。
 
 ## 16. 下一步严格顺序
 
-1. 为本 handoff 变更建立独立 PR，base 为 `v4/rc5-native-core@4530382427556f20fe8fd57e56108016d5f2a3e2`。
-2. 跑完整 repository matrix，确认本文件不会破坏测试、package-integrity 或 product truth closure。
-3. 检查该 PR review threads 和最终 diff。
-4. CI 全绿且无 blocking review 后 squash merge。建议 commit title：`docs: add live V4 development handoff`。
-5. 重新读取 `v4/rc5-native-core` HEAD/tree 和 PR #81 synthetic merge tree。
-6. 等待正式候选 post-merge exact-head CI 全绿。
-7. 检查 `docs/v4/host-smoke.json` 仍是 `PENDING`、`results={}`。
-8. 做 non-mutating installed-package identity re-audit。实际 Host build 以当时观测为准。
-9. 如果已安装 package 不能证明 exact candidate identity，再使用官方 CLI 做 exact local Marketplace reinstall，并重新 Doctor。
-10. fresh Codex session 后执行正式 N0，只执行 N0，不提前启动 N1。
-11. N0 通过后更新外部 campaign evidence，再准备 N1。
+1. 等待本次 handoff 同步后的 PR #90 final-head repository matrix。
+2. final-head CI 全绿后再次检查 PR #90 review threads 和 diff。
+3. 只在无 blocking review、diff 仍仅为 `docs/v4/development-handoff.md` 时 squash merge PR #90。建议 commit title：`docs: add live V4 development handoff`。
+4. 重新读取 `v4/rc5-native-core` HEAD/tree 和 PR #81 synthetic merge tree。
+5. 等待正式候选 post-merge exact-head CI 全绿。
+6. 检查 `docs/v4/host-smoke.json` 仍是 `PENDING`、`results={}`。
+7. 做 non-mutating installed-package identity re-audit。实际 Host build 以当时观测为准。
+8. 如果已安装 package 不能证明 exact candidate identity，再使用官方 CLI 做 exact local Marketplace reinstall，并重新 Doctor。
+9. fresh Codex session 后执行正式 N0，只执行 N0，不提前启动 N1。
+10. N0 通过后更新外部 campaign evidence，再准备 N1。
 
 ## 17. Modification Log
 
@@ -363,6 +374,30 @@ PR #81 继续保持 Draft，publication BLOCKED。
 
 明确未变化：production runtime、contracts、Host machine gate、WriterLease、WorkGraph、scheduler、managed profiles、Plugin package payload、Hook path 均未修改。
 
-验证要求：该分支必须通过完整四平台 repository CI 后才能合入正式候选。合并前不得开始新的 formal N0，因为候选 identity 还会变化。
+初始 handoff commit：`3a6daae346fdebb16405ac0c4dcce30eaaa7bd67`，message `docs: establish live V4 development handoff`。
 
-注意：旧工作分支上的 `6398444ee184a268980ebee39d7449f8b6ebfd60` 是一次未进入正式候选的 handoff 尝试，只保留为历史痕迹。正式 authority 以本分支和后续合入候选的版本为准。
+注意：旧工作分支上的 `6398444ee184a268980ebee39d7449f8b6ebfd60` 是一次未进入正式候选的 handoff 尝试，只保留为历史痕迹。正式 authority 以 PR #90 和后续合入候选的版本为准。
+
+### H002 2026-08-22T22:02Z：记录 PR #90 和首轮 handoff validation
+
+触发：handoff 初始版本进入 PR #90 后完成首次完整 repository validation，需要把实际 PR、CI 和 review 状态写回持续交接记录。
+
+PR：`#90 Add live V4 development handoff`。
+
+base：`v4/rc5-native-core@4530382427556f20fe8fd57e56108016d5f2a3e2`。
+
+初始 PR head：`3a6daae346fdebb16405ac0c4dcce30eaaa7bd67`。
+
+首轮 workflow：`32601201287`。
+
+首轮验证结果：Ubuntu Python 3.11 PASS，Ubuntu Python 3.12 PASS，macOS Python 3.11 PASS，Windows Python 3.11 PASS，aggregate `policy-tests` PASS。各平台 full pytest、managed Agent profile lifecycle、manifest validation、generated package-integrity 和 Ruff 均 PASS；Ubuntu 3.11 的 pinned official OpenAI Plugin validator PASS。
+
+首轮 review：PR #90 review threads 为 0。
+
+首轮 diff：只有 `docs/v4/development-handoff.md`。
+
+本次实际改动：只更新 `docs/v4/development-handoff.md`，加入 PR #90、首轮 CI、review、package boundary 和 final-head 执行顺序。
+
+明确未变化：production runtime、machine contracts、Plugin package payload、WriterLease、WorkGraph、scheduler、profiles、Hook、tracked Host results 均未变化。
+
+验证要求：由于本次 handoff 自同步产生新的 PR head，必须在这个 final head 上重新跑完整 repository matrix。只有 final-head CI 全绿后才能合并 PR #90。
