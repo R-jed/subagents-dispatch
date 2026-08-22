@@ -138,7 +138,7 @@ def test_reconcile_returns_constraints_without_selecting_work(tmp_path: Path):
         "surface": "multi_agent_v2",
         "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
         "fork_turns_none": True,
-        "max_spawned_threads": 4,
+        "max_concurrent_threads_per_session": 4,
     })
     decision = orchestrate.reconcile_once(
         "thread-reconcile", orchestration_id="thread-reconcile", capability_snapshot=snapshot,
@@ -147,7 +147,8 @@ def test_reconcile_returns_constraints_without_selecting_work(tmp_path: Path):
     assert decision["selection_owner"] == "main"
     assert decision["ready_frontier"] == ["U1"]
     assert decision["actions"] == []
-    assert decision["available_launch_slots"] == 4
+    assert decision["host_session_capacity"] == 4
+    assert decision["available_launch_slots"] == 3
 
 
 def test_running_steer_is_transient(tmp_path: Path):
