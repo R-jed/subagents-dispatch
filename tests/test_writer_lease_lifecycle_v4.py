@@ -95,7 +95,7 @@ def test_fresh_writer_reserves_atomically_and_second_writer_blocks(tmp_path: Pat
     assert first["writer_lease"]["state"] == "RESERVED"
     assert first["writer_lease"]["owner_id"] == "exec-1"
 
-    with pytest.raises(lifecycle.ExecutionLifecycleError, match="managed writer"):
+    with pytest.raises(lifecycle.ExecutionLifecycleError, match="WriterLease"):
         allocate_writer(
             lifecycle,
             tmp_path,

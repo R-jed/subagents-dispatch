@@ -194,7 +194,7 @@ def test_old_attempt_cannot_be_accepted_after_new_attempt_exists(tmp_path: Path)
         )
 
 
-def test_initial_fanout_does_not_expand_beyond_remaining_product_slot():
+def test_constraint_snapshot_reports_remaining_slots_without_selecting_work():
     state = load_module("native_state_fanout", "dispatch_state_v4.py")
     scheduler = load_module("native_scheduler_fanout", "scheduler_v4.py")
 
@@ -212,6 +212,9 @@ def test_initial_fanout_does_not_expand_beyond_remaining_product_slot():
         capability_snapshot=host_snapshot(3),
         wakeup_reason="AGENT_UPDATE",
     )
-    assert decision["initial_fanout"] is True
-    assert decision["launch_budget"] == 1
-    assert len(decision["actions"]) == 1
+    assert decision["selection_owner"] == "main"
+    assert decision["product_child_limit"] == 4
+    assert decision["active_managed_executions"] == 1
+    assert decision["available_launch_slots"] == 2
+    assert decision["launch_budget"] == 2
+    assert decision["actions"] == []

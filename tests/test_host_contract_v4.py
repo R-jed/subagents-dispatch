@@ -118,10 +118,12 @@ def test_known_host_capacity_is_advisory_scheduler_ceiling():
 
     decision = scheduler.scheduler_decision(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
 
+    assert decision["selection_owner"] == "main"
     assert decision["host_capacity"] == 1
-    assert decision["effective_capacity"] == 1
+    assert decision["product_child_limit"] == 4
+    assert decision["available_launch_slots"] == 1
     assert decision["launch_budget"] == 1
-    assert len(decision["actions"]) == 1
+    assert decision["actions"] == []
 
 
 def test_unknown_host_capacity_allows_bounded_product_admission():
@@ -136,10 +138,13 @@ def test_unknown_host_capacity_allows_bounded_product_admission():
 
     decision = scheduler.scheduler_decision(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
 
+    assert decision["selection_owner"] == "main"
     assert decision["host_capacity"] is None
     assert decision["host_ready"] is True
-    assert decision["effective_capacity"] == 2
-    assert decision["launch_budget"] == 2
+    assert decision["product_child_limit"] == 4
+    assert decision["available_launch_slots"] == 4
+    assert decision["launch_budget"] == 4
+    assert decision["actions"] == []
 
 
 def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():

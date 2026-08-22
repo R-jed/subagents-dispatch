@@ -92,7 +92,11 @@ def test_marketplace_plugin_source_is_exact_checkout_root():
 def test_fixed_profiles_follow_policy_and_child_collaboration_is_disabled():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["schema_version"] == 9
-    assert policy["delegation"] == {"max_depth": 1, "fork_turns": "none"}
+    assert policy["delegation"] == {
+        "max_depth": 1,
+        "fork_turns": "none",
+        "max_managed_children": 4,
+    }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
     assert set(policy["roles"]) == {"reader", "worker", "investigator", "solver", "advisor"}
 

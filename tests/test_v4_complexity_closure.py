@@ -255,7 +255,7 @@ def test_recovery_contract_uses_execution_identity_and_native_lifecycle():
     recovery = (ROOT / "contracts" / "recovery.md").read_text(encoding="utf-8")
     assert "execution_id" in recovery
     assert "attempt_no" in recovery
-    assert "Codex Native Subagents own native lifecycle truth" in recovery
+    assert "Codex Host owns native lifecycle truth" in recovery
     for state_name in (
         "SPAWN_PENDING",
         "RUNNING",
