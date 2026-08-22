@@ -16,6 +16,28 @@ def read_text(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
+def current_authority_text_files() -> list[Path]:
+    files: set[Path] = {
+        ROOT / "README.md",
+        ROOT / "README_EN.md",
+        ROOT / "README_AI.md",
+        ROOT / "CHANGELOG.md",
+    }
+    for folder, suffixes in (
+        (ROOT / "contracts", {".md", ".json"}),
+        (ROOT / "docs", {".md"}),
+        (ROOT / "docs" / "v4", {".json"}),
+        (ROOT / "evals", {".md", ".json"}),
+        (ROOT / "tasks", {".md"}),
+    ):
+        for path in folder.glob("*"):
+            if path.is_file() and path.suffix in suffixes:
+                files.add(path)
+    for path in (ROOT / "skills").glob("*/SKILL.md"):
+        files.add(path)
+    return sorted(files)
+
+
 def test_machine_architecture_tracks_generation_safe_host_basis_and_capacity_truth():
     architecture = read_json("docs/v4/architecture.json")
 
@@ -46,6 +68,19 @@ def test_scheduler_machine_contract_matches_host_session_capacity_semantics():
     assert scheduler["automatic_launch_actions"] is False
 
 
+def test_host_feasibility_matrix_contains_no_retired_hook_authority_or_fixed_main_route():
+    matrix = read_json("docs/v4/host-capability-matrix.json")
+
+    assert matrix["schema_version"] == "4.0.0-host-capability-feasibility-2"
+    assert matrix["main"]["required_fixed_route"] is False
+    assert "required_model" not in matrix["main"]
+    assert not {"hook_available", "hook_trusted"} & set(matrix["environment"])
+    assert "hook_guard" not in matrix["capabilities"]
+    assert "hook_is_sufficient_hard_boundary" not in matrix["decision_policy"]
+    assert matrix["decision_policy"]["unknown_means_unavailable"] is True
+    assert matrix["release_authority"] is False
+
+
 def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memory():
     state_text = read_text("contracts/state.md")
     recovery_text = read_text("contracts/recovery.md")
@@ -57,9 +92,15 @@ def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memo
         assert "generation" in lowered
         assert "retained" in lowered
 
+    architecture = read_text("docs/architecture.md")
+    assert "Compaction does not authorize reuse of execution or native task identities" not in architecture
+    assert "Compaction never makes stale Host evidence current again" in architecture
+    assert "generation-distinct canonical native task names" in architecture
+
 
 def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
     composition = read_text("contracts/composition.md")
+    evidence_artifact = read_text("contracts/evidence-artifact.md")
     handoff = read_text("contracts/handoff.md")
     interaction = read_text("contracts/interaction.md")
     responsibility = read_text("contracts/responsibility-packet.md")
@@ -96,12 +137,17 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
     assert "Terra XHigh" not in receipt
     assert "Terra High" in receipt
     assert "derive from the fixed profiles in `policy.json`" in receipt
+    assert "Dispatch:" not in receipt
+    assert "Orchestrate:" in receipt
+    assert "Ordinary Dispatch" not in evidence_artifact
+    assert "Orchestrate responsibility" in evidence_artifact
 
 
 def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery():
     readme = read_text("evals/README.md").lower()
     interactions = read_json("evals/interaction-cases.json")
     workloads = read_json("evals/behavioral-workloads.json")
+    routing = read_json("evals/routing-cases.json")
 
     assert "xhigh" not in readme
     assert "initial managed fanout is at most 2" not in readme
@@ -119,20 +165,95 @@ def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery
     assert "initial_managed_children_max" not in fanout
     assert fanout["product_managed_children_max"] == 4
     assert fanout["queue_remainder"] is True
+    assert by_workload["execution-stall-clean-restart"]["expected"]["unchanged_retry_forbidden"] is True
+
+    by_routing = {item["id"]: item for item in routing["cases"]}
+    local_retry = by_routing["local-defect-can-retry-same-worker"]["expected"]
+    assert local_retry["recovery_action"] == "same_role_retry"
+    stalled = by_routing["stalled-work-does-not-create-a-model-ladder"]["expected"]
+    assert stalled["task_blocker"] == "stalled"
+    assert stalled["action"] == "main_session"
+    assert stalled["recovery_action"] is None
+    assert stalled["nodes"] == []
+    assert stalled["main_reason"] == "unchanged_retry_not_authorized"
 
 
-def test_phase_status_records_verified_repository_basis_and_keeps_release_gates_pending():
+def test_current_authority_surfaces_do_not_reintroduce_retired_product_or_budget_logic():
+    retired_phrases = (
+        "Ordinary Dispatch",
+        "explicit Dispatch",
+        "through Dispatch",
+        "Dispatch Receipt",
+        "Select **Preview** through the Host UI",
+        "CHANGELOG_V3.md",
+        "managed initial fan-out ceiling remains two",
+        "frozen product ceiling of three",
+        "two fresh attempts maximum per unchanged WorkUnit",
+        "one focused same-child follow-up budget",
+        "H00-H20",
+    )
+
+    failures: list[str] = []
+    for path in current_authority_text_files():
+        text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(ROOT).as_posix()
+        for phrase in retired_phrases:
+            if phrase in text:
+                failures.append(f"{relative}: {phrase}")
+        if re.search(r"\bDispatch\b", text):
+            failures.append(f"{relative}: standalone Dispatch product term")
+
+    assert not failures, "retired current-authority logic found:\n" + "\n".join(failures)
+
+
+def test_history_documents_are_explicitly_non_authoritative():
+    history = ROOT / "docs" / "history"
+    readme = (history / "README.md").read_text(encoding="utf-8")
+    assert "do not define current V4 product behavior" in readme
+    assert "Historical documents may intentionally contain retired terms and rules" in readme
+
+    markdown_files = sorted(path for path in history.rglob("*.md") if path.name != "README.md")
+    assert markdown_files
+    for path in markdown_files:
+        text = path.read_text(encoding="utf-8")
+        assert text.startswith("> Historical archive."), path.relative_to(ROOT).as_posix()
+        assert "not a current V4 contract" in text.splitlines()[0], path.relative_to(ROOT).as_posix()
+
+    json_files = sorted(history.rglob("*.json"))
+    assert json_files
+    for path in json_files:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload.get("historical_archive") is True, path.relative_to(ROOT).as_posix()
+        assert payload.get("current_runtime_authority") is False, path.relative_to(ROOT).as_posix()
+
+    assert not (ROOT / "docs" / "v3.0.0-post-release-final-audit.md").exists()
+    assert (history / "v3.0.0-post-release-final-audit.md").is_file()
+
+
+def test_phase_status_is_honest_during_or_after_documentation_truth_closure():
     phase = read_json("docs/v4/phase-status.json")
     validation = phase["repository_validation"]
 
-    assert phase["candidate_branch"] == "v4/rc5-review-remediation"
-    assert set(phase["repository_phases"].values()) == {"PASS"}
-    assert validation["status"] == "PASS"
-    assert re.fullmatch(r"[0-9a-f]{40}", validation["candidate_sha"])
-    assert isinstance(validation["workflow_run_id"], int) and validation["workflow_run_id"] > 0
-    assert "final CI regression run" in validation["attestation_scope"]
-    for removed in ("CHANGELOG_V3.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md"):
-        assert removed in validation["attestation_scope"]
+    assert phase["candidate_branch"] == "fix/documentation-truth-closure"
+    if validation["status"] == "REMEDIATION_REQUIRED":
+        assert validation["candidate_sha"] is None
+        assert validation["workflow_run_id"] is None
+        assert "repository-wide documentation truth review" in validation["attestation_scope"]
+        assert {
+            key for key, value in phase["repository_phases"].items() if value == "REMEDIATION"
+        } >= {
+            "architecture_and_state",
+            "public_orchestrate_doctor_surface",
+            "product_plane_closure",
+            "v3_residue_closure",
+        }
+    else:
+        assert validation["status"] == "PASS"
+        assert set(phase["repository_phases"].values()) == {"PASS"}
+        assert re.fullmatch(r"[0-9a-f]{40}", validation["candidate_sha"])
+        assert isinstance(validation["workflow_run_id"], int) and validation["workflow_run_id"] > 0
+        assert "documentation truth closure" in validation["attestation_scope"].lower()
+
     assert phase["publication"] == "BLOCKED"
     assert phase["host_capability_feasibility"]["status"] == "PENDING"
     assert phase["host_capability_feasibility"]["release_authority"] is False
