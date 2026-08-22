@@ -66,7 +66,7 @@ A successful delegated run may use a compact form such as:
 ```
 
 ```text
-Dispatch: Luna Max Read · Terra High Investigate · Luna Max Execute
+Orchestrate: Luna Max Read · Terra High Investigate · Luna Max Execute
 Review: Main accepted 3 responsibilities · independent review not triggered
 ```
 
@@ -89,7 +89,7 @@ When the user explicitly asks Orchestrate to evaluate delegation and Main correc
 ```
 
 ```text
-Dispatch: no Subagents dispatched
+Orchestrate: no Subagents dispatched
 Review: completed by Main
 ```
 

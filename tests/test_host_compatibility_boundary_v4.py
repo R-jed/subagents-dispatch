@@ -21,9 +21,13 @@ def test_phase0_host_feasibility_matrix_starts_fail_closed():
         "unknown_means_unavailable": True,
         "profile_request_is_effective_truth": False,
         "max_depth_is_v2_containment_proof": False,
-        "hook_is_sufficient_hard_boundary": False,
         "release_gate_equivalent": False,
     }
+    assert matrix["main"]["required_fixed_route"] is False
+    assert "required_model" not in matrix["main"]
+    assert not {"hook_available", "hook_trusted"} & set(matrix["environment"])
+    assert "hook_guard" not in matrix["capabilities"]
+    assert "hook_is_sufficient_hard_boundary" not in matrix["decision_policy"]
 
 
 def test_n1_requires_observed_or_authoritatively_denied_child_collaboration():

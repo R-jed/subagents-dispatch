@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-host-capability-feasibility-1",
+  "schema_version": "4.0.0-host-capability-feasibility-2",
   "contract_kind": "host-capability-feasibility-matrix",
   "status": "PENDING",
   "release_authority": false,
@@ -10,12 +10,10 @@
     "architecture": null,
     "multi_agent_mode": null,
     "run_id": null,
-    "timestamp": null,
-    "hook_available": null,
-    "hook_trusted": null
+    "timestamp": null
   },
   "main": {
-    "required_model": "gpt-5.6-sol",
+    "required_fixed_route": false,
     "resolved_model": null,
     "resolved_reasoning_effort": null
   },
@@ -83,7 +81,6 @@
     "effective_read_only_advisor": "unknown",
     "cold_resume_identity": "unknown",
     "cold_resume_profile_truth": "unknown",
-    "hook_guard": "unknown",
     "isolated_writer_workspace": "unknown"
   },
   "evidence_refs": [],
@@ -91,7 +88,6 @@
     "unknown_means_unavailable": true,
     "profile_request_is_effective_truth": false,
     "max_depth_is_v2_containment_proof": false,
-    "hook_is_sufficient_hard_boundary": false,
     "release_gate_equivalent": false
   }
 }

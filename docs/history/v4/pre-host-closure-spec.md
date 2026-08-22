@@ -1,3 +1,5 @@
+> Historical archive. This document records a superseded design/review state. It is not a current V4 contract, implementation guide, release gate, or source of runtime authority. Use current `contracts/`, current non-history `docs/`, and `docs/v4/` for present behavior.
+
 # V4 Pre-Host Closure Specification
 
 This specification freezes the repository changes allowed before the real H00-H20 Host campaign. The exact candidate identity is recorded by PR #73 and candidate-bound release evidence; this document does not hard-code a commit that would become stale after the next justified closure change. It does not authorize broader state, WriterLease, storage, profile, or facade/core refactors.

@@ -82,7 +82,7 @@ WorkUnit records stable responsibility and acceptance truth. ExecutionBinding re
 
 Host `COMPLETED` produces candidate work and maps to `WorkUnit.RESULT_READY`. Main verifies the actual artifact and explicitly accepts the WorkUnit. Dependencies unlock only from `ACCEPTED`.
 
-Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction does not authorize reuse of execution or native task identities.
+Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction never makes stale Host evidence current again. Later attempts keep generation-distinct canonical native task names; opaque execution identifiers are protected by the retained current-generation observation basis rather than an unbounded lifetime tombstone set.
 
 ## Native lifecycle
 

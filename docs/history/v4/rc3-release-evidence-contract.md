@@ -1,3 +1,5 @@
+> Historical archive. This document records a superseded design/review state. It is not a current V4 contract, implementation guide, release gate, or source of runtime authority. Use current `contracts/`, current non-history `docs/`, and `docs/v4/` for present behavior.
+
 # V4.0.0 RC3 Release Evidence Contract
 
 RC3 separates runtime package integrity from candidate-specific release evidence.

@@ -7,7 +7,7 @@ role_calibration
 -> for a fixed role contract, which actual model / effort route is the best supported choice?
 
 product_benchmark
--> on the same real task and controlled environment, does explicit Dispatch improve enough over a single-agent baseline to justify its coordination and compute cost?
+-> on the same real task and controlled environment, does explicit Orchestrate improve enough over a single-agent baseline to justify its coordination and compute cost?
 ```
 
 They share one Experiment Plane because both need frozen inputs, real repositories, repeat discipline, route evidence, task oracles, exact telemetry, and provenance. They do not share the same independent variable.
@@ -48,7 +48,7 @@ A role-calibration workload names exactly one `calibration_role`. The campaign d
 
 For `claim_kind=model_effort`, the campaign freezes top-level `materialization_mode=profile_only` and `model_provider_control`; both participate in the canonical campaign hash. Run `scripts/calibration_profiles.py init` on an empty evaluator-owned evidence root, freeze the campaign, then create the profiles only after read-only evidence confirms that the requested path is the active normal `~/.codex`. That evidence binds the provisioning task to a SHA-256-frozen Host rollout under the requested home's `sessions/` tree; an ordinary JSON assertion is insufficient. The rollout filename and the first valid `session_meta` bind the canonical provisioning task identity. Later `session_meta` records may exist in the same Host rollout and do not redefine that canonical identity; malformed session metadata still fails closed. `create|check|cleanup|recover` never edit the campaign or `config.toml` and reject Marketplace, Plugin, shared-config, or alternate-home preparation.
 
-`CODEX_THREAD_ID` is the preferred direct active-task binding when the Host exposes it, and a present mismatch always fails closed. When the supported Host command path omits it, profile-only preparation may instead use a fresh one-time 256-bit nonce recorded in one record of the exact provisioning rollout for the same `calibration_profiles.py create` invocation. The adapter consumes each nonce once with an exclusive receipt in the fixed user-level evaluator namespace and rejects reuse across evaluator roots. This nonce is only supplemental active-task binding: the normal Codex home, exact rollout path and session identity, provisioning task identity, and rollout SHA-256 proof remain mandatory. Because the active rollout continues growing, the create command must generate the nonce, allow that invocation to reach the rollout, calculate the rollout SHA-256, atomically refresh the evaluator-owned Host-home evidence, and invoke profile creation within the same shell invocation. The materialization SHA identifies the exact rollout prefix ending at a complete JSONL record boundary at that preparation instant. Later Host records may append to the same rollout. Run validation must prove that the frozen SHA still identifies exactly one unchanged complete-record prefix; mutation or truncation of that frozen prefix fails closed. The nonce is neither permission evidence nor runtime-route evidence and is not used by ordinary Dispatch.
+`CODEX_THREAD_ID` is the preferred direct active-task binding when the Host exposes it, and a present mismatch always fails closed. When the supported Host command path omits it, profile-only preparation may instead use a fresh one-time 256-bit nonce recorded in one record of the exact provisioning rollout for the same `calibration_profiles.py create` invocation. The adapter consumes each nonce once with an exclusive receipt in the fixed user-level evaluator namespace and rejects reuse across evaluator roots. This nonce is only supplemental active-task binding: the normal Codex home, exact rollout path and session identity, provisioning task identity, and rollout SHA-256 proof remain mandatory. Because the active rollout continues growing, the create command must generate the nonce, allow that invocation to reach the rollout, calculate the rollout SHA-256, atomically refresh the evaluator-owned Host-home evidence, and invoke profile creation within the same shell invocation. The materialization SHA identifies the exact rollout prefix ending at a complete JSONL record boundary at that preparation instant. Later Host records may append to the same rollout. Run validation must prove that the frozen SHA still identifies exactly one unchanged complete-record prefix; mutation or truncation of that frozen prefix fails closed. The nonce is neither permission evidence nor runtime-route evidence and is not used by ordinary Orchestrate.
 
 Profile intent and ownership remain durable in the evaluator root. Each profile is staged in the destination `agents/` directory under a unique non-`.toml` filename, then published with no-clobber same-filesystem semantics. After preparation, execution occurs in a distinct fresh task with `fork_turns=none`; no full App restart evidence is required. Before cleanup, formal run evidence must bind the Host-observed canonical `agent_path` to the exact committed manifest path and current SHA-256, and bind the Host-observed `model_provider` to the frozen provider control. Missing origin or provider evidence is `UNKNOWN` and claim-ineligible; mismatch fails closed.
 
@@ -64,7 +64,9 @@ The only Host-visible temporary objects are the two exact Agent TOMLs under the 
 }
 ```
 
-A product-benchmark workload names a task `benchmark_stratum`, not a role. Dispatch is free to keep the task in Main or materialize whichever roles its normal routing contract selects. Actual role use belongs in run/runtime evidence. The input definition must not pre-script a fake role lane merely to make the benchmark easy to analyze.
+`candidate_mode: "dispatch"` is a frozen experiment identifier retained for historical comparability. It does not name a current public Skill.
+
+A product-benchmark workload names a task `benchmark_stratum`, not a role. Orchestrate is free to keep the task in Main or materialize whichever roles its normal routing contract selects. Actual role use belongs in run/runtime evidence. The input definition must not pre-script a fake role lane merely to make the benchmark easy to analyze.
 
 This separation prevents route calibration from being confused with orchestration-product evaluation.
 
@@ -189,7 +191,7 @@ Each recorded child route keeps actual `sandbox_policy_type` / `permission_profi
 
 If the Host cannot prove a required dimension, the run is ineligible for that claim. Do not copy configured values into Observed. Every campaign declares a typed `claim_kind` and classifies all three dimensions as either required or allowed unknown. Current role-calibration campaigns are limited to `model_effort`; product benchmarks are limited to `product_behavior`. Neither can be relabeled as a Host permission-source claim. Model/effort calibration may explicitly allow unknown permission provenance when route and actual permission state are verified. A future Host permission-source or source-selection experiment must use `host_permission_provenance` and require provenance, so it remains claim-ineligible on a Host that does not expose that evidence.
 
-For product benchmarks, route-attest every materialized Dispatch child so the report can say what actually ran. A single-agent baseline has no project child route to invent. A Dispatch run that correctly chooses zero project children also has no child route to invent; record zero materialized children rather than fabricating an attestation row.
+For product benchmarks, route-attest every materialized Orchestrate child so the report can say what actually ran. A single-agent baseline has no project child route to invent. An Orchestrate run that correctly chooses zero project children also has no child route to invent; record zero materialized children rather than fabricating an attestation row.
 
 ## 8. Repetition and ordering
 
@@ -261,7 +263,7 @@ Do not use the producing Agent's self-assessment as the grader.
 
 When an LLM judgment is unavoidable, freeze the rubric, keep the grader independent from the producing child, preserve the review artifact, and report judge variance instead of presenting the result as deterministic truth.
 
-## 11. Single-agent versus Dispatch benchmark
+## 11. Single-agent versus Orchestrate benchmark
 
 This experiment evaluates the orchestration product, not one role route.
 
@@ -281,13 +283,15 @@ Host/runtime version
 
 ### Baseline arm
 
-Run the task in one ordinary Codex session without invoking subagents-dispatch. The baseline may reason, read, edit, and verify using the same allowed Host surface, but it does not use Dispatch's project child roles or orchestration state.
+Run the task in one ordinary Codex session without invoking subagents-dispatch. The baseline may reason, read, edit, and verify using the same allowed Host surface, but it does not use Orchestrate's project child roles or orchestration state.
 
-### Dispatch arm
+### Orchestrate arm
 
-Start from an independently reset copy of the same repository state and run the same task through the explicit Dispatch Skill.
+Start from an independently reset copy of the same repository state and run the same task through the explicit Orchestrate Skill.
 
-Dispatch may materialize extra Agents because orchestration is the product under test. Measure the total observable resource use of Main plus project children when the Host exposes attributable telemetry.
+Orchestrate may materialize extra Agents because orchestration is the product under test. Measure the total observable resource use of Main plus project children when the Host exposes attributable telemetry.
+
+The frozen `candidate_mode: "dispatch"` value remains the experiment-arm identifier for compatibility with existing campaign schemas and results.
 
 ### Fairness rules
 
@@ -299,7 +303,7 @@ same acceptance oracle
 same external tool and permission envelope
 same Main-session route when it is controllable/observable
 record any unavoidable Host capability difference
-route-attest materialized Dispatch children
+route-attest materialized Orchestrate children
 ```
 
 Use fresh worktrees, containers, or equivalent isolated resets when caches/state can materially affect the task.
@@ -310,7 +314,7 @@ A real product benchmark needs several task shapes:
 
 ```text
 small_bounded
--> work where a good Dispatch should often choose zero children
+-> work where a good Orchestrate run should often choose zero children
 
 bounded_read_write
 -> focused reading plus already-specified implementation
@@ -328,9 +332,9 @@ composite
 -> a real task that legitimately crosses several of the above responsibilities
 ```
 
-The `small_bounded` stratum is required in the eventual public campaign mix. A useful dispatcher must be allowed to keep simple work in Main rather than manufacturing Agents to improve an orchestration benchmark.
+The `small_bounded` stratum is required in the eventual public campaign mix. A useful orchestrator must be allowed to keep simple work in Main rather than manufacturing Agents to improve an orchestration benchmark.
 
-Report results by task stratum and repository. A global aggregate may be descriptive, but it must not hide where Dispatch helps, does nothing, or hurts.
+Report results by task stratum and repository. A global aggregate may be descriptive, but it must not hide where Orchestrate helps, does nothing, or hurts.
 
 ## 13. Campaign identity and validation
 
@@ -453,4 +457,4 @@ Do not publish configured routes, synthetic fixtures, exploratory one-offs, miss
 
 A benchmark statement must carry enough scope to interpret it: exact product/candidate generation, Host/runtime version, repositories/task strata, repeat counts, acceptance/oracle, and the relevant distribution/tradeoff rather than a decontextualized headline number.
 
-When real experiments are still pending, describe role purposes and current configuration without claiming the model/effort choice is optimal or that Dispatch is faster/cheaper/better than single-agent work.
+When real experiments are still pending, describe role purposes and current configuration without claiming the model/effort choice is optimal or that Orchestrate is faster/cheaper/better than single-agent work.
