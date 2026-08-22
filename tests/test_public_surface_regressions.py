@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from urllib.parse import urlparse
 
 import yaml
 
@@ -37,26 +36,27 @@ def test_v4_skill_metadata_keeps_explicit_human_invocation_boundary():
         assert payload["policy"]["allow_implicit_invocation"] is False
 
 
-def test_third_party_mit_notice_remains_packaged_without_repository_pointer():
-    notice = ROOT / "THIRD_PARTY_NOTICES.md"
-    text = notice.read_text(encoding="utf-8")
+def test_third_party_mit_notice_stays_with_license_and_derived_source():
+    assert not (ROOT / "THIRD_PARTY_NOTICES.md").exists()
+    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+    derived = (ROOT / "scripts" / "validate_team_plan.py").read_text(encoding="utf-8")
     for phrase in (
-        "MIT-licensed third-party material",
         "Copyright (c) 2026 Zhijian AI / Dapeng",
         "Permission is hereby granted",
         'THE SOFTWARE IS PROVIDED "AS IS"',
+        "8b9abec4b353c70f04e8409302169309544bae95",
     ):
-        assert phrase in text
-    assert "github.com/" not in text
+        assert phrase in license_text
+    assert "License notice is preserved in ../LICENSE." in derived
+    assert "THIRD_PARTY_NOTICES.md" not in derived
 
 
-def test_plugin_legal_links_still_target_packaged_policy_files():
+def test_plugin_no_longer_tracks_repository_privacy_or_terms_files():
     interface = json.loads(PLUGIN.read_text(encoding="utf-8"))["interface"]
-    for field, suffix in (("privacyPolicyURL", "/PRIVACY.md"), ("termsOfServiceURL", "/TERMS.md")):
-        parsed = urlparse(interface[field])
-        assert parsed.scheme == "https" and parsed.netloc
-        assert parsed.path.endswith(suffix)
-        assert (ROOT / suffix.removeprefix("/")).is_file()
+    for field in ("privacyPolicyURL", "termsOfServiceURL"):
+        assert field not in interface
+    assert not (ROOT / "PRIVACY.md").exists()
+    assert not (ROOT / "TERMS.md").exists()
 
 
 def test_readme_files_are_valid_basic_text_files():
