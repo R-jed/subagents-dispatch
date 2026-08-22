@@ -22,6 +22,7 @@ import scheduler_v4 as scheduler
 _PROFILE_SPECS = policy_contract.profile_contracts()
 FIXED_PROFILES = {
     role: {
+        "agent_type": spec["agent_type"],
         "model": spec["model"],
         "effort": spec["effort"],
         "authority_ceiling": spec["mutation_authority"],
