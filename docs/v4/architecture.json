@@ -153,7 +153,7 @@
     "I01": "A canonical workspace has at most one managed writer lease in RESERVED, HELD, REVOKING, or UNKNOWN.",
     "I02": "Host COMPLETED never directly marks a WorkUnit ACCEPTED or unlocks dependencies.",
     "I03": "Dependencies unlock only from WorkUnit ACCEPTED.",
-    "I04": "A Host observation whose execution_id, control_epoch, or lease_epoch basis is stale is discarded.",
+    "I04": "A Host observation whose execution_id, unit_id, attempt_no, control_epoch, or lease_epoch basis is stale is discarded.",
     "I05": "A writing followup or continue must reserve or retain WriterLease before Host reactivation.",
     "I06": "An interrupt result alone never releases WriterLease.",
     "I07": "UNKNOWN writer ownership blocks conflicting managed mutation and replacement execution.",
@@ -212,6 +212,8 @@
     "mode": "main_driven_native_host_reconciliation",
     "observation_basis": [
       "execution_id",
+      "unit_id",
+      "attempt_no",
       "control_epoch",
       "lease_epoch"
     ],
@@ -258,13 +260,15 @@
     "automatic_launch_actions": false,
     "fixed_acceptance_backpressure": false,
     "host_rejection_is_capacity_authority": true,
-    "known_host_capacity_is_advisory_ceiling": true,
+    "host_capacity_semantics": "session_concurrency_includes_primary",
+    "known_host_session_capacity_is_advisory_ceiling": true,
+    "missing_capability_snapshot_blocks_spawn": true,
     "product_managed_children_max": 4,
     "ready_frontier_ranking": "none",
     "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-5",
+  "schema_version": "4.0.0-native-core-candidate-6",
   "semantic_roles": [
     "main",
     "work",
