@@ -137,7 +137,7 @@ def test_live_behavior_registry_covers_current_orchestrate_interaction_and_hando
     assert receipt['persistent_receipt_ledger'] is False
     assert receipt['current_state_facts_only'] is True
     fanout = by_id['five-independent-readers-queued']['expected']
-    assert fanout['initial_managed_children_max'] == 2
-    assert fanout['product_managed_children_max'] == 3
+    assert 'initial_managed_children_max' not in fanout
+    assert fanout['product_managed_children_max'] == 4
     assert fanout['queue_remainder'] is True
     assert fanout['unknown_host_capacity_blocks_bounded_spawn'] is False
