@@ -21,11 +21,11 @@
 - Keep WorkUnit acceptance separate from ExecutionBinding and Host lifecycle.
 - Keep `control_epoch` for stale-generation rejection without a persisted lifecycle authorization protocol.
 - Keep WriterLease states `RESERVED`, `HELD`, `REVOKING`, `UNKNOWN`, and `RELEASED` for one canonical mutable workspace.
-- Keep initial managed fanout at most 2 and normal managed fanout at most 3, with known Host capacity able to lower the admission ceiling.
+- Use one product managed-child safety ceiling of 4. Main owns dispatch judgment; fixed initial/normal fanout targets, automatic ranking and acceptance-backpressure authorization are removed.
 - Let the Host own actual capacity. Explicit pre-materialization spawn rejection rolls back provisional activation without consuming a fresh attempt; ambiguous materialization becomes `UNKNOWN`.
-- Keep one focused same-child followup distinct from `CONTINUE` and fresh attempts.
-- Require current-generation Host settlement before writer release or takeover. Interrupt return alone is insufficient.
-- Keep one dependency-free delegated responsibility on the compact path with `team_plan_revision = null`; create TeamPlan only when coordination structure needs it.
+- Replace fixed fresh-attempt and focused-followup budgets with evidence-gated recovery. Fresh retry requires a changed execution basis; same-child correction requires a new correction basis. Attempt and followup counts are diagnostic.
+- Compact older safely settled execution attempts while retaining the current execution and any execution identity still required by a RELEASED WriterLease.
+- Keep WorkGraph and WorkUnit state as the one responsibility/dependency structure for one or many units. `team_plan_revision` remains compatibility-only during the RC.
 - Keep the one five-section responsibility record and bounded reusable accepted evidence context.
 - Extract schema-neutral private state storage into `state_storage.py`; V4 state no longer imports the retired V3 orchestration engine.
 - Isolate stale terminal V3 capsule cleanup in `legacy_state_cleanup.py` and remove the old Team Ledger from the V4 runtime package.
@@ -34,13 +34,15 @@
 
 - Remove the earlier lifecycle interception control plane from the active V4 runtime.
 - Remove PendingControl, Guard receipts, capacity tokens, identity-normalization machinery and related release diagnostics.
-- Do not replace that machinery with another persisted request/receipt control plane.
+- Remove semantic scheduler ranking, fixed fanout phases, fixed acceptance backpressure, and fixed recovery budgets from execution authorization.
+- Do not replace that machinery with another persisted request/receipt control plane or scheduling database.
 - Keep optional allowlisted rollout inspection only for recovery or validation when native Host evidence is insufficient.
 - Remove the retired V3 orchestration state engine and its receipt/recovery accounting from the active V4 runtime surface.
 
 ### Managed child containment
 
-- Managed child profiles disable child multi-agent capability and instruct leaf Agents not to create or manage further subagents.
+- Managed child profiles request a leaf-style capability posture and instruct children not to create or manage further subagents.
+- Treat profile settings as configured intent. Effective child collaboration containment and effective read-only permission are Host facts when release or concurrency depends on them.
 - Behavioral read-only remains separate from Host-enforced sandbox truth. Configured read-only is not promoted to runtime proof without Host evidence.
 
 ### Product lifecycle

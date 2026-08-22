@@ -43,9 +43,9 @@ Codex Native Subagents are the Agent runtime and lifecycle authority.
 
 `docs/v4/architecture.json#runtime_owners` is the only complete machine-readable path map. Human documentation describes responsibility boundaries without maintaining another path inventory.
 
-The owned concerns are orchestration admission and control, bounded state, storage, WorkUnit dependency and acceptance truth, scheduling, ExecutionBinding lifecycle, writer ownership, managed child responsibility projection, Host capability normalization, and optional bounded runtime evidence.
+The owned concerns are orchestration admission and control, bounded state, storage, WorkUnit dependency and acceptance truth, constraint projection, ExecutionBinding lifecycle, writer ownership, managed child responsibility projection, Host capability normalization, and optional bounded runtime evidence.
 
-A single independent delegated responsibility may avoid TeamPlan. Coordinated work adds TeamPlan only when multiple unresolved responsibilities or material dependency/integration order need persistent structural truth.
+WorkGraph and WorkUnit state own the responsibility structure for one or many delegated responsibilities. `team_plan_revision` remains only as an RC compatibility marker and has no runtime planning, routing, dependency, execution, or integration authority.
 
 ## Package integrity
 

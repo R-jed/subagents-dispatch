@@ -49,7 +49,8 @@ state is bounded and root-session scoped
 WorkUnit acceptance is separate from Host lifecycle
 Host COMPLETED advances to RESULT_READY only
 dependencies unlock only from ACCEPTED
-single responsibility may keep team_plan_revision = null
+WorkGraph owns one-or-many responsibility structure
+team_plan_revision has compatibility-marker semantics only
 managed spawn requires complete responsibility context
 fresh child uses exact managed agent_type and fork_turns = none
 stale control/lease observations are rejected
@@ -57,8 +58,11 @@ explicit pre-materialization spawn rejection consumes no fresh attempt
 ambiguous materialization becomes UNKNOWN
 WriterLease.UNKNOWN never auto-releases
 interrupt return alone never releases WriterLease
-one focused same-child followup remains bounded
+fresh retry requires changed execution basis and settled prior execution
+same-child correction requires a new correction basis
+attempt_no and followup_count are diagnostic, not fixed authorization budgets
 CONTINUE preserves the same interrupted ExecutionBinding
+older safely settled attempts compact without invalidating current identity or lease references
 V3 active/corrupt state is never silently migrated
 V4 state depends only on schema-neutral state_storage primitives
 legacy stale cleanup does not load the retired V3 orchestration engine
@@ -71,19 +75,19 @@ plan-only creates no runtime state, lease or Host action
 
 ```text
 N0 exact role / model / effort / fork_turns
-N1 managed child collaboration capability absent
+N1 managed child collaboration containment
 N2 fresh spawn success and identity binding
 N3 explicit capacity rejection with no materialization
 N4 same-child followup and continue
 N5 interrupt and settlement observation
 N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
-N8 final Advisor review and truthful sandbox reporting
+N8 final Advisor review and effective sandbox truth
 ```
 
 Offline CI, source inspection, profile configuration, model self-report or evidence from another candidate cannot substitute for these Host facts.
 
-Known limitation from feasibility evidence: configured read-only profiles do not by themselves prove Host-enforced read-only. N8 must report the actual effective sandbox truth without upgrading configuration intent into runtime proof.
+Configured read-only profiles do not by themselves prove Host-enforced read-only. N8 must establish the Advisor's actual effective permission state before strict read-only Final Review can pass.
 
 ## 5. Candidate stability
 
@@ -95,10 +99,10 @@ Representative flows must remain covered by repository or Host evidence as appli
 plan-only
 zero-child task
 single delegated responsibility
-two-child initial read fanout
+value-driven multi-child read investigation under the four-child ceiling
 known-capacity-limited admission
-acceptance backpressure
-same-child correction
+evidence-gated fresh retry
+same-child correction with changed basis
 CONTINUE after interrupt
 takeover
 cancellation

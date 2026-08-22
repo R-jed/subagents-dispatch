@@ -14,7 +14,7 @@ Main always owns:
 - external side effects;
 - integration and final response.
 
-Managed children do not create further project Subagents or background Agent teams. Delegation depth is one.
+Managed children do not create further project Subagents or background Agent teams. Delegation depth is one as a project policy. Profile configuration, behavioral instructions, or a configured depth value do not by themselves prove Host-enforced child containment. Delegated execution is eligible only when the required Host containment evidence is available for the target environment.
 
 A stronger model or broader Host capability does not grant broader user authority.
 
@@ -80,15 +80,13 @@ Independent Codex sessions, editors, and external processes remain outside this 
 
 Explicit Orchestrate invocation authorizes bounded delegation for the requested task under the user's existing scope and permissions.
 
-Routing does not map task size to a target child count. Current product ceilings are:
+Routing does not map task size to a target child count. The product has one managed-child safety ceiling:
 
 ```text
-initial managed children <= 2
-normal managed children <= 3
-known Host capacity may reduce the ceiling
+managed children <= 4
 ```
 
-Unknown Host capacity does not justify synthetic occupancy bookkeeping. The Host owns actual capacity and may reject a bounded spawn attempt.
+The ceiling is not a target. Main chooses which ready responsibility to delegate and when. Known Host capacity may reduce available slots. Unknown Host capacity does not justify synthetic occupancy bookkeeping; the Host owns actual capacity and may reject a bounded spawn attempt.
 
 Zero children is valid when delegation does not add enough value.
 
@@ -176,7 +174,9 @@ conflicting writer transfer
 final acceptance
 ```
 
-A RUNNING Steer stays inside the same execution generation and does not consume focused-correction budget. A focused Correction reuses the same completed ExecutionBinding with its bounded correction budget. Continue reuses the same interrupted ExecutionBinding without consuming a fresh attempt.
+A RUNNING Steer stays inside the same execution generation. A focused Correction reuses the same completed ExecutionBinding, requires a non-empty new correction basis, advances `control_epoch`, and increments diagnostic `followup_count`. There is no fixed correction-count authorization budget. Continue reuses the same interrupted ExecutionBinding without creating a fresh attempt or incrementing `followup_count`.
+
+A fresh retry creates a new ExecutionBinding only after the prior attempt is safely settled and a changed `execution_basis_ref` explains why repeating the responsibility is rational. `attempt_no` is diagnostic and does not authorize or cap recovery.
 
 An interrupt result alone never releases WriterLease. Current-generation Host settlement is required before writer release or takeover.
 
@@ -202,7 +202,7 @@ Ordinary Orchestrate does not scan Codex sessions for every child.
 
 Configured read-only is least-privilege intent. It does not prove Host-enforced isolation.
 
-When hard read-only isolation is required, proceed only when actual Host evidence proves an enforced boundary. Otherwise keep the work in a context that satisfies the required isolation or report the limitation.
+When hard read-only isolation is required, proceed only when actual Host evidence proves an enforced boundary. If effective read-only is unknown, do not combine that child with a concurrent canonical-workspace writer under an assumption of isolation. A strict read-only Final Review remains unavailable until the Advisor's effective Host permission state is proven suitable.
 
 Broader Host capability never grants semantic write ownership, settles `UNKNOWN`, or bypasses WriterLease.
 
