@@ -70,7 +70,7 @@ def native_host_evidence() -> dict:
             "interrupt_agent",
         ],
         "fork_turns_none": True,
-        "max_spawned_threads": 5,
+        "max_concurrent_threads_per_session": 5,
     }
 
 
