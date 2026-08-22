@@ -38,7 +38,7 @@ The record has exactly five top-level sections:
 }
 ```
 
-For one delegated responsibility with no delegated dependency, `team_plan_revision` is `null`. When TeamPlan is active, the same field carries the positive revision that already owns the multi-responsibility structural truth. A retry keeps the same stable `unit_id` and receives a new `execution_id` and `attempt_no` under the existing recovery rules.
+`team_plan_revision` is retained only as a V4 RC compatibility field described by `team-plan.md`. New WorkGraphs normally keep it `null`. A positive value from compatible pre-release state carries no dependency, routing, integration-order, retry-budget, ownership, or acceptance authority. WorkGraph and WorkUnit remain the responsibility-structure truth. A retry keeps the same stable `unit_id` and receives a new `execution_id` and `attempt_no` under the existing recovery rules.
 
 The WorkUnit may persist a bounded `responsibility_context` containing the concrete interfaces, invariants, decision boundary, accepted evidence references, discovery that should not be repeated while still valid, and the stop boundary. `scripts/work_graph_v4.py` constructs this context for current V4 WorkUnits. Any managed spawn requires a complete validated context and fails closed if it is missing or malformed.
 
