@@ -54,9 +54,16 @@ def test_same_child_interrupt_and_writer_settlement_are_explicitly_sequenced():
 
 def test_profile_containment_rollout_privacy_and_sandbox_truth_have_separate_gates():
     current = probes()
+    n1 = requirements(current["N1"])
+    n8 = requirements(current["N8"])
 
-    assert "disable multi_agent_v2" in requirements(current["N1"])
-    assert "managed child collaboration tools are absent" in requirements(current["N1"])
+    assert current["N1"]["accepted_grandchild_outcomes"] == [
+        "collaboration_tool_absent",
+        "host_authoritative_deny",
+    ]
+    assert "effective child collaboration surface" in n1
+    assert "no descendant child identity materializes" in n1
+    assert "cannot satisfy containment evidence" in n1
     assert "allowlisted inspection omits assignment text and reasoning content" in requirements(current["N7"])
-    assert "effective target host sandbox" in requirements(current["N8"])
-    assert "reported from evidence rather than inferred from profile request" in requirements(current["N8"])
+    assert "effective advisor sandbox and permission state" in n8
+    assert "requested profile sandbox" in n8

@@ -111,7 +111,7 @@ def test_managed_assignment_rejects_persisted_work_unit_without_responsibility_c
         managed.assignment_packet(current, execution=execution)
 
 
-def test_managed_profiles_disable_child_collaboration_at_profile_boundary():
+def test_managed_profiles_request_leaf_collaboration_posture():
     policy = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
     for role, spec in policy["roles"].items():
         profile = tomllib.loads(
@@ -122,7 +122,7 @@ def test_managed_profiles_disable_child_collaboration_at_profile_boundary():
         assert "create further subagents" in profile["developer_instructions"].lower(), role
 
 
-def test_machine_contracts_assign_host_and_profile_requirements_to_separate_owners():
+def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
     architecture = json.loads(
         (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
     )
@@ -138,16 +138,24 @@ def test_machine_contracts_assign_host_and_profile_requirements_to_separate_owne
         "interrupt",
         "fresh_context_spawn",
     ]
-    assert architecture["managed_profile_requirements"] == ["child_collaboration_disabled"]
+    assert architecture["managed_profile_requirements"] == [
+        "fixed_profile_route",
+        "behavioral_leaf_boundary",
+        "host_evidence_for_effective_child_containment",
+        "host_evidence_for_effective_read_only_when_required",
+    ]
     assert architecture["host_truth"] == {
         "capacity_owner": "codex_host",
         "child_identity_owner": "codex_host",
         "lifecycle_owner": "codex_host",
         "materialization_owner": "codex_host",
+        "managed_child_collaboration_surface_owner": "codex_host",
+        "effective_permission_owner": "codex_host",
     }
     assert orchestrate["host_execution"] == "native_host_only"
     assert orchestrate["lifecycle_authority"] == "codex_host"
-    assert orchestrate["child_collaboration_policy"] == "disabled_by_managed_profiles"
+    assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
+    assert orchestrate["managed_child_containment"] == "requires_host_evidence"
 
 
 def test_rc3_integrity_closure_is_history_not_active_contract():
