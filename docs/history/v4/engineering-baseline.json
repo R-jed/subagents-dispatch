@@ -1,4 +1,7 @@
 {
+  "historical_archive": true,
+  "current_runtime_authority": false,
+  "archive_note": "This file preserves a superseded engineering baseline for provenance only. Current V4 behavior and release authority come from active contracts, current docs, docs/v4, and the current runtime implementation.",
   "schema_version": "4.0.0-engineering-baseline-1",
   "family": "V3.x Hardened Baseline",
   "branch": "main",
