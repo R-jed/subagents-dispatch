@@ -567,8 +567,6 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
                 "ref",
                 "kind",
                 "execution_id",
-                "unit_id",
-                "attempt_no",
                 "control_epoch",
                 "lease_epoch",
                 "lifecycle",
@@ -578,10 +576,8 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
             execution = executions.get(event["execution_id"])
             if execution is None:
                 raise StatePayloadError("host_observation references unknown execution")
-            if event["unit_id"] != execution["unit_id"] or event["attempt_no"] != execution["attempt_no"]:
-                raise StatePayloadError("host_observation generation does not match execution")
-            if event["control_epoch"] != execution["control_epoch"]:
-                raise StatePayloadError("host_observation must describe the current control epoch")
+            if not _strict_int(event["control_epoch"]):
+                raise StatePayloadError("host_observation has invalid control_epoch")
             if event["lease_epoch"] is not None and not _strict_int(event["lease_epoch"], minimum=1):
                 raise StatePayloadError("host_observation has invalid lease_epoch")
             if event["lifecycle"] not in EXECUTION_STATES:
@@ -644,6 +640,25 @@ def _validate_accounting_refs(value: Any, executions: Mapping[str, Mapping[str, 
                 event["control_epoch"], minimum=1
             ):
                 raise StatePayloadError("recovery_basis must describe the current positive control epoch")
+
+
+def _prune_superseded_generation_evidence(payload: dict[str, Any]) -> None:
+    executions = {
+        item["execution_id"]: item
+        for item in payload.get("executions", [])
+        if isinstance(item, Mapping) and _nonempty(item.get("execution_id"))
+    }
+    payload["accounting_refs"] = [
+        event
+        for event in payload.get("accounting_refs", [])
+        if not (
+            isinstance(event, Mapping)
+            and event.get("kind") in {"host_observation", "recovery_basis"}
+            and event.get("execution_id") in executions
+            and event.get("control_epoch")
+            != executions[str(event.get("execution_id"))].get("control_epoch")
+        )
+    ]
 
 
 def _serialized_payload(payload: Mapping[str, Any], *, max_bytes: int) -> bytes:
@@ -789,7 +804,6 @@ def mutate_state(
     temp_root: str | os.PathLike[str] | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
     now: datetime | str | None = None,
-    skip_noop: bool = False,
 ) -> dict[str, Any]:
     identity = storage.resolve_thread_id(thread_id)
     with storage.state_lock(identity, temp_root=temp_root):
@@ -800,7 +814,8 @@ def mutate_state(
             raise StatePayloadError("state_revision compare-and-swap failed")
         updated = copy.deepcopy(current)
         mutator(updated)
-        if skip_noop and updated == current:
+        _prune_superseded_generation_evidence(updated)
+        if updated == current:
             return current
         updated["state_revision"] = current["state_revision"] + 1
         updated["updated_at"] = storage._utc_text(now)
