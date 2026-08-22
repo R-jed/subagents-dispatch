@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import tomllib
-from urllib.parse import urlparse
 
 import yaml
 
@@ -62,8 +61,7 @@ def test_plugin_manifest_is_v4_two_skill_identity_and_validator_compatible():
     ):
         assert internal not in product_copy
     for field in ("privacyPolicyURL", "termsOfServiceURL"):
-        parsed = urlparse(interface[field])
-        assert parsed.scheme == "https" and parsed.netloc
+        assert field not in interface
     for field in ("composerIcon", "logo"):
         path = ROOT / interface[field].removeprefix("./")
         assert path.is_file()
