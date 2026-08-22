@@ -76,14 +76,16 @@ plan-only creates no runtime state, lease or Host action
 ```text
 N0 exact role / model / effort / fork_turns
 N1 managed child collaboration containment
-N2 fresh spawn success and identity binding
-N3 explicit capacity rejection with no materialization
-N4 same-child followup and continue
+N2 canonical task address plus Host-thread identity evidence binding
+N3 Host admission rejection with no child identity or resident runtime materialization
+N4 RUNNING Steer via followup_task plus same-child correction and continue
 N5 interrupt and settlement observation
 N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and effective sandbox truth
 ```
+
+For N4, a successful `followup_task` call is not sufficient by itself. Release evidence must show that the RUNNING Steer targeted the original canonical task address, stayed bound to the original Host child with no replacement materialized, and was consumed by that same child. Steer must preserve the ExecutionBinding, `attempt_no`, `control_epoch`, and `followup_count`. Correction and Continue remain same-child controls and must not create a fresh attempt.
 
 Offline CI, source inspection, profile configuration, model self-report or evidence from another candidate cannot substitute for these Host facts.
 
@@ -102,6 +104,7 @@ single delegated responsibility
 value-driven multi-child read investigation under the four-child ceiling
 known-capacity-limited admission
 evidence-gated fresh retry
+RUNNING Steer consumed by the same child
 same-child correction with changed basis
 CONTINUE after interrupt
 takeover
