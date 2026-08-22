@@ -120,10 +120,18 @@ def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery
     assert fanout["queue_remainder"] is True
 
 
-def test_phase_status_is_evidence_based_while_remediation_head_is_unverified():
+def test_phase_status_records_verified_repository_basis_and_keeps_release_gates_pending():
     phase = read_json("docs/v4/phase-status.json")
 
     assert phase["candidate_branch"] == "v4/rc5-review-remediation"
-    assert set(phase["repository_phases"].values()) == {"PENDING_REVALIDATION"}
+    assert set(phase["repository_phases"].values()) == {"PASS"}
+    assert phase["repository_validation"]["status"] == "PASS"
+    assert phase["repository_validation"]["candidate_sha"] == "5bff43f9d50ca138711969e5407ac2f93ab160c7"
+    assert phase["repository_validation"]["workflow_run_id"] == 32579090645
     assert phase["publication"] == "BLOCKED"
     assert phase["host_capability_feasibility"]["status"] == "PENDING"
+    assert phase["host_capability_feasibility"]["release_authority"] is False
+    assert phase["real_host_gate"]["status"] == "PENDING_RELEASE_GATE"
+    assert phase["real_host_gate"]["required_campaign"] == "N0-N8"
+    assert phase["final_review"] == "PENDING_RELEASE_GATE"
+    assert phase["external_release_evidence"] == "PENDING_RELEASE_GATE"
