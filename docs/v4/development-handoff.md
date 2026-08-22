@@ -2,17 +2,17 @@
 
 初始记录时间：2026-08-22T21:58Z，对应 2026-08-23 05:58 +08:00。
 
-最新记录时间：2026-08-22T22:06Z，对应 2026-08-23 06:06 +08:00。
+最新记录时间：2026-08-22T22:12Z，对应 2026-08-23 06:12 +08:00。
 
 状态：持续维护。此文件是 V4 当前开发上下文的仓库内交接入口。新会话、新维护者或新的 Codex session 接手前，应先读本文件，再核 GitHub 当前分支、PR、CI 和真实 Host evidence。
 
 ## 1. 强制维护规则
 
-从本记录建立起，任何后续仓库内容修改都必须同步更新 `docs/v4/development-handoff.md`。同一修改应记录时间、触发原因、技术背景、实际改动、影响文件、明确未变化的边界、验证方法、验证结果、风险、下一步和注意事项。
+从本记录建立起，任何后续仓库内容修改都必须同步更新 `docs/v4/development-handoff.md`。同一修改应记录时间、触发原因、技术背景、实际改动、影响文件、明确未变化的边界、验证方法、验证要求、风险、下一步和注意事项。受 GitHub 单文件写入接口限制时，相关文件修改和 handoff 补录可以是同一 PR 内相邻提交，但 handoff 补录必须在合并前完成。
+
+不改变仓库内容的活动不要求为了“记录结果”额外制造新 HEAD。这类活动包括 post-commit GitHub CI、review/comment/PR metadata、real Host evidence、安装审计和人工观察。它们可以保存在 GitHub、仓库外部 evidence 或当前会话记录中，并在下一次真实仓库内容修改时顺带补录到 handoff。禁止仅为了记录某个 CI PASS、review 状态或 Host 结果而修改 handoff，因为那会让被记录的 exact HEAD 立即失效并形成无限自更新循环。
 
 本文件不能为了填写“包含本文件修改的那个 commit SHA”再单独制造一个 commit，否则会形成 SHA 自引用循环。该 commit 通过 `git log -- docs/v4/development-handoff.md` 解析。记录中写修改前基线、分支、PR 和语义结果。
-
-仓库外部的 real Host evidence、安装审计和人工观察，如果完全不修改仓库，可以只写在外部 evidence 中，避免为了更新 handoff 反过来改变 exact candidate 并使 Host evidence 失效。如果这些结果随后触发仓库修改，则对应修改必须同步更新本文件。
 
 `docs/v4/host-smoke.json` 的 tracked `status` 必须保持 `PENDING`，`results` 必须保持空对象。真实 N0 到 N8 结果只允许存放在仓库外部 evidence。
 
@@ -54,7 +54,7 @@ PR #90 base：`v4/rc5-native-core@4530382427556f20fe8fd57e56108016d5f2a3e2`。
 
 PR #90 工作分支：`docs/v4-live-development-handoff`。
 
-PR #90 只修改 `docs/v4/development-handoff.md`，不改变 production runtime、machine Host contract 或 Plugin package payload。
+PR #90 当前文档范围包括 `docs/v4/development-handoff.md` 和 `README_AI.md`。`README_AI.md` 负责让新 AI/维护会话能从既有入口发现实时 handoff。两者都不改变 production runtime、machine Host contract 或 Plugin package payload。
 
 接手时必须先读取 PR #90 当前状态。如果 PR #90 已合并，则本节中的 `453038...` 和 PR #90 信息只作为合并前历史基线，正式候选必须重新从 `v4/rc5-native-core` 当前 HEAD/tree 读取，不能继续把旧 SHA 当现状。
 
@@ -305,15 +305,15 @@ materialization、identity 或 lifecycle 存在歧义时进入 UNKNOWN。UNKNOWN
 
 PR #88 和 PR #89 都没有改变 50-file Plugin package payload。PR #81 当前描述确认 `.codex-plugin/package-integrity.json` 与此前 exact-installed package payload byte-identical。
 
-本 handoff 文件位于 `docs/v4/`，不应进入 Plugin package payload。PR #90 的 repository CI 已通过 generated package-integrity check，支持这一边界没有发生意外 package 漂移。
+`docs/v4/development-handoff.md` 和 `README_AI.md` 都不在当前 50-file Plugin package payload 内。PR #90 的历史 repository CI 已通过 generated package-integrity check，支持文档改动没有意外改变 shipped payload。最终 PR head 仍必须重新通过同一检查。
 
-不过 candidate commit 会因为 handoff 文件落仓而变化，所以即使 package payload byte-identical，正式 release 仍要重新记录 exact candidate commit/tree，并做 non-mutating installed-package identity re-audit，确认已安装 package 与最终 frozen candidate 的 package manifest 一致。
+不过 candidate commit 会因为 handoff 文件和 AI 入口落仓而变化，所以即使 package payload byte-identical，正式 release 仍要重新记录 exact candidate commit/tree，并做 non-mutating installed-package identity re-audit，确认已安装 package 与最终 frozen candidate 的 package manifest 一致。
 
 ## 14. 当前 remaining release gates
 
 接手时先判断 PR #90 状态。
 
-如果 PR #90 仍 OPEN：完成其 final-head repository matrix、review 和 diff 审查；只有全部通过后才允许 squash merge。
+如果 PR #90 仍 OPEN：完成其 final-head repository matrix、review 和 diff 审查；只有全部通过后才允许 squash merge。最终 CI 和 review 结果属于非仓库修改证据，不需要为了写回 PASS 再制造新的 handoff commit。
 
 如果 PR #90 已 MERGED：跳过所有“等待或合并 PR #90”的步骤，立即读取 `v4/rc5-native-core` 当前 HEAD/tree 和 PR #81 当前 synthetic merge tree，把它们作为新的正式 candidate identity，并完成 post-merge exact-head repository CI。
 
@@ -355,14 +355,15 @@ PR #81 继续保持 Draft，publication BLOCKED。
 
 1. 读取 PR #90 当前 head，确认 final-head repository matrix 全绿。
 2. 再次检查 PR #90 review threads 和 changed files。
-3. 只有无 blocking review 且 changed files 仍仅为 `docs/v4/development-handoff.md` 时，squash merge PR #90。建议 commit title：`docs: add live V4 development handoff`。
-4. 合并后立即转入下面的 B 流程，不再继续引用 PR #90 的旧 head 作为 candidate。
+3. 只有无 blocking review 且 changed files 仅为文档范围 `docs/v4/development-handoff.md` 和 `README_AI.md` 时，squash merge PR #90。建议 commit title：`docs: add live V4 development handoff`。
+4. final-head CI 和 review PASS 不需要再次修改 handoff。它们是当前 exact HEAD 的外部验证事实。
+5. 合并后立即转入下面的 B 流程，不再继续引用 PR #90 的旧 head 作为 candidate。
 
 ### B. PR #90 已 MERGED，或完成 A 后
 
 1. 读取 `v4/rc5-native-core` 当前 HEAD/tree，作为新的正式 candidate identity。
 2. 读取 PR #81 当前 head 和 synthetic merge commit/tree，要求 PR #81 head 等于当前 `v4/rc5-native-core` HEAD，synthetic merge tree 等于正式 candidate tree。
-3. 等待并确认这个正式 candidate exact-head repository CI 四平台和 aggregate `policy-tests` 全绿。
+3. 等待并确认这个正式 candidate exact-head repository CI 四平台和 aggregate `policy-tests` 全绿。该 CI 结果保存在 GitHub，不为了把 PASS 写入 handoff再次修改 candidate。
 4. 检查 `docs/v4/host-smoke.json` 仍是 `PENDING`、`results={}`。
 5. 做 non-mutating installed-package identity re-audit。实际 Host build 以当时观测为准。
 6. 如果已安装 package 不能证明 exact candidate identity，再使用官方 CLI 做 exact local Marketplace reinstall，并重新 Doctor。
@@ -429,4 +430,30 @@ base：`v4/rc5-native-core@4530382427556f20fe8fd57e56108016d5f2a3e2`。
 
 明确未变化：production runtime、machine Host contracts、Plugin package payload、WriterLease、WorkGraph、scheduler、managed profiles、Hook、N0 到 N8 tracked results 均未变化。
 
-验证要求：本次修复产生新 PR head，必须再次通过完整四平台 repository matrix；通过后再确认 P1 thread 已由实际文件内容和 CI 关闭，才能 merge PR #90。
+修复 commit：`4011a4eea97844e4b1cff620a244540d9fe7230f`，message `docs: make V4 handoff merge-state aware`。
+
+验证：workflow `32601607606` 四个平台和 aggregate `policy-tests` 全部 PASS。该结果属于不改变仓库内容的 CI evidence，因此无需为了重新写入 PASS 再制造新 commit。
+
+### H004 2026-08-22T22:12Z：关闭 handoff 自更新循环并建立仓库入口
+
+触发：H003 CI PASS 后，review 新增两个 P2。
+
+P2 一指出原规则容易被理解为 post-commit CI 也必须写回 handoff。这样每次写入 CI 结果都会产生新 HEAD，新 HEAD 又需要新 CI，再产生下一次写入，无法稳定冻结 exact candidate。
+
+P2 二指出 handoff 虽然存在，但仓库既有 AI 入口 `README_AI.md` 没有链接它。新会话可能只读 AI Reference 后直接开发，从而错过最新 candidate、recent remediation、Host gate 和风险信息。
+
+根因：第一处把“仓库内容修改”和“非修改性验证事件”混成一个记录要求；第二处只创建了 continuity artifact，没有把它接进已有 onboarding path。
+
+实际修复：
+
+1. 第 1 节明确规定仓库内容修改必须同步 handoff，但 CI、review、PR metadata、Host evidence、安装审计、人工观察属于非仓库修改事实，可以外部保存并在下一次真实内容修改时顺带补录，禁止为了记录这些结果单独改变 candidate。
+2. `README_AI.md` 顶部新增 live handoff 入口，要求修改 V4 前先阅读 `docs/v4/development-handoff.md`，同时声明 handoff 不替代 machine contracts 或 external Host evidence。
+3. 第 2、13、14、16 节同步更新 PR #90 文档范围、package 边界和可冻结的 CI 流程。
+
+改动文件：`README_AI.md`、`docs/v4/development-handoff.md`。
+
+`README_AI.md` 修改 commit：`608ff7255454221c4c4555dd75f4219ae610eb33`，message `docs: link live V4 development handoff`。随后本 handoff 在同一 PR 下一提交补齐本次改动记录，满足单文件 GitHub 写入接口下的同步要求。
+
+明确未变化：production runtime、machine Host contracts、Plugin package payload、WriterLease、WorkGraph、scheduler、managed profiles、Hook、tracked N0 到 N8 results 均未变化。
+
+验证要求：本次修改后的 PR #90 final head 必须重新通过四平台 repository matrix 和 aggregate `policy-tests`。该最终 PASS 可以留在 GitHub 作为 exact-head evidence，不需要再修改 handoff。review 中 H003 P1 和本轮两个 P2 只有在最终文件内容与 CI 都确认后才允许 resolve。
