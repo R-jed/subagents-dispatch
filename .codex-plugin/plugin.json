@@ -16,8 +16,6 @@
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "websiteURL": "https://github.com/R-jed/subagents-dispatch",
-    "privacyPolicyURL": "https://github.com/R-jed/subagents-dispatch/blob/main/PRIVACY.md",
-    "termsOfServiceURL": "https://github.com/R-jed/subagents-dispatch/blob/main/TERMS.md",
     "brandColor": "#2563EB",
     "composerIcon": "./assets/subagents-dispatch-composer-icon.svg",
     "logo": "./assets/subagents-dispatch-logo.svg",
