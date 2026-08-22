@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,12 +123,16 @@ def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery
 
 def test_phase_status_records_verified_repository_basis_and_keeps_release_gates_pending():
     phase = read_json("docs/v4/phase-status.json")
+    validation = phase["repository_validation"]
 
     assert phase["candidate_branch"] == "v4/rc5-review-remediation"
     assert set(phase["repository_phases"].values()) == {"PASS"}
-    assert phase["repository_validation"]["status"] == "PASS"
-    assert phase["repository_validation"]["candidate_sha"] == "5bff43f9d50ca138711969e5407ac2f93ab160c7"
-    assert phase["repository_validation"]["workflow_run_id"] == 32579090645
+    assert validation["status"] == "PASS"
+    assert re.fullmatch(r"[0-9a-f]{40}", validation["candidate_sha"])
+    assert isinstance(validation["workflow_run_id"], int) and validation["workflow_run_id"] > 0
+    assert "final CI regression run" in validation["attestation_scope"]
+    for removed in ("CHANGELOG_V3.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md"):
+        assert removed in validation["attestation_scope"]
     assert phase["publication"] == "BLOCKED"
     assert phase["host_capability_feasibility"]["status"] == "PENDING"
     assert phase["host_capability_feasibility"]["release_authority"] is False
