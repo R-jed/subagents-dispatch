@@ -303,3 +303,70 @@ def test_blocking_writer_lease_blocks_new_read_execution_until_settlement(tmp_pa
     assert current is not None
     assert [item["execution_id"] for item in current["executions"]] == ["exec-write"]
     assert current["writer_lease"]["state"] == "RESERVED"
+
+
+def test_released_writer_owner_survives_mixed_authority_history_compaction(tmp_path: Path):
+    state, graph, lifecycle = modules("released-writer-history")
+    writer = load_module("phase3_writer_released_history", "writer_lease_v4.py")
+    thread_id = "phase3-released-writer-history"
+    state.write_state(state.new_state(thread_id=thread_id), temp_root=tmp_path)
+    graph.install_work_graph(thread_id, units=[write_unit(graph, "U1")], temp_root=tmp_path)
+
+    allocated = lifecycle.allocate_execution(
+        thread_id,
+        unit_id="U1",
+        execution_id="exec-1",
+        native_task_name="sd_u1_a1",
+        profile_id="worker",
+        granted_authority="bounded-source-write",
+        granted_write_scope=["src/u1.py"],
+        execution_basis_ref="basis:writer",
+        writer_lease_id="lease-1",
+        temp_root=tmp_path,
+    )
+    lease_epoch = allocated["writer_lease"]["lease_epoch"]
+    persist_status(lifecycle, thread_id, "exec-1", tmp_path, "errored")
+    writer.release_settled_execution_writer(
+        thread_id,
+        execution_id="exec-1",
+        lease_id="lease-1",
+        lease_epoch=lease_epoch,
+        temp_root=tmp_path,
+    )
+
+    for attempt in range(2, 5):
+        execution_id = f"exec-{attempt}"
+        lifecycle.allocate_execution(
+            thread_id,
+            unit_id="U1",
+            execution_id=execution_id,
+            native_task_name=f"sd_u1_a{attempt}",
+            profile_id="reader",
+            granted_authority="none",
+            execution_basis_ref=f"basis:reader-{attempt}",
+            temp_root=tmp_path,
+        )
+        if attempt < 4:
+            persist_status(lifecycle, thread_id, execution_id, tmp_path, "errored")
+
+    current = state.load_state(thread_id, temp_root=tmp_path)
+    assert current is not None
+    assert current["writer_lease"] == {
+        "lease_id": "lease-1",
+        "lease_epoch": lease_epoch,
+        "workspace_id": "canonical",
+        "unit_id": "U1",
+        "owner_kind": "execution",
+        "owner_id": "exec-1",
+        "state": "RELEASED",
+    }
+    retained = [item for item in current["executions"] if item["unit_id"] == "U1"]
+    assert [item["attempt_no"] for item in retained] == [1, 3, 4]
+    history = next(
+        event
+        for event in current["accounting_refs"]
+        if event.get("kind") == "execution_history" and event.get("unit_id") == "U1"
+    )
+    assert history["compacted_attempts"] == 1
+    assert history["max_attempt_no"] == 2
+    assert history["last_execution_id"] == "exec-2"
