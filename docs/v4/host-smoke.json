@@ -61,7 +61,7 @@
       "requires": [
         "record the Host-runtime capacity evidence used to stage the rejection probe; when the current public agents.max_concurrent_threads_per_session setting is the source, normalize its spawned-agent-only value to the root-inclusive internal V2 session limit before projection",
         "observe an actual Host admission rejection under deliberately saturated conditions and do not fabricate whether the cause was active-execution pressure or residency pressure when the Host error does not distinguish them",
-        "for the tested explicit rejection path no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime materializes in the authoritative Host surfaces available to the campaign",
+        "for the tested explicit rejection path no child identity or resident child materializes; specifically, no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime materializes in the authoritative Host surfaces available to the campaign",
         "pre-materialization rejection rolls back provisional execution and reserved writer without consuming a fresh attempt",
         "any ambiguity about child materialization is quarantined as UNKNOWN"
       ]
