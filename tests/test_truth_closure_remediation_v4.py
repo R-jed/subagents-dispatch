@@ -84,8 +84,8 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
         "one focused same-child followup",
     ):
         assert stale not in interaction
-    assert "WorkGraph and WorkUnit own multi-responsibility dependency and structural truth" in interaction
-    assert "no fixed followup-count ceiling" in interaction
+    assert "WorkGraph and WorkUnit own multi-responsibility dependency and responsibility truth" in interaction
+    assert "There is no fixed correction-count ceiling" in interaction
 
     assert "already owns the multi-responsibility structural truth" not in responsibility
     assert "carries no dependency, routing, integration-order, retry-budget, ownership, or acceptance authority" in responsibility
