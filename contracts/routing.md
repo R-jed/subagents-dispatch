@@ -66,9 +66,9 @@ The product has one managed-child ceiling:
 managed children <= 4
 ```
 
-The ceiling is a safety limit, not a target. Host capacity may reduce it. Unknown Host capacity is not guessed and does not create a synthetic project capacity token. The Host remains authoritative and may reject a spawn before materialization.
+The ceiling is a safety limit, not a target. Codex V2 session concurrency includes the primary agent, so a known Host session capacity may reduce the projected child slots after accounting for Main and current managed project children. Unknown numeric Host capacity is not guessed and does not create a synthetic project capacity token. Missing required Host capability evidence blocks delegated launch. The Host remains authoritative and may reject a spawn before materialization when other session occupancy or a stricter runtime limit consumes capacity.
 
-Deterministic code may report the ready frontier, current active count, Host readiness, known Host capacity, WriterLease state, and available slots. It does not rank the frontier, choose a WorkUnit, create critical-path priority, apply a fixed acceptance-backlog threshold, or emit automatic launch actions. The main session owns those decisions.
+Deterministic code may report the ready frontier, current active project-child count, Host readiness, known Host session capacity, WriterLease state, and a conservative available-slot projection. It does not rank the frontier, choose a WorkUnit, create critical-path priority, apply a fixed acceptance-backlog threshold, or emit automatic launch actions. The main session owns those decisions.
 
 Spare capacity never justifies decorative work. If unprocessed results make further delegation counterproductive, integrate and accept the useful results first.
 
