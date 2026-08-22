@@ -98,7 +98,7 @@ def test_marketplace_plugin_source_is_exact_checkout_root():
     assert market["plugins"][0]["source"] == {"source": "local", "path": "./"}
 
 
-def test_fixed_profiles_follow_policy_and_child_collaboration_is_disabled():
+def test_fixed_profiles_follow_policy_and_request_leaf_containment():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["schema_version"] == 9
     assert policy["delegation"] == {

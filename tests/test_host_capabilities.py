@@ -56,7 +56,6 @@ def test_complete_native_evidence_normalizes_to_execution_ready_snapshot():
     }
     assert snapshot["capacity_excludes_primary"] is True
     assert snapshot["max_spawned_threads"] == 4
-    assert module.effective_managed_child_limit(snapshot, product_limit=3) == 3
 
 
 def test_public_v2_agent_status_union_is_normalized_without_assuming_agent_id():
@@ -115,15 +114,6 @@ def test_unknown_host_capacity_stays_unknown_instead_of_inventing_default():
 
     assert snapshot["execution_ready"] is True
     assert snapshot["max_spawned_threads"] is None
-    assert module.effective_managed_child_limit(snapshot) is None
-
-
-def test_product_limit_is_capped_by_known_spawned_thread_capacity():
-    module = load_module()
-    snapshot = module.normalize_host_capabilities(evidence(capacity=2))
-
-    assert snapshot["capacity_excludes_primary"] is True
-    assert module.effective_managed_child_limit(snapshot, product_limit=3) == 2
 
 
 def test_malformed_or_partial_evidence_is_rejected():

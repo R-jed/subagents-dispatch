@@ -169,19 +169,5 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     return copy.deepcopy(dict(snapshot))
 
 
-def effective_managed_child_limit(
-    snapshot: Mapping[str, Any],
-    *,
-    product_limit: int = 3,
-) -> int | None:
-    normalized = validate_normalized_snapshot(snapshot)
-    if not isinstance(product_limit, int) or isinstance(product_limit, bool) or product_limit < 1:
-        raise HostCapabilityError("product_limit must be a positive integer")
-    capacity = normalized["max_spawned_threads"]
-    if capacity is None:
-        return None
-    return min(product_limit, capacity)
-
-
 def capability_snapshot_copy(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     return validate_normalized_snapshot(snapshot)

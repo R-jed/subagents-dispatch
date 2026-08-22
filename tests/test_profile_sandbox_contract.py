@@ -10,7 +10,7 @@ POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf
 PROFILES = ROOT / "agent-profiles"
 
 
-def test_read_only_roles_pin_read_only_sandbox_and_writers_inherit_host_permission():
+def test_read_only_roles_request_read_only_sandbox_and_writers_inherit_host_permission():
     for role, spec in POLICY["roles"].items():
         profile = tomllib.loads((PROFILES / spec["profile_file"]).read_text(encoding="utf-8"))
         if spec["mutation_authority"] == "none":
