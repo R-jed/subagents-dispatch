@@ -66,10 +66,5 @@ def test_ai_and_runtime_docs_match_current_public_roles_and_child_ceiling():
         assert "normal managed children <= 3" not in text
 
 
-def test_privacy_describes_current_native_core_state():
-    privacy = (ROOT / "PRIVACY.md").read_text(encoding="utf-8")
-    assert "Codex Native Subagent lifecycle results" in privacy
-    assert "WorkUnit" in privacy
-    assert "ExecutionBinding" in privacy
-    assert "WriterLease" in privacy
-    assert "UNKNOWN" in privacy
+def test_repository_privacy_policy_is_not_tracked():
+    assert not (ROOT / "PRIVACY.md").exists()
