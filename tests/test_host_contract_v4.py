@@ -26,12 +26,12 @@ def load_module(name: str, filename: str):
         sys.path.remove(scripts)
 
 
-def raw_host_evidence(*, capacity: int | None = 3) -> dict:
+def raw_host_evidence(*, capacity: int | None = 4) -> dict:
     return {
         "surface": "multi_agent_v2",
         "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
         "fork_turns_none": True,
-        "max_spawned_threads": capacity,
+        "max_concurrent_threads_per_session": capacity,
     }
 
 
@@ -106,7 +106,7 @@ def test_allocate_execution_rejects_host_invalid_task_names(tmp_path: Path, bad_
         )
 
 
-def test_known_host_capacity_is_advisory_scheduler_ceiling():
+def test_known_host_session_capacity_is_advisory_scheduler_ceiling():
     state = load_module("native_capacity_state", "dispatch_state_v4.py")
     host = load_module("native_capacity_host", "host_capabilities.py")
     scheduler = load_module("native_capacity_scheduler", "scheduler_v4.py")
@@ -114,12 +114,12 @@ def test_known_host_capacity_is_advisory_scheduler_ceiling():
     payload = state.new_state(thread_id="thread-native-capacity")
     payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit("U1"), work_unit("U2"), work_unit("U3")]
-    snapshot = host.normalize_host_capabilities(raw_host_evidence(capacity=1))
+    snapshot = host.normalize_host_capabilities(raw_host_evidence(capacity=2))
 
     decision = scheduler.scheduler_decision(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
 
     assert decision["selection_owner"] == "main"
-    assert decision["host_capacity"] == 1
+    assert decision["host_session_capacity"] == 2
     assert decision["product_child_limit"] == 4
     assert decision["available_launch_slots"] == 1
     assert decision["launch_budget"] == 1
@@ -139,7 +139,7 @@ def test_unknown_host_capacity_allows_bounded_product_admission():
     decision = scheduler.scheduler_decision(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
 
     assert decision["selection_owner"] == "main"
-    assert decision["host_capacity"] is None
+    assert decision["host_session_capacity"] is None
     assert decision["host_ready"] is True
     assert decision["product_child_limit"] == 4
     assert decision["available_launch_slots"] == 4
@@ -164,8 +164,8 @@ def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():
             "unknown_capability": True,
         },
         "fork_turns_none": True,
-        "max_spawned_threads": 3,
-        "capacity_excludes_primary": True,
+        "max_concurrent_threads_per_session": 4,
+        "capacity_includes_primary": True,
         "execution_ready": True,
         "missing": [],
     }
