@@ -1,6 +1,11 @@
 MIT License
 
 Copyright (c) 2026 R-jed
+Copyright (c) 2026 Zhijian AI / Dapeng
+
+Portions of the TeamPlan validation logic are derived from MIT-licensed material in
+zjp1997720/zhijian-skills, skill codex-model-routing-team, revision
+8b9abec4b353c70f04e8409302169309544bae95.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
