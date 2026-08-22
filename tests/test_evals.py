@@ -42,7 +42,7 @@ def test_behavioral_registry_and_schema_remain_valid_measurement_surfaces():
     jsonschema.Draft202012Validator.check_schema(schema)
     ids = {item['id'] for item in workloads['workloads']}
     assert len(ids) == len(workloads['workloads'])
-    assert {'bounded-implementation', 'judgment-coupled-nonsol', 'judgment-coupled-sol-main', 'technical-delta-after-semantics', 'process-history-does-not-force-review', 'public-contract-final-review-required', 'main-route-observability', 'semantic-coverage-multi-responsibility-plan', 'phase-transition-recompile-after-authorization', 'dispatch-first-use-restart-required', 'dispatch-status-preserves-unknown', 'dispatch-steer-preserves-responsibility'} <= ids
+    assert {'bounded-implementation', 'judgment-coupled-nonsol', 'judgment-coupled-sol-main', 'technical-delta-after-semantics', 'process-history-does-not-force-review', 'public-contract-final-review-required', 'main-route-observability', 'semantic-coverage-multi-responsibility-plan', 'phase-transition-recompile-after-authorization', 'orchestrate-first-use-restart-required', 'orchestrate-status-preserves-unknown', 'orchestrate-steer-preserves-responsibility'} <= ids
 
 def test_schema_requires_control_fields_and_rejects_unknown_run_fields():
     schema = json.loads(SCHEMA.read_text(encoding='utf-8'))
@@ -111,18 +111,18 @@ def test_scorer_does_not_invent_missing_telemetry(tmp_path: Path):
     assert comparison['metric_deltas']['input_tokens'] is None
     assert summary['modes']['bounded_luna']['mean_input_tokens'] is None
 
-def test_live_behavior_registry_covers_2_1_interaction_and_handoff_workloads():
+def test_live_behavior_registry_covers_current_orchestrate_interaction_and_handoff_workloads():
     payload = json.loads(WORKLOADS.read_text(encoding='utf-8'))
     by_id = {item['id']: item for item in payload['workloads']}
-    required = {'dispatch-preview-no-execution', 'dispatch-takeover-running-writer', 'handoff-capsule-reuse', 'delegated-execution-receipt'}
+    required = {'orchestrate-preview-no-execution', 'orchestrate-takeover-running-writer', 'handoff-capsule-reuse', 'native-core-execution-receipt', 'five-independent-readers-queued'}
     assert required <= set(by_id)
-    preview = by_id['dispatch-preview-no-execution']['expected']
+    preview = by_id['orchestrate-preview-no-execution']['expected']
     assert preview['child_spawns'] == 0
     assert preview['profile_provisioning'] == 0
     assert preview['source_mutations'] == 0
     assert preview['external_actions'] == 0
     assert preview['provisional_plan'] is True
-    takeover = by_id['dispatch-takeover-running-writer']['expected']
+    takeover = by_id['orchestrate-takeover-running-writer']['expected']
     assert takeover['native_stop_before_transfer'] is True
     assert takeover['main_conflicting_writes_before_settlement'] == 0
     assert takeover['unknown_does_not_transfer'] is True
@@ -130,7 +130,14 @@ def test_live_behavior_registry_covers_2_1_interaction_and_handoff_workloads():
     assert handoff['fork_turns_none'] is True
     assert handoff['unverified_claims_propagated'] == 0
     assert handoff['stale_evidence_requires_reverification'] is True
-    receipt = by_id['delegated-execution-receipt']['expected']
+    receipt = by_id['native-core-execution-receipt']['expected']
     assert receipt['minimum_receipt_lines'] == 2
     assert receipt['unsupported_runtime_claims'] == 0
     assert receipt['zero_child_minimal_receipt'] is True
+    assert receipt['persistent_receipt_ledger'] is False
+    assert receipt['current_state_facts_only'] is True
+    fanout = by_id['five-independent-readers-queued']['expected']
+    assert 'initial_managed_children_max' not in fanout
+    assert fanout['product_managed_children_max'] == 4
+    assert fanout['queue_remainder'] is True
+    assert fanout['unknown_host_capacity_blocks_bounded_spawn'] is False

@@ -27,10 +27,14 @@ def load_module(name: str, filename: str):
         sys.path.remove(scripts)
 
 
-def test_v4_policy_freezes_depth_writer_and_model_effort_profiles():
+def test_v4_policy_freezes_depth_child_ceiling_writer_and_profiles():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["schema_version"] == 9
-    assert policy["delegation"] == {"max_depth": 1, "fork_turns": "none"}
+    assert policy["delegation"] == {
+        "max_depth": 1,
+        "fork_turns": "none",
+        "max_managed_children": 4,
+    }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
     assert policy["fixed_execution_profiles"] == {
         "luna": "max",
@@ -48,11 +52,11 @@ def test_v4_policy_freezes_depth_writer_and_model_effort_profiles():
     for role, (model, effort, authority) in expected.items():
         spec = policy["roles"][role]
         assert (spec["model"], spec["effort"], spec["mutation_authority"]) == (model, effort, authority)
-        profile = tomllib.loads(
-            (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
-        )
+        profile = tomllib.loads((ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8"))
         assert profile["model"] == model
         assert profile["model_reasoning_effort"] == effort
+        assert profile["agents"]["enabled"] is False
+        assert profile["features"]["multi_agent_v2"] is False
 
 
 def test_routing_evals_match_the_frozen_profile_contract():
@@ -78,14 +82,14 @@ def test_plan_only_keeps_zero_child_as_a_valid_nonexecuting_outcome():
     assert plan["work_units"] == []
 
 
-def test_v4_runtime_separates_workunit_execution_control_and_writer_truth():
+def test_v4_runtime_separates_workunit_execution_and_writer_truth():
     state = load_module("coord_state", "dispatch_state_v4.py")
     payload = state.new_state(thread_id="coord-thread")
     assert payload["work_units"] == []
     assert payload["executions"] == []
-    assert payload["pending_controls"] == []
     assert payload["writer_lease"] is None
-    assert "control_epoch" in state.EXECUTION_FIELDS
+    assert "pending_controls" not in payload
+    assert state.validate_state_payload(payload) == payload
 
 
 def test_public_surface_contains_only_the_two_supported_skills():

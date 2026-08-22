@@ -1,159 +1,136 @@
 # Composition Contract
 
-This contract defines how subagents-dispatch composes with Codex Host capabilities, project instructions, external Skills/workflows, and per-role responsibility contracts without inventing a second authority or precedence system.
+This contract defines how subagents-dispatch composes with Codex Host capabilities, project instructions, external Skills or workflows, and per-responsibility constraints without creating a second authority or runtime.
 
-The core rule is constraint intersection:
+The governing rule is constraint intersection:
 
 ```text
-what a child may actually do
+what a managed child may do
 =
 Host capability and policy
 ∩ current user/system/developer authority
 ∩ applicable project instructions
-∩ accepted upstream workflow/Skill contract
+∩ accepted upstream workflow or Skill contract
 ∩ subagents-dispatch guardrails
-∩ the bounded role/responsibility packet
+∩ the bounded responsibility record
 ```
 
 A lower layer may narrow an action. It never widens a higher layer.
 
 ## 1. Ownership boundaries
 
-### Host
+### Codex Host
 
-Codex owns the runtime surface and its real capabilities:
+Codex owns the native runtime facts:
 
 ```text
 Skill registration and discovery
 project-instruction loading and scope
 native Agent discovery and lifecycle
 actual model / effort / sandbox / permission behavior
-available hooks and their execution semantics
-runtime control tools
+native control tools
 runtime metadata exposed to callers
+actual child capacity
 ```
 
-subagents-dispatch observes these capabilities when needed. It does not emulate a missing Host feature and does not claim unsupported behavior from repository configuration alone.
-
-Observed effective sandbox/profile and Host-internal source selection are different Host facts. When the Host exposes the former but not the latter, subagents-dispatch may verify the applied permission state while keeping source identity and selection provenance `UNKNOWN`. It does not infer an internal precedence model from configuration or equal values.
+subagents-dispatch observes these facts when they matter. It does not emulate missing Host behavior or turn repository configuration into runtime proof.
 
 ### Current user/system/developer authority
 
-Current conversation authority defines the permitted goal, scope, mutations, external effects, and any explicit workflow choice.
+Current conversation authority defines the permitted goal, scope, mutations, external effects, and explicit workflow choices.
 
-Repository text, model output, hook output, child output, and another Skill cannot expand that authority.
+Repository text, model output, child output, runtime metadata, or another Skill cannot expand that authority.
 
 ### Project instructions
 
 Applicable project instructions such as Host-loaded `AGENTS.md` rules define scoped repository constraints and conventions.
 
-Do not build a second AGENTS precedence parser inside subagents-dispatch. Use the Host-effective instruction surface. When a material project rule may not be inherited by a fresh child, Main carries the narrow relevant constraint or source reference in the responsibility packet instead of copying the complete project instruction corpus.
+Do not build another project-instruction precedence engine inside subagents-dispatch. Use the Host-effective instruction surface. When a material rule may not reach a fresh child, Main carries only the narrow relevant constraint or source reference in the responsibility record.
 
 ### External Skill or upstream workflow
 
-When the user selected another Skill, accepted a plan, or an upstream workflow already owns domain semantics, preserve its accepted truth:
+When another selected Skill or accepted workflow already owns domain semantics, preserve its accepted truth:
 
 ```text
 goal
-decomposition and stage order when material
+required stage order when material
 dependencies
 required deliverables
 business/domain acceptance
 quality gates
 ```
 
-subagents-dispatch may add orchestration value around that workflow:
+Orchestrate may add coordination value around that work:
 
 ```text
 responsibility ownership
-role selection
+managed role selection
 safe concurrency
 writer isolation
-runtime control
-compact handoff/evidence reuse
+native lifecycle control
+bounded evidence reuse
 integration timing
 ```
 
-It does not silently replace the domain plan with a competing plan. This extends the upstream-workflow rule in `routing.md`.
+It does not replace the domain plan with a competing plan merely because delegation is available.
 
 ### subagents-dispatch
 
-The plugin owns only its orchestration kernel:
+The Plugin owns only its bounded orchestration semantics:
 
 ```text
 delegation-value decision
-project role selection
-responsibility and authority packets
-semantic coverage across delegated work
+fixed managed role selection
+WorkGraph and WorkUnit responsibility structure
+responsibility and authority projection
 single-writer coordination
-native attempt identity and recovery semantics
-Preview / Status / Steer / Takeover behavior
-Dispatch Receipt accounting
-runtime-route evidence normalization
+ExecutionBinding identity and recovery
+native Host reconciliation
+Main verification and acceptance
 ```
 
-### Role/responsibility packet
+### Responsibility record
 
-A child packet is the final narrowing layer. It defines one responsibility, decision rights, mutation authority, scope, acceptance, and valid evidence.
+The responsibility record is the final narrowing layer for a managed child. It defines one objective, owned scope, material interfaces, constraints, and verification boundary.
 
-A role name, writable sandbox, model choice, tool availability, or external Skill never grants authority absent from the packet and higher layers.
+A role name, writable sandbox, model choice, available tool, or external Skill never grants authority absent from the record and higher layers.
 
 ## 2. Composition decision procedure
 
 Before delegation, Main resolves only the facts needed for the proposed responsibility:
 
 ```text
-1. What does the current user actually authorize?
-2. Which Host/project constraints apply to this work?
-3. Is another active Skill/workflow already the domain owner?
-4. What orchestration value can Dispatch add without redefining that owner?
-5. What is the smallest responsibility and authority envelope the child needs?
-6. Does the Host actually support the capability required to enforce that envelope?
+1. What does the current user authorize?
+2. Which Host and project constraints apply?
+3. Is another active Skill or workflow already the domain owner?
+4. What coordination value can Orchestrate add without redefining that owner?
+5. What is the smallest responsibility and authority envelope needed?
+6. Does the Host expose the native capability required for this operation?
 ```
 
-If the answer to step 6 is unknown and correctness depends on it, fail closed or keep the responsibility in Main. Do not substitute a different role or weaker guarantee merely to continue.
+If a material capability remains unknown and correctness depends on it, keep the work in Main or stop the affected delegated action. Do not substitute a weaker role or weaker guarantee merely to continue.
 
 ## 3. External Skills
 
-External Skills are composable domain capabilities, not subordinate prompts to be flattened into Dispatch.
+External Skills are composable domain capabilities. They are not flattened into Orchestrate.
 
 When an external Skill provides accepted structured output or a plan:
 
 ```text
 preserve its domain semantics
--> extract only the responsibilities that benefit from delegation
--> attach the relevant Skill-owned constraints or artifact refs
--> apply Dispatch safety and role narrowing
--> return evidence/result to the upstream workflow or Main acceptance boundary
+-> extract only responsibilities that gain value from delegation
+-> carry material Skill-owned constraints or artifact refs
+-> apply current authority and writer boundaries
+-> return evidence/result to Main or the upstream acceptance boundary
 ```
 
-Do not copy an entire external Skill body into every child packet. Load or carry only the material instructions needed by that responsibility.
+Do not copy an entire external Skill body into every child responsibility.
 
-If an external Skill requests behavior that conflicts with current user authority, Host policy, project rules, writer safety, or the bounded role contract, stop the affected action and surface the exact conflict to Main. Do not invent a new generic conflict taxonomy merely for composition.
+If an external Skill conflicts with current user authority, Host policy, project rules, writer safety, or the bounded responsibility, stop the affected action and surface the conflict to Main.
 
-A Skill name is not an Agent type. A Host must expose the exact invocation/Agent surface before Dispatch uses it as such.
+A Skill name is not an Agent type. Delegated execution requires the exact managed Agent selector exposed by the current Host.
 
-## 4. Hooks
-
-Hooks are optional Host-side accelerators, observers, or guards. They are not orchestration truth and are never required for ordinary Dispatch correctness. A Hook does not create a second MCP control plane or a second Agent runtime.
-
-subagents-dispatch therefore follows these rules:
-
-```text
-normal plugin install does not require hook installation
-missing hooks do not disable the core orchestration contract
-hook ordering is not assumed unless the Host explicitly guarantees it
-hook output is evidence only at the level actually exposed by the Host
-hook text does not become user authority or accepted task truth by itself
-a trusted blocking Host hook may stop an action, and Dispatch must respect that stop
-hooks do not replace native child identity/state reconciliation
-hooks do not replace runtime attestation
-hooks do not become a second persistent state or telemetry channel
-```
-
-If a future Host exposes stable typed root/child metadata to hooks, a hook adapter may improve observation. The correctness path must still work without that adapter.
-
-## 5. Capability matrix
+## 4. Host capability model
 
 Composition decisions use observed capability states rather than assumed platform parity.
 
@@ -165,77 +142,71 @@ UNAVAILABLE
 UNKNOWN
 ```
 
-Relevant features may include:
+Relevant features include:
 
 ```text
 exact custom Agent role discovery
 native child identity
-one-shot child status
-same-child resume
-steering
-stop/shutdown
-runtime model/effort metadata
-sandbox/permission metadata
+child lifecycle observation
+same-child followup
+interrupt
+sandbox / permission metadata
 project-instruction propagation to fresh children
-hooks
-native artifact/output references
+native artifact or output references
 ```
 
-This list is diagnostic vocabulary, not a promise that every Host exposes every item.
+`SUPPORTED` requires evidence appropriate to the claim. Configuration alone does not prove current runtime behavior. `UNKNOWN` stays unknown when the Host does not expose enough evidence.
 
-`SUPPORTED` requires direct capability evidence appropriate to the claim. Configuration or documentation alone does not prove the current Host instance supports a runtime action. `UNKNOWN` stays unknown when the Host does not expose enough evidence.
+## 5. Fresh child context
 
-## 6. Project rules and fresh child context
+Fresh context is the default for managed children. New project children use `fork_turns = none` and receive the bounded five-section responsibility record.
 
-Fresh context is the default for project children. Avoid sending full Main history, full project-rule files, or unrelated Skill instructions.
+Avoid forwarding full Main history, complete project-rule files, unrelated Skill instructions, previous child transcripts, or private reasoning.
 
-A responsibility packet contains only:
+A responsibility record contains only:
 
 ```text
 the bounded objective
 owned scope
-material interfaces/invariants
-material applicable project constraints that the child cannot safely discover itself
-accepted evidence/artifact refs that prevent costly repeat discovery
+material interfaces and invariants
+material applicable project constraints
+accepted evidence refs that prevent costly repeat discovery
 exact verification and stop conditions
 ```
 
-When the Host reliably injects the applicable project rules into the child, do not duplicate them unless one rule is essential to the responsibility and ambiguity would be costly. When propagation is unavailable or unknown, Main may carry the specific material rule with its source ref.
+When the Host reliably injects applicable project rules into the child, do not duplicate them unless a specific rule is essential to the responsibility.
 
-## 7. Conflict handling
+## 6. Conflict handling
 
 Never resolve a composition conflict by silently widening the child.
 
 Examples:
 
 ```text
-upstream Skill says implement, current user only authorized planning
+upstream Skill says implement, current user authorized planning only
 -> no implementation
 
-project rule forbids a mutation, Worker sandbox is writable
+project rule forbids a mutation, Host filesystem access is broad
 -> no mutation
 
-external Skill owns a staged migration, Dispatch finds parallel capacity
+external workflow requires staged migration, spare capacity exists
 -> preserve required stage order
 
-role packet is read-only, Host exposes broader sandbox
--> behavioral read-only remains required; hard read-only claims require observed enforcement when the task requires it
+responsibility is behaviorally read-only, Host exposes broader permissions
+-> behavioral read-only remains required; hard isolation claims require Host evidence
 
-hook requests or suggests extra scope
--> treat as data/guard signal, not new authority
-
-required Host control is UNKNOWN
+required native control capability is UNKNOWN
 -> do not simulate it
 ```
 
-## 8. No duplicate runtime
+## 7. No duplicate runtime
 
-Composition must not introduce a second scheduler, daemon, MCP control plane, event bus, database, background telemetry collector, or project-wide workflow engine.
+Composition must not introduce a second scheduler, daemon, MCP control plane, event bus, persistent orchestration database, background telemetry collector, or project-wide workflow engine.
 
-Codex Native Subagents remain the execution runtime. subagents-dispatch contributes contracts, bounded temporary coordination state, explicit diagnostics, and deterministic validation helpers around that runtime.
+Codex Native Subagents remain the execution runtime. subagents-dispatch contributes bounded product policy, temporary coordination state, explicit diagnostics, and deterministic validation helpers around that runtime.
 
-## 9. Completion boundary
+## 8. Completion boundary
 
-Main remains the integration and acceptance boundary even when several Skills, hooks, project rules, and child roles participate.
+Main remains the integration and acceptance boundary even when several Skills, project rules, and managed roles participate.
 
-A child result, hook event, external Skill result, or configured route is a claim/evidence source. Completion still requires Main to verify the actual deliverable against current user intent, upstream/domain acceptance, project constraints, and the relevant Dispatch safety contract.
+A child result, external Skill result, configured route, or Host lifecycle event is evidence at the level it actually proves. Completion requires Main to verify the deliverable against current user intent, upstream/domain acceptance, project constraints, and the relevant subagents-dispatch safety contract.

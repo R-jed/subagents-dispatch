@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import tomllib
 
 import pytest
 
@@ -24,28 +25,6 @@ def load_module(name: str, filename: str):
         return module
     finally:
         sys.path.remove(scripts)
-
-
-def host_evidence() -> dict:
-    lifecycle = ["spawn_agent", "followup_task", "interrupt_agent"]
-    return {
-        "surface": "multi_agent_v2",
-        "tools": [
-            "spawn_agent",
-            "send_message",
-            "followup_task",
-            "wait_agent",
-            "list_agents",
-            "interrupt_agent",
-        ],
-        "hooks": {
-            "PreToolUse": [*lifecycle, "list_agents"],
-            "PostToolUse": [*lifecycle, "list_agents"],
-            "SubagentStop": True,
-        },
-        "fork_turns_none": True,
-        "max_spawned_threads": 4,
-    }
 
 
 def test_responsibility_semantics_survive_work_unit_to_wire_record():
@@ -132,166 +111,51 @@ def test_managed_assignment_rejects_persisted_work_unit_without_responsibility_c
         managed.assignment_packet(current, execution=execution)
 
 
-def test_uncovered_namespaced_lifecycle_identity_blocks_host_readiness():
-    host = load_module("pre_host_caps_alias", "host_capabilities.py")
-    evidence = host_evidence()
-    evidence["tools"].append("collaboration.spawn_agent")
-
-    snapshot = host.normalize_host_capabilities(evidence)
-
-    assert snapshot["execution_ready"] is False
-    assert snapshot["capabilities"]["pre_tool_use_guard"] is False
-    assert snapshot["capabilities"]["post_tool_use_guard"] is False
-
-
-def test_exposed_send_message_requires_exact_pre_tool_guard():
-    host = load_module("pre_host_caps_peer", "host_capabilities.py")
-    snapshot = host.normalize_host_capabilities(host_evidence())
-
-    assert snapshot["execution_ready"] is False
-    assert snapshot["capabilities"]["peer_message_guard"] is False
-    assert "peer_message_guard" in snapshot["missing"]
-
-
-def test_exact_namespaced_and_peer_coverage_can_be_execution_ready():
-    host = load_module("pre_host_caps_complete", "host_capabilities.py")
-    evidence = host_evidence()
-    evidence["tools"].extend(
-        [
-            "collaboration.spawn_agent",
-            "collaboration.followup_task",
-            "collaboration.interrupt_agent",
-            "collaboration.list_agents",
-            "collaboration.send_message",
-        ]
-    )
-    evidence["hooks"]["PreToolUse"].extend(
-        [
-            "send_message",
-            "collaborationspawn_agent",
-            "collaborationfollowup_task",
-            "collaborationinterrupt_agent",
-            "collaborationlist_agents",
-            "collaborationsend_message",
-        ]
-    )
-    evidence["hooks"]["PostToolUse"].extend(
-        [
-            "collaborationspawn_agent",
-            "collaborationfollowup_task",
-            "collaborationinterrupt_agent",
-            "collaborationlist_agents",
-        ]
-    )
-
-    snapshot = host.normalize_host_capabilities(evidence)
-
-    assert snapshot["execution_ready"] is True
-    assert snapshot["missing"] == []
-
-
-def test_managed_child_peer_message_and_flattened_namespace_lifecycle_are_blocked():
-    guard = load_module("pre_host_guard", "orchestration_guard.py")
-    caller = "subagents_dispatch_reader"
-
-    for tool_name, tool_input in (
-        (
-            "collaborationsend_message",
-            {"target": "/root/sibling", "message": "change direction"},
-        ),
-        (
-            "collaborationspawn_agent",
-            {"task_name": "nested", "message": "x", "agent_type": "default"},
-        ),
-    ):
-        result = guard.evaluate_pre_tool_use(
-            {
-                "hook_event_name": "PreToolUse",
-                "session_id": "root-thread",
-                "tool_name": tool_name,
-                "tool_use_id": f"tool-{tool_name}",
-                "tool_input": tool_input,
-                "agent_type": caller,
-            }
+def test_managed_profiles_request_leaf_collaboration_posture():
+    policy = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
+    for role, spec in policy["roles"].items():
+        profile = tomllib.loads(
+            (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
         )
-        assert result is not None
-        assert result["decision"] == "block"
-
-    assert guard._tool_leaf_name("collaboration.spawn_agent") == "spawn_agent"
-
-
-def test_staged_manifest_covers_exact_hook_serialized_collaboration_identities():
-    payload = json.loads((ROOT / "docs" / "v4" / "hooks.json").read_text(encoding="utf-8"))
-    pre_matchers = "|".join(item["matcher"] for item in payload["hooks"]["PreToolUse"])
-    post_matchers = "|".join(item["matcher"] for item in payload["hooks"]["PostToolUse"])
-
-    for identity in (
-        "spawn_agent",
-        "followup_task",
-        "interrupt_agent",
-        "list_agents",
-        "send_message",
-        "collaborationspawn_agent",
-        "collaborationfollowup_task",
-        "collaborationinterrupt_agent",
-        "collaborationlist_agents",
-        "collaborationsend_message",
-    ):
-        assert identity in pre_matchers
-
-    for identity in (
-        "spawn_agent",
-        "followup_task",
-        "interrupt_agent",
-        "list_agents",
-        "collaborationspawn_agent",
-        "collaborationfollowup_task",
-        "collaborationinterrupt_agent",
-        "collaborationlist_agents",
-    ):
-        assert identity in post_matchers
-
-    assert "collaboration\\." not in pre_matchers
-    assert "collaboration\\." not in post_matchers
+        assert profile["agents"]["enabled"] is False, role
+        assert profile["features"]["multi_agent_v2"] is False, role
+        assert "create further subagents" in profile["developer_instructions"].lower(), role
 
 
-def test_host_contract_requires_exact_identity_peer_and_assignment_semantics():
-    payload = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    probes = {item["id"]: item for item in payload["required_probes"]}
+def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
+    architecture = json.loads(
+        (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
+    )
+    orchestrate = json.loads(
+        (ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8")
+    )
 
-    assert any("hook" in value.lower() and "identity" in value.lower() for value in probes["H00"]["requires"])
-    assert any("identity" in value.lower() or "alias" in value.lower() for value in probes["H01"]["requires"])
-    assert any("send_message" in value for value in probes["H14"]["requires"])
-    assert any("interfaces" in value.lower() or "invariants" in value.lower() for value in probes["H15"]["requires"])
-
-
-def test_current_docs_have_no_retired_dispatch_or_doctor_release_owner_drift():
-    privacy = (ROOT / "PRIVACY.md").read_text(encoding="utf-8")
-    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    ai_index = (ROOT / "README_AI.md").read_text(encoding="utf-8")
-
-    assert "explicit **Dispatch** Skill" not in privacy
-    assert "Normal Dispatch, Preview, Status, Steer, Takeover" not in privacy
-    assert "release-readiness diagnostic owner" not in changelog
-    assert "Doctor --release-check" not in changelog
-    for supporting_owner in (
-        "contracts/guardrails.md",
-        "contracts/handoff.md",
-        "contracts/evidence-artifact.md",
-    ):
-        assert supporting_owner in ai_index
-
-
-def test_machine_status_docs_keep_release_authority_and_debt_current():
-    phase = json.loads((ROOT / "docs" / "v4" / "phase-status.json").read_text(encoding="utf-8"))
-    debt = json.loads((ROOT / "docs" / "v4" / "technical-debt.json").read_text(encoding="utf-8"))
-
-    assert "Doctor --release-check" not in phase["release_rule"]
-    assert "does not grant publication authority" in phase["release_rule"]
-    assert all(item["id"] != "TD-V4-DOCTOR-COMPAT-DECOUPLE" for item in debt["items"])
-    state_debt = next(item for item in debt["items"] if item["id"] == "TD-V4-STATE-STORAGE-DECOUPLE")
-    assert "dispatch_state_v4_core" in state_debt["current_condition"]
-    assert "doctor_core" not in json.dumps(debt)
+    assert architecture["host_capability_requirements"] == [
+        "spawn",
+        "observe",
+        "wait_or_wakeup",
+        "followup",
+        "interrupt",
+        "fresh_context_spawn",
+    ]
+    assert architecture["managed_profile_requirements"] == [
+        "fixed_profile_route",
+        "behavioral_leaf_boundary",
+        "host_evidence_for_effective_child_containment",
+        "host_evidence_for_effective_read_only_when_required",
+    ]
+    assert architecture["host_truth"] == {
+        "capacity_owner": "codex_host",
+        "child_identity_owner": "codex_host",
+        "lifecycle_owner": "codex_host",
+        "materialization_owner": "codex_host",
+        "managed_child_collaboration_surface_owner": "codex_host",
+        "effective_permission_owner": "codex_host",
+    }
+    assert orchestrate["host_execution"] == "native_host_only"
+    assert orchestrate["lifecycle_authority"] == "codex_host"
+    assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
+    assert orchestrate["managed_child_containment"] == "requires_host_evidence"
 
 
 def test_rc3_integrity_closure_is_history_not_active_contract():

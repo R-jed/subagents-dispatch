@@ -1,21 +1,35 @@
 {
-  "schema_version": "4.0.0-technical-debt-2",
+  "schema_version": "4.0.0-technical-debt-4",
   "status": "OPEN",
-  "items": [
+  "closed_items": [
     {
       "id": "TD-V4-STATE-STORAGE-DECOUPLE",
-      "priority": "P2",
-      "status": "DEFERRED_POST_HOST_VALIDATION",
-      "current_condition": "dispatch_state_v4_core imports legacy dispatch_state for hardened storage, locking, path, timestamp, and atomic-write helpers",
-      "risk_of_now": "Refactoring the storage boundary before real Host validation would invalidate a large already-green state and lifecycle surface without resolving any current release blocker",
-      "target": "Extract schema-neutral storage primitives behind a dedicated module so V4 state no longer depends on the full V3 state implementation",
-      "acceptance": [
-        "V4 state core imports only schema-neutral storage primitives",
-        "legacy V3.x state uses an explicit compatibility adapter",
-        "state path, lock, atomic replace, private-file, symlink, bounded-size, and crash-window tests remain green",
-        "no change to state v4 schema or Host lifecycle semantics"
-      ]
+      "status": "CLOSED_PRE_N0",
+      "resolution": "schema-neutral state_storage.py now owns path, lock, timestamp, private-file and atomic-write primitives; Native Core state no longer imports the V3 orchestration engine; stale terminal V3 cleanup is isolated in legacy_state_cleanup.py"
     }
   ],
-  "release_policy": "This structural item is tracked debt and is not a substitute for the real Host H00-H20 gate. It remains deferred while the exact RC is awaiting external candidate-bound Host validation."
+  "items": [
+    {
+      "id": "TD-V4-DOCTOR-HOST-EVIDENCE-UX",
+      "priority": "P2",
+      "status": "OPEN_POST_N0_OBSERVATION",
+      "current_condition": "Doctor can validate caller-supplied Native Host capability evidence, but ordinary users do not yet have a simple product-owned capture flow",
+      "target": "Use N0-N8 Host observations to decide whether a smaller evidence-capture UX is justified without introducing another runtime control plane"
+    },
+    {
+      "id": "TD-V4-EXPERIMENT-PLANE-CONSOLIDATION",
+      "priority": "P2",
+      "status": "OPEN_NON_RUNTIME",
+      "current_condition": "scripts/calibration_profiles_core.py still contains the original Reader-oriented evaluator transaction implementation, while calibration_profiles.py generalizes it to all roles by replacing selected core functions at import/runtime; these helpers are excluded from runtime package integrity and have no production routing, lifecycle, Doctor, or release authority",
+      "target": "After V4 release-critical Native Core and exact-candidate Host validation stabilize, consolidate calibration profile transactions behind one role-neutral evaluator implementation without changing frozen experiment evidence or production policy"
+    },
+    {
+      "id": "TD-V4-STATE-PATH-TOCTOU-HARDENING",
+      "priority": "P3",
+      "status": "OPEN_SECURITY_HARDENING",
+      "current_condition": "state_storage.py rejects pre-existing symlinks, confines state under the OS temporary directory, uses private per-thread directories, O_NOFOLLOW for the lock where supported, regular-file fstat checks, bounded files, fsync, and atomic replace; directory and state-path validation still precede later path-based operations, leaving a narrow same-user namespace-swap window when an attacker can mutate that namespace concurrently",
+      "target": "If the supported threat model expands to hostile same-user namespace mutation, evaluate descriptor-relative POSIX operations such as dir_fd/openat with O_NOFOLLOW and fstat plus platform-specific Windows handling and dedicated race tests; do not add this complexity to release-critical Native Core without evidence that the stronger containment boundary is required"
+    }
+  ],
+  "release_policy": "Open P2 experiment/diagnostic usability debt and P3 storage hardening debt do not replace or relax the exact-candidate N0-N8 Host release gate. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final; P3 hardening remains nonblocking unless the supported threat model is expanded to require hostile same-user namespace containment."
 }

@@ -1,99 +1,172 @@
 #!/usr/bin/env python3
-"""V4 WriterLease facade with authoritative Host-observation settlement.
+"""Native Core WriterLease and generation-bound Host reconciliation.
 
-The stable reservation/revocation primitives live in ``writer_lease_v4_core``.
-RC3 owns Host observation provenance and settlement authority in this facade so
-ordinary callers cannot manufacture WriterLease release evidence from booleans,
-digests, or lifecycle strings.
+WriterLease is a project scheduling invariant for the canonical checkout. It is
+not an operating-system lock. Main may release or transfer an execution-owned
+lease only after current-generation Host lifecycle evidence proves settlement.
 """
 
 from __future__ import annotations
 
 import copy
 import os
+from pathlib import Path
 from typing import Any, Mapping
 
 import dispatch_state_v4 as state
-import writer_lease_v4_core as _core
 
 
-WriterLeaseError = _core.WriterLeaseError
-StaleObservation = _core.StaleObservation
-SETTLED_EXECUTION_STATES = _core.SETTLED_EXECUTION_STATES
-AUTHORITATIVE_OBSERVATION_SOURCE = "post_tool_use:list_agents"
+SETTLED_EXECUTION_STATES = {"INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"}
+
+
+class WriterLeaseError(RuntimeError):
+    """A WriterLease transition would weaken the single-writer invariant."""
+
+
+class StaleObservation(RuntimeError):
+    """A Host observation was captured against an older execution generation."""
 
 
 def _execution(current: Mapping[str, Any], execution_id: str) -> dict[str, Any]:
-    return _core._execution(current, execution_id)
-
-
-def _unit(current: Mapping[str, Any], unit_id: str) -> dict[str, Any]:
-    return _core._unit(current, unit_id)
-
-
-def _ack_event(current: Mapping[str, Any], *, tool_use_id: str, control_id: str) -> Mapping[str, Any]:
     matches = [
-        event
-        for event in current.get("accounting_refs", [])
-        if isinstance(event, Mapping)
-        and event.get("kind") == "control_ack"
-        and event.get("control_id") == control_id
-        and event.get("tool_use_id") == tool_use_id
+        item
+        for item in current.get("executions", [])
+        if isinstance(item, dict) and item.get("execution_id") == execution_id
     ]
     if len(matches) != 1:
-        raise WriterLeaseError("WriterLease transition lacks exact Host control acknowledgement")
+        raise WriterLeaseError("execution_id does not resolve exactly once")
     return matches[0]
 
 
-def confirm_execution_writer_activation(
+def _unit(current: Mapping[str, Any], unit_id: str) -> dict[str, Any]:
+    matches = [
+        item
+        for item in current.get("work_units", [])
+        if isinstance(item, dict) and item.get("unit_id") == unit_id
+    ]
+    if len(matches) != 1:
+        raise WriterLeaseError("unit_id does not resolve exactly once")
+    return matches[0]
+
+
+def _next_lease_epoch(current: Mapping[str, Any]) -> int:
+    lease = current.get("writer_lease")
+    if lease is None:
+        return 1
+    if not isinstance(lease, Mapping):
+        raise WriterLeaseError("writer_lease is malformed")
+    if lease.get("state") in state.WRITER_BLOCKING_STATES:
+        raise WriterLeaseError("canonical workspace already has a blocking WriterLease")
+    epoch = lease.get("lease_epoch")
+    if not isinstance(epoch, int) or isinstance(epoch, bool) or epoch < 1:
+        raise WriterLeaseError("writer_lease has invalid lease_epoch")
+    return epoch + 1
+
+
+def ensure_execution_writer_reserved(
+    thread_id: str,
+    *,
+    execution_id: str,
+    lease_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Reserve write ownership before a writable native activation."""
+    if not isinstance(lease_id, str) or not lease_id.strip():
+        raise WriterLeaseError("lease_id must be non-empty")
+    reserved: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        execution = _execution(current, execution_id)
+        if execution["granted_authority"] == "none":
+            raise WriterLeaseError("read-only ExecutionBinding cannot reserve WriterLease")
+        existing = current.get("writer_lease")
+        if isinstance(existing, dict) and existing.get("state") in state.WRITER_BLOCKING_STATES:
+            if existing.get("owner_kind") != "execution" or existing.get("owner_id") != execution_id:
+                raise WriterLeaseError("canonical workspace already has another managed writer")
+            if existing.get("state") not in {"RESERVED", "HELD"}:
+                raise WriterLeaseError("existing writer lease cannot be reused for activation")
+            reserved.update(copy.deepcopy(existing))
+            return
+        lease = {
+            "lease_id": lease_id,
+            "lease_epoch": _next_lease_epoch(current),
+            "workspace_id": state.CANONICAL_WORKSPACE_ID,
+            "unit_id": execution["unit_id"],
+            "owner_kind": "execution",
+            "owner_id": execution_id,
+            "state": "RESERVED",
+        }
+        current["writer_lease"] = lease
+        reserved.update(copy.deepcopy(lease))
+
+    state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    return reserved
+
+
+def begin_revoke_execution_writer(
     thread_id: str,
     *,
     execution_id: str,
     lease_id: str,
     lease_epoch: int,
-    control_id: str,
-    tool_use_id: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Verify the exact control-bound ACK and preserve the HELD WriterLease."""
-    held: dict[str, Any] = {}
+    """Enter REVOKING before Main requests native interrupt."""
+    revoked: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
-        _execution(current, execution_id)
-        _ack_event(current, tool_use_id=tool_use_id, control_id=control_id)
+        execution = _execution(current, execution_id)
+        if execution["lifecycle"] != "RUNNING":
+            raise WriterLeaseError("writer revoke requires RUNNING execution")
         lease = current.get("writer_lease")
         if not isinstance(lease, dict):
-            raise WriterLeaseError("writer activation requires WriterLease")
+            raise WriterLeaseError("writer revoke requires WriterLease")
         if (
             lease.get("lease_id") != lease_id
             or lease.get("lease_epoch") != lease_epoch
             or lease.get("owner_kind") != "execution"
             or lease.get("owner_id") != execution_id
         ):
-            raise WriterLeaseError("writer activation uses stale lease identity")
-        if lease["state"] == "RESERVED":
-            lease["state"] = "HELD"
-        elif lease["state"] != "HELD":
-            raise WriterLeaseError("writer activation requires RESERVED or HELD lease")
-        held.update(copy.deepcopy(lease))
+            raise WriterLeaseError("writer revoke uses stale lease identity")
+        if lease["state"] not in {"RESERVED", "HELD", "REVOKING"}:
+            raise WriterLeaseError("writer revoke requires RESERVED, HELD, or REVOKING lease")
+        lease["state"] = "REVOKING"
+        revoked.update(copy.deepcopy(lease))
 
     state.mutate_state(thread_id, mutate, temp_root=temp_root)
-    return held
+    return revoked
 
 
-def _observation_ref(
+def mark_execution_writer_unknown(
+    thread_id: str,
     *,
     execution_id: str,
-    control_epoch: int,
-    lease_epoch: int | None,
-    lifecycle: str,
-    tool_use_id: str,
-) -> str:
-    lease_text = "none" if lease_epoch is None else str(lease_epoch)
-    return (
-        f"host-observation:{execution_id}:{control_epoch}:{lease_text}:"
-        f"{lifecycle}:{tool_use_id}"
-    )
+    lease_id: str,
+    lease_epoch: int,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Keep write ownership blocking while Host lifecycle truth is ambiguous."""
+    quarantined: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        _execution(current, execution_id)
+        lease = current.get("writer_lease")
+        if not isinstance(lease, dict):
+            raise WriterLeaseError("writer quarantine requires WriterLease")
+        if (
+            lease.get("lease_id") != lease_id
+            or lease.get("lease_epoch") != lease_epoch
+            or lease.get("owner_kind") != "execution"
+            or lease.get("owner_id") != execution_id
+        ):
+            raise WriterLeaseError("writer quarantine uses stale lease identity")
+        if lease["state"] == "RELEASED":
+            raise WriterLeaseError("released lease cannot become UNKNOWN")
+        lease["state"] = "UNKNOWN"
+        quarantined.update(copy.deepcopy(lease))
+
+    state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    return quarantined
 
 
 def _normalized_host_lifecycle(host_state: str) -> str:
@@ -120,7 +193,6 @@ def _lifecycle_is_proven_in_current_epoch(
     return any(
         isinstance(event, Mapping)
         and event.get("kind") == "host_observation"
-        and event.get("source") == AUTHORITATIVE_OBSERVATION_SOURCE
         and event.get("execution_id") == execution["execution_id"]
         and event.get("control_epoch") == execution["control_epoch"]
         and event.get("lifecycle") == execution["lifecycle"]
@@ -128,54 +200,70 @@ def _lifecycle_is_proven_in_current_epoch(
     )
 
 
-def persist_authoritative_host_observation(
+def _observation_ref(
+    *, execution_id: str, control_epoch: int, lease_epoch: int | None, lifecycle: str
+) -> str:
+    lease_text = "none" if lease_epoch is None else str(lease_epoch)
+    return f"host-observation:{execution_id}:{control_epoch}:{lease_text}:{lifecycle}"
+
+
+def persist_host_observation(
     thread_id: str,
     *,
     basis: Mapping[str, Any],
     host_state: str,
-    turn_id: str,
-    tool_use_id: str,
-    agent_name: str,
+    agent_id: str | None = None,
+    failure_origin: str = "tool_failure",
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Persist one list_agents PostToolUse observation with Hook provenance."""
-    for label, value in (
-        ("turn_id", turn_id),
-        ("tool_use_id", tool_use_id),
-        ("agent_name", agent_name),
-    ):
-        if not isinstance(value, str) or not value.strip():
-            raise WriterLeaseError(f"authoritative Host observation requires {label}")
+    """Reconcile one Main-observed Host state and persist current-generation proof."""
     outcome: dict[str, Any] = {}
 
     def mutate(current: dict[str, Any]) -> None:
         execution_id = basis.get("execution_id") if isinstance(basis, Mapping) else None
         if not isinstance(execution_id, str):
             raise StaleObservation("Host observation basis has no execution identity")
-        current_basis = state.observation_basis(current, execution_id=execution_id)
+        try:
+            current_basis = state.observation_basis(current, execution_id=execution_id)
+        except state.StatePayloadError as exc:
+            raise StaleObservation("Host observation execution is no longer active") from exc
         if dict(current_basis) != dict(basis):
             raise StaleObservation("Host observation basis is stale")
-        execution_before = _execution(current, execution_id)
-        expected_name = f"/root/{execution_before['native_task_name']}"
-        if agent_name != expected_name:
-            raise WriterLeaseError("Host observation agent name does not match ExecutionBinding")
-        existing = execution_before["lifecycle"]
+        current_execution = _execution(current, execution_id)
         incoming = _normalized_host_lifecycle(host_state)
         if (
-            _lifecycle_is_proven_in_current_epoch(current, execution_before)
-            and _same_epoch_observation_regresses(existing, incoming)
+            _lifecycle_is_proven_in_current_epoch(current, current_execution)
+            and _same_epoch_observation_regresses(current_execution["lifecycle"], incoming)
         ):
             raise StaleObservation("Host observation regresses lifecycle within one control epoch")
+
         reconciled = state.reconcile_execution_observation(
             current,
             basis=basis,
             host_state=host_state,
+            agent_id=agent_id,
+            failure_origin=failure_origin,
         )
         if reconciled["reconcile_status"] == "stale":
             raise StaleObservation("Host observation became stale")
         next_state = reconciled["state"]
         execution = _execution(next_state, execution_id)
         lifecycle = execution["lifecycle"]
+
+        lease = next_state.get("writer_lease")
+        if (
+            isinstance(lease, dict)
+            and lease.get("owner_kind") == "execution"
+            and lease.get("owner_id") == execution_id
+            and lease.get("state") in state.WRITER_BLOCKING_STATES
+        ):
+            if lifecycle == "UNKNOWN":
+                lease["state"] = "UNKNOWN"
+            elif lease["state"] == "UNKNOWN":
+                lease["state"] = "HELD"
+            elif lifecycle == "RUNNING" and lease["state"] == "RESERVED":
+                lease["state"] = "HELD"
+
         if lifecycle == "RUNNING":
             unit = _unit(next_state, execution["unit_id"])
             if unit["state"] in {"READY", "REJECTED", "RESULT_READY", "VERIFYING"}:
@@ -183,27 +271,28 @@ def persist_authoritative_host_observation(
                 unit["accepted_result_ref"] = None
                 unit["accepted_execution_id"] = None
                 unit["accepted_control_epoch"] = None
+
         ref = _observation_ref(
             execution_id=execution_id,
             control_epoch=basis["control_epoch"],
             lease_epoch=basis.get("lease_epoch"),
             lifecycle=lifecycle,
-            tool_use_id=tool_use_id,
         )
-        duplicate = any(event.get("ref") == ref for event in next_state["accounting_refs"])
+        duplicate = any(
+            isinstance(event, Mapping)
+            and event.get("ref") == ref
+            and event.get("kind") == "host_observation"
+            for event in next_state["accounting_refs"]
+        )
         if not duplicate:
             next_state["accounting_refs"].append(
                 {
                     "ref": ref,
                     "kind": "host_observation",
-                    "source": AUTHORITATIVE_OBSERVATION_SOURCE,
                     "execution_id": execution_id,
                     "control_epoch": basis["control_epoch"],
                     "lease_epoch": basis.get("lease_epoch"),
                     "lifecycle": lifecycle,
-                    "turn_id": turn_id,
-                    "tool_use_id": tool_use_id,
-                    "agent_name": agent_name,
                 }
             )
         current.clear()
@@ -226,32 +315,19 @@ def persist_authoritative_host_observation(
     return outcome
 
 
-def _observation_receipt_present(current: Mapping[str, Any], tool_use_id: str) -> bool:
-    """Require an exact retained receipt; probabilistic history never grants authority."""
-    return any(
-        isinstance(event, Mapping)
-        and event.get("kind") == "host_observation_receipt"
-        and event.get("tool_use_id") == tool_use_id
-        for event in current.get("accounting_refs", [])
-    )
-
-
 def _has_current_observation_proof(
     current: Mapping[str, Any], *, execution: Mapping[str, Any], lease_epoch: int
 ) -> bool:
+    ref = _observation_ref(
+        execution_id=execution["execution_id"],
+        control_epoch=execution["control_epoch"],
+        lease_epoch=lease_epoch,
+        lifecycle=execution["lifecycle"],
+    )
     return any(
         isinstance(event, Mapping)
+        and event.get("ref") == ref
         and event.get("kind") == "host_observation"
-        and event.get("source") == AUTHORITATIVE_OBSERVATION_SOURCE
-        and event.get("execution_id") == execution["execution_id"]
-        and event.get("control_epoch") == execution["control_epoch"]
-        and event.get("lease_epoch") == lease_epoch
-        and event.get("lifecycle") == execution["lifecycle"]
-        and isinstance(event.get("turn_id"), str)
-        and bool(event.get("turn_id"))
-        and isinstance(event.get("tool_use_id"), str)
-        and bool(event.get("tool_use_id"))
-        and _observation_receipt_present(current, event["tool_use_id"])
         for event in current.get("accounting_refs", [])
     )
 
@@ -276,22 +352,14 @@ def _verify_settlement(
         raise WriterLeaseError("writer settlement uses stale lease identity")
     if lease["state"] == "UNKNOWN":
         raise WriterLeaseError("UNKNOWN WriterLease cannot be released or transferred")
-    if lease["state"] not in {"HELD", "REVOKING"}:
-        raise WriterLeaseError("writer settlement requires HELD or REVOKING lease")
+    if lease["state"] not in {"RESERVED", "HELD", "REVOKING"}:
+        raise WriterLeaseError("writer settlement requires a blocking execution lease")
     if execution["lifecycle"] not in SETTLED_EXECUTION_STATES:
         raise WriterLeaseError("writer execution is not settled")
-    if any(
-        control["execution_id"] == execution_id
-        and control["state"] in state.UNRESOLVED_CONTROL_STATES
-        for control in current["pending_controls"]
-    ):
-        raise WriterLeaseError("writer settlement is blocked by unresolved PendingControl")
     if not _has_current_observation_proof(
         current, execution=execution, lease_epoch=lease_epoch
     ):
-        raise WriterLeaseError(
-            "writer settlement lacks exact authoritative current-epoch list_agents observation receipt"
-        )
+        raise WriterLeaseError("writer settlement lacks fresh current-epoch Host observation proof")
     return execution, lease
 
 
@@ -356,18 +424,66 @@ def transfer_settled_execution_writer_to_main(
     return transferred
 
 
-# Re-export the stable WriterLease primitives while excluding RC2 authority paths
-# that the RC3 facade replaces above.
-_EXCLUDED = {
-    "persist_host_observation",
-    "release_settled_execution_writer",
-    "transfer_settled_execution_writer_to_main",
-    "confirm_execution_writer_activation",
-    "_ack_event",
-    "_verify_settlement",
-    "_validate_guard_coverage_proof",
-    "_has_current_observation_proof",
-}
-for _name in dir(_core):
-    if not _name.startswith("__") and _name not in _EXCLUDED and _name not in globals():
-        globals()[_name] = getattr(_core, _name)
+def acquire_main_writer(
+    thread_id: str,
+    *,
+    unit_id: str,
+    lease_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    if not isinstance(lease_id, str) or not lease_id.strip():
+        raise WriterLeaseError("lease_id must be non-empty")
+    acquired: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        _unit(current, unit_id)
+        epoch = _next_lease_epoch(current)
+        lease = {
+            "lease_id": lease_id,
+            "lease_epoch": epoch,
+            "workspace_id": state.CANONICAL_WORKSPACE_ID,
+            "unit_id": unit_id,
+            "owner_kind": "main",
+            "owner_id": current["root_session_id"],
+            "state": "HELD",
+        }
+        current["writer_lease"] = lease
+        acquired.update(copy.deepcopy(lease))
+
+    state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    return acquired
+
+
+def release_main_writer(
+    thread_id: str,
+    *,
+    lease_id: str,
+    lease_epoch: int,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    released: dict[str, Any] = {}
+
+    def mutate(current: dict[str, Any]) -> None:
+        lease = current.get("writer_lease")
+        if not isinstance(lease, dict):
+            raise WriterLeaseError("Main release requires WriterLease")
+        if (
+            lease.get("lease_id") != lease_id
+            or lease.get("lease_epoch") != lease_epoch
+            or lease.get("owner_kind") != "main"
+            or lease.get("owner_id") != current["root_session_id"]
+            or lease.get("state") != "HELD"
+        ):
+            raise WriterLeaseError("Main release uses stale or invalid lease identity")
+        lease["state"] = "RELEASED"
+        released.update(copy.deepcopy(lease))
+
+    state.mutate_state(thread_id, mutate, temp_root=temp_root)
+    return released
+
+
+def runtime_temp_root() -> Path | None:
+    raw = os.environ.get("SUBAGENTS_DISPATCH_TEMP_ROOT")
+    if raw is None or not raw.strip():
+        return None
+    return Path(raw)

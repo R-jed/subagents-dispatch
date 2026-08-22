@@ -1,8 +1,8 @@
 # Interaction Control
 
-This file owns the user-visible control semantics for an active Orchestrate workflow. It defines plan-only Preview, Status, Steer, Takeover, cancel, continue, correction, and the Dispatch Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
+This file owns the user-visible control semantics for an active Orchestrate workflow. It defines plan-only Preview, Status, Steer, Takeover, cancel, continue, correction, and the Execution Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
-`routing.md` still decides delegation value and role suitability. `team-plan.md` still owns multi-responsibility dependency and integration truth. `recovery.md` still owns attempt lifecycle and bounded recovery. `guardrails.md` still owns authority and writer safety.
+`routing.md` still decides delegation value and role suitability. WorkGraph and WorkUnit own multi-responsibility dependency and responsibility truth. Main owns semantic decomposition, dispatch judgment, integration, and acceptance. `team-plan.md` is compatibility documentation only. `recovery.md` still owns attempt lifecycle and evidence-gated recovery. `guardrails.md` still owns authority and writer safety.
 
 Orchestrate control intents include Preview, Status, Steer, Takeover, cancel, continue, and correction. Preview, Status, Steer, and Takeover are conceptual control names in this contract, not public Skill ids. `Orchestrate` is the single public orchestration Skill; `Doctor` is the only other public Skill. This contract defines conceptual control inputs after explicit Orchestrate selection/invocation and does not invent the exact slash entry rendered by a particular Codex App build.
 
@@ -20,7 +20,7 @@ Continue: optional <unit_id> plus optional <guidance>
 Correction: optional <unit_id> plus <guidance>
 ```
 
-An explicit unit id resolves by exact match only. Without an explicit id, exactly one eligible unit auto-resolves; zero eligible units reports none, and multiple eligible units return the eligible unit ids as candidates and require a user choice. Never guess from recency, prose similarity, an unrelated session, or an ineligible unit. When one lightweight delegated responsibility exists without TeamPlan, Main still gives it a stable unit id and may surface that id in Status output.
+An explicit unit id resolves by exact match only. Without an explicit id, exactly one eligible unit auto-resolves; zero eligible units reports none, and multiple eligible units return the eligible unit ids as candidates and require a user choice. Never guess from recency, prose similarity, an unrelated session, or an ineligible unit. When one lightweight delegated responsibility exists, Main still gives it a stable unit id and may surface that id in Status output.
 
 If there is no current V4 orchestration state in the conversation, Status reports that there are no current delegated responsibilities. Steer, Takeover, Cancel, Continue, and Correction stop with an exact target-not-found/current-state-unavailable message when they require an active target. They do not reconstruct an old task from memory, invent an Agent id, or search unrelated sessions to guess the target.
 
@@ -33,18 +33,18 @@ Preview lets the user inspect the likely delegation shape before any delegated e
 A preview is strictly non-executing:
 
 ```text
-child spawn        forbidden
-Agent provisioning forbidden
-source mutation    forbidden
-external action    forbidden
-persistent TeamPlan creation forbidden
+child spawn                    forbidden
+Agent provisioning             forbidden
+source mutation                forbidden
+external action                forbidden
+persistent orchestration state forbidden
 ```
 
 Main may perform bounded read-only inspection when that evidence is needed to produce a useful preview.
 
 A useful preview states only the likely responsibilities, role choices, important dependencies, expected writing owner, and whether Final Review is likely from facts already known. It is provisional. New evidence during real execution may change the route.
 
-Even though Preview is provisional and runs before ordinary routing, its decomposition must preserve the material obligations already visible in current task truth. If a visible material obligation spans likely responsibilities, Preview should show the Main-owned integration/verification seam when that helps the user understand the shape. Do not create a requirement ledger, persistent TeamPlan, or decorative child merely to make preview topology complete. Unknown or evidence-dependent obligations may remain explicitly provisional rather than being guessed.
+Even though Preview is provisional and runs before ordinary routing, its decomposition must preserve the material obligations already visible in current task truth. If a visible material obligation spans likely responsibilities, Preview should show the Main-owned integration/verification seam when that helps the user understand the shape. Do not create a requirement ledger, persistent WorkGraph, or decorative child merely to make preview topology complete. Unknown or evidence-dependent obligations may remain explicitly provisional rather than being guessed.
 
 Do not run runtime-evidence diagnostics merely to make the preview look more precise. Do not claim that a requested model will be the observed runtime model.
 
@@ -63,7 +63,7 @@ Needs attention / 需处理
 Completed / 已完成
 ```
 
-A current TeamPlan dependency may be shown as `waiting for U1` / `等待 U1` only when that dependency is part of current accepted structural truth. If dependency truth is unavailable to the current control turn, omit the dependency explanation rather than reconstructing or guessing it from prose.
+A current WorkGraph dependency may be shown as `waiting for U1` / `等待 U1` only when that dependency is part of current accepted structural truth. If dependency truth is unavailable to the current control turn, omit the dependency explanation rather than reconstructing or guessing it from prose.
 
 Chinese example:
 
@@ -99,7 +99,7 @@ Completed
 
 Prefer native Host state when it is exposed. When Host evidence is insufficient, report `UNKNOWN` exactly and place that unit under the attention/uncertain presentation rather than relabeling it as failed. Status must not convert `UNKNOWN` to failure, trigger a retry, create replacement work, or mutate artifacts.
 
-Status performs at most one Host observation and one reconciliation pass. For persisted active state, use the state contract's locked reconciliation path so newer Host truth is written back without overwriting concurrent receipt/control metadata. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
+Status performs at most one Host observation and one reconciliation pass. For persisted active state, use the state contract's locked reconciliation path so newer Host truth is written back without overwriting concurrent current state. It never spawns, steers, polls, resumes, takes over, or creates semantic lifecycle transitions.
 
 An optional exact unit-id zoom may add only current accepted facts that help control the unit, for example:
 
@@ -109,7 +109,7 @@ U2
 状态: 等待
 依赖: U1
 写入范围: src/...
-尝试: 1/2
+尝试: 1
 ```
 
 Use the orchestration locale stored in active state for command-only Status turns. When there is no current delegated responsibility, say so directly. Absence of an active unit is different from an existing unit whose runtime state is `UNKNOWN`.
@@ -137,15 +137,15 @@ acceptance
 external impact
 ```
 
-If the requested guidance would materially change one of those facts, do not label it steering. Return the change to Main and use the ordinary TeamPlan revision, reroute, takeover, correction, or user-authorization path as appropriate.
+If the requested guidance would materially change one of those facts, do not label it steering. Return the change to Main and use WorkUnit recompilation, reroute, takeover, correction, or user authorization as appropriate.
 
 If the target cannot be resolved to one current child, report the ambiguity or missing target instead of guessing.
 
-`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Orchestrate continue/resume path and preserves its existing identity and accounting.
+`INTERRUPTED` is not eligible Steering and must not be described as Resume. Resuming the same interrupted child uses the Orchestrate continue/resume path and preserves its existing identity and ExecutionBinding generation.
 
 ## Takeover
 
-Takeover is an explicit user-requested form of the existing `main_takeover` recovery action. The user may request it before ordinary retry exhaustion.
+Takeover is an explicit user-requested form of the existing `main_takeover` recovery action. The user may request it before ordinary recovery would otherwise choose another execution action.
 
 Takeover transfers the unresolved responsibility to Main only after the previous child owner is safely settled.
 
@@ -172,25 +172,25 @@ If the unit/current attempt cannot be resolved at all, takeover does not proceed
 
 When takeover includes `: <guidance>`, treat that suffix as guidance for Main after safe transfer. Do not send it to the old child unless the user explicitly requested Steering instead.
 
-A takeover does not reset the unit's history or erase valid evidence. With TeamPlan, a pure takeover stays in Recovery state: TeamPlan keeps the last valid delegated role and does not create an invalid `role: main`. Revise TeamPlan only when takeover also changes structural truth such as dependency, ownership scope, deliverable, scope, or acceptance.
+A takeover does not reset the WorkUnit history or erase valid evidence. Pure takeover keeps the same unresolved WorkUnit responsibility. Recompile the WorkUnit only when takeover also changes structural truth such as dependency, ownership scope, deliverable, scope, authority, or acceptance.
 
 ## Cancel, Continue, and Correction
 
 Cancel targets an existing orchestration responsibility and preserves all safety and ownership boundaries while stopping further managed work for that target. It does not erase accepted evidence or fabricate Host settlement.
 
-Continue resumes the same interrupted child only through the current managed lifecycle protocol. It preserves native identity, execution generation, authority ceiling, and WriterLease semantics and does not consume the focused-correction followup budget.
+Continue resumes the same interrupted child only through the current managed lifecycle protocol. It preserves native identity, ExecutionBinding, authority ceiling, and WriterLease semantics, advances the control generation, creates no fresh attempt, and does not consume a correction count budget.
 
-Correction sends one focused same-child followup when the responsibility remains the same and the bounded recovery policy permits it. A material change to goal, output, scope, authority, or acceptance is a recompiled responsibility, not a correction.
+Correction sends an evidence-gated same-child FOLLOWUP when the responsibility remains the same and `recovery.md` authorizes the current correction basis. There is no fixed correction-count ceiling. Each correction requires a non-empty changed basis relative to the currently retained authoritative recovery evidence. A material change to goal, output, scope, authority, ownership, or acceptance requires Main to re-evaluate or recompile the WorkUnit rather than disguising that change as correction.
 
-## Dispatch Receipt
+## Execution Receipt
 
-`receipt.md` is the single source of truth for receipt accounting and presentation. Derive every axis from unique stable event references; repeated Status or reconciliation of the same event is idempotent. Keep materialized passes, focused follow-ups, retries, semantic rework, reviewer attempts, review rounds, and recovery as distinct facts.
+`receipt.md` owns the optional factual presentation of current orchestration state. It must derive from current WorkUnit, ExecutionBinding, Host observation, Main acceptance, explicit current control intent, and Final Review facts that are actually available. It does not create a persistent receipt ledger or reconstruct unavailable retry/rework/control history.
 
-An ordinary delegated terminal response emits the applicable Dispatch, Control, Review, and exceptional Recovery axes after Main's result or blocker summary, whether the requested work completed successfully or ended blocked/partial. This also applies to `UNKNOWN` and takeover-pending outcomes.
+An ordinary delegated terminal response may include a compact execution receipt after Main's result or blocker summary. `UNKNOWN` and takeover-pending outcomes must remain explicitly uncertain.
 
-Explicit Orchestrate with zero materialized children emits the minimal receipt defined by `receipt.md` and creates no persistent state. Plan-only Preview and Status-only Orchestrate intents emit no terminal Dispatch Receipt.
+Explicit Orchestrate with zero materialized children may emit the minimal acknowledgement defined by `receipt.md` and creates no persistent state. Plan-only Preview and Status-only Orchestrate intents do not require a terminal execution receipt.
 
-The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and never exposes the internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
+The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and need not expose internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
 
 The receipt may report only inspectable orchestration facts. Never expose private reasoning, raw child transcripts, credentials, source contents, or unrelated tool logs.
 

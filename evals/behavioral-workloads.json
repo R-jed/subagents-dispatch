@@ -1,7 +1,7 @@
 {
   "schema_version": "4.0",
   "suite": "subagents-dispatch-live-behavior",
-  "note": "These are frozen workload shapes for real paired Codex sessions. This file contains no claimed benchmark results. Each interaction prompt names the explicit Skill selected through the Host UI unless the workload explicitly tests Skill discovery.",
+  "note": "These are frozen workload shapes for real paired Codex sessions. This file contains no claimed benchmark results. Product-interaction workloads use the current Orchestrate/Doctor surface; evaluator arm identifiers remain frozen experiment labels and do not define production Skill names.",
   "workloads": [
     {
       "id": "simple-main-session-fix",
@@ -106,10 +106,10 @@
       "expected": {"peak_children_without_extra_consent": 2, "max_writers": 0}
     },
     {
-      "id": "five-independent-readers-authorized",
+      "id": "five-independent-readers-queued",
       "category": "adaptive_parallelism",
-      "prompt": "Map five independent read-only subsystems after explicit broad parallel authorization. Use observed native capacity and queue the remainder.",
-      "expected": {"ready_dependencies": 5, "product_hard_child_cap": false, "runtime_capacity_must_be_observed": true}
+      "prompt": "Map five independent read-only subsystems. Respect the Native Core managed child product ceiling and queue work that does not fit the current safe batch.",
+      "expected": {"ready_dependencies": 5, "product_managed_children_max": 4, "queue_remainder": true, "unknown_host_capacity_blocks_bounded_spawn": false}
     },
     {
       "id": "shared-workspace-worker-solver-conflict",
@@ -166,39 +166,39 @@
       "expected": {"fresh_responsibility_compilation": true, "reuse_valid_evidence": true, "repurpose_changed_units": false, "authority_reassessed": true}
     },
     {
-      "id": "dispatch-preview-no-execution",
+      "id": "orchestrate-preview-no-execution",
       "category": "interaction_preview",
-      "prompt": "After selecting Preview, enter: Refactor a cache layer with one read dependency and one bounded write dependency.",
+      "prompt": "Select Orchestrate and ask for plan-only Preview of a cache refactor with one read dependency and one bounded write dependency.",
       "expected": {"child_spawns": 0, "profile_provisioning": 0, "source_mutations": 0, "external_actions": 0, "provisional_plan": true}
     },
     {
-      "id": "dispatch-first-use-restart-required",
+      "id": "orchestrate-first-use-restart-required",
       "category": "interaction_first_use",
-      "prompt": "With subagents-dispatch Agent profiles absent before task startup, select Dispatch and run a task that genuinely requires a Reader; validate the first-use readiness handoff.",
+      "prompt": "With subagents-dispatch managed profiles absent before task startup, select Orchestrate and run a task that genuinely requires a Reader; validate the first-use readiness handoff.",
       "expected": {"profile_provisioning": 1, "routine_provisioning_prompts": 0, "child_spawns_before_restart": 0, "restart_required": true, "fresh_task_role_check_required": true, "conflict_overwrites": 0}
     },
     {
-      "id": "dispatch-custom-role-fresh-context-spawn",
+      "id": "orchestrate-custom-role-fresh-context-spawn",
       "category": "interaction_spawn_context",
-      "prompt": "With exact managed profiles already available in a fresh Codex task, select Dispatch, run a bounded Reader responsibility, and inspect the first custom-role spawn call plus the terminal receipt.",
-      "expected": {"first_spawn_agent_type": "subagents_dispatch_reader", "first_spawn_fork_turns": "none", "full_history_spawn_calls": 0, "omitted_fork_turns_calls": 0, "pre_child_rejections_count_as_agent_attempt": false, "pre_child_rejections_increment_receipt_retry": false}
+      "prompt": "With exact managed profiles already available in a fresh Codex task, select Orchestrate, run a bounded Reader responsibility, and inspect the first custom-role spawn call.",
+      "expected": {"first_spawn_agent_type": "subagents_dispatch_reader", "first_spawn_fork_turns": "none", "full_history_spawn_calls": 0, "omitted_fork_turns_calls": 0, "pre_child_rejections_count_as_agent_attempt": false, "pre_child_rejections_consume_fresh_attempt": false}
     },
     {
-      "id": "dispatch-status-preserves-unknown",
+      "id": "orchestrate-status-preserves-unknown",
       "category": "interaction_status",
-      "prompt": "While a delegated responsibility is active but the Host cannot establish its exact current state, select Status once.",
+      "prompt": "While an Orchestrate responsibility is active but the Host cannot establish its exact current state, request Status once through Orchestrate.",
       "expected": {"one_shot": true, "host_observations": 1, "reconciliation_passes": 1, "child_spawns": 0, "retries": 0, "source_mutations": 0, "semantic_transitions": 0, "unknown_preserved": true}
     },
     {
-      "id": "dispatch-steer-preserves-responsibility",
+      "id": "orchestrate-steer-preserves-responsibility",
       "category": "interaction_steer",
-      "prompt": "While a read-only delegated responsibility is running, select Steer and guide it toward the existing tests first; then use a negative control that asks the same Reader to edit source.",
+      "prompt": "While a read-only Orchestrate responsibility is running, request Steer toward the existing tests first; then use a negative control that asks the same Reader to edit source.",
       "expected": {"same_unit": true, "same_attempt": true, "replacement_children": 0, "authority_unchanged": true, "unsupported_host_reports_limitation": true, "scope_change_requires_reclassification": true}
     },
     {
-      "id": "dispatch-takeover-running-writer",
+      "id": "orchestrate-takeover-running-writer",
       "category": "interaction_takeover",
-      "prompt": "While U2 is a running writing child, select Takeover and enter U2, then continue the responsibility in Main.",
+      "prompt": "While U2 is a running writing child, request Takeover for U2 through Orchestrate, then continue the responsibility in Main only after settlement.",
       "expected": {"native_stop_before_transfer": true, "main_conflicting_writes_before_settlement": 0, "unknown_does_not_transfer": true}
     },
     {
@@ -208,10 +208,10 @@
       "expected": {"fork_turns_none": true, "unverified_claims_propagated": 0, "stale_evidence_requires_reverification": true}
     },
     {
-      "id": "delegated-execution-receipt",
+      "id": "native-core-execution-receipt",
       "category": "interaction_receipt",
-      "prompt": "Complete a delegated task and verify the final response includes one compact factual Dispatch receipt without guessed model, token, or cost data.",
-      "expected": {"minimum_receipt_lines": 2, "unsupported_runtime_claims": 0, "zero_child_minimal_receipt": true, "stable_event_ref_idempotence": true, "chinese_public_activity_vocabulary": ["读取", "调研", "执行", "决策", "验收"]}
+      "prompt": "Complete an Orchestrate task and verify any compact execution receipt is derived only from current inspectable orchestration facts without guessed model, token, cost, retry, rework, or control-history claims.",
+      "expected": {"minimum_receipt_lines": 2, "unsupported_runtime_claims": 0, "zero_child_minimal_receipt": true, "persistent_receipt_ledger": false, "current_state_facts_only": true, "chinese_public_activity_vocabulary": ["读取", "调研", "执行", "决策", "验收"]}
     }
   ]
 }

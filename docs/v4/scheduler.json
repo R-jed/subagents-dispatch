@@ -1,6 +1,6 @@
 {
-  "schema_version": "4.0.0-scheduler-2",
-  "mode": "wakeup_driven_reconcile",
+  "schema_version": "4.0.0-scheduler-6",
+  "mode": "constraint_projection",
   "background_daemon": false,
   "wakeup_reasons": [
     "USER_INPUT",
@@ -13,27 +13,22 @@
   ],
   "dependency_truth": "WorkUnit.ACCEPTED",
   "host_completed_effect": "RESULT_READY",
-  "host_occupancy_truth": "latest_authoritative_unfiltered_root_list_agents_observation",
-  "host_occupancy_observation_required_before_fresh_start": true,
-  "authoritative_list_agents_tool_input": {},
-  "one_host_observation_fresh_spawn_max": 1,
-  "mixed_managed_unmanaged_occupancy": true,
-  "settled_resident_reclaim": "one_bounded_host_attempt",
-  "initial_managed_children_max": 2,
-  "product_managed_children_max": 3,
-  "unknown_host_capacity_managed_children_max": 1,
-  "progressive_refill": true,
-  "priority": "longest_downstream_critical_path_then_unit_id",
-  "backpressure": {
-    "threshold_unaccepted_results": 2,
-    "states": [
-      "RESULT_READY",
-      "VERIFYING"
-    ],
-    "action": "stop_new_fresh_starts"
-  },
-  "unknown_execution_occupies_capacity": true,
+  "selection_owner": "main",
+  "automatic_launch_actions": false,
+  "ready_frontier_ranking": "none",
+  "fixed_acceptance_backpressure": false,
+  "result_backlog_reported": true,
+  "host_capacity_owner": "codex_host",
+  "host_capacity_semantics": "session_concurrency_includes_primary",
+  "known_host_session_capacity_is_advisory_ceiling": true,
+  "missing_capability_snapshot_blocks_spawn": true,
+  "unknown_host_capacity_blocks_spawn": false,
+  "product_managed_children_max": 4,
+  "writer_lease_admission": "fail_closed_before_canonical_workspace_execution",
+  "unknown_execution_occupies_product_capacity": true,
   "plan_only_actions": 0,
   "host_not_execution_ready_actions": 0,
-  "fresh_attempt_limit_per_work_unit": 2
+  "fresh_retry_authorization": "evidence_gated",
+  "pre_materialization_host_rejection_consumes_attempt": false,
+  "ambiguous_materialization": "ExecutionBinding.UNKNOWN"
 }

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Normalize inspectable Codex Host evidence into the V4 capability contract."""
+"""Normalize inspectable Codex Native Subagent capabilities for V4 Native Core."""
 
 from __future__ import annotations
 
 import copy
-import re
 from typing import Any, Mapping
 
 
@@ -15,15 +14,7 @@ REQUIRED_CAPABILITIES = (
     "wait_or_wakeup",
     "followup",
     "interrupt",
-    "pre_tool_use_guard",
-    "post_tool_use_guard",
-    "host_observation_guard",
-    "peer_message_guard",
-    "subagent_stop_veto",
 )
-LIFECYCLE_TOOLS = ("spawn_agent", "followup_task", "interrupt_agent")
-OBSERVATION_TOOL = "list_agents"
-PEER_MESSAGE_TOOL = "send_message"
 TOOL_CAPABILITY_LEAVES = {
     "spawn": {"spawn_agent"},
     "observe": {"list_agents"},
@@ -31,45 +22,29 @@ TOOL_CAPABILITY_LEAVES = {
     "followup": {"followup_task"},
     "interrupt": {"interrupt_agent"},
 }
-COLLABORATION_TOOL_SEMANTICS = frozenset(
-    set().union(*TOOL_CAPABILITY_LEAVES.values()) | {PEER_MESSAGE_TOOL}
-)
 DEFAULT_V2_NAMESPACE = "collaboration"
+COLLABORATION_TOOL_SEMANTICS = frozenset(
+    set().union(*TOOL_CAPABILITY_LEAVES.values()) | {"send_message"}
+)
 HOST_TOOL_IDENTITIES = {
-    semantic: (semantic, semantic)
-    for semantic in COLLABORATION_TOOL_SEMANTICS
+    semantic: semantic for semantic in COLLABORATION_TOOL_SEMANTICS
 }
 HOST_TOOL_IDENTITIES.update(
     {
-        f"{DEFAULT_V2_NAMESPACE}.{semantic}": (
-            semantic,
-            f"{DEFAULT_V2_NAMESPACE}{semantic}",
-        )
+        f"{DEFAULT_V2_NAMESPACE}.{semantic}": semantic
         for semantic in COLLABORATION_TOOL_SEMANTICS
     }
 )
-HOOK_TOOL_IDENTITIES = {
-    hook_identity: semantic
-    for semantic, hook_identity in HOST_TOOL_IDENTITIES.values()
-}
-HOOK_TOOL_IDENTITIES.update(
-    {
-        model_identity: semantic
-        for model_identity, (semantic, _) in HOST_TOOL_IDENTITIES.items()
-    }
-)
 SIMPLE_AGENT_STATES = {"pending_init", "running", "interrupted", "shutdown", "not_found"}
-GUARD_TRUST_FIELDS = {"manifest_sha256", "trusted_current_definition", "evidence_ref"}
 NORMALIZED_SNAPSHOT_FIELDS = {
     "surface",
     "capabilities",
     "fork_turns_none",
-    "max_spawned_threads",
-    "capacity_excludes_primary",
+    "max_concurrent_threads_per_session",
+    "capacity_includes_primary",
     "execution_ready",
     "missing",
 }
-HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 class HostCapabilityError(RuntimeError):
@@ -84,39 +59,12 @@ def _string_set(value: Any, *, label: str) -> set[str]:
     return set(value)
 
 
-def _hook_tool_set(hooks: Mapping[str, Any], event: str) -> set[str]:
-    value = hooks.get(event, [])
-    return _string_set(value, label=f"hooks.{event}")
-
-
-def canonical_hook_tool_name(identity: Any) -> str | None:
-    """Map an exact or defensive compatibility Hook identity to its semantic tool name."""
-    if not isinstance(identity, str) or not identity.strip():
-        return None
-    return HOOK_TOOL_IDENTITIES.get(identity)
-
-
 def _semantic_tool(identity: str) -> str | None:
-    resolved = HOST_TOOL_IDENTITIES.get(identity)
-    if resolved is None:
-        return None
-    return resolved[0]
+    return HOST_TOOL_IDENTITIES.get(identity)
 
 
 def _tool_identities(tools: set[str], semantics: set[str]) -> set[str]:
-    return {
-        identity
-        for identity in tools
-        if _semantic_tool(identity) in semantics
-    }
-
-
-def _required_hook_identities(tools: set[str], semantics: set[str]) -> set[str]:
-    return {
-        HOST_TOOL_IDENTITIES[identity][1]
-        for identity in tools
-        if _semantic_tool(identity) in semantics
-    }
+    return {identity for identity in tools if _semantic_tool(identity) in semantics}
 
 
 def _reject_unclassified_collaboration_tools(tools: set[str]) -> None:
@@ -129,7 +77,6 @@ def _reject_unclassified_collaboration_tools(tools: set[str]) -> None:
 
 
 def normalize_agent_status(status: Any) -> dict[str, Any]:
-    """Normalize the public Multi-Agent V2 status union without inventing identity."""
     if isinstance(status, str) and status in SIMPLE_AGENT_STATES:
         return {"state": status, "detail": None}
     if isinstance(status, Mapping) and set(status) == {"completed"}:
@@ -146,83 +93,58 @@ def normalize_agent_status(status: Any) -> dict[str, Any]:
 
 
 def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a deterministic V4 capability snapshot from explicit Host evidence."""
+    """Return a deterministic Native Subagent capability snapshot."""
     if not isinstance(evidence, Mapping):
         raise HostCapabilityError("Host evidence must be an object")
-    required_fields = {"surface", "tools", "hooks", "fork_turns_none", "max_spawned_threads"}
+    required_fields = {
+        "surface",
+        "tools",
+        "fork_turns_none",
+        "max_concurrent_threads_per_session",
+    }
     extra = set(evidence) - required_fields
     missing = required_fields - set(evidence)
     if extra:
         raise HostCapabilityError("Host evidence has unsupported fields: " + ", ".join(sorted(extra)))
     if missing:
         raise HostCapabilityError("Host evidence is missing fields: " + ", ".join(sorted(missing)))
-
-    surface = evidence["surface"]
-    if surface != EXPECTED_SURFACE:
+    if evidence["surface"] != EXPECTED_SURFACE:
         raise HostCapabilityError(f"surface must be exactly {EXPECTED_SURFACE}")
+
     tools = _string_set(evidence["tools"], label="tools")
     _reject_unclassified_collaboration_tools(tools)
-    hooks = evidence["hooks"]
-    if not isinstance(hooks, Mapping):
-        raise HostCapabilityError("hooks must be an object")
-    hook_fields = {"PreToolUse", "PostToolUse", "SubagentStop"}
-    if set(hooks) != hook_fields:
-        raise HostCapabilityError("hooks must contain exactly PreToolUse, PostToolUse, SubagentStop")
-    pre_tools = _hook_tool_set(hooks, "PreToolUse")
-    post_tools = _hook_tool_set(hooks, "PostToolUse")
-    if not isinstance(hooks["SubagentStop"], bool):
-        raise HostCapabilityError("hooks.SubagentStop must be boolean")
     if not isinstance(evidence["fork_turns_none"], bool):
         raise HostCapabilityError("fork_turns_none must be boolean")
-
-    capacity = evidence["max_spawned_threads"]
+    capacity = evidence["max_concurrent_threads_per_session"]
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
     ):
-        raise HostCapabilityError("max_spawned_threads must be null or a positive integer")
+        raise HostCapabilityError(
+            "max_concurrent_threads_per_session must be null or a positive integer"
+        )
 
-    capabilities: dict[str, bool] = {}
-    for capability, required_semantics in TOOL_CAPABILITY_LEAVES.items():
-        capabilities[capability] = bool(_tool_identities(tools, required_semantics))
-
-    lifecycle_hook_identities = _required_hook_identities(tools, set(LIFECYCLE_TOOLS))
-    observation_hook_identities = _required_hook_identities(tools, {OBSERVATION_TOOL})
-    peer_message_hook_identities = _required_hook_identities(tools, {PEER_MESSAGE_TOOL})
-
-    capabilities["pre_tool_use_guard"] = bool(lifecycle_hook_identities) and lifecycle_hook_identities.issubset(
-        pre_tools
-    )
-    capabilities["post_tool_use_guard"] = bool(lifecycle_hook_identities) and lifecycle_hook_identities.issubset(
-        post_tools
-    )
-    capabilities["host_observation_guard"] = bool(
-        observation_hook_identities
-    ) and observation_hook_identities.issubset(pre_tools) and observation_hook_identities.issubset(
-        post_tools
-    )
-    capabilities["peer_message_guard"] = peer_message_hook_identities.issubset(pre_tools)
-    capabilities["subagent_stop_veto"] = hooks["SubagentStop"] is True
-
+    capabilities = {
+        capability: bool(_tool_identities(tools, semantics))
+        for capability, semantics in TOOL_CAPABILITY_LEAVES.items()
+    }
     missing_capabilities = [
-        capability for capability in REQUIRED_CAPABILITIES if capabilities.get(capability) is not True
+        capability for capability in REQUIRED_CAPABILITIES if capabilities[capability] is not True
     ]
     if evidence["fork_turns_none"] is not True:
         missing_capabilities.append("fresh_context_spawn")
-    execution_ready = not missing_capabilities
 
     return {
-        "surface": surface,
+        "surface": evidence["surface"],
         "capabilities": capabilities,
         "fork_turns_none": evidence["fork_turns_none"],
-        "max_spawned_threads": capacity,
-        "capacity_excludes_primary": True,
-        "execution_ready": execution_ready,
+        "max_concurrent_threads_per_session": capacity,
+        "capacity_includes_primary": True,
+        "execution_ready": not missing_capabilities,
         "missing": missing_capabilities,
     }
 
 
 def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
-    """Recompute every normalized capability fact at the scheduler boundary."""
     if not isinstance(snapshot, Mapping) or set(snapshot) != NORMALIZED_SNAPSHOT_FIELDS:
         raise HostCapabilityError("normalized Host snapshot has invalid fields")
     if snapshot.get("surface") != EXPECTED_SURFACE:
@@ -235,13 +157,15 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     fork_none = snapshot.get("fork_turns_none")
     if not isinstance(fork_none, bool):
         raise HostCapabilityError("normalized Host snapshot fork_turns_none must be boolean")
-    capacity = snapshot.get("max_spawned_threads")
+    capacity = snapshot.get("max_concurrent_threads_per_session")
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
     ):
-        raise HostCapabilityError("normalized Host snapshot has invalid max_spawned_threads")
-    if snapshot.get("capacity_excludes_primary") is not True:
-        raise HostCapabilityError("normalized Host snapshot must exclude primary from capacity")
+        raise HostCapabilityError(
+            "normalized Host snapshot has invalid max_concurrent_threads_per_session"
+        )
+    if snapshot.get("capacity_includes_primary") is not True:
+        raise HostCapabilityError("normalized Host snapshot must count the primary agent in capacity")
     expected_missing = [
         capability for capability in REQUIRED_CAPABILITIES if capabilities[capability] is not True
     ]
@@ -252,72 +176,6 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     if snapshot.get("execution_ready") is not (not expected_missing):
         raise HostCapabilityError("normalized Host snapshot execution_ready is inconsistent")
     return copy.deepcopy(dict(snapshot))
-
-
-def build_guard_coverage_proof(
-    snapshot: Mapping[str, Any],
-    *,
-    session_id: str,
-    trust_evidence: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Build a diagnostic Hook-coverage summary with no WriterLease authority."""
-    normalized = validate_normalized_snapshot(snapshot)
-    if normalized.get("execution_ready") is not True:
-        raise HostCapabilityError("Guard coverage summary requires an execution-ready Host snapshot")
-    if not isinstance(session_id, str) or not session_id.strip():
-        raise HostCapabilityError("Guard coverage summary requires non-empty session_id")
-    capabilities = normalized["capabilities"]
-    for capability in (
-        "pre_tool_use_guard",
-        "post_tool_use_guard",
-        "host_observation_guard",
-        "peer_message_guard",
-        "subagent_stop_veto",
-    ):
-        if capabilities.get(capability) is not True:
-            raise HostCapabilityError(f"Guard coverage summary requires {capability}")
-    if not isinstance(trust_evidence, Mapping) or set(trust_evidence) != GUARD_TRUST_FIELDS:
-        raise HostCapabilityError("Guard trust evidence has invalid fields")
-    digest = trust_evidence.get("manifest_sha256")
-    if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
-        raise HostCapabilityError("Guard trust evidence has invalid manifest SHA-256")
-    if trust_evidence.get("trusted_current_definition") is not True:
-        raise HostCapabilityError("current Hook definition is not proven trusted")
-    evidence_ref = trust_evidence.get("evidence_ref")
-    if not isinstance(evidence_ref, str) or not evidence_ref.strip():
-        raise HostCapabilityError("Guard trust evidence requires evidence_ref")
-    return {
-        "schema_version": "4.0",
-        "authority": "diagnostic_only",
-        "session_id": session_id,
-        "manifest_sha256": digest,
-        "trusted_current_definition": True,
-        "pre_tool_use": True,
-        "post_tool_use": True,
-        "host_observation_guard": True,
-        "peer_message_guard": True,
-        "subagent_stop_veto": True,
-        "evidence_ref": evidence_ref,
-    }
-
-
-def required_lifecycle_hook_tools() -> tuple[str, ...]:
-    return LIFECYCLE_TOOLS
-
-
-def effective_managed_child_limit(
-    snapshot: Mapping[str, Any],
-    *,
-    product_limit: int = 3,
-) -> int | None:
-    """Cap V4 product fan-out by known Host spawned-thread capacity."""
-    normalized = validate_normalized_snapshot(snapshot)
-    if not isinstance(product_limit, int) or isinstance(product_limit, bool) or product_limit < 1:
-        raise HostCapabilityError("product_limit must be a positive integer")
-    capacity = normalized["max_spawned_threads"]
-    if capacity is None:
-        return None
-    return min(product_limit, capacity)
 
 
 def capability_snapshot_copy(snapshot: Mapping[str, Any]) -> dict[str, Any]:

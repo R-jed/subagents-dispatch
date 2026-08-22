@@ -1,502 +1,143 @@
 #!/usr/bin/env python3
-"""V4 state facade with RC3/RC4 correctness-bearing truth and bounded accounting."""
+"""Public V4 orchestration-state boundary.
+
+Schema validation and reconciliation live in ``dispatch_state_v4_core``. This
+module exposes only the supported runtime surface and owns safe active-state
+creation/removal. Existing active state is never overwritten through this
+facade.
+"""
 
 from __future__ import annotations
 
-import hashlib
-from typing import Any, Callable, Mapping
+import os as _os
+import re as _re
+from pathlib import Path as _Path
+from typing import Any as _Any, Callable as _Callable, Mapping as _Mapping
 
 import dispatch_state_v4_core as _core
+import state_storage as _storage
 
 
-ACCOUNTING_FILTER_BITS = 16_384
-ACCOUNTING_FILTER_HEX = ACCOUNTING_FILTER_BITS // 4
-ACCOUNTING_FILTER_HASHES = 4
-RECENT_CONTROL_ACKS = 64
-RECENT_OBSERVATION_RECEIPTS = 64
-CONTROL_ACK_FILTER_KIND = "control_ack_filter"
-OBSERVATION_RECEIPT_FILTER_KIND = "host_observation_receipt_filter"
-CONTROL_ACK_FILTER_REF = "control-ack-filter:v1"
-OBSERVATION_RECEIPT_FILTER_REF = "host-observation-receipt-filter:v1"
-HOST_CAPACITY_OBSERVATION_KIND = "host_capacity_observation"
-HOST_CAPACITY_OBSERVATION_FIELDS = {
-    "ref",
-    "kind",
-    "source",
-    "turn_id",
-    "tool_use_id",
-    "resident_children",
-    "settled_children",
-    "active_children",
-    "managed_resident_children",
-    "unmanaged_resident_children",
-    "response_digest",
-}
-HOST_AGENT_NAME_PATTERN = _core.re.compile(r"[a-z0-9_]+\Z")
-HOST_RESERVED_AGENT_NAMES = {"root", ".", ".."}
+SCHEMA_VERSION = _core.SCHEMA_VERSION
+DEFAULT_MAX_BYTES = _core.DEFAULT_MAX_BYTES
+CANONICAL_WORKSPACE_ID = _core.CANONICAL_WORKSPACE_ID
+WORK_UNIT_STATES = _core.WORK_UNIT_STATES
+EXECUTION_STATES = _core.EXECUTION_STATES
+WRITER_LEASE_STATES = _core.WRITER_LEASE_STATES
+WRITER_BLOCKING_STATES = _core.WRITER_BLOCKING_STATES
+WRITER_OWNER_KINDS = _core.WRITER_OWNER_KINDS
+WORK_INTENTS = _core.WORK_INTENTS
+MUTATION_AUTHORITIES = _core.MUTATION_AUTHORITIES
+AUTHORITY_RANK = _core.AUTHORITY_RANK
+FAILURE_ORIGINS = _core.FAILURE_ORIGINS
+TASK_BLOCKERS = _core.TASK_BLOCKERS
+PROFILE_CONTRACT = _core.PROFILE_CONTRACT
+HOST_STATE_MAP = _core.HOST_STATE_MAP
+HOST_UNCERTAIN_STATES = _core.HOST_UNCERTAIN_STATES
+
+StateError = _core.StateError
+StateIdentityError = _core.StateIdentityError
+StatePathError = _core.StatePathError
+StatePayloadError = _core.StatePayloadError
+StateCorruptError = _core.StateCorruptError
+StateLockError = _core.StateLockError
+
+validate_native_task_name = _core.validate_native_task_name
+scopes_within = _core.scopes_within
+current_execution_for_unit = _core.current_execution_for_unit
+new_state = _core.new_state
+state_path = _core.state_path
+observation_basis = _core.observation_basis
+reconcile_execution_observation = _core.reconcile_execution_observation
+
+_TERMINAL_WORK_UNIT_STATES = {"ACCEPTED", "CANCELLED"}
+_UNSETTLED_EXECUTION_STATES = {"SPAWN_PENDING", "RUNNING", "INTERRUPTED", "UNKNOWN"}
+_TASK_UNIT_PATTERN = _re.compile(r"[A-Za-z0-9_]+\Z")
 
 
-if not hasattr(_core, "_rc3_base_validate_state_payload"):
-    _core._rc3_base_validate_state_payload = _core.validate_state_payload
-if not hasattr(_core, "_rc3_base_mutate_state"):
-    _core._rc3_base_mutate_state = _core.mutate_state
-_BASE_VALIDATE_STATE_PAYLOAD = _core._rc3_base_validate_state_payload
-_BASE_MUTATE_STATE = _core._rc3_base_mutate_state
-
-
-def current_execution_for_unit(
-    payload: Mapping[str, Any], *, unit_id: str
-) -> Mapping[str, Any] | None:
-    executions = [
-        item
-        for item in payload.get("executions", [])
-        if isinstance(item, Mapping) and item.get("unit_id") == unit_id
+def native_task_name_for(
+    payload: _Mapping[str, _Any], *, unit_id: str, attempt_no: int
+) -> str:
+    """Derive the canonical Host task name from one WorkUnit attempt generation."""
+    if not isinstance(unit_id, str) or _TASK_UNIT_PATTERN.fullmatch(unit_id) is None:
+        raise StatePayloadError(
+            "managed WorkUnit unit_id must use letters, digits, or underscores for Host task naming"
+        )
+    if not isinstance(attempt_no, int) or isinstance(attempt_no, bool) or attempt_no < 1:
+        raise StatePayloadError("managed execution attempt_no must be a positive integer")
+    folded = unit_id.lower()
+    collisions = [
+        item.get("unit_id")
+        for item in payload.get("work_units", [])
+        if isinstance(item, _Mapping)
+        and isinstance(item.get("unit_id"), str)
+        and item["unit_id"].lower() == folded
     ]
-    if not executions:
-        return None
-    greatest = max(item.get("attempt_no", 0) for item in executions)
-    matches = [item for item in executions if item.get("attempt_no") == greatest]
-    if len(matches) != 1:
-        raise _core.StatePayloadError(
-            f"work unit {unit_id} current execution is ambiguous"
+    if collisions != [unit_id]:
+        raise StatePayloadError(
+            "managed WorkUnit unit_id must be unique under case-folded Host task naming"
         )
-    return matches[0]
+    return validate_native_task_name(f"sd_{folded}_a{attempt_no}")
 
 
-def validate_native_task_name(value: Any) -> str:
-    """Freeze the current V2 AgentPath child-name grammar at state authority."""
-    if (
-        not isinstance(value, str)
-        or not value
-        or value in HOST_RESERVED_AGENT_NAMES
-        or HOST_AGENT_NAME_PATTERN.fullmatch(value) is None
-    ):
-        raise _core.StatePayloadError(
-            "native_task_name must match Host agent name grammar: lowercase letters, digits, underscores"
-        )
-    return value
-
-
-def _prevalidate_native_task_names(payload: Any) -> None:
-    if not isinstance(payload, Mapping):
-        return
+def _validate_execution_task_bindings(payload: _Mapping[str, _Any]) -> None:
     for execution in payload.get("executions", []):
-        if isinstance(execution, Mapping):
-            validate_native_task_name(execution.get("native_task_name"))
-
-
-def _canonical_scope(value: str) -> str:
-    normalized = value.replace("\\", "/")
-    canonical = _core.PurePosixPath(normalized).as_posix()
-    if value != canonical:
-        raise _core.StatePayloadError(
-            f"write scope {value!r} must use canonical repository-relative POSIX form"
+        if not isinstance(execution, _Mapping):
+            continue
+        unit_id = execution.get("unit_id")
+        attempt_no = execution.get("attempt_no")
+        expected = native_task_name_for(
+            payload,
+            unit_id=str(unit_id) if isinstance(unit_id, str) else "",
+            attempt_no=attempt_no,
         )
-    return canonical
-
-
-def _prevalidate_scope_canonical(payload: Any) -> None:
-    if not isinstance(payload, Mapping):
-        return
-    for unit in payload.get("work_units", []):
-        if not isinstance(unit, Mapping):
-            continue
-        ownership = unit.get("ownership")
-        if isinstance(ownership, Mapping):
-            for field in ("write", "forbidden"):
-                values = ownership.get(field)
-                if isinstance(values, list):
-                    for value in values:
-                        if isinstance(value, str):
-                            _canonical_scope(value)
-        ceiling = unit.get("write_scope_ceiling")
-        if isinstance(ceiling, list):
-            for value in ceiling:
-                if isinstance(value, str):
-                    _canonical_scope(value)
-    for execution in payload.get("executions", []):
-        if not isinstance(execution, Mapping):
-            continue
-        granted = execution.get("granted_write_scope")
-        if isinstance(granted, list):
-            for value in granted:
-                if isinstance(value, str):
-                    _canonical_scope(value)
-
-
-def _scope_overlaps(left: str, right: str) -> bool:
-    left_parts = _core.PurePosixPath(left).parts
-    right_parts = _core.PurePosixPath(right).parts
-    shortest = min(len(left_parts), len(right_parts))
-    return left_parts[:shortest] == right_parts[:shortest]
-
-
-def _validate_scope_truth(state: Mapping[str, Any]) -> None:
-    for unit in state.get("work_units", []):
-        if not isinstance(unit, Mapping):
-            continue
-        ownership = unit.get("ownership")
-        if not isinstance(ownership, Mapping):
-            continue
-        write = [_canonical_scope(value) for value in ownership.get("write", [])]
-        forbidden = [_canonical_scope(value) for value in ownership.get("forbidden", [])]
-        for value in unit.get("write_scope_ceiling", []):
-            _canonical_scope(value)
-        if any(_scope_overlaps(writable, denied) for writable in write for denied in forbidden):
-            raise _core.StatePayloadError(
-                f"work unit {unit.get('unit_id')} write and forbidden scopes overlap by ancestry"
+        if execution.get("native_task_name") != expected:
+            raise StatePayloadError(
+                "native_task_name must match the WorkUnit and attempt generation"
             )
-    for execution in state.get("executions", []):
-        if not isinstance(execution, Mapping):
-            continue
-        for value in execution.get("granted_write_scope", []):
-            _canonical_scope(value)
-
-
-def _has_completed_observation(
-    state: Mapping[str, Any], *, execution_id: str, control_epoch: int
-) -> bool:
-    return any(
-        isinstance(event, Mapping)
-        and event.get("kind") == "host_observation"
-        and event.get("execution_id") == execution_id
-        and event.get("control_epoch") == control_epoch
-        and event.get("lifecycle") == "COMPLETED"
-        for event in state.get("accounting_refs", [])
-    )
-
-
-def _validate_acceptance_truth(state: Mapping[str, Any]) -> None:
-    unresolved = _core.UNRESOLVED_CONTROL_STATES
-    for unit in state.get("work_units", []):
-        if not isinstance(unit, Mapping) or unit.get("state") != "ACCEPTED":
-            continue
-        unit_id = unit["unit_id"]
-        producer = current_execution_for_unit(state, unit_id=unit_id)
-        if producer is None:
-            raise _core.StatePayloadError(
-                f"accepted work unit {unit_id} requires a current producing execution"
-            )
-        if unit.get("accepted_execution_id") != producer.get("execution_id"):
-            raise _core.StatePayloadError(
-                f"accepted work unit {unit_id} must reference the current execution attempt"
-            )
-        accepted_epoch = unit.get("accepted_control_epoch")
-        if accepted_epoch != producer.get("control_epoch"):
-            raise _core.StatePayloadError(
-                f"accepted work unit {unit_id} control epoch must match current producer"
-            )
-        lifecycle = producer.get("lifecycle")
-        if lifecycle == "COMPLETED":
-            pass
-        elif lifecycle == "CLOSED":
-            if not _has_completed_observation(
-                state,
-                execution_id=str(producer["execution_id"]),
-                control_epoch=int(accepted_epoch),
-            ):
-                raise _core.StatePayloadError(
-                    f"accepted work unit {unit_id} closed producer lacks prior COMPLETED proof"
-                )
-        else:
-            raise _core.StatePayloadError(
-                f"accepted work unit {unit_id} producer must be COMPLETED or proven CLOSED"
-            )
-        execution_ids = {
-            item.get("execution_id")
-            for item in state.get("executions", [])
-            if isinstance(item, Mapping) and item.get("unit_id") == unit_id
-        }
-        if any(
-            isinstance(control, Mapping)
-            and control.get("execution_id") in execution_ids
-            and control.get("state") in unresolved
-            for control in state.get("pending_controls", [])
-        ):
-            raise _core.StatePayloadError(
-                f"accepted work unit {unit_id} cannot retain unresolved PendingControl"
-            )
-
-
-def _strict_count(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
-
-
-def _validate_host_capacity_truth(state: Mapping[str, Any]) -> None:
-    observations = [
-        event
-        for event in state.get("accounting_refs", [])
-        if isinstance(event, Mapping) and event.get("kind") == HOST_CAPACITY_OBSERVATION_KIND
-    ]
-    if len(observations) > 1:
-        raise _core.StatePayloadError("V4 state may retain only one current Host capacity observation")
-    if not observations:
-        return
-    event = observations[0]
-    if set(event) != HOST_CAPACITY_OBSERVATION_FIELDS:
-        raise _core.StatePayloadError("Host capacity observation has invalid fields")
-    if event.get("source") != "post_tool_use:list_agents":
-        raise _core.StatePayloadError("Host capacity observation requires list_agents PostToolUse source")
-    for field in ("turn_id", "tool_use_id"):
-        value = event.get(field)
-        if not isinstance(value, str) or not value.strip():
-            raise _core.StatePayloadError(f"Host capacity observation requires {field}")
-    digest = event.get("response_digest")
-    if not isinstance(digest, str) or _core.HEX64.fullmatch(digest) is None:
-        raise _core.StatePayloadError("Host capacity observation requires response_digest")
-    counts = {
-        field: event.get(field)
-        for field in (
-            "resident_children",
-            "settled_children",
-            "active_children",
-            "managed_resident_children",
-            "unmanaged_resident_children",
-        )
-    }
-    if not all(_strict_count(value) for value in counts.values()):
-        raise _core.StatePayloadError("Host capacity observation counts must be non-negative integers")
-    resident = counts["resident_children"]
-    if counts["settled_children"] + counts["active_children"] != resident:
-        raise _core.StatePayloadError("Host capacity observation active/settled counts are inconsistent")
-    if counts["managed_resident_children"] + counts["unmanaged_resident_children"] != resident:
-        raise _core.StatePayloadError("Host capacity observation managed/unmanaged counts are inconsistent")
-
-
-def _filter_positions(value: str) -> tuple[int, ...]:
-    digest = hashlib.sha256(value.encode("utf-8")).digest()
-    return tuple(
-        int.from_bytes(digest[index * 2 : index * 2 + 2], "big") % ACCOUNTING_FILTER_BITS
-        for index in range(ACCOUNTING_FILTER_HASHES)
-    )
-
-
-def _filter_bits(value: Any) -> int:
-    if not isinstance(value, str) or len(value) != ACCOUNTING_FILTER_HEX:
-        return 0
-    try:
-        return int(value, 16)
-    except ValueError:
-        return 0
-
-
-def _filter_add(bits: int, value: str) -> int:
-    for position in _filter_positions(value):
-        bits |= 1 << position
-    return bits
-
-
-def accounting_filter_contains(
-    payload: Mapping[str, Any], *, kind: str, value: str
-) -> bool:
-    if not isinstance(value, str) or not value:
-        return False
-    matches = [
-        event
-        for event in payload.get("accounting_refs", [])
-        if isinstance(event, Mapping) and event.get("kind") == kind
-    ]
-    if len(matches) != 1:
-        return False
-    bits = _filter_bits(matches[0].get("bits"))
-    if bits == 0:
-        return False
-    return all(bits & (1 << position) for position in _filter_positions(value))
-
-
-def _filter_event(*, kind: str, ref: str, bits: int, count: int) -> dict[str, Any]:
-    return {
-        "ref": ref,
-        "kind": kind,
-        "bits": f"{bits:0{ACCOUNTING_FILTER_HEX}x}",
-        "count": count,
-    }
-
-
-def _writer_settlement_receipt_tool_use_id(
-    payload: Mapping[str, Any], observations: list[dict[str, Any]]
-) -> str | None:
-    """Pin the exact Host receipt still required by the active execution writer."""
-    lease = payload.get("writer_lease")
-    if (
-        not isinstance(lease, Mapping)
-        or lease.get("owner_kind") != "execution"
-        or lease.get("state") not in {"HELD", "REVOKING"}
-    ):
-        return None
-    executions = [
-        item
-        for item in payload.get("executions", [])
-        if isinstance(item, Mapping) and item.get("execution_id") == lease.get("owner_id")
-    ]
-    if len(executions) != 1:
-        return None
-    execution = executions[0]
-    if execution.get("lifecycle") not in {"INTERRUPTED", "COMPLETED", "FAILED", "CLOSED"}:
-        return None
-    matches = [
-        event
-        for event in observations
-        if event.get("source") == "post_tool_use:list_agents"
-        and event.get("execution_id") == execution.get("execution_id")
-        and event.get("control_epoch") == execution.get("control_epoch")
-        and event.get("lease_epoch") == lease.get("lease_epoch")
-        and event.get("lifecycle") == execution.get("lifecycle")
-        and isinstance(event.get("tool_use_id"), str)
-        and bool(event.get("tool_use_id"))
-    ]
-    return str(matches[-1]["tool_use_id"]) if matches else None
-
-
-def _compact_accounting_refs(payload: dict[str, Any]) -> None:
-    events = payload.get("accounting_refs")
-    if not isinstance(events, list):
-        return
-
-    control_filter_bits = 0
-    control_filter_count = 0
-    receipt_filter_bits = 0
-    receipt_filter_count = 0
-    control_acks: list[dict[str, Any]] = []
-    receipts: list[dict[str, Any]] = []
-    observations: list[dict[str, Any]] = []
-    capacity_observation: dict[str, Any] | None = None
-    preserved: list[dict[str, Any]] = []
-
-    for raw in events:
-        if not isinstance(raw, dict):
-            preserved.append(raw)
-            continue
-        kind = raw.get("kind")
-        if kind == CONTROL_ACK_FILTER_KIND:
-            control_filter_bits |= _filter_bits(raw.get("bits"))
-            count = raw.get("count")
-            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
-                control_filter_count += count
-        elif kind == OBSERVATION_RECEIPT_FILTER_KIND:
-            receipt_filter_bits |= _filter_bits(raw.get("bits"))
-            count = raw.get("count")
-            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
-                receipt_filter_count += count
-        elif kind == "control_ack":
-            control_acks.append(raw)
-        elif kind == "host_observation_receipt":
-            receipts.append(raw)
-        elif kind == "host_observation":
-            observations.append(raw)
-        elif kind == HOST_CAPACITY_OBSERVATION_KIND:
-            capacity_observation = raw
-        else:
-            preserved.append(raw)
-
-    if len(control_acks) > RECENT_CONTROL_ACKS:
-        compacted = control_acks[:-RECENT_CONTROL_ACKS]
-        control_acks = control_acks[-RECENT_CONTROL_ACKS:]
-        for event in compacted:
-            tool_use_id = event.get("tool_use_id")
-            if isinstance(tool_use_id, str) and tool_use_id:
-                control_filter_bits = _filter_add(control_filter_bits, tool_use_id)
-                control_filter_count += 1
-
-    pinned_tool_use_id = _writer_settlement_receipt_tool_use_id(payload, observations)
-    pinned_receipt = next(
-        (
-            event
-            for event in reversed(receipts)
-            if pinned_tool_use_id is not None and event.get("tool_use_id") == pinned_tool_use_id
-        ),
-        None,
-    )
-    ordinary_receipts = [event for event in receipts if event is not pinned_receipt]
-    if len(ordinary_receipts) > RECENT_OBSERVATION_RECEIPTS:
-        compacted = ordinary_receipts[:-RECENT_OBSERVATION_RECEIPTS]
-        ordinary_receipts = ordinary_receipts[-RECENT_OBSERVATION_RECEIPTS:]
-        for event in compacted:
-            tool_use_id = event.get("tool_use_id")
-            if isinstance(tool_use_id, str) and tool_use_id:
-                receipt_filter_bits = _filter_add(receipt_filter_bits, tool_use_id)
-                receipt_filter_count += 1
-    receipts = ordinary_receipts
-    if pinned_receipt is not None:
-        receipts.append(pinned_receipt)
-
-    latest_observation: dict[tuple[Any, ...], dict[str, Any]] = {}
-    observation_order: list[tuple[Any, ...]] = []
-    for event in observations:
-        key = (
-            event.get("source"),
-            event.get("execution_id"),
-            event.get("control_epoch"),
-            event.get("lease_epoch"),
-            event.get("lifecycle"),
-        )
-        if key not in latest_observation:
-            observation_order.append(key)
-        latest_observation[key] = event
-    observations = [latest_observation[key] for key in observation_order]
-
-    compacted_events = preserved
-    if control_filter_count:
-        compacted_events.append(
-            _filter_event(
-                kind=CONTROL_ACK_FILTER_KIND,
-                ref=CONTROL_ACK_FILTER_REF,
-                bits=control_filter_bits,
-                count=control_filter_count,
-            )
-        )
-    if receipt_filter_count:
-        compacted_events.append(
-            _filter_event(
-                kind=OBSERVATION_RECEIPT_FILTER_KIND,
-                ref=OBSERVATION_RECEIPT_FILTER_REF,
-                bits=receipt_filter_bits,
-                count=receipt_filter_count,
-            )
-        )
-    compacted_events.extend(control_acks)
-    compacted_events.extend(receipts)
-    compacted_events.extend(observations)
-    if capacity_observation is not None:
-        compacted_events.append(capacity_observation)
-    payload["accounting_refs"] = compacted_events
 
 
 def validate_state_payload(
-    payload: Any,
+    payload: _Mapping[str, _Any],
     *,
     thread_id: str | None = None,
-    max_bytes: int = _core.DEFAULT_MAX_BYTES,
-) -> dict[str, Any]:
-    _prevalidate_native_task_names(payload)
-    _prevalidate_scope_canonical(payload)
-    state = _BASE_VALIDATE_STATE_PAYLOAD(
-        payload,
-        thread_id=thread_id,
-        max_bytes=max_bytes,
-    )
-    _validate_scope_truth(state)
-    _validate_acceptance_truth(state)
-    _validate_host_capacity_truth(state)
-    return state
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> dict[str, _Any]:
+    validated = _core.validate_state_payload(dict(payload), thread_id=thread_id, max_bytes=max_bytes)
+    _validate_execution_task_bindings(validated)
+    return validated
+
+
+def load_state(
+    thread_id: str | None = None,
+    *,
+    temp_root: str | _os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> dict[str, _Any] | None:
+    current = _core.load_state(thread_id, temp_root=temp_root, max_bytes=max_bytes)
+    if current is not None:
+        _validate_execution_task_bindings(current)
+    return current
 
 
 def mutate_state(
     thread_id: str | None,
-    mutator: Callable[[dict[str, Any]], None],
+    mutator: _Callable[[dict[str, _Any]], None],
     *,
     expected_state_revision: int | None = None,
-    temp_root: str | Any | None = None,
-    max_bytes: int = _core.DEFAULT_MAX_BYTES,
-    now: Any = None,
-) -> dict[str, Any]:
-    def bounded_mutator(current: dict[str, Any]) -> None:
-        mutator(current)
-        _compact_accounting_refs(current)
+    temp_root: str | _os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    now: _Any = None,
+) -> dict[str, _Any]:
+    """Mutate active state while enforcing public generation invariants before persistence."""
 
-    return _BASE_MUTATE_STATE(
+    def guarded(updated: dict[str, _Any]) -> None:
+        mutator(updated)
+        _validate_execution_task_bindings(updated)
+
+    return _core.mutate_state(
         thread_id,
-        bounded_mutator,
+        guarded,
         expected_state_revision=expected_state_revision,
         temp_root=temp_root,
         max_bytes=max_bytes,
@@ -504,9 +145,120 @@ def mutate_state(
     )
 
 
-_core.validate_state_payload = validate_state_payload
-_core.mutate_state = mutate_state
+def create_state_if_absent(
+    payload: _Mapping[str, _Any],
+    *,
+    thread_id: str | None = None,
+    temp_root: str | _os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> _Path:
+    """Create the active V4 capsule exactly once for one root thread."""
+    identity = _storage.resolve_thread_id(
+        thread_id if thread_id is not None else payload.get("root_session_id")
+    )
+    validate_state_payload(dict(payload), thread_id=identity, max_bytes=max_bytes)
+    encoded = _core._serialized_payload(payload, max_bytes=max_bytes)
+    with _storage.state_lock(identity, temp_root=temp_root):
+        _, _, path, _ = _storage._paths(identity, temp_root, create=True)
+        if path.exists():
+            raise StatePayloadError("active V4 state already exists")
+        _storage._write_unlocked(path, encoded)
+        return path
 
-for _name in dir(_core):
-    if not _name.startswith("__") and _name not in {"validate_state_payload", "mutate_state"}:
-        globals()[_name] = getattr(_core, _name)
+
+def _require_terminal_state(current: _Mapping[str, _Any]) -> None:
+    if any(unit.get("state") not in _TERMINAL_WORK_UNIT_STATES for unit in current["work_units"]):
+        raise StatePayloadError("active V4 state has unresolved WorkUnit responsibility")
+    if any(
+        execution.get("lifecycle") in _UNSETTLED_EXECUTION_STATES
+        for execution in current["executions"]
+    ):
+        raise StatePayloadError("active V4 state has unsettled or ambiguous execution")
+    lease = current.get("writer_lease")
+    if isinstance(lease, _Mapping) and lease.get("state") in WRITER_BLOCKING_STATES:
+        raise StatePayloadError("active V4 state has blocking WriterLease")
+
+
+def remove_terminal_state(
+    thread_id: str | None = None,
+    *,
+    expected_state_revision: int | None = None,
+    temp_root: str | _os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> bool:
+    """Remove active state only after all project responsibility is settled."""
+    identity = _storage.resolve_thread_id(thread_id)
+    with _storage.state_lock(identity, temp_root=temp_root):
+        current = load_state(identity, temp_root=temp_root, max_bytes=max_bytes)
+        if current is None:
+            return False
+        if (
+            expected_state_revision is not None
+            and current["state_revision"] != expected_state_revision
+        ):
+            raise StatePayloadError("state_revision compare-and-swap failed")
+        _require_terminal_state(current)
+        _, _, path, _ = _storage._paths(identity, temp_root, create=False)
+        path.unlink()
+        if _os.name != "nt":
+            directory_fd = _os.open(path.parent, _os.O_RDONLY)
+            try:
+                _os.fsync(directory_fd)
+            finally:
+                _os.close(directory_fd)
+        return True
+
+
+def write_state(
+    payload: _Mapping[str, _Any],
+    *,
+    thread_id: str | None = None,
+    temp_root: str | _os.PathLike[str] | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> _Path:
+    """Compatibility create-only entry point; existing active state is never replaced."""
+    return create_state_if_absent(
+        payload,
+        thread_id=thread_id,
+        temp_root=temp_root,
+        max_bytes=max_bytes,
+    )
+
+
+__all__ = [
+    "AUTHORITY_RANK",
+    "CANONICAL_WORKSPACE_ID",
+    "DEFAULT_MAX_BYTES",
+    "EXECUTION_STATES",
+    "FAILURE_ORIGINS",
+    "HOST_STATE_MAP",
+    "HOST_UNCERTAIN_STATES",
+    "MUTATION_AUTHORITIES",
+    "PROFILE_CONTRACT",
+    "SCHEMA_VERSION",
+    "StateCorruptError",
+    "StateError",
+    "StateIdentityError",
+    "StateLockError",
+    "StatePathError",
+    "StatePayloadError",
+    "TASK_BLOCKERS",
+    "WORK_INTENTS",
+    "WORK_UNIT_STATES",
+    "WRITER_BLOCKING_STATES",
+    "WRITER_LEASE_STATES",
+    "WRITER_OWNER_KINDS",
+    "create_state_if_absent",
+    "current_execution_for_unit",
+    "load_state",
+    "mutate_state",
+    "native_task_name_for",
+    "new_state",
+    "observation_basis",
+    "reconcile_execution_observation",
+    "remove_terminal_state",
+    "scopes_within",
+    "state_path",
+    "validate_native_task_name",
+    "validate_state_payload",
+]

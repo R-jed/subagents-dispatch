@@ -25,148 +25,92 @@ def load_module(name: str, filename: str):
         sys.path.remove(scripts)
 
 
-def unit() -> dict:
-    return {
-        "unit_id": "U1",
-        "intent": "inspect",
-        "goal": "bounded accounting",
-        "output": "facts",
-        "depends_on": [],
-        "state": "EXECUTING",
-        "ownership": {"write": [], "forbidden": []},
-        "authority_ceiling": "none",
-        "write_scope_ceiling": [],
-        "done_when": "facts verified",
-        "accepted_result_ref": None,
-        "accepted_execution_id": None,
-        "accepted_control_epoch": None,
-    }
-
-
-def execution() -> dict:
-    return {
-        "execution_id": "exec-1",
-        "unit_id": "U1",
-        "team_plan_revision": 1,
-        "attempt_no": 1,
-        "profile_id": "reader",
-        "agent_id": "agent-1",
-        "native_task_name": "sd_u1_a1",
-        "model": "gpt-5.6-luna",
-        "effort": "max",
-        "granted_authority": "none",
-        "granted_write_scope": [],
-        "workspace_id": "canonical",
-        "lifecycle": "COMPLETED",
-        "control_epoch": 0,
-        "followup_count": 0,
-        "failure_origin": "none",
-        "blocker": "none",
-        "quarantine_reason": None,
-    }
-
-
-def install(state, tmp_path: Path) -> None:
+def populated_state(state) -> dict:
     payload = state.new_state(thread_id="thread-bounded")
-    payload["team_plan_revision"] = 1
-    payload["work_units"] = [unit()]
-    payload["executions"] = [execution()]
-    state.write_state(payload, temp_root=tmp_path)
-
-
-def add_history(current: dict, *, count: int) -> None:
-    for index in range(count):
-        current["accounting_refs"].append(
-            {
-                "ref": f"control-ack:c{index}:tool-{index}",
-                "kind": "control_ack",
-                "control_id": f"c{index}",
-                "tool_use_id": f"tool-{index}",
-                "tool_name": "followup_task",
-                "payload_digest": "a" * 64,
-                "target": "sd_u1_a1",
-            }
-        )
-        current["accounting_refs"].append(
-            {
-                "ref": f"host-observation-receipt:observe-{index}",
-                "kind": "host_observation_receipt",
-                "turn_id": f"observe-turn-{index}",
-                "tool_use_id": f"observe-{index}",
-                "response_digest": "b" * 64,
-            }
-        )
-        current["accounting_refs"].append(
-            {
-                "ref": f"host-observation:exec-1:0:none:COMPLETED:observe-{index}",
-                "kind": "host_observation",
-                "source": "post_tool_use:list_agents",
-                "execution_id": "exec-1",
-                "control_epoch": 0,
-                "lease_epoch": None,
-                "lifecycle": "COMPLETED",
-                "turn_id": f"observe-turn-{index}",
-                "tool_use_id": f"observe-{index}",
-                "agent_name": "/root/sd_u1_a1",
-            }
-        )
-
-
-def test_compacted_ack_history_still_blocks_old_tool_use_id_reuse(tmp_path: Path):
-    state = load_module("bounded_state_identity", "dispatch_state_v4.py")
-    control = load_module("bounded_control_identity", "dispatch_control_v4.py")
-    install(state, tmp_path)
-    updated = state.mutate_state(
-        "thread-bounded",
-        lambda current: add_history(current, count=160),
-        temp_root=tmp_path,
-    )
-    assert not any(
-        event.get("kind") == "control_ack" and event.get("tool_use_id") == "tool-0"
-        for event in updated["accounting_refs"]
-    )
-    assert any(event.get("kind") == "control_ack_filter" for event in updated["accounting_refs"])
-
-    tool_input = {"target": "sd_u1_a1", "message": "new correction"}
-    control.prepare_control(
-        "thread-bounded",
-        control_id="new-control",
-        execution_id="exec-1",
-        operation="FOLLOWUP",
-        tool_input=tool_input,
-        temp_root=tmp_path,
-    )
-    with pytest.raises(control.ControlError, match="acknowledged|reuse|consumed"):
-        control.consume_prepared_control(
-            "thread-bounded",
-            tool_name="followup_task",
-            tool_input=tool_input,
-            tool_use_id="tool-0",
-            temp_root=tmp_path,
-        )
-
-
-def test_accounting_history_is_compacted_before_state_limit(tmp_path: Path):
-    state = load_module("bounded_state_compaction", "dispatch_state_v4.py")
-    install(state, tmp_path)
-
-    updated = state.mutate_state(
-        "thread-bounded",
-        lambda current: add_history(current, count=400),
-        temp_root=tmp_path,
-    )
-    assert len(updated["accounting_refs"]) <= 160
-    path = state.state_path("thread-bounded", temp_root=tmp_path)
-    assert path.stat().st_size < state.DEFAULT_MAX_BYTES
-    observations = [
-        event
-        for event in updated["accounting_refs"]
-        if event.get("kind") == "host_observation"
+    payload["work_units"] = [
+        {
+            "unit_id": "U1",
+            "intent": "inspect",
+            "goal": "bounded accounting",
+            "output": "facts",
+            "depends_on": [],
+            "state": "RESULT_READY",
+            "ownership": {"write": [], "forbidden": []},
+            "authority_ceiling": "none",
+            "write_scope_ceiling": [],
+            "done_when": "facts verified",
+            "accepted_result_ref": None,
+            "accepted_execution_id": None,
+            "accepted_control_epoch": None,
+        }
     ]
-    assert len(observations) == 1
-    assert observations[0]["lifecycle"] == "COMPLETED"
-    assert any(event.get("kind") == "control_ack_filter" for event in updated["accounting_refs"])
-    assert any(
-        event.get("kind") == "host_observation_receipt_filter"
-        for event in updated["accounting_refs"]
-    )
+    payload["executions"] = [
+        {
+            "execution_id": "exec-1",
+            "unit_id": "U1",
+            "team_plan_revision": None,
+            "attempt_no": 1,
+            "profile_id": "reader",
+            "agent_id": "agent-1",
+            "native_task_name": "sd_u1_a1",
+            "model": "gpt-5.6-luna",
+            "effort": "max",
+            "granted_authority": "none",
+            "granted_write_scope": [],
+            "workspace_id": "canonical",
+            "lifecycle": "COMPLETED",
+            "control_epoch": 0,
+            "followup_count": 0,
+            "failure_origin": "none",
+            "blocker": "none",
+            "quarantine_reason": None,
+        }
+    ]
+    return payload
+
+
+def compact_observation() -> dict:
+    return {
+        "ref": "host-observation:exec-1:0:none:COMPLETED",
+        "kind": "host_observation",
+        "execution_id": "exec-1",
+        "control_epoch": 0,
+        "lease_epoch": None,
+        "lifecycle": "COMPLETED",
+    }
+
+
+def test_accounting_accepts_only_compact_native_host_observation_shape():
+    state = load_module("bounded_state_shape", "dispatch_state_v4.py")
+    payload = populated_state(state)
+    payload["accounting_refs"] = [compact_observation()]
+    assert state.validate_state_payload(payload) == payload
+
+    payload["accounting_refs"][0]["tool_use_id"] = "retired-hook-id"
+    with pytest.raises(state.StatePayloadError, match="host_observation accounting ref has invalid fields"):
+        state.validate_state_payload(payload)
+
+
+def test_accounting_refs_require_unique_stable_identity():
+    state = load_module("bounded_state_unique", "dispatch_state_v4.py")
+    payload = populated_state(state)
+    event = compact_observation()
+    payload["accounting_refs"] = [event, dict(event)]
+
+    with pytest.raises(state.StatePayloadError, match="unique stable refs"):
+        state.validate_state_payload(payload)
+
+
+def test_state_fails_closed_before_unbounded_accounting_growth():
+    state = load_module("bounded_state_limit", "dispatch_state_v4.py")
+    payload = populated_state(state)
+    payload["accounting_refs"] = [
+        {
+            "ref": f"evidence:{index}:{'x' * 1000}",
+            "kind": "external_evidence",
+        }
+        for index in range(100)
+    ]
+
+    with pytest.raises(state.StatePayloadError, match="state exceeds"):
+        state.validate_state_payload(payload)

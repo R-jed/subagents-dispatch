@@ -1,33 +1,32 @@
 # Recovery
 
-Recovery owns what happens to one delegated WorkUnit after an ExecutionBinding has been created. It distinguishes confirmed execution failure from Host uncertainty, keeps correction bounded, and preserves stable responsibility identity across attempts.
+Recovery owns what happens to one delegated WorkUnit after an ExecutionBinding has been created. It separates confirmed execution failure from Host uncertainty, requires changed evidence for repeated work, and preserves stable responsibility identity across fresh attempts.
 
-`routing.md` decides which capability the unresolved work needs. `team-plan.md` owns multi-responsibility structural truth when TeamPlan is active. `interaction.md` owns user-facing control intent. Writer ownership and lifecycle authorization remain enforced by the deterministic V4 state, PendingControl, WriterLease, and Host evidence paths.
+`routing.md` decides which fixed capability the unresolved work needs. WorkGraph and WorkUnit own responsibility and dependency truth. `interaction.md` owns user-facing control intent. `state.md` and WriterLease own project lifecycle generation and write ownership. Codex Host owns native lifecycle truth.
 
 ## Identity
 
-Every concrete managed attempt is an ExecutionBinding with:
+Every concrete managed fresh attempt is an ExecutionBinding with:
 
 ```text
 unit_id
 execution_id
 attempt_no
-team_plan_revision: positive integer | null
+team_plan_revision: compatibility marker only
 native_task_name
 profile_id
-agent_id, when current Host evidence establishes it
+agent_id, when Host evidence establishes it
 control_epoch
+execution_basis_ref
 ```
 
-`unit_id` identifies the stable WorkUnit responsibility. `execution_id` identifies one concrete fresh Agent attempt. A retry preserves the WorkUnit and receives a new `execution_id` and incremented `attempt_no`.
+`unit_id` identifies the stable WorkUnit. `execution_id` identifies one retained fresh Agent attempt. A fresh retry preserves the WorkUnit, receives the next `attempt_no`, and must carry a changed execution basis relative to the retained recovery evidence that still authorizes the retry.
 
-For one delegated responsibility without TeamPlan, `team_plan_revision` remains `null`. When TeamPlan is active, each ExecutionBinding stays bound to the applicable positive revision.
+Main supplies a fresh `execution_id` for each fresh materialized attempt. The managed runtime derives `native_task_name` deterministically as `sd_<case-folded-unit-id>_a<attempt-no>`, so canonical Host control addresses advance with the WorkUnit attempt generation and cannot be reused after settled history compaction. A recognized pre-materialization rollback removes the provisional generation entirely, so the next allocation may still use the same attempt number and derived task name. Active retained ExecutionBindings require exact identity uniqueness. Bounded history compaction intentionally removes older opaque execution-id detail, so correctness does not rely on an unbounded orchestration-lifetime tombstone set. The full observation generation binds Host evidence to `unit_id`, `attempt_no`, `control_epoch`, and applicable WriterLease generation in addition to the opaque execution id.
 
-A Host call rejected before a child identity materializes does not consume a fresh-attempt budget. If current evidence cannot establish whether a child was created, preserve `UNKNOWN` and do not issue replacement work.
+A recognized Host rejection that is proven pre-materialization may roll back the provisional `SPAWN_PENDING` ExecutionBinding. If evidence cannot establish whether a child materialized, preserve `UNKNOWN` and do not issue conflicting replacement work.
 
 ## Execution lifecycle
-
-The current V4 ExecutionBinding lifecycle is:
 
 ```text
 SPAWN_PENDING
@@ -39,29 +38,35 @@ UNKNOWN
 CLOSED
 ```
 
-A normal fresh execution progresses from `SPAWN_PENDING` to `RUNNING`, then to a Host-settled state such as `COMPLETED`, `FAILED`, or `CLOSED` when current evidence supports that transition.
+`INTERRUPTED` is non-final. Continue resumes the same ExecutionBinding and advances `control_epoch`. It creates no fresh attempt and does not count as a correction.
 
-`INTERRUPTED` is non-final. `CONTINUE` resumes the same ExecutionBinding and advances the control generation through the existing PendingControl path. It does not create a fresh attempt or consume the focused follow-up budget.
+`COMPLETED` means the Host produced a candidate result. The WorkUnit remains unresolved until Main verifies the actual artifact and relevant evidence and records `ACCEPTED`.
 
-`COMPLETED` means the Host reports that the Agent produced a candidate result. The WorkUnit remains unaccepted until the main session verifies the relevant artifact and evidence. Downstream dependencies unlock only after WorkUnit acceptance.
+Use `FAILED` only for confirmed unsuccessful execution. Use `UNKNOWN` when current Host evidence cannot safely establish creation, identity, lifecycle, or settlement.
 
-Use `FAILED` only for a confirmed unsuccessful execution. Use `UNKNOWN` when current Host evidence cannot safely establish creation, identity, current lifecycle, or settlement. UNKNOWN is not failure.
-
-While an execution remains `UNKNOWN`:
+While an execution is `UNKNOWN`:
 
 ```text
-no replacement Agent
-no fresh retry
-no semantic reroute that duplicates the owned responsibility
+no conflicting replacement Agent
+no blind fresh retry
+no duplicate semantic reroute
 no conflicting writer transfer
-no acceptance claim
+no final acceptance
 ```
 
-Missing or delayed Host evidence never becomes inferred success or inferred failure.
+Timeout, absence, or elapsed time never converts `UNKNOWN` into `FAILED`.
+
+## Host reconciliation
+
+Main drives native lifecycle reconciliation.
+
+Before a reconciliation-sensitive Host observation, capture the current ExecutionBinding observation basis. The deterministic helper re-reads authoritative state and applies the observation only when `execution_id`, `unit_id`, `attempt_no`, `control_epoch`, and applicable WriterLease generation still match.
+
+A stale observation is discarded. An observation for an execution already compacted out of active state is stale by definition. Reuse of an opaque execution id after compaction cannot make an older observation current because the WorkUnit and attempt generation must also match. An ambiguous observation moves lifecycle to `UNKNOWN`. For a writable execution, ambiguity also keeps WriterLease blocking.
+
+Normal recovery may use `list_agents`. Exact rollout inspection is reserved for ambiguous identity/materialization recovery and release attestation.
 
 ## Failure and blocker axes
-
-A confirmed unsuccessful execution records its execution origin separately from the unresolved semantic blocker.
 
 Execution origin:
 
@@ -75,8 +80,6 @@ quality_failure
 runtime_ambiguous
 ```
 
-`runtime_ambiguous` accompanies uncertainty and does not convert UNKNOWN into confirmed failure.
-
 Semantic blocker:
 
 ```text
@@ -87,93 +90,106 @@ investigation
 stalled
 ```
 
-The first axis says what happened to execution. The second says what capability or task truth is still missing. Infrastructure failure by itself is not capability evidence.
+`runtime_ambiguous` belongs to `UNKNOWN` and does not become confirmed failure without new Host evidence.
 
-## Bounded correction
+## Evidence-gated recovery
 
-One unchanged WorkUnit may use at most:
+There is no fixed fresh-attempt count or same-child follow-up count.
+
+### Fresh retry
+
+A fresh retry is legal only when all of the following hold:
 
 ```text
-2 fresh Agent attempts
-1 focused same-child follow-up
+current prior execution is safely settled by Host truth
+current prior execution is not UNKNOWN
+no blocking WriterLease conflicts with the new execution
+WorkUnit responsibility is still the same
+execution_basis_ref records a changed execution basis
+that basis is not an exact replay of currently retained recovery evidence
 ```
 
-Only materialized fresh attempts consume `attempt_no`. A focused follow-up stays inside the same ExecutionBinding, preserves the same responsibility, profile and authority, and is appropriate only when a completed candidate is close enough that one narrow correction can satisfy acceptance.
+A changed basis may represent new evidence, corrected input, changed external conditions, a confirmed failure cause with a targeted fix, or another concrete change that makes repeating the responsibility rational.
 
-`CONTINUE` resumes an interrupted execution and does not consume the focused follow-up budget.
+`attempt_no` is a diagnostic sequence number. It is not a product ceiling and never authorizes a retry by itself.
 
-A second fresh attempt is allowed only after the previous attempt is safely settled and the same WorkUnit remains unresolved. After two fresh attempts, the main session takes ownership or reports the exact blocker instead of silently creating a third attempt.
+Older execution-basis detail may be compacted. Recovery therefore does not claim permanent replay memory for every historical basis. The safety property is that the current retry must be justified by retained evidence and that stale Host observations cannot cross WorkUnit/attempt generations.
+
+### Same-child FOLLOWUP
+
+FOLLOWUP reuses the same ExecutionBinding when the same child remains the right owner and one focused correction remains inside the existing WorkUnit boundary.
+
+Each FOLLOWUP must provide a non-empty correction basis. The project stores only its SHA-256 digest for the retained correction generation and rejects an exact replay while that retained basis remains authoritative. FOLLOWUP advances `control_epoch` and increments `followup_count`; the count is diagnostic, not an authorization budget.
+
+When `control_epoch` advances, superseded Host observation and recovery-basis records may be pruned. Recovery does not maintain an unbounded set of every correction digest ever used. A material change to goal, output, ownership, scope, authority, or acceptance meaning still requires Main to re-evaluate the WorkUnit instead of disguising the change as another correction.
+
+### CONTINUE
+
+CONTINUE applies only to the same `INTERRUPTED` ExecutionBinding. It advances `control_epoch`, creates no fresh attempt, and does not increment `followup_count`.
+
+## Bounded retained history
+
+Removing fixed recovery ceilings must not make active state grow without bound.
+
+The current execution remains fully represented. Older safely settled fresh attempts may be compacted into one `execution_history` summary per WorkUnit. The summary preserves:
+
+```text
+number of compacted attempts
+highest compacted attempt_no
+last compacted execution identity and lifecycle
+last compacted execution basis
+last compacted followup_count
+```
+
+Host observations and follow-up basis records that refer only to compacted executions are removed with those executions. Superseded same-child generation evidence may also be pruned when `control_epoch` advances. A delayed observation for an older generation is stale and cannot mutate the current generation.
+
+Do not persist raw prompts, child transcripts, private reasoning, source contents, webpage contents, credentials, or token logs as recovery history.
 
 ## Recovery actions
-
-Use the existing managed operations and semantic outcomes:
 
 ```text
 same-child FOLLOWUP
 same-child CONTINUE
 fresh retry
 semantic reroute
-main-session takeover
+Main takeover
 ```
 
-A focused FOLLOWUP preserves WorkUnit identity and ExecutionBinding identity.
+FOLLOWUP and CONTINUE reuse the same ExecutionBinding. Fresh retry creates a new ExecutionBinding for the same WorkUnit after the prior execution and writer ownership are safely settled.
 
-CONTINUE preserves the same interrupted ExecutionBinding identity and requires the current lifecycle protocol to authorize reactivation.
+Semantic reroute is justified only when the unresolved responsibility now needs a different fixed Profile. Failure alone never defines an automatic Luna, Terra, Sol escalation chain.
 
-A fresh retry creates a new ExecutionBinding for the same stable WorkUnit. It must not start while an earlier attempt or its writer/control state remains active or ambiguous.
+## WriterLease recovery
 
-Semantic reroute happens only when the unresolved blocker changes the capability that the WorkUnit requires. If TeamPlan is active and the delegated role changes, create the appropriate new TeamPlan revision before the replacement execution. Role changes never reset the two-attempt budget.
+A writable execution reserves WriterLease before native activation.
 
-Failure alone never defines an automatic Luna, Terra, Sol escalation chain.
+For interrupt/takeover, WriterLease enters `REVOKING` before Main requests native interruption. The native interrupt return alone does not prove writer settlement.
 
-## PendingControl and WriterLease
+Current-generation Host settlement evidence is required before release or transfer. A lifecycle ambiguity makes the lease `UNKNOWN`; `UNKNOWN` never transfers. A later clear current-generation observation may recover the same lease to a settleable state.
 
-Lifecycle operations use the current PendingControl contract. A prepared operation is bound to its exact ExecutionBinding generation, target, tool input, control epoch, applicable WriterLease epoch, and Host `tool_use_id` when the operation enters flight.
+Until the Host Capability Gate proves effective read-only isolation, a blocking canonical WriterLease also blocks starting another managed child in that canonical workspace.
 
-A missing or ambiguous acknowledgement stays fail closed. Do not infer an ACK from elapsed time or later conversational output.
+## Main takeover
 
-For writable execution, WriterLease ownership remains authoritative for the canonical workspace. Interrupt acknowledgement alone does not prove that the writer is safely settled. Main-session mutation or transfer to another writer requires current-generation Host settlement evidence and all existing WriterLease conditions.
-
-## Main-session takeover
-
-Takeover continues the same unresolved WorkUnit in the main session only after the previous managed owner is safely settled.
-
-A safe takeover sequence is:
+Takeover continues the same unresolved WorkUnit in Main only after the managed owner is safely settled.
 
 ```text
-resolve the current WorkUnit and ExecutionBinding
-request interruption when needed and supported
-establish current Host settlement evidence
-preserve and verify any usable returned evidence
-settle writer ownership when applicable
-end delegated execution for the WorkUnit
-continue that same responsibility in the main session
+resolve current WorkUnit and ExecutionBinding
+-> request native interruption when needed
+-> establish current-generation Host settlement evidence
+-> verify usable returned evidence
+-> settle WriterLease when applicable
+-> transfer responsibility to Main
 ```
 
-A user takeover request changes intended ownership. It does not prove that the child has stopped. If Host state remains UNKNOWN, conflicting mutation remains blocked.
+A user takeover request expresses intent to transfer ownership. It does not prove that the child stopped. Missing or `notFound` identity evidence remains uncertainty and cannot authorize conflicting mutation.
 
-Takeover does not create another fresh Agent attempt and does not reset attempt history. When TeamPlan is active, a pure takeover does not invent a `main` delegated role. Revise TeamPlan only if structural truth such as dependency, ownership scope, deliverable, scope, or acceptance also changes.
+## TeamPlan compatibility
 
-## WorkUnit acceptance and retry
-
-Host `COMPLETED` supplies candidate execution evidence. The main session verifies the result before WorkUnit acceptance.
-
-If a completed candidate fails acceptance, use the one focused FOLLOWUP when the same execution remains the right owner and the correction is narrow. Otherwise reject the WorkUnit candidate, settle the current execution, and use the remaining fresh-attempt budget only when policy still supports another managed attempt.
-
-Accepted WorkUnits are not reactivated by delayed Host evidence from the same control generation. A legal same-child reactivation first passes through FOLLOWUP or CONTINUE, which advances the current control generation under the deterministic lifecycle code.
-
-## TeamPlan revisions
-
-A retry alone does not require a TeamPlan revision. A delegated role, dependency, ownership scope, deliverable, scope, or acceptance change may require a new revision under `team-plan.md`.
-
-Already-dispatched execution remains bound to the revision it received. A replacement execution for the same WorkUnit must never bind to a revision older than a prior attempt.
-
-Without TeamPlan, one dependency-free WorkUnit keeps `team_plan_revision = null` throughout its bounded execution history.
+TeamPlan has no V4 runtime authority. WorkGraph and WorkUnit own responsibility structure and dependencies. `team_plan_revision` may remain temporarily in the state schema as an RC compatibility field, but it does not gate fresh execution, retry, dependency readiness, routing, or integration.
 
 ## Evidence and close
 
-Stopping, interrupting, or closing an Agent does not make its claims true. The main session verifies any useful returned evidence before reuse.
+Stopping, interrupting, closing, or completing an Agent does not make its claims correct. Main verifies useful returned evidence and the actual candidate artifact.
 
-`CLOSED` is lifecycle truth, not correctness proof. WorkUnit acceptance continues to require current accepted evidence and the exact producing ExecutionBinding generation required by the V4 state contract.
-
-Ordinary V4 recovery uses the bounded current V4 state as its coordination truth. Do not create a second repository-local ledger, scheduler database, or private Agent runtime for recovery.
+`CLOSED` is lifecycle truth, not correctness proof. Recovery uses bounded V4 state plus native Host evidence. Do not create a second repository-local ledger, request/receipt protocol, scheduler database, or private Agent runtime.

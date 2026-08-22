@@ -1,67 +1,108 @@
 # Evaluation files
 
-This folder contains test data used to check routing, coordination, recovery, interaction control, runtime behavior, and explicitly frozen live experiments. It is for maintainers and is not part of the normal user setup.
+This folder contains maintainer-only data for routing, coordination, interaction safety, runtime evidence, calibration, and controlled product experiments. It does not define the installed product runtime.
 
-- `behavioral-workloads.json`: saved task shapes for repeated live behavioral tests. These are workload shapes, not benchmark claims.
-- `behavioral-result.schema.json`: format used to store paired behavioral test results.
-- `experiment-campaign.schema.json`: format for freezing either a fixed-role model/effort calibration or a real single-agent-versus-Dispatch product benchmark before expensive runs begin.
-- `experiment-run.schema.json`: campaign-bound fact envelope for one actual experiment run. It records attested inputs, child materialization, execution/oracle refs, route evidence, and only directly attributable measurements; it does not score or aggregate a campaign.
-- `LOCAL_EVAL_FIXTURE_TEMPLATE.md`: template for freezing a local test case before comparing runs.
-- `routing-cases.json`: static cases that catch routing regressions, including adaptive multi-Agent fan-out.
-- `coordination-cases.json`: static cases for upstream workflow ownership, semantic independence, mutation authority, integration ordering, and requested/accepted/observed route truth.
-- `interaction-cases.json`: static cases for Preview, one-shot Status, steering boundaries, safe Main takeover, compact Dispatch Receipts, and evidence-bound Handoff Capsules.
-- `runtime-assurance-cases.json`: fixtures used by runtime-evidence tests.
+Current product behavior is owned by the two public Skills, `Orchestrate` and `Doctor`, plus the canonical files under `contracts/`. Conceptual controls such as Preview, Status, Steer, Takeover, Continue, and Correction are intents inside Orchestrate.
 
-`../scripts/validate-experiment-campaign.py` validates/freeze-hashes a campaign definition against the exact current plugin candidate. It does not run Agents, score results, or mutate `contracts/policy.json`.
+## Static and live-behavior fixtures
 
-Reader-only route calibration profiles are evaluator-owned artifacts materialized in the confirmed active normal Codex home. Claim an empty evaluator root with `../scripts/calibration_profiles.py init`, freeze the campaign with one Reader control, one Terra XHigh challenger, and one provider control, then use `create|check|cleanup` with the marker, exact Host-home evidence, and the validated campaign. Host-home evidence binds the preparation task to its SHA-256-frozen Host rollout under `<normal-codex-home>/sessions`; a caller-authored home assertion alone is rejected. Creation never edits the frozen campaign or `config.toml`. The helper derives TOML from the canonical Reader profile, journals ownership outside Host discovery, stages each profile under `agents/` with a non-`.toml` name, and returns `NEW TASK REQUIRED: YES`. Execution requires a distinct fresh task with `fork_turns=none`; a full App restart is not required. Run evidence binds the Host-observed `agent_path` and `model_provider` to the exact committed manifest path, current profile SHA-256, and frozen provider before the model/effort claim is eligible.
+- `routing-cases.json` checks the fixed production profile contract and routing/reclassification decisions.
+- `coordination-cases.json` checks semantic independence, mutation authority, integration ordering, and requested/configured/observed truth separation.
+- `interaction-cases.json` checks the current Orchestrate/Doctor surface, one-shot Status, exact control targeting, WriterLease takeover settlement, fresh-context spawn, UNKNOWN handling, Handoff evidence, and optional factual execution receipts.
+- `behavioral-workloads.json` contains frozen workload shapes for repeated live behavioral tests. It contains no benchmark results.
+- `behavioral-result.schema.json` defines paired behavioral-result records.
+- `runtime-assurance-cases.json` contains runtime-evidence fixtures.
+- `LOCAL_EVAL_FIXTURE_TEMPLATE.md` is a template for freezing a local evaluation case.
 
-`../scripts/validate-experiment-run.py` validates one run against that already-validated campaign. It checks campaign/candidate/workload/arm identity, actual input attestation, materialized-child completeness, child route evidence, oracle/result provenance, and measurement provenance. It does not run Codex, rank routes, aggregate results, or change policy.
+Interaction fixtures must not recreate retired runtime machinery. In particular they do not require PendingControl, Hook receipts, Host-capacity tokens, a Team Ledger, or persisted receipt counters for retry/rework/control history.
 
-The campaign/run boundary follows the same truth discipline as runtime attestation. Each campaign also binds a typed claim kind: role calibration is `model_effort`, product benchmark is `product_behavior`, and neither may be relabeled as a Host permission-source claim.
+The managed child product ceiling is 4. Main may choose a smaller batch when responsibility structure, WriterLease safety, acceptance work, or available Host evidence makes that appropriate. There is no fixed initial-vs-ordinary fanout budget in Native Core. Codex V2 session concurrency includes the primary agent, so a known Host session capacity may reduce the available child slots. A missing capability snapshot fails closed. An otherwise valid snapshot with unknown numeric Host capacity does not by itself invent a smaller ceiling.
+
+## Experiment schemas
+
+`experiment-campaign.schema.json` and `experiment-run.schema.json` are evaluator formats. They freeze inputs and provenance before expensive runs begin and keep unavailable evidence explicit.
+
+Some schema values retain historical experiment identifiers such as `dispatch`, `raw_prompt_luna`, or `bounded_luna`. Those strings are frozen evaluator arm/mode identifiers. They are not public Skill ids and do not override the current Orchestrate/Doctor product surface.
+
+`validate-experiment-campaign.py` validates and freeze-hashes a campaign against the exact candidate. It does not run Agents, score results, mutate production policy, or grant release readiness.
+
+`validate-experiment-run.py` validates one observed run against its frozen campaign. It checks campaign/candidate/workload/arm identity, actual input attestation, materialized-child completeness, route evidence, oracle/result provenance, and measurement provenance. It does not run Codex, rank production routes, aggregate a campaign, or change policy.
+
+The evidence boundary is:
 
 ```text
 campaign expected input
--> run observed input + evidence ref
+-> run observed input + provenance
 -> verified | unknown | failed
 ```
 
-A run cannot prove that it used the frozen plugin state, Host, repository revision, task bytes, reset procedure, acceptance contract, Main route, permission envelope, tool surface, or project rules merely by copying those values from the campaign. `experiment-run.schema.json` records the actual observation and a provenance ref, and `validate-experiment-run.py` derives `input_assurance`. Missing observations remain `unknown`; observed drift remains `failed`. Both stay in the evidence record rather than being discarded.
+A run cannot prove candidate identity, Host version, repository revision, task bytes, reset procedure, acceptance contract, Main route, permission envelope, tool surface, or project rules merely by copying expected values from the campaign. Missing observation remains `unknown`; observed drift remains `failed`.
 
-For `product_benchmark`, plugin state is part of the controlled input. The `single_agent` baseline must independently attest that subagents-dispatch is absent, while the `dispatch` arm must attest the exact campaign candidate SHA. This prevents a baseline that accidentally loaded the plugin from being treated as a clean baseline. Each run also attests canonical hashes of the frozen reset procedure and acceptance contract, so environment-reset or oracle drift cannot be silently attributed to Dispatch.
+## Role calibration
 
-For `role_calibration`, the current route control must match project policy and challengers may change model/effort while keeping the role's sandbox/isolation contract fixed. Each workload belongs to one calibration role. The frozen workload also binds `responsibility_packet_sha256` plus an evaluator-owned packet ref, and each run attests the packet hash actually used. This prevents a packet change from being misattributed to the model/effort challenger.
+Calibration is evaluator-only. The production route used as a control is read from `contracts/policy.json`; challengers may intentionally vary model or effort for measurement without changing production policy.
 
-For `product_benchmark`, the campaign compares ordinary `single_agent` with explicit `dispatch`. Workloads are classified by task stratum, not by a predeclared role; which project roles Dispatch actually materializes is result/runtime evidence. A valid Dispatch run may materialize zero project children. Zero-child is never inferred from an empty `child_routes` array alone: the run must carry an observed project-child count plus provenance, and that count must equal the number of route rows. A `single_agent` run must prove an observed project-child count of zero. Product-benchmark input must not freeze a delegated responsibility packet because Dispatch decomposition is part of the behavior under test.
-
-If the Host cannot establish the complete materialized child set for a product run, `child_materialization.status` is `unavailable`, the run is retained, and `route_assurance` remains `unknown`. It cannot be relabeled as zero-child or used to claim complete route coverage. Role calibration requires an observed count of exactly one materialized project child.
-
-Child route evidence uses only actual runtime sources accepted by the Runtime Attestation protocol (`native`, exact-rollout `local`, or `both`). Configured values and model self-report are not observed evidence. `evidence_source=none` requires all Observed route fields to remain null. A route with missing required observation stays `unknown`; a route mismatch is recorded as `failed` rather than silently substituted.
-
-Measurements use an explicit status per field:
+The current production controls are:
 
 ```text
-observed       -> exact non-negative value + provenance ref
+Reader        gpt-5.6-luna   max
+Worker        gpt-5.6-luna   max
+Investigator  gpt-5.6-terra  high
+Solver        gpt-5.6-sol    high
+Advisor       gpt-5.6-sol    high
+```
+
+`calibration_profiles.py` can materialize one semantic role at a time under an evaluator-owned Codex home. It preserves the canonical role contract while changing only campaign-approved route fields. Generated calibration Agent identities cannot collide with production Agent identities.
+
+Calibration helpers are excluded from the runtime package-integrity set. Their profile transaction implementation is evaluator infrastructure and has no authority over production routing, lifecycle, Doctor, release readiness, or the five packaged profiles.
+
+Each workload binds an evaluator-owned responsibility packet hash. Each run must attest the packet actually used. Configured route values and model self-report do not count as observed runtime evidence.
+
+## Product benchmark
+
+For `product_benchmark`, plugin state is a controlled input. A `single_agent` baseline must independently attest that subagents-dispatch is absent. The evaluator arm historically named `dispatch` must attest the exact candidate and exercise the current product through Orchestrate.
+
+Which managed roles Orchestrate materializes is observed result data. A valid run may use zero managed children. Zero-child cannot be inferred only from an empty route array; it requires observed project-child count provenance.
+
+If the Host cannot establish the complete materialized child set, materialization stays unavailable and route assurance remains unknown. It cannot be relabeled as zero-child or complete route coverage.
+
+## Measurement discipline
+
+Measurements use explicit status:
+
+```text
+observed       -> exact value + provenance
 unavailable    -> null value/ref; do not estimate
 not_applicable -> null value/ref because the measure does not apply
 ```
 
-Reported Main and child token totals are reconciled into the aggregate only when those exact totals are actually observed. If child materialization itself is unavailable, child token usage cannot be marked `not_applicable`. Response length, configured model names, or elapsed wall time must not be converted into guessed token/cost values.
+Token totals, model/effort, sandbox, permission source, and child materialization are reported only from supported evidence. Response length, configured names, elapsed time, or child prose do not substitute for observation.
 
-Execution and acceptance are also separate facts. A failed, interrupted, or unknown execution cannot claim `acceptance_status=passed`. A completed run may still fail its oracle, and failed/UNKNOWN runs stay in the evidence record rather than disappearing from the campaign history.
+Execution and acceptance remain separate facts. A failed, interrupted, or UNKNOWN execution cannot claim acceptance passed. A completed execution can still fail its acceptance oracle.
 
-Formal campaigns require repeated real-repository workloads and actual controlled fingerprints. Exploratory fixtures may use synthetic placeholders to test the evaluator itself, but those fixtures are not benchmark evidence. Failed, interrupted, input-drifted, materialization-UNKNOWN, or route-UNKNOWN runs remain evidence records; they cannot be erased merely to improve an aggregate.
+Failed, interrupted, input-drifted, materialization-UNKNOWN, and route-UNKNOWN runs remain evidence records. They are not dropped to improve an aggregate.
 
-The adaptive-routing checks cover both sides of the policy: several independent ready responsibilities may run together when useful, while duplicate, speculative, or low-value work stays out of the active team. The project does not use a fixed ordinary child-Agent count as the routing target.
+## Current interaction invariants
 
-The coordination cases protect parallel correctness after delegation. They check that subagents-dispatch preserves upstream workflow truth, does not confuse filesystem isolation with semantic independence, does not let a verification or read-only responsibility acquire source-write authority, respects explicit integration dependencies, and never relabels an accepted/configured route as an observed runtime route.
+The interaction set protects these current facts:
 
-The interaction cases protect the user control surface without creating a second runtime. Preview must not spawn or mutate. Status is one-shot and preserves `UNKNOWN`. Steering cannot smuggle in a role/scope/authority change. Takeover must settle the old owner before Main assumes the responsibility, especially for writers. Receipts remain compact and factual. Handoff Capsules carry only Main-accepted evidence, become stale after relevant drift, and never grant write authority. When complete provenance would bloat a capsule, `contracts/evidence-artifact.md` keeps that evidence references-first and outside the conversational packet.
+```text
+Preview creates no child, profile mutation, source mutation, external action, or persistent orchestration state
+first-use profile provisioning returns RESTART_REQUIRED before delegated execution
+managed fresh spawn uses exact agent_type and fork_turns = none
+Status is one-shot and preserves UNKNOWN
+control targets resolve exactly and never guess across sessions
+Steer preserves WorkUnit, ExecutionBinding, scope, and authority
+Continue reuses an interrupted ExecutionBinding
+Correction is an evidence-gated same-child followup with no fixed count ceiling
+Takeover does not transfer a writer until current-generation Host settlement
+ambiguous spawn materialization becomes UNKNOWN
+UNKNOWN blocks replacement and conflicting writer transfer
+Handoff carries only Main-accepted evidence into fresh context
+optional execution receipts use current inspectable facts and no persistent receipt ledger
+Doctor diagnoses product health but does not own release publication authority
+```
 
-The adversarial interaction set also covers missing thread identity; `SPAWN_PENDING` no-match, single-match, and multiple-match reconciliation; corrupt capsules with active writers; targetless Steer with one or many eligible units; `INTERRUPTED` Takeover; `fix-first` without correction; retry versus semantic rework; locale persistence; unrelated dispatch with an unresolved writer; repeated Status deduplication; same-child resume; and requested/accepted/observed route mismatch. These cases are fixtures, not a second runtime policy.
+Machine-checkable current state, lifecycle, scheduler, WriterLease, Orchestrate, model/effort, release, and product-surface invariants live in the current `tests/test_*_v4.py` and product-contract tests. Historical deleted V3/RC recovery-ledger tests are not current authorities.
 
-Machine-checkable TeamPlan and recovery invariants are covered directly by `tests/test_team_plan.py` and `tests/test_recovery_policy.py`. Interaction and capsule invariants are bound by `tests/test_interaction_policy.py`. Runtime attestation has its own inspector/normalizer tests. Experiment campaign and per-run evidence integrity are covered by `tests/test_experiment_campaign.py` and `tests/test_experiment_run.py`.
-
-These files do not control how the plugin routes or coordinates work. Live behavior is defined by the explicit Skills and the canonical files under `contracts/`, including `policy.json`, `routing.md`, `composition.md`, `interaction.md`, `state.md`, `receipt.md`, `team-plan.md`, `recovery.md`, `guardrails.md`, `handoff.md`, `evidence-artifact.md`, and `final-review.md`.
-
-See [`../docs/behavioral-evals.md`](../docs/behavioral-evals.md) for the existing paired behavioral result protocol, [`../docs/experiment-protocol.md`](../docs/experiment-protocol.md) for role calibration, real product benchmarking, policy promotion, and public claim gates, and [`../docs/runtime-attestation.md`](../docs/runtime-attestation.md) for proving which model/effort/sandbox actually ran.
+See `../docs/behavioral-evals.md` for paired behavioral measurement, `../docs/experiment-protocol.md` for experiment methodology and claim gates, and `../docs/runtime-attestation.md` for runtime evidence rules.

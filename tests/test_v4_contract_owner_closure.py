@@ -33,6 +33,10 @@ def test_ai_owner_index_matches_current_v4_contract_generation():
 def test_doctor_and_final_review_use_current_product_ownership():
     architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
-    assert "release readiness" not in architecture
+    doctor = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "`Doctor` diagnoses the installed Plugin package" in architecture
+    assert "release-candidate evidence" in doctor
+    assert "stay outside Doctor" in doctor
     assert "selection/invocation of Dispatch" not in final_review
     assert "selection/invocation of Orchestrate" in final_review

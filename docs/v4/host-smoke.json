@@ -1,10 +1,8 @@
 {
-  "schema_version": "4.0.0-host-smoke-7",
-  "contract_kind": "machine-readable-host-campaign-contract",
-  "gate_id": "v4-real-host-h00-h20",
+  "schema_version": "4.0.0-native-host-smoke-1",
+  "contract_kind": "machine-readable-native-host-campaign-contract",
+  "gate_id": "v4-real-host-n0-n8",
   "status": "PENDING",
-  "activation_manifest": "hooks/hooks.json",
-  "production_manifest": "hooks/hooks.json",
   "required_environment_fields": [
     "architecture",
     "codex_version",
@@ -18,28 +16,107 @@
     "status"
   ],
   "required_probes": [
-    {"id":"H00","operation":"Hook trust and activation","platform":"any","requires":["exact active lifecycle Hook digest","current Host trusts the exact candidate definition","model-visible collaboration tool identities recorded exactly","every exposed model-visible collaboration identity maps to an explicitly supported semantic tool in the candidate identity owner; any unknown namespace or unclassified collaboration identity stops the campaign for Host adaptation","active Hook matcher coverage includes every candidate-supported Hook identity required for the exposed lifecycle, observation, and peer-message semantics","at least one safe non-mutating collaboration observation proves that the exact active candidate executes both PreToolUse and PostToolUse on the target Host","raw Hook-serialized tool_name is recorded when the Host exposes it; lack of external raw stdin visibility alone does not block H00 because each guarded semantic must prove actual runtime interception in its own behavior probe"]},
-    {"id":"H01","operation":"spawn_agent Pre/Post","platform":"any","requires":["H08 native encrypted-message compatibility has PASSed at this exact spawn specimen PreToolUse boundary before Host child mutation","PreToolUse and PostToolUse observed","same tool_use_id","PendingControl binds task_name agent_type fork_turns control epoch and writer effect while Codex owns message transport","every exposed spawn_agent model identity is empirically intercepted by the exact active candidate before and after the Host call; raw Hook-serialized identity is recorded when the Host exposes it"]},
-    {"id":"H02","operation":"followup_task Pre/Post","platform":"any","requires":["PreToolUse and PostToolUse observed","same tool_use_id","same-child target preserved","PendingControl binds target lifecycle generation and writer effect while Codex may expose an opaque or transformed message transport representation","target drift or lifecycle-generation drift fails closed","every exposed followup_task identity or namespace alias is intercepted"]},
-    {"id":"H03","operation":"interrupt_agent Pre/Post","platform":"any","requires":["PreToolUse and PostToolUse observed","same tool_use_id","writer revoke remains fail closed","every exposed interrupt_agent identity or namespace alias is intercepted"]},
-    {"id":"H04","operation":"SubagentStop veto","platform":"any","requires":["managed child stop observed","continue false prevents automatic continuation"]},
-    {"id":"H05","operation":"managed child sibling followup block","platform":"any","requires":["managed child context observable","sibling lifecycle control blocked"]},
-    {"id":"H06","operation":"managed child sibling interrupt block","platform":"any","requires":["managed child context observable","sibling lifecycle control blocked"]},
-    {"id":"H07","operation":"failed delayed PostToolUse result rejection","platform":"any","requires":["PostToolUse result rejection observed","capacity truth consumed before lifecycle Host mutation","unacknowledged control remains fail closed","writer authority is not released","Host success or failure discrimination is reliable enough that a failed lifecycle call cannot be ACKED as success"]},
-    {"id":"H08","operation":"native encrypted-message compatibility preflight","platform":"any","requires":["evaluate this compatibility assertion after H00 at the same authorized spawn specimen used by H01; the H08 decision occurs at PreToolUse before Host child mutation","canonical five-section plaintext assignment is constructed and validated before PendingControl preparation, but plaintext message content is not required to survive into Hook tool_input","Host may expose message as opaque or transformed transport data; the Guard requires a non-empty transport field and does not decrypt, rebind, hash-compare, or infer its content","PendingControl remains exactly bound to authorization-relevant spawn fields task_name agent_type fork_turns plus current control and WriterLease generations","authorization-envelope mutation is rejected before Host child mutation","H08 does not claim semantic assignment delivery; H15 owns behavior-level delivery and sibling-isolation evidence"]},
-    {"id":"H09","operation":"V2 residency capacity and refill","platform":"any","requires":["resident capacity observed from unfiltered root list_agents tool_input {}","settled-resident reclaim behavior observed","event-driven refill remains within product ceiling"]},
-    {"id":"H10","operation":"writable lifecycle acknowledgement","platform":"any","requires":["writable SPAWN ACK and WriterLease transition observed","interrupt ACK does not release unsettled writer"]},
-    {"id":"H11","operation":"managed Sol recursion containment","platform":"any","requires":["managed Sol lifecycle spawn blocked before nested work","managed Sol peer send_message blocked before delivery when exposed"]},
-    {"id":"H12","operation":"managed Terra recursion containment","platform":"any","requires":["managed Terra lifecycle spawn blocked before nested work","managed Terra peer send_message blocked before delivery when exposed"]},
-    {"id":"H13","operation":"managed profile selection and activation","platform":"any","requires":["Reader Worker Investigator Solver Advisor effective model effort permissions and tools match profile contract","Reader Investigator Advisor request sandbox_mode read-only and the target Host effective sandbox and permission observation confirms the requested read-only boundary","Worker Solver do not acquire read-only sandbox pins and their effective writable permission remains Host-derived within the profile contract","spawn_agent exposes and honors a supported exact selector for each installed managed profile","freshly provisioned profile visibility behavior is recorded for future optimization","current V4 provisioning returns RESTART_REQUIRED without speculative spawn and fresh-task exact-profile visibility is verified"]},
-    {"id":"H14","operation":"managed child collaboration leaf capability","platform":"any","requires":["complete managed child collaboration tool surface recorded","target Host Luna child leaf behavior verified on installed Host","every exposed send_message model identity is empirically intercepted and blocked before managed child peer delivery; raw Hook-serialized identity is recorded when the Host exposes it","no unguarded peer-message identity remains available to a managed child"]},
-    {"id":"H15","operation":"fresh assignment delivery and isolation","platform":"any","requires":["fork_turns none effective","canonical five-section assignment produces observable child behavior consistent with the assigned objective ownership interfaces constraints and verification sections","assignment preserves concrete interfaces and invariants, accepted evidence references, decision boundary, stop boundary, and acceptance","parallel sibling probes use distinct non-sensitive markers or equivalent observable behavior so cross-delivery can be detected without inspecting encrypted transport content","parallel siblings isolated"]},
-    {"id":"H16","operation":"same-child identity continuity","platform":"any","requires":["spawn followup interrupt reactivate preserve native identity and profile"]},
-    {"id":"H17","operation":"duplicate delayed out-of-order Hook delivery","platform":"any","requires":["exact duplicate idempotent","stale or ambiguous event fails closed","authoritative list_agents Pre/Post tool_input binding is preserved"]},
-    {"id":"H18","operation":"mixed managed unmanaged Host occupancy","platform":"any","requires":["actual unfiltered root-tree occupancy observed","unmanaged residents counted","filtered path_prefix list_agents cannot replace authoritative capacity truth","scheduler does not over-admit"]},
-    {"id":"H19","operation":"candidate-bound Host evidence","platform":"any","requires":["candidate A evidence rejected after candidate identity changes"]},
-    {"id":"H20","operation":"Windows effective path aliases","platform":"windows","requires":["case-insensitive aliases checked","junction or reparse aliases checked when available","unclassifiable write target fails closed"]}
+    {
+      "id": "N0",
+      "operation": "route model effort and fresh-context contract",
+      "platform": "any",
+      "requires": [
+        "Reader and Worker use gpt-5.6-luna max",
+        "Investigator uses gpt-5.6-terra high",
+        "Solver and Advisor use gpt-5.6-sol high",
+        "managed spawn uses fork_turns none"
+      ]
+    },
+    {
+      "id": "N1",
+      "operation": "managed child collaboration containment",
+      "platform": "any",
+      "accepted_grandchild_outcomes": [
+        "collaboration_tool_absent",
+        "host_authoritative_deny"
+      ],
+      "requires": [
+        "record the effective child collaboration surface for every fixed managed profile",
+        "an adversarial grandchild-creation probe ends with collaboration tool absence or an authoritative Host denial",
+        "no descendant child identity materializes from the denied or unavailable grandchild attempt",
+        "profile configuration behavioral instructions and project max_depth are recorded as intent only and cannot satisfy containment evidence"
+      ]
+    },
+    {
+      "id": "N2",
+      "operation": "native spawn identity binding",
+      "platform": "any",
+      "requires": [
+        "spawn success returns a native child identity",
+        "Main binds the returned identity to the intended ExecutionBinding",
+        "native task name and selected managed profile match the assignment"
+      ]
+    },
+    {
+      "id": "N3",
+      "operation": "capacity rejection materialization safety",
+      "platform": "any",
+      "requires": [
+        "Host capacity rejection is observed at the target Host limit",
+        "for the tested explicit rejection path no child identity or resident child materializes",
+        "pre-materialization rejection rolls back provisional execution and reserved writer without consuming a fresh attempt",
+        "ambiguous materialization is quarantined as UNKNOWN"
+      ]
+    },
+    {
+      "id": "N4",
+      "operation": "same-child followup and continuation",
+      "platform": "any",
+      "requires": [
+        "followup targets the original native child identity",
+        "continuation after interruption preserves the same ExecutionBinding identity",
+        "same-child control does not create a fresh attempt",
+        "focused correction uses a changed correction basis rather than a fixed correction-count budget"
+      ]
+    },
+    {
+      "id": "N5",
+      "operation": "interrupt and settlement reconciliation",
+      "platform": "any",
+      "requires": [
+        "interrupt result alone does not release WriterLease",
+        "current-generation Host lifecycle evidence settles the execution",
+        "stale control or lease generation evidence cannot settle the writer"
+      ]
+    },
+    {
+      "id": "N6",
+      "operation": "writer takeover settlement",
+      "platform": "any",
+      "requires": [
+        "UNKNOWN or unsettled writer ownership blocks replacement and Main takeover",
+        "Main can acquire WriterLease only after current-generation Host settlement",
+        "single-writer invariant holds throughout takeover"
+      ]
+    },
+    {
+      "id": "N7",
+      "operation": "rollout reconciliation and privacy",
+      "platform": "any",
+      "requires": [
+        "root rollout evidence binds lifecycle call id child identity and result",
+        "allowlisted inspection omits assignment text and reasoning content",
+        "ambiguous or stale rollout evidence cannot authorize acceptance or writer transfer"
+      ]
+    },
+    {
+      "id": "N8",
+      "operation": "final review and effective sandbox truth",
+      "platform": "any",
+      "requires": [
+        "fresh Advisor review is bound to the exact candidate artifact",
+        "artifact mutation invalidates the prior review verdict",
+        "effective Advisor sandbox and permission state are Host-observed and satisfy the strict read-only Final Review boundary",
+        "requested profile sandbox and behavioral mutation authority are not promoted to effective Host proof",
+        "known broader Host permission behavior is disclosed as a release limitation when present"
+      ]
+    }
   ],
   "results": {},
-  "pass_policy": "All H00-H20 probes must PASS in an external exact-candidate campaign whose environment identities and this contract digest are bound by release evidence. H20 must use a Windows environment."
+  "pass_policy": "All N0-N8 probes must PASS in an external exact-candidate campaign whose environment identities and this contract digest are bound by release evidence. Repository CI and this Host campaign are separate release gates."
 }

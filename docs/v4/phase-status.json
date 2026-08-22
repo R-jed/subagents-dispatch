@@ -1,66 +1,46 @@
 {
-  "schema_version": "4.0.0-phase-status-9",
-  "engineering_baseline": "docs/v4/engineering-baseline.json",
-  "phases": {
-    "phase0": {
-      "name": "V3.x hardened baseline safety preflight",
-      "status": "PASS"
-    },
-    "phase1": {
-      "name": "architecture freeze and red contracts",
-      "status": "PASS"
-    },
-    "phase2": {
-      "name": "state v4 and Host capability foundation",
-      "status": "PASS"
-    },
-    "phase3": {
-      "name": "PendingControl and managed orchestration guard",
-      "repository_implementation": "PASS",
-      "offline_verification": "PASS",
-      "real_host_smoke": "PENDING_RELEASE_GATE",
-      "real_host_smoke_contract": "docs/v4/host-smoke.json"
-    },
-    "phase4": {
-      "name": "Work Graph and scheduler core",
-      "status": "PASS",
-      "offline_verification": "PASS",
-      "ci_run": 31982479778
-    },
-    "phase5": {
-      "name": "WriterLease and same-child lifecycle",
-      "status": "PASS",
-      "offline_verification": "PASS",
-      "ci_run": 31983106374
-    },
-    "phase6": {
-      "name": "Orchestrate production cutover",
-      "status": "PASS",
-      "offline_verification": "PASS",
-      "ci_run": 31983588703
-    },
-    "phase7": {
-      "name": "Doctor, migration, and public cutover",
-      "status": "PASS",
-      "offline_verification": "PASS",
-      "ci_run": 31985839253,
-      "verified_head": "d0e61e1ed3e1ad3c6da5e07a1e6bfd5fafc813e4"
-    },
-    "phase8": {
-      "name": "release candidate and Host validation",
-      "status": "HOST_VALIDATION_PENDING",
-      "repository_candidate_branch": "v4/rc4-host-contract-closure",
-      "repository_ci_requirement": "exact candidate head must pass the canonical four-platform matrix and final policy gate",
-      "tracked_host_contract_status": "PENDING_REQUIRED",
-      "external_host_campaign": "REQUIRED_H00_H20",
-      "real_host_smoke": "PENDING_RELEASE_GATE",
-      "real_host_smoke_contract": "docs/v4/host-smoke.json",
-      "release_candidate_lifecycle_hook": "ACTIVE_PENDING_HOST_VALIDATION",
-      "final_review": "PENDING_RELEASE_GATE",
-      "external_release_evidence": "PENDING_RELEASE_GATE",
-      "publication": "BLOCKED"
-    }
+  "schema_version": "4.0.0-phase-status-17",
+  "candidate_branch": "v4/rc5-native-core",
+  "architecture": "native_core",
+  "repository_phases": {
+    "architecture_and_state": "PASS",
+    "native_host_lifecycle": "PASS",
+    "work_graph_scheduler": "PASS",
+    "writer_lease_recovery": "PASS",
+    "public_orchestrate_doctor_surface": "PASS",
+    "product_plane_closure": "PASS",
+    "model_effort_alignment": "PASS",
+    "v3_residue_closure": "PASS"
   },
-  "development_rule": "Phases 4 through 8 may complete repository implementation and offline verification while real Host smoke is unavailable.",
-  "release_rule": "V4.0.0 publication requires an external candidate-bound H00-H20 Host campaign PASS against the exact active hooks/hooks.json candidate, a fresh candidate-bound Advisor Final Review PASS, verified external release evidence, an installed Doctor product-health check with no blocking diagnosis, and human App observation. Any material mutation after Host evidence invalidates the affected evidence and requires the relevant probes to be repeated. The Doctor check is product-health evidence only and does not grant publication authority. The tracked docs/v4/host-smoke.json remains a PENDING static contract and cannot self-attest runtime PASS."
+  "repository_validation": {
+    "status": "PASS",
+    "candidate_sha": "6ad0cce30ab24259fe423588ff5fb07942832d29",
+    "workflow_run_id": 32588144574,
+    "attestation_scope": "Verified documentation truth closure remediation basis 6ad0cce30ab24259fe423588ff5fb07942832d29 passed the complete GitHub Actions matrix on Ubuntu Python 3.11 and 3.12, macOS Python 3.11, and Windows Python 3.11. The final remediation tree 13107aa0aa975f16e85d2649b1923b6d01f584ca was independently revalidated by workflow 32588589255 with the same four-platform matrix, generated package-integrity verification, the pinned official OpenAI Plugin validator where applicable, Ruff, the full pytest suite, managed Agent lifecycle, and aggregate policy-tests. PR #87 merged that exact validated tree into the review-remediation branch. Formal promotion to v4/rc5-native-core changes only candidate-branch bookkeeping plus the corresponding branch-label regression assertion; PR #81 must pass a fresh full CI run before the formal repository candidate advances to Host gates."
+  },
+  "fixed_profiles": {
+    "luna": "max",
+    "terra": "high",
+    "sol": "high"
+  },
+  "runtime_owner_contract": "docs/v4/architecture.json#runtime_owners",
+  "legacy_compatibility_owners": [
+    "scripts/legacy_migration.py",
+    "scripts/legacy_state_cleanup.py"
+  ],
+  "host_capability_feasibility": {
+    "status": "PENDING",
+    "matrix": "docs/v4/host-capability-matrix.json",
+    "release_authority": false,
+    "unknown_means_unavailable": true
+  },
+  "real_host_gate": {
+    "status": "PENDING_RELEASE_GATE",
+    "contract": "docs/v4/host-smoke.json",
+    "required_campaign": "N0-N8"
+  },
+  "final_review": "PENDING_RELEASE_GATE",
+  "external_release_evidence": "PENDING_RELEASE_GATE",
+  "publication": "BLOCKED",
+  "release_rule": "V4.0.0 publication requires the exact candidate to pass repository validation, the candidate-bound N0-N8 Host campaign, fresh exact-candidate Final Review, external release evidence verification, installed-product checks, and human two-Skill App observation. Host capability feasibility evidence is pre-release design evidence only. PENDING or UNKNOWN is not PASS."
 }

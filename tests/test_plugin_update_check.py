@@ -84,10 +84,16 @@ def test_check_update_verifies_source_then_refreshes_marketplace_and_never_insta
 
     report = module.check_update(codex_home=home)
 
+    assert set(report) == {
+        "schema_version",
+        "marketplace_refreshed",
+        "plugin_install_performed",
+        "managed_profiles_mutated",
+        "installation",
+    }
     assert report["marketplace_refreshed"] is True
     assert report["plugin_install_performed"] is False
     assert report["managed_profiles_mutated"] is False
-    assert report["hook_trust_mutated"] is False
     assert report["installation"]["details"]["update_available"] is True
     assert all(call[0:2] != ("plugin", "add") for call in calls)
     assert calls == [
@@ -95,6 +101,35 @@ def test_check_update_verifies_source_then_refreshes_marketplace_and_never_insta
         ("plugin", "marketplace", "upgrade", "subagents-dispatch", "--json"),
         ("plugin", "list", "--json"),
     ]
+
+
+def test_update_check_render_is_product_facing():
+    module = load_module()
+    text = module.render(
+        {
+            "installation": {
+                "status": "OK",
+                "summary": "Installed Plugin is current",
+                "details": {
+                    "installed_version": "4.0.0",
+                    "available_version": "4.0.0",
+                    "update_available": False,
+                },
+            }
+        }
+    )
+    assert "[OK] Marketplace: refreshed" in text
+    assert "[OK] Plugin: Installed Plugin is current" in text
+    assert "Overall: CURRENT" in text
+    for internal in (
+        "canonical snapshot",
+        "canonical checkout",
+        "Native Core",
+        "WorkUnit",
+        "ExecutionBinding",
+        "WriterLease",
+    ):
+        assert internal not in text
 
 
 def test_check_update_rejects_wrong_marketplace_origin_before_network_refresh(

@@ -2,7 +2,7 @@
 
 This document defines how subagents-dispatch proves the actual runtime route of one managed Codex child when model, reasoning effort, sandbox, ancestry, or role identity is part of acceptance or release validation.
 
-It is an explicit diagnostic protocol. Ordinary Dispatch does not run it, scan Codex sessions, collect transcripts, or create background telemetry.
+It is an explicit diagnostic protocol. Ordinary Orchestrate does not run it, scan Codex sessions, collect transcripts, or create background telemetry.
 
 Bundled Python helpers used by this protocol require Python 3.11 or newer. Before invoking one, resolve a supported interpreter from the actual task environment according to `docs/python-runtime.md`, record the resolved invocation, `sys.executable`, and Python version, and keep that interpreter fixed for the attestation operation. Interpreter command-name resolution is environment adaptation; it does not authorize role, model, Agent-type, permission-evidence, or acceptance substitution. If no supported interpreter is available, stop before child spawn and report `PYTHON_PREREQUISITE_UNMET`; downstream Host gates are not tested by that failed environment precondition.
 
@@ -230,10 +230,10 @@ For a release gate that explicitly requires observed model, effort, actual permi
 
 ## Privacy and scope
 
-Runtime attestation is deliberately narrower than transcript analysis. The inspector reads only the exact child rollout selected by exact identity and emits only the allowlist above. It stores no new persistent state and does not copy the rollout into the repository or dispatch state.
+Runtime attestation is deliberately narrower than transcript analysis. The inspector reads only the exact child rollout selected by exact identity and emits only the allowlist above. It stores no new persistent state and does not copy the rollout into the repository or orchestration state.
 
 Do not use this mechanism to collect prompt text, assistant content, reasoning, source code, token accounting, or behavioral telemetry. Token/cost measurement has a separate evidence problem and is outside this protocol.
 
 ## Main-session distinction
 
-This protocol closes child route attestation. Main-session capability dedup remains more conservative: local-only main-session metadata does not by itself authorize suppressing a Sol uplift under the current policy. That optimization is separate from proving which exact child route ran.
+This protocol closes child route attestation. Main-session capability coverage is a separate routing optimization question. Local-only main-session metadata does not by itself justify skipping a Sol child when the current routing policy would otherwise require that delegated judgment or writing responsibility. This distinction does not change the fixed child profiles or authorize dynamic reasoning-effort routing.

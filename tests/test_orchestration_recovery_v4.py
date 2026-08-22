@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 import sys
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,23 +25,17 @@ def load_module(name: str, filename: str):
         sys.path.remove(scripts)
 
 
-def work_unit(
-    unit_id: str,
-    *,
-    state_name: str = "READY",
-    authority: str = "none",
-    path: str | None = None,
-) -> dict:
-    scope = [] if authority == "none" else [path or f"src/{unit_id.lower()}.py"]
+def work_unit(*, writable: bool = False) -> dict:
+    scope = ["src/u1.py"] if writable else []
     return {
-        "unit_id": unit_id,
-        "intent": "inspect" if authority == "none" else "implement",
-        "goal": f"complete {unit_id}",
+        "unit_id": "U1",
+        "intent": "implement" if writable else "inspect",
+        "goal": "complete U1",
         "output": "verified result",
         "depends_on": [],
-        "state": state_name,
+        "state": "READY",
         "ownership": {"write": scope, "forbidden": []},
-        "authority_ceiling": authority,
+        "authority_ceiling": "bounded-source-write" if writable else "none",
         "write_scope_ceiling": scope,
         "done_when": "Main verifies the result",
         "accepted_result_ref": None,
@@ -49,214 +44,30 @@ def work_unit(
     }
 
 
-def execution(
-    unit_id: str,
-    *,
-    execution_id: str,
-    lifecycle: str,
-    authority: str = "none",
-    task_name: str | None = None,
-) -> dict:
-    writable = authority != "none"
-    return {
-        "execution_id": execution_id,
-        "unit_id": unit_id,
-        "team_plan_revision": 1,
-        "attempt_no": 1,
-        "profile_id": "worker" if writable else "reader",
-        "agent_id": None,
-        "native_task_name": task_name or f"sd_{unit_id.lower()}_a1",
-        "model": "gpt-5.6-luna",
-        "effort": "max",
-        "granted_authority": authority,
-        "granted_write_scope": [f"src/{unit_id.lower()}.py"] if writable else [],
-        "workspace_id": "canonical",
-        "lifecycle": lifecycle,
-        "control_epoch": 0,
-        "followup_count": 0,
-        "failure_origin": "none",
-        "blocker": "none",
-        "quarantine_reason": None,
-    }
-
-
-def host_snapshot(capacity: int) -> dict:
-    return {
-        "surface": "multi_agent_v2",
-        "capabilities": {
-            "spawn": True,
-            "observe": True,
-            "wait_or_wakeup": True,
-            "followup": True,
-            "interrupt": True,
-            "pre_tool_use_guard": True,
-            "post_tool_use_guard": True,
-            "host_observation_guard": True,
-            "peer_message_guard": True,
-            "subagent_stop_veto": True,
-        },
-        "fork_turns_none": True,
-        "max_spawned_threads": capacity,
-        "capacity_excludes_primary": True,
-        "execution_ready": True,
-        "missing": [],
-    }
-
-
-def test_direct_posttool_ack_atomically_promotes_writer_lease(tmp_path: Path):
-    state = load_module("recovery_state_ack", "dispatch_state_v4.py")
-    control = load_module("recovery_control_ack", "dispatch_control_v4.py")
-    payload = state.new_state(thread_id="thread-recovery")
-    payload["team_plan_revision"] = 1
-    payload["work_units"] = [
-        work_unit(
-            "U1",
-            state_name="EXECUTING",
-            authority="bounded-source-write",
-            path="src/u1.py",
-        )
-    ]
-    payload["executions"] = [
-        execution(
-            "U1",
-            execution_id="exec-1",
-            lifecycle="SPAWN_PENDING",
-            authority="bounded-source-write",
-        )
-    ]
-    payload["writer_lease"] = {
-        "lease_id": "lease-1",
-        "lease_epoch": 1,
-        "workspace_id": "canonical",
-        "unit_id": "U1",
-        "owner_kind": "execution",
-        "owner_id": "exec-1",
-        "state": "RESERVED",
-    }
-    state.write_state(payload, temp_root=tmp_path)
-    tool_input = {
-        "task_name": "sd_u1_a1",
-        "message": "bounded write",
-        "agent_type": "subagents_dispatch_worker",
-        "fork_turns": "none",
-    }
-    control.prepare_control(
-        "thread-recovery",
-        control_id="spawn:exec-1",
-        execution_id="exec-1",
-        operation="SPAWN",
-        tool_input=tool_input,
-        writer_effect="RESERVE",
-        temp_root=tmp_path,
-    )
-    control.consume_prepared_control(
-        "thread-recovery",
-        tool_name="spawn_agent",
-        tool_input=tool_input,
-        tool_use_id="tool-spawn-1",
-        temp_root=tmp_path,
-    )
-    before = state.load_state("thread-recovery", temp_root=tmp_path)
-    assert before is not None
-    before_revision = before["state_revision"]
-    assert before["writer_lease"]["state"] == "RESERVED"
-
-    ack = control.acknowledge_control(
-        "thread-recovery",
-        tool_name="spawn_agent",
-        tool_input=tool_input,
-        tool_response={"task_name": "sd_u1_a1"},
-        tool_use_id="tool-spawn-1",
-        temp_root=tmp_path,
-    )
-    after = state.load_state("thread-recovery", temp_root=tmp_path)
-    assert after is not None
-    assert ack["state"] == "ACKED"
-    assert after["writer_lease"]["state"] == "HELD"
-    assert after["pending_controls"] == []
-    assert after["state_revision"] == before_revision + 1
-
-
-def test_completed_open_thread_still_consumes_host_capacity_until_closed():
-    state = load_module("recovery_state_capacity", "dispatch_state_v4.py")
-    scheduler = load_module("recovery_scheduler_capacity", "scheduler_v4.py")
-    payload = state.new_state(thread_id="thread-capacity")
-    payload["team_plan_revision"] = 1
-    payload["work_units"] = [
-        work_unit("U0", state_name="RESULT_READY"),
-        work_unit("U1"),
-        work_unit("U2"),
-    ]
-    payload["executions"] = [
-        execution("U0", execution_id="exec-old", lifecycle="COMPLETED")
-    ]
-    payload["accounting_refs"] = [
+def native_host_snapshot(host, capacity: int | None = 4) -> dict:
+    return host.normalize_host_capabilities(
         {
-            "ref": "host-capacity-observation:completed",
-            "kind": "host_capacity_observation",
-            "source": "post_tool_use:list_agents",
-            "turn_id": "turn-capacity-completed",
-            "tool_use_id": "tool-capacity-completed",
-            "resident_children": 1,
-            "settled_children": 1,
-            "active_children": 0,
-            "managed_resident_children": 1,
-            "unmanaged_resident_children": 0,
-            "response_digest": "a" * 64,
+            "surface": "multi_agent_v2",
+            "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
+            "fork_turns_none": True,
+            "max_concurrent_threads_per_session": capacity,
         }
-    ]
-    state.validate_state_payload(payload)
-
-    occupied = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=host_snapshot(2),
-        wakeup_reason="AGENT_COMPLETED",
     )
-    assert occupied["occupied_host_residents"] == 1
-    assert occupied["launch_budget"] == 1
-    assert len(occupied["actions"]) == 1
-
-    payload["executions"][0]["lifecycle"] = "CLOSED"
-    observation = payload["accounting_refs"][0]
-    observation["resident_children"] = 0
-    observation["settled_children"] = 0
-    observation["managed_resident_children"] = 0
-    state.validate_state_payload(payload)
-    released = scheduler.scheduler_decision(
-        payload,
-        capability_snapshot=host_snapshot(2),
-        wakeup_reason="CAPACITY_RELEASED",
-    )
-    assert released["occupied_host_residents"] == 0
-    assert released["launch_budget"] == 1
-    assert len(released["actions"]) == 1
 
 
-def test_intermediate_writer_states_are_recoverable_without_widening_authority(tmp_path: Path):
-    state = load_module("recovery_state_crash", "dispatch_state_v4.py")
-    graph = load_module("recovery_graph_crash", "work_graph_v4.py")
-    control = load_module("recovery_control_crash", "dispatch_control_v4.py")
-    lifecycle = load_module("recovery_lifecycle_crash", "execution_lifecycle_v4.py")
-    writer = load_module("recovery_writer_crash", "writer_lease_v4.py")
-    guard = load_module("recovery_guard_crash", "orchestration_guard.py")
-
-    payload = state.new_state(thread_id="thread-crash")
+def install_unit(state, tmp_path: Path, *, writable: bool = False) -> None:
+    payload = state.new_state(thread_id="thread-recovery")
+    payload["work_units"] = [work_unit(writable=writable)]
     state.write_state(payload, temp_root=tmp_path)
-    unit = graph.make_work_unit(
-        unit_id="U1",
-        intent="implement",
-        goal="bounded write",
-        output="patch",
-        ownership_write=["src/u1.py"],
-        authority_ceiling="bounded-source-write",
-        write_scope_ceiling=["src/u1.py"],
-        done_when="tests pass",
-    )
-    graph.install_work_graph(
-        "thread-crash", team_plan_revision=1, units=[unit], temp_root=tmp_path
-    )
+
+
+def test_current_host_running_observation_promotes_reserved_writer_without_ack_protocol(tmp_path: Path):
+    state = load_module("recovery_state_running", "dispatch_state_v4.py")
+    lifecycle = load_module("recovery_lifecycle_running", "execution_lifecycle_v4.py")
+    install_unit(state, tmp_path, writable=True)
+
     lifecycle.allocate_execution(
-        "thread-crash",
+        "thread-recovery",
         unit_id="U1",
         execution_id="exec-1",
         native_task_name="sd_u1_a1",
@@ -266,76 +77,150 @@ def test_intermediate_writer_states_are_recoverable_without_widening_authority(t
         writer_lease_id="lease-1",
         temp_root=tmp_path,
     )
-
-    spawn = lifecycle.build_managed_spawn_tool_input(
-        "thread-crash", execution_id="exec-1", temp_root=tmp_path
+    basis = lifecycle.fresh_observation_basis(
+        "thread-recovery", execution_id="exec-1", temp_root=tmp_path
     )
-    lifecycle.prepare_spawn(
-        "thread-crash",
+    result = lifecycle.persist_host_observation(
+        "thread-recovery",
+        basis=basis,
+        host_state="running",
+        agent_id="agent-1",
+        temp_root=tmp_path,
+    )
+
+    assert result["lifecycle"] == "RUNNING"
+    current = result["state"]
+    assert current["executions"][0]["agent_id"] == "agent-1"
+    assert current["writer_lease"]["state"] == "HELD"
+    assert "pending_controls" not in current
+
+
+def test_ambiguous_native_spawn_quarantines_execution_and_writer(tmp_path: Path):
+    state = load_module("recovery_state_unknown", "dispatch_state_v4.py")
+    lifecycle = load_module("recovery_lifecycle_unknown", "execution_lifecycle_v4.py")
+    install_unit(state, tmp_path, writable=True)
+
+    lifecycle.allocate_execution(
+        "thread-recovery",
+        unit_id="U1",
         execution_id="exec-1",
-        control_id="spawn:exec-1",
-        tool_input=spawn,
+        native_task_name="sd_u1_a1",
+        profile_id="worker",
+        granted_authority="bounded-source-write",
+        granted_write_scope=["src/u1.py"],
+        writer_lease_id="lease-1",
         temp_root=tmp_path,
     )
-    control.consume_prepared_control(
-        "thread-crash",
-        tool_name="spawn_agent",
-        tool_input=spawn,
-        tool_use_id="tool-spawn",
-        temp_root=tmp_path,
+    lifecycle.mark_execution_unknown(
+        "thread-recovery", execution_id="exec-1", temp_root=tmp_path
     )
-    lifecycle.acknowledge_lifecycle_control(
-        "thread-crash",
-        tool_name="spawn_agent",
-        tool_input=spawn,
-        tool_response={"task_name": "sd_u1_a1"},
-        tool_use_id="tool-spawn",
-        temp_root=tmp_path,
-    )
-    observe_common = {
-        "session_id": "thread-crash",
-        "turn_id": "turn-observe-running",
-        "tool_name": "list_agents",
-        "tool_input": {},
-        "tool_use_id": "tool-observe-running",
-    }
-    observe_pre = {**observe_common, "hook_event_name": "PreToolUse"}
-    observe_post = {
-        **observe_common,
-        "hook_event_name": "PostToolUse",
-        "tool_response": json.dumps(
-            {"agents": [{"agent_name": "/root/sd_u1_a1", "agent_status": "running"}]},
-            separators=(",", ":"),
-        ),
-    }
-    assert guard.evaluate_pre_tool_use(observe_pre, temp_root=tmp_path) is None
-    assert guard.evaluate_post_tool_use(observe_post, temp_root=tmp_path) is None
-
-    current = state.load_state("thread-crash", temp_root=tmp_path)
+    current = state.load_state("thread-recovery", temp_root=tmp_path)
     assert current is not None
-    lease = current["writer_lease"]
-    writer.begin_revoke_execution_writer(
-        "thread-crash",
-        execution_id="exec-1",
-        lease_id=lease["lease_id"],
-        lease_epoch=lease["lease_epoch"],
-        temp_root=tmp_path,
-    )
-    intermediate = state.load_state("thread-crash", temp_root=tmp_path)
-    assert intermediate is not None
-    assert intermediate["writer_lease"]["state"] == "REVOKING"
-    assert intermediate["pending_controls"] == []
+    assert current["executions"][0]["lifecycle"] == "UNKNOWN"
+    assert current["writer_lease"]["state"] == "UNKNOWN"
 
-    interrupt = {"target": "sd_u1_a1"}
-    recovered = lifecycle.prepare_interrupt(
-        "thread-crash",
+    with pytest.raises(lifecycle.ExecutionLifecycleError):
+        lifecycle.allocate_execution(
+            "thread-recovery",
+            unit_id="U1",
+            execution_id="exec-2",
+            native_task_name="sd_u1_a2",
+            profile_id="worker",
+            granted_authority="bounded-source-write",
+            granted_write_scope=["src/u1.py"],
+            writer_lease_id="lease-2",
+            temp_root=tmp_path,
+        )
+
+    blocked = state.load_state("thread-recovery", temp_root=tmp_path)
+    assert blocked is not None
+    assert [item["execution_id"] for item in blocked["executions"]] == ["exec-1"]
+    assert blocked["executions"][0]["lifecycle"] == "UNKNOWN"
+    assert blocked["writer_lease"]["owner_id"] == "exec-1"
+    assert blocked["writer_lease"]["state"] == "UNKNOWN"
+
+
+def test_interrupt_result_does_not_release_writer_until_current_host_settlement(tmp_path: Path):
+    state = load_module("recovery_state_interrupt", "dispatch_state_v4.py")
+    lifecycle = load_module("recovery_lifecycle_interrupt", "execution_lifecycle_v4.py")
+    install_unit(state, tmp_path, writable=True)
+
+    lifecycle.allocate_execution(
+        "thread-recovery",
+        unit_id="U1",
         execution_id="exec-1",
-        tool_input=interrupt,
+        native_task_name="sd_u1_a1",
+        profile_id="worker",
+        granted_authority="bounded-source-write",
+        granted_write_scope=["src/u1.py"],
+        writer_lease_id="lease-1",
         temp_root=tmp_path,
     )
-    assert recovered["operation"] == "INTERRUPT"
-    assert recovered["writer_effect"] == "REVOKE"
-    current = state.load_state("thread-crash", temp_root=tmp_path)
+    running_basis = lifecycle.fresh_observation_basis(
+        "thread-recovery", execution_id="exec-1", temp_root=tmp_path
+    )
+    lifecycle.persist_host_observation(
+        "thread-recovery",
+        basis=running_basis,
+        host_state="running",
+        agent_id="agent-1",
+        temp_root=tmp_path,
+    )
+    prepared = lifecycle.prepare_interrupt(
+        "thread-recovery",
+        execution_id="exec-1",
+        tool_input={"target": "sd_u1_a1"},
+        temp_root=tmp_path,
+    )
+    current = state.load_state("thread-recovery", temp_root=tmp_path)
     assert current is not None
     assert current["writer_lease"]["state"] == "REVOKING"
-    assert len(current["pending_controls"]) == 1
+
+    with pytest.raises(Exception, match="settled|observation"):
+        lifecycle.takeover_to_main(
+            "thread-recovery",
+            execution_id="exec-1",
+            old_lease_id="lease-1",
+            old_lease_epoch=current["writer_lease"]["lease_epoch"],
+            main_lease_id="lease-main",
+            temp_root=tmp_path,
+        )
+
+    settled = lifecycle.persist_host_observation(
+        "thread-recovery",
+        basis=prepared["observation_basis"],
+        host_state="interrupted",
+        agent_id="agent-1",
+        temp_root=tmp_path,
+    )
+    lease_epoch = settled["state"]["writer_lease"]["lease_epoch"]
+    takeover = lifecycle.takeover_to_main(
+        "thread-recovery",
+        execution_id="exec-1",
+        old_lease_id="lease-1",
+        old_lease_epoch=lease_epoch,
+        main_lease_id="lease-main",
+        temp_root=tmp_path,
+    )
+    assert takeover["owner_kind"] == "main"
+    assert takeover["state"] == "HELD"
+
+
+def test_scheduler_uses_native_snapshot_only_and_has_no_persisted_capacity_token_requirement():
+    state = load_module("recovery_state_scheduler", "dispatch_state_v4.py")
+    host = load_module("recovery_host_scheduler", "host_capabilities.py")
+    scheduler = load_module("recovery_scheduler_native", "scheduler_v4.py")
+
+    payload = state.new_state(thread_id="thread-recovery")
+    payload["team_plan_revision"] = 1
+    payload["work_units"] = [work_unit(), {**work_unit(), "unit_id": "U2"}]
+    state.validate_state_payload(payload)
+
+    decision = scheduler.scheduler_decision(
+        payload,
+        capability_snapshot=native_host_snapshot(host, capacity=2),
+        wakeup_reason="USER_INPUT",
+    )
+    assert decision["host_session_capacity"] == 2
+    assert decision["launch_budget"] == 1
+    assert payload["accounting_refs"] == []

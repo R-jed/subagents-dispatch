@@ -11,7 +11,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 MODULE_PATH = SCRIPTS / "dispatch_state_v4.py"
-V3_PATH = SCRIPTS / "dispatch_state.py"
 
 
 def load_module(name: str, path: Path):
@@ -65,7 +64,7 @@ def execution(
     model, effort, authority = {
         "reader": ("gpt-5.6-luna", "max", "none"),
         "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "high", "none"),
+        "investigator": ("gpt-5.6-terra", "xhigh", "none"),
         "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
         "advisor": ("gpt-5.6-sol", "high", "none"),
     }[profile_id]
@@ -121,7 +120,6 @@ def test_new_v4_state_has_exact_bounded_top_level_shape():
         "work_units": [],
         "executions": [],
         "writer_lease": None,
-        "pending_controls": [],
         "accounting_refs": [],
         "created_at": "2026-08-17T00:00:00Z",
         "updated_at": "2026-08-17T00:00:00Z",
@@ -223,32 +221,12 @@ def test_writer_lease_owner_is_bound_to_main_or_matching_execution():
     assert module.validate_state_payload(state) == state
 
 
-def test_pending_controls_are_single_unresolved_control_per_execution():
-    module = load_module("dispatch_state_v4_controls", MODULE_PATH)
+def test_retired_pending_control_field_is_rejected():
+    module = load_module("dispatch_state_v4_no_controls", MODULE_PATH)
     state = populated_state(module)
-    control = {
-        "control_id": "control-1",
-        "unit_id": "U1",
-        "execution_id": "exec-1",
-        "operation": "INTERRUPT",
-        "target": "sd_u1_a1",
-        "payload_digest": "a" * 64,
-        "expected_team_plan_revision": None,
-        "expected_control_epoch": 0,
-        "next_control_epoch": 1,
-        "expected_lease_epoch": None,
-        "writer_effect": "NONE",
-        "state": "PREPARED",
-        "tool_use_id": None,
-    }
-    state["pending_controls"] = [control]
-    assert module.validate_state_payload(state) == state
+    state["pending_controls"] = []
 
-    duplicate = copy.deepcopy(control)
-    duplicate["control_id"] = "control-2"
-    duplicate["payload_digest"] = "b" * 64
-    state["pending_controls"].append(duplicate)
-    with pytest.raises(module.StatePayloadError, match="multiple unresolved controls"):
+    with pytest.raises(module.StatePayloadError, match="unsupported fields: pending_controls"):
         module.validate_state_payload(state)
 
 
@@ -280,9 +258,13 @@ def test_state_revision_cas_and_atomic_persistence(tmp_path: Path):
 
 def test_v4_loader_fails_closed_on_v3_live_state(tmp_path: Path):
     v4 = load_module("dispatch_state_v4_legacy", MODULE_PATH)
-    v3 = load_module("dispatch_state_v3_for_v4_legacy", V3_PATH)
-    legacy = v3.new_state(thread_id="thread-1")
-    v3.write_state(legacy, temp_root=tmp_path)
+    legacy_path = v4.state_path("thread-1", temp_root=tmp_path)
+    legacy_path.parent.mkdir(parents=True, mode=0o700)
+    legacy_path.write_text(
+        '{"schema_version":"1.0","root_thread_id":"thread-1","units":[]}',
+        encoding="utf-8",
+    )
+    legacy_path.chmod(0o600)
 
     with pytest.raises(v4.StateCorruptError, match="unsupported fields|schema_version"):
         v4.load_state("thread-1", temp_root=tmp_path)

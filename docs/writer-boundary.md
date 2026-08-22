@@ -16,7 +16,9 @@ For the current V4 runtime there is one managed workspace, so the effective writ
 
 ## Why this is a workspace rule
 
-Parallel read-only investigation is cheap to reconcile because no child changes the shared checkout. Parallel writing changes the environment while other actors are reasoning about it. The risk is larger than a textual merge conflict:
+Parallel read-only investigation is cheap to reconcile only when the Host actually enforces or otherwise proves the required read-only boundary. A profile's behavioral authority or requested sandbox does not establish that fact. If effective read-only is unknown, the conservative path avoids overlapping that child with a canonical-workspace writer.
+
+Parallel writing changes the environment while other actors are reasoning about it. The risk is larger than a textual merge conflict:
 
 ```text
 filesystem collision

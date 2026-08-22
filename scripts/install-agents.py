@@ -298,10 +298,9 @@ def preflight_agents_dir(path: Path, *, check_only: bool) -> None:
         fail(f"Agents destination is not a directory: {path}")
     if check_only and not path.is_dir():
         fail(
-            f"Not installed: managed Agent profiles have not been provisioned yet "
-            f"(agents directory missing: {path}). "
-            "An explicit Orchestrate task that needs delegation can provision these plugin-owned profiles automatically; "
-            "newly provisioned roles require a fresh Codex task/session before spawn."
+            f"Not installed: managed Agent profiles are not set up (agents directory missing: {path}). "
+            "Run Orchestrate when delegation is needed, or run Doctor repair. "
+            "Start a fresh Codex session after profiles are installed."
         )
 
 
@@ -332,8 +331,8 @@ def preflight_profiles(
             if check_only:
                 fail(
                     f"Not installed: managed Agent profile is missing ({target}). "
-                    "An explicit Orchestrate task that needs delegation can provision this plugin-owned profile automatically; "
-                    "newly provisioned roles require a fresh Codex task/session before spawn."
+                    "Run Orchestrate when delegation is needed, or run Doctor repair. "
+                    "Start a fresh Codex session after profiles are installed."
                 )
             continue
         if not target.is_file():
@@ -512,14 +511,14 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
                 "Run --legacy-status or Doctor and resolve the preserved legacy files explicitly."
             )
         if legacy_state.legacy_only or legacy_state.mixed:
-            print(f"Legacy state detected: {format_migration_state(legacy_state)}")
+            print("Legacy installation found. Safely migratable files will be updated; preserved files will remain untouched.")
             legacy_backup, legacy_warnings = backup_legacy_files(codex_home)
             for warning in legacy_warnings:
                 print(f"  WARNING: {warning}")
         elif legacy_state.migration_complete:
-            print("Legacy migration already complete; no legacy files found.")
+            print("Legacy migration is already complete.")
         else:
-            print("No legacy installation detected.")
+            print("No legacy installation found.")
 
     validate_sources()
     preflight_agents_dir(agents_dir, check_only=check_only)
@@ -542,7 +541,7 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
         verify_profiles(agents_dir)
         if manifest != desired_manifest():
             fail(f"Current managed-profile manifest is missing or stale: {manifest_path}")
-        print("CHECK PASSED: subagents-dispatch managed Agent profiles and ownership state are exact.")
+        print("CHECK PASSED: Managed Agent profiles are installed and valid.")
         return
 
     previous_manifest = manifest_path.read_bytes() if manifest_path.is_file() else None
@@ -563,7 +562,7 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
         for filename in PROFILE_FILES
     )
     if profiles_exact and manifest == desired_manifest():
-        print("Managed Agent profiles already installed exactly; no changes made.")
+        print("Managed Agent profiles are already up to date; no changes made.")
         return
 
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -592,21 +591,11 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
         for backup in backups.values():
             backup.unlink(missing_ok=True)
 
-    role_names = ", ".join(spec["agent_type"] for spec in ROLE_SPECS.values())
     print(f"Managed Agent profiles installed under: {agents_dir}")
-    print(f"Managed profile manifest: {manifest_path}")
-    print(f"Verified roles: {role_names}")
     post_state = detect_legacy_state(codex_home)
     if post_state.preserved_legacy:
-        print(
-            f"WARNING: {format_migration_state(post_state)}. User-owned legacy state was preserved; "
-            "review it explicitly instead of repeating automatic migration."
-        )
-    print(
-        "Profile files are ready. If the current Orchestrate task could not see the required role before this install, "
-        "its readiness outcome is RESTART_REQUIRED: do not attempt spawn_agent in that task; "
-        "start a fresh Codex task/session and rerun the request through Orchestrate."
-    )
+        print("WARNING: Modified legacy files were preserved. Review them before running migration again.")
+    print("Restart required: Start a fresh Codex session before using Orchestrate.")
 
 
 def install(codex_home: Path, check_only: bool, migrate_legacy: bool = False) -> None:

@@ -36,7 +36,6 @@ jobs:
         run: |
           python -m json.tool .codex-plugin/plugin.json >/dev/null
           python -m json.tool .agents/plugins/marketplace.json >/dev/null
-          python -m json.tool hooks/hooks.json >/dev/null
       - name: Verify generated package integrity manifest
         run: python scripts/package_integrity.py --check-generated
       - name: Verify tag and packaged version match

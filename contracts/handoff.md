@@ -88,7 +88,7 @@ Unresolved facts or decisions. These remain explicitly unresolved and must not b
 
 ### STALE IF
 
-Conditions that invalidate or weaken the capsule, such as mutation of named source files, a changed API/schema, a new commit, a failed verification, a stale Evidence Artifact dependency, or a superseding TeamPlan revision.
+Conditions that invalidate or weaken the capsule, such as mutation of named source files, a changed API/schema, a new commit, a failed verification, a stale Evidence Artifact dependency, or a material change to the source WorkUnit, dependency structure, ownership, or acceptance truth.
 
 ## Main-session acceptance boundary
 
@@ -120,7 +120,7 @@ The later phase still gets fresh responsibility compilation under `routing.md`:
 accepted task truth/evidence extracted from the earlier deliverable
 -> current task truth and authorization
 -> fresh outcome / decision-rights / authority assessment
--> new WorkUnit responsibility context and five-section record, plus TeamPlan when required
+-> new WorkUnit responsibility context and five-section record, with WorkGraph dependencies when required
 -> optional capsule with still-valid evidence retained by the main session
 ```
 
@@ -153,7 +153,7 @@ acceptance changes
 later-phase authorization
 ```
 
-Those remain owned by the normal responsibility record, TeamPlan when active, Guardrails, and the main session.
+Those remain owned by the normal WorkGraph/WorkUnit responsibility structure, Guardrails, and the main session.
 
 An Evidence Artifact ref also cannot grant any of those capabilities.
 

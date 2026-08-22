@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-writer-lifecycle-2",
+  "schema_version": "4.0.0-writer-lifecycle-5",
   "writer_lease": {
     "scope": "canonical_workspace",
     "states": ["RESERVED", "HELD", "REVOKING", "UNKNOWN", "RELEASED"],
@@ -12,31 +12,31 @@
   },
   "settlement_theorem": {
     "requires": [
-      "fresh current-epoch Host observation proof",
+      "fresh current-generation Host observation",
       "matching execution_id",
       "matching control_epoch",
-      "matching lease_epoch",
-      "no unresolved PendingControl",
-      "completed authoritative list_agents Hook receipt"
+      "matching lease_epoch when present",
+      "observed non-active Host lifecycle"
     ],
-    "interrupt_ack_alone_releases_writer": false
+    "interrupt_return_alone_releases_writer": false
   },
   "same_child": {
     "fresh_attempt_increment": false,
-    "focused_followup_limit": 1,
-    "continue_consumes_followup_budget": false,
+    "followup_authorization": "new_correction_basis",
+    "followup_count_is_diagnostic": true,
+    "continue_increments_followup_count": false,
     "accepted_or_cancelled_reactivation": false
   },
   "takeover": {
     "sequence": [
       "WriterLease REVOKING",
-      "interrupt PendingControl ACK",
-      "fresh current-epoch Host observation",
-      "completed authoritative list_agents Hook receipt",
-      "execution INTERRUPTED",
+      "native interrupt request when needed",
+      "fresh current-generation Host observation",
+      "execution observed non-active",
       "atomic WriterLease transfer to Main"
     ],
+    "unknown_blocks_transfer": true,
     "unleased_transfer_gap": false
   },
-  "runtime_validation": "required_before_supported_release"
+  "runtime_validation": "N5_N6_required_before_supported_release"
 }

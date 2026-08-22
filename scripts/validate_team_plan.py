@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # Portions incorporate MIT-licensed third-party validation logic.
-# Copyright (c) 2026 Zhijian AI / Dapeng. MIT licensed.
-# See ../THIRD_PARTY_NOTICES.md.
+# Copyright (c) 2026 Zhijian AI / Dapeng.
+# Source: zjp1997720/zhijian-skills, codex-model-routing-team,
+# revision 8b9abec4b353c70f04e8409302169309544bae95.
+# License notice is preserved in ../LICENSE.
 from __future__ import annotations
 
 import argparse

@@ -1,6 +1,6 @@
 # Evidence Artifact
 
-An Evidence Artifact is an optional, structured evidence bundle for one Dispatch responsibility, integrated candidate, review, runtime attestation, or evaluation run.
+An Evidence Artifact is an optional, structured evidence bundle for one Orchestrate responsibility, integrated candidate, review, runtime attestation, or evaluation run.
 
 Its purpose is to keep child-to-Main and Main-to-child context small while preserving complete inspectable provenance outside the conversational return packet.
 
@@ -39,7 +39,7 @@ Do not create an artifact for a trivial result that is already clear from a smal
 
 ## 3. Default storage boundary
 
-Ephemeral artifacts belong outside the repository under the same user-scoped OS temporary root used by Dispatch continuity:
+Ephemeral artifacts belong outside the repository under the same user-scoped OS temporary root used by Orchestrate continuity:
 
 ```text
 <OS TEMP>/subagents-dispatch/<CODEX_THREAD_ID>/artifacts/<artifact-id>/manifest.json
@@ -255,4 +255,4 @@ Formal benchmark/release evidence that must survive the temporary lifecycle is e
 
 Evidence Artifact is created on demand by the current workflow. It does not watch tasks, scan all sessions, subscribe to an event stream, or upload telemetry in the background.
 
-Ordinary Dispatch remains lightweight when no large/reusable evidence bundle is needed.
+Ordinary Orchestrate remains lightweight when no large/reusable evidence bundle is needed.

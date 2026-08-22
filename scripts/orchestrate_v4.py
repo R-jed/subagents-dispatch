@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""V4 Orchestrate production facade.
+"""V4 Native Core Orchestrate production facade.
 
-This module keeps orchestration decisions deterministic and Host-neutral. It can
-prepare state/control intents, while native Host tool execution is performed by
-the Host-facing lifecycle layer.
+The main session owns decomposition, profile choice, dispatch judgment, integration,
+and final acceptance. Deterministic helpers validate fixed profile, lifecycle, and
+state constraints without selecting work on the main session's behalf.
 """
 
 from __future__ import annotations
@@ -32,39 +32,27 @@ FIXED_PROFILES = {
 
 
 class OrchestrateError(RuntimeError):
-    """An Orchestrate request violates V4 session or routing policy."""
+    """An Orchestrate request violates V4 session or fixed-profile policy."""
 
 
-def route_profile(
-    *,
-    intent: str,
-    requires_write: bool = False,
-    broad_investigation: bool = False,
-    stalled_or_high_judgment: bool = False,
-    review: bool = False,
-) -> dict[str, Any]:
-    """Select one fixed V4 profile without changing model or reasoning effort."""
-    if review:
-        profile_id = "advisor"
-    elif stalled_or_high_judgment:
-        profile_id = "solver"
-    elif requires_write:
-        profile_id = "worker"
-    elif broad_investigation:
-        profile_id = "investigator"
-    else:
-        profile_id = "reader"
+def select_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
+    """Validate one profile chosen explicitly by the main session."""
+    if profile_id not in FIXED_PROFILES:
+        raise OrchestrateError("profile_id is outside the fixed managed profiles")
+    if not isinstance(intent, str) or not intent.strip():
+        raise OrchestrateError("intent must be non-empty")
     profile = copy.deepcopy(FIXED_PROFILES[profile_id])
     profile["profile_id"] = profile_id
     profile["intent"] = intent
-    profile["granted_authority"] = (
-        "bounded-source-write" if requires_write and profile_id in {"worker", "solver"} else "none"
-    )
     return profile
 
 
+def route_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
+    """Compatibility name for explicit main-session profile selection."""
+    return select_profile(profile_id=profile_id, intent=intent)
+
+
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
-    """Compile a plan preview without reading or creating active state."""
     if not isinstance(goal, str) or not goal.strip():
         raise OrchestrateError("goal must be non-empty")
     units: list[dict[str, Any]] = []
@@ -72,20 +60,19 @@ def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -
         if not isinstance(responsibility, Mapping):
             raise OrchestrateError("responsibility must be an object")
         intent = str(responsibility.get("intent", "inspect"))
-        route = route_profile(
-            intent=intent,
-            requires_write=responsibility.get("requires_write") is True,
-            broad_investigation=responsibility.get("broad_investigation") is True,
-            stalled_or_high_judgment=responsibility.get("stalled_or_high_judgment") is True,
-            review=responsibility.get("review") is True,
-        )
+        profile_id = responsibility.get("profile_id")
+        if not isinstance(profile_id, str) or not profile_id.strip():
+            raise OrchestrateError(
+                "plan-only responsibility requires explicit profile_id from the main session"
+            )
+        profile = select_profile(profile_id=profile_id, intent=intent)
         units.append(
             {
                 "unit_id": f"U{index}",
                 "intent": intent,
                 "goal": str(responsibility.get("goal", intent)),
                 "depends_on": list(responsibility.get("depends_on", [])),
-                "route": route,
+                "profile": profile,
             }
         )
     return {
@@ -111,12 +98,7 @@ def _unresolved(payload: Mapping[str, Any]) -> bool:
     ):
         return True
     lease = payload.get("writer_lease")
-    if isinstance(lease, Mapping) and lease.get("state") in state.WRITER_BLOCKING_STATES:
-        return True
-    return any(
-        control["state"] in state.UNRESOLVED_CONTROL_STATES
-        for control in payload.get("pending_controls", [])
-    )
+    return isinstance(lease, Mapping) and lease.get("state") in state.WRITER_BLOCKING_STATES
 
 
 def admission_decision(
@@ -126,7 +108,6 @@ def admission_decision(
     new_task: bool,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Prevent an unrelated request from silently attaching to active orchestration."""
     current = _load(thread_id, temp_root)
     if current is None:
         return {"decision": "NEW_ALLOWED", "orchestration_id": None}
@@ -162,6 +143,38 @@ def require_control_session(
     return current
 
 
+def _current_control_execution(
+    current: Mapping[str, Any], *, execution_id: str
+) -> Mapping[str, Any]:
+    matches = [
+        item
+        for item in current.get("executions", [])
+        if isinstance(item, Mapping) and item.get("execution_id") == execution_id
+    ]
+    if len(matches) != 1:
+        raise OrchestrateError("execution_id does not resolve exactly once")
+    execution = matches[0]
+    current_execution = state.current_execution_for_unit(
+        current, unit_id=str(execution["unit_id"])
+    )
+    if current_execution is None or current_execution.get("execution_id") != execution_id:
+        raise OrchestrateError("control request targets a superseded execution")
+    return execution
+
+
+def _validate_message_control_input(
+    tool_input: Mapping[str, Any], *, target: str
+) -> dict[str, Any]:
+    if not isinstance(tool_input, Mapping):
+        raise OrchestrateError("native control tool_input must be an object")
+    if set(tool_input) != {"target", "message"} or tool_input.get("target") != target:
+        raise OrchestrateError("native control tool_input does not match ExecutionBinding")
+    message = tool_input.get("message")
+    if not isinstance(message, str) or not message.strip():
+        raise OrchestrateError("native control message must be non-empty")
+    return copy.deepcopy(dict(tool_input))
+
+
 def status_view(
     thread_id: str,
     *,
@@ -192,15 +205,6 @@ def status_view(
                     "blocker": execution["blocker"],
                 }
             )
-    for control_item in current["pending_controls"]:
-        if control_item["state"] in state.UNRESOLVED_CONTROL_STATES:
-            blockers.append(
-                {
-                    "kind": "control",
-                    "control_id": control_item["control_id"],
-                    "state": control_item["state"],
-                }
-            )
     view.update(
         {
             "orchestration_id": current["root_session_id"],
@@ -226,10 +230,11 @@ def reconcile_once(
     wakeup_reason: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    """Return machine constraints; the main session still chooses any next dispatch."""
     current = require_control_session(
         thread_id, orchestration_id=orchestration_id, temp_root=temp_root
     )
-    return scheduler.scheduler_decision(
+    return scheduler.constraint_snapshot(
         current,
         capability_snapshot=capability_snapshot,
         wakeup_reason=wakeup_reason,
@@ -244,8 +249,54 @@ def prepare_steer(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    """Validate focused guidance for one currently running child without mutating project state."""
+    current = require_control_session(
+        thread_id, orchestration_id=orchestration_id, temp_root=temp_root
+    )
+    execution = _current_control_execution(current, execution_id=execution_id)
+    if execution["lifecycle"] != "RUNNING":
+        raise OrchestrateError("Steer requires a RUNNING execution")
+    validated_input = _validate_message_control_input(
+        tool_input, target=str(execution["native_task_name"])
+    )
+    return {
+        "operation": "STEER",
+        "execution_id": execution_id,
+        "tool_input": validated_input,
+        "control_epoch": execution["control_epoch"],
+        "observation_basis": state.observation_basis(current, execution_id=execution_id),
+    }
+
+
+def prepare_correction(
+    thread_id: str,
+    *,
+    orchestration_id: str,
+    execution_id: str,
+    tool_input: Mapping[str, Any],
+    correction_basis_ref: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
     return lifecycle.prepare_same_child_followup(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        correction_basis_ref=correction_basis_ref,
+        temp_root=temp_root,
+    )
+
+
+def prepare_continue(
+    thread_id: str,
+    *,
+    orchestration_id: str,
+    execution_id: str,
+    tool_input: Mapping[str, Any],
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
+    return lifecycle.prepare_same_child_continue(
         thread_id,
         execution_id=execution_id,
         tool_input=tool_input,

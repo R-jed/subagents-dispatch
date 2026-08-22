@@ -33,7 +33,7 @@ Codex provides Native Subagents. This Plugin adds an engineering coordination po
 
 It decides when delegation is worth the overhead, turns work into responsibilities with dependencies and done conditions, limits pointless fan-out, prevents managed writers from colliding in one mutable workspace, and requires Main to accept evidence before dependent work unlocks. When Host state is unclear, it preserves `UNKNOWN` instead of turning a guess into authority.
 
-The useful distinction is therefore not whether another Agent can be spawned. It is whether a complex engineering task can be split cleanly, run with controlled parallelism, brought back together safely, and still end with one accountable owner.
+The useful distinction is whether a complex engineering task can be split cleanly, run with controlled parallelism, brought back together safely, and still end with one accountable owner.
 
 ## Understand it in 30 seconds
 
@@ -102,7 +102,7 @@ There is no need to remember a row of separate control Skills.
 Multi-agent systems can turn parallel work into coordination overhead very quickly. This project keeps a few deliberately boring rules:
 
 - small tasks may use zero subagents
-- start with at most 2 managed subagents, normally no more than 3
+- use concurrency when it adds value, with at most 4 managed subagents; 4 is a safety ceiling, not a target
 - only one managed writer may mutate the same workspace at a time
 - each subagent gets only the context needed for its responsibility
 - investigation results need evidence before Main accepts them

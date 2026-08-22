@@ -2,7 +2,8 @@
   "schema_version": 9,
   "delegation": {
     "max_depth": 1,
-    "fork_turns": "none"
+    "fork_turns": "none",
+    "max_managed_children": 4
   },
   "write_coordination": {
     "mode": "single_writer",
@@ -16,8 +17,17 @@
   },
   "capability_dedup": {
     "reference_role": "solver",
-    "model_aliases": ["gpt-5.6"],
-    "reasoning_effort_order": ["minimal", "low", "medium", "high", "xhigh", "max"]
+    "model_aliases": [
+      "gpt-5.6"
+    ],
+    "reasoning_effort_order": [
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ]
   },
   "fixed_execution_profiles": {
     "luna": "max",
@@ -78,7 +88,10 @@
       "verification_gap"
     ],
     "ship_verdict": "ship",
-    "correction_verdicts": ["fix-first", "rethink"],
+    "correction_verdicts": [
+      "fix-first",
+      "rethink"
+    ],
     "unresolved_verdict": "insufficient_evidence"
   }
 }

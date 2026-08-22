@@ -48,9 +48,9 @@ A product can be useful even if it deliberately does little on some strata. In p
 
 Two architecture comparisons should be measured before either becomes a new product default.
 
-### Progressive fanout versus one-child-first
+### Value-driven fanout versus one-child-first
 
-Compare the current value-driven progressive fanout policy with a treatment that starts at most one child and opens a second independent lane only after evidence shows that the additional concurrency is still worthwhile.
+Compare the current Main-owned value-driven fanout under the four-child safety ceiling with a treatment that starts at most one child and opens a second independent lane only after evidence shows that the additional concurrency is still worthwhile.
 
 Measure correctness and safety first, then repeated discovery, parent idle time, user intervention, wall-clock latency, integration work, and attributable token use. Segment results by workload stratum. A one-child-first policy should not replace the current ceiling merely because it uses fewer Agents; it must improve the overall engineering tradeoff without suppressing valuable parallel read-heavy work.
 
@@ -58,7 +58,7 @@ Measure correctness and safety first, then repeated discovery, parent idle time,
 
 Compare the five-section `contracts/responsibility-packet.md` projection with the expanded canonical responsibility representation on matched delegated tasks.
 
-Measure contract omissions, scope violations, clarification or retry frequency, verification success, parent repair work, child input size, latency, and attributable token use. The compact form is successful only when it preserves material task truth and acceptance quality while reducing coordination/context burden. If a task needs TeamPlan, recovery, handoff, or other specialized state, those canonical contracts remain available in both arms rather than being removed for the experiment.
+Measure contract omissions, scope violations, clarification or retry frequency, verification success, parent repair work, child input size, latency, and attributable token use. The compact form is successful only when it preserves material task truth and acceptance quality while reducing coordination/context burden. Recovery, handoff, and other specialized state remain available in both arms when the task actually needs them.
 
 These comparisons are registered hypotheses, not current product claims. Freeze task sets, treatment definitions, and decision thresholds before a formal campaign. Do not use repository test counts as evidence that either treatment improves developer outcomes.
 
