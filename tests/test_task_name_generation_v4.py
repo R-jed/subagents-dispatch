@@ -193,3 +193,36 @@ def test_state_boundary_rejects_execution_task_name_generation_drift():
 
     with pytest.raises(state.StatePayloadError, match="WorkUnit and attempt generation"):
         state.validate_state_payload(payload)
+
+
+def test_transactional_mutation_rejects_task_name_drift_without_persisting(tmp_path: Path):
+    state = load_module("task_mutation_state", "dispatch_state_v4.py")
+    graph = load_module("task_mutation_graph", "work_graph_v4.py")
+    lifecycle = load_module("task_mutation_lifecycle", "execution_lifecycle_v4.py")
+    thread_id = "task-name-mutation"
+
+    state.write_state(state.new_state(thread_id=thread_id), temp_root=tmp_path)
+    graph.install_work_graph(thread_id, units=[unit(graph, "U1")], temp_root=tmp_path)
+    lifecycle.allocate_execution(
+        thread_id,
+        unit_id="U1",
+        execution_id="exec-1",
+        native_task_name="sd_u1_a1",
+        profile_id="reader",
+        granted_authority="none",
+        temp_root=tmp_path,
+    )
+    before = state.load_state(thread_id, temp_root=tmp_path)
+    assert before is not None
+
+    def drift(payload: dict) -> None:
+        payload["executions"][0]["native_task_name"] = "sd_u1_a999"
+
+    with pytest.raises(state.StatePayloadError, match="WorkUnit and attempt generation"):
+        state.mutate_state(thread_id, drift, temp_root=tmp_path)
+
+    after = state.load_state(thread_id, temp_root=tmp_path)
+    assert after is not None
+    assert after["executions"][0]["native_task_name"] == "sd_u1_a1"
+    assert after["state_revision"] == before["state_revision"]
+    assert after["updated_at"] == before["updated_at"]
