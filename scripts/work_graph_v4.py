@@ -182,9 +182,14 @@ def install_single_work_unit(
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Compatibility wrapper for callers that still install one WorkUnit."""
+    supplied = copy.deepcopy(dict(unit))
+    if supplied.get("depends_on") != []:
+        raise WorkGraphError("single WorkUnit path cannot carry a dependency")
+    if supplied.get("state") != "READY":
+        raise WorkGraphError("single WorkUnit path requires a READY WorkUnit")
     return install_work_graph(
         thread_id,
-        units=[unit],
+        units=[supplied],
         team_plan_revision=None,
         temp_root=temp_root,
     )
