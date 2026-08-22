@@ -87,7 +87,7 @@ def test_explicit_pre_materialization_rejection_rolls_back_attempt_and_reserved_
         "root-thread",
         unit_id="U1",
         execution_id="exec-real",
-        native_task_name="sd_u1_a1_retry",
+        native_task_name="sd_u1_a1",
         profile_id="worker",
         granted_authority="bounded-source-write",
         granted_write_scope=["src/u1.py"],
@@ -95,6 +95,7 @@ def test_explicit_pre_materialization_rejection_rolls_back_attempt_and_reserved_
         temp_root=tmp_path,
     )
     assert second["execution"]["attempt_no"] == 1
+    assert second["execution"]["native_task_name"] == "sd_u1_a1"
 
 
 def test_current_generation_compact_host_observation_is_sufficient_for_writer_settlement(tmp_path: Path):
