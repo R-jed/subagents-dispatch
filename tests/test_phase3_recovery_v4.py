@@ -262,7 +262,9 @@ def test_same_child_followup_requires_new_basis_without_fixed_count_ceiling(tmp_
         for event in current["accounting_refs"]
         if event.get("kind") == "recovery_basis" and event.get("execution_id") == "exec-1"
     ]
-    assert len(followup_basis) == 2
+    assert len(followup_basis) == 1
+    assert followup_basis[0]["control_epoch"] == 2
+    assert followup_basis[0]["basis_hash"] == second["correction_basis_hash"]
 
 
 def test_blocking_writer_lease_blocks_new_read_execution_until_settlement(tmp_path: Path):
