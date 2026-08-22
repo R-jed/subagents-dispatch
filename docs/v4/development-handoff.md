@@ -2,7 +2,7 @@
 
 初始记录时间：2026-08-22T21:58Z，对应 2026-08-23 05:58 +08:00。
 
-最新记录时间：2026-08-22T22:12Z，对应 2026-08-23 06:12 +08:00。
+最新记录时间：2026-08-22T22:15Z，对应 2026-08-23 06:15 +08:00。
 
 状态：持续维护。此文件是 V4 当前开发上下文的仓库内交接入口。新会话、新维护者或新的 Codex session 接手前，应先读本文件，再核 GitHub 当前分支、PR、CI 和真实 Host evidence。
 
@@ -305,7 +305,7 @@ materialization、identity 或 lifecycle 存在歧义时进入 UNKNOWN。UNKNOWN
 
 PR #88 和 PR #89 都没有改变 50-file Plugin package payload。PR #81 当前描述确认 `.codex-plugin/package-integrity.json` 与此前 exact-installed package payload byte-identical。
 
-`docs/v4/development-handoff.md` 和 `README_AI.md` 都不在当前 50-file Plugin package payload 内。PR #90 的历史 repository CI 已通过 generated package-integrity check，支持文档改动没有意外改变 shipped payload。最终 PR head 仍必须重新通过同一检查。
+`docs/v4/development-handoff.md` 和 `README_AI.md` 都不在当前 50-file Plugin package payload 内。PR #90 的 repository CI 已持续通过 generated package-integrity check，说明文档改动没有意外改变 shipped payload。最终 PR head 仍必须通过同一检查。
 
 不过 candidate commit 会因为 handoff 文件和 AI 入口落仓而变化，所以即使 package payload byte-identical，正式 release 仍要重新记录 exact candidate commit/tree，并做 non-mutating installed-package identity re-audit，确认已安装 package 与最终 frozen candidate 的 package manifest 一致。
 
@@ -456,4 +456,22 @@ P2 二指出 handoff 虽然存在，但仓库既有 AI 入口 `README_AI.md` 没
 
 明确未变化：production runtime、machine Host contracts、Plugin package payload、WriterLease、WorkGraph、scheduler、managed profiles、Hook、tracked N0 到 N8 results 均未变化。
 
+H004 handoff commit：`a2ca4666187584cd5fe78f290451b86203b3d57c`，message `docs: close live handoff workflow gaps`。
+
 验证要求：本次修改后的 PR #90 final head 必须重新通过四平台 repository matrix 和 aggregate `policy-tests`。该最终 PASS 可以留在 GitHub 作为 exact-head evidence，不需要再修改 handoff。review 中 H003 P1 和本轮两个 P2 只有在最终文件内容与 CI 都确认后才允许 resolve。
+
+### H005 2026-08-22T22:15Z：修复 README 末尾换行回归
+
+触发：H004 final-head workflow `32601827492` 在 Ubuntu Python 3.11、Ubuntu Python 3.12 和 macOS Python 3.11 同步失败 full pytest。Ubuntu 3.11 日志显示唯一失败为 `tests/test_public_surface_regressions.py::test_readme_files_are_valid_basic_text_files`，结果 `1 failed, 526 passed`。
+
+根因：通过 GitHub 单文件写入 `README_AI.md` 时，提交内容末尾缺少 newline。现有公共 surface 回归测试要求所有 README 都是有效 UTF-8 文本、非空、无 NUL，并且 `text.endswith("\n")`。新增入口文字本身没有触发语义合同失败，失败来自文本文件格式不符合既有仓库规范。
+
+实际修复：保持 `README_AI.md` 的 live handoff 入口内容不变，只恢复文件末尾换行。没有删除或放松现有回归测试。
+
+README 格式修复 commit：`4ad6be78ebb79bb54b427ef37180b73249244db8`，message `fix: preserve README trailing newline`。
+
+改动文件：`README_AI.md`，随后本 handoff 在同一 PR 下一提交记录根因和修复。
+
+明确未变化：production runtime、machine Host contracts、Plugin package payload、WriterLease、WorkGraph、scheduler、managed profiles、Hook、tracked N0 到 N8 results 均未变化。
+
+验证要求：本 H005 handoff 更新后的 PR #90 final head 必须重新通过四平台 repository matrix 和 aggregate `policy-tests`。根据第 1 节规则，最终 PASS 只保存在 GitHub CI，不再为了写入结果产生新 candidate HEAD。
