@@ -14,9 +14,9 @@
   },
   "repository_validation": {
     "status": "PASS",
-    "candidate_sha": "5bff43f9d50ca138711969e5407ac2f93ab160c7",
-    "workflow_run_id": 32579090645,
-    "attestation_scope": "Verified repository code, contracts, package integrity, tests, and managed profile lifecycle before this status-only attestation commit. The resulting exact head still requires the final CI regression run."
+    "candidate_sha": "bcd0b75ebc164090c55c6fe7eddb07c21c30124d",
+    "workflow_run_id": 32580427665,
+    "attestation_scope": "Verified repository code, contracts, package integrity, official Plugin validation, tests, managed profile lifecycle, and removal of CHANGELOG_V3.md, PRIVACY.md, TERMS.md, and THIRD_PARTY_NOTICES.md. Third-party MIT attribution remains preserved in LICENSE and the derived source points to it. The resulting status-only exact head still requires the final CI regression run."
   },
   "fixed_profiles": {
     "luna": "max",
