@@ -30,15 +30,15 @@
   - Verify: tests derived from current official OpenAI Codex semantics.
   - Files: `scripts/host_capabilities.py`, scheduler/doctor consumers, contracts, tests.
 
-- [ ] Documentation truth closure: current authority sweep
+- [x] Documentation truth closure: current authority sweep
   - Acceptance: current contracts/docs consistently describe the two-Skill Orchestrate/Doctor surface, WorkGraph authority, evidence-gated recovery, generation-safe compaction, and current V4 terminology; retired standalone pre-Orchestrate product wording is removed from current-authority prose.
   - Verify: repository-wide current-authority regression scan plus exact-head review.
 
-- [ ] Documentation truth closure: eval migration
+- [x] Documentation truth closure: eval migration
   - Acceptance: current expected-behavior evals use Native Core product rules; unchanged stalled work without new evidence cannot authorize a fresh same-role retry; historical experiment labels cannot act as runtime policy.
   - Verify: eval loader/tests and direct fixture inspection.
 
-- [ ] Documentation truth closure: history isolation
+- [x] Documentation truth closure: history isolation
   - Acceptance: `docs/history/` has an explicit archive authority boundary and every historical Markdown document declares that it cannot guide current implementation or release decisions.
   - Verify: archive-marker regression test.
 
@@ -46,11 +46,12 @@
   - Acceptance: Terra is `high` everywhere current behavior is represented; consumers derive fixed route truth from `contracts/policy.json` where practical.
   - Verify: model/effort contract tests.
 
-- [ ] Truth closure: evidence-based phase status
+- [x] Truth closure: evidence-based phase status
   - Acceptance: repository phase PASS values match the remediated, verified state; release/Host gates remain pending until real evidence exists.
   - Verify: phase-status/release-contract tests.
+  - Verified remediation basis: `6ad0cce30ab24259fe423588ff5fb07942832d29`, workflow `32588144574`, all four CI matrix jobs and the aggregate policy gate passed.
 
 - [ ] Candidate verification
   - Acceptance: generated integrity refreshed if required, Ruff clean, full pytest clean, all GitHub Actions matrix jobs pass, fresh adversarial review finds no blocking repository issue.
-  - Previous verified basis `787b008be319553c3c6e3fa40ea3198197e957cd` / workflow `32580889070` remains historical after this remediation branch mutates the candidate.
-  - Final stop check: run the same full CI on the final exact head; no repository phase returns to PASS until that result is green.
+  - Preliminary full-matrix basis `6ad0cce30ab24259fe423588ff5fb07942832d29` / workflow `32588144574` is green.
+  - Final stop check: run the same full CI on the final exact head after phase-status/task bookkeeping; do not advance the remediation branch until that exact-head result and a fresh adversarial diff review are green.
