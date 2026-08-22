@@ -27,6 +27,20 @@ def test_machine_architecture_tracks_generation_safe_host_basis_and_capacity_tru
     assert scheduler["unknown_host_capacity_blocks_spawn"] is False
 
 
+def test_scheduler_machine_contract_matches_host_session_capacity_semantics():
+    scheduler = read_json("docs/v4/scheduler.json")
+
+    assert scheduler["mode"] == "constraint_projection"
+    assert scheduler["selection_owner"] == "main"
+    assert scheduler["host_capacity_owner"] == "codex_host"
+    assert scheduler["host_capacity_semantics"] == "session_concurrency_includes_primary"
+    assert scheduler["known_host_session_capacity_is_advisory_ceiling"] is True
+    assert scheduler["missing_capability_snapshot_blocks_spawn"] is True
+    assert scheduler["unknown_host_capacity_blocks_spawn"] is False
+    assert scheduler["product_managed_children_max"] == 4
+    assert scheduler["automatic_launch_actions"] is False
+
+
 def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memory():
     state_text = (ROOT / "contracts/state.md").read_text(encoding="utf-8")
     recovery_text = (ROOT / "contracts/recovery.md").read_text(encoding="utf-8")
