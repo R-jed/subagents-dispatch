@@ -2,7 +2,7 @@
   "algorithm": "sha256",
   "files": {
     ".agents/plugins/marketplace.json": "8f6923cb4b1245426a85dc3fe4a1b7710a7f1d1d2530d650861d387c6c200750",
-    ".codex-plugin/plugin.json": "826c6fea37c52078f3b6fbfab3f4bcde945f47703ada3d1d1f5f82fe24e445ce",
+    ".codex-plugin/plugin.json": "608a891669e2075285c29b37fd36e45687541c2875da1d674c4f18c2f0d874d9",
     "agent-profiles/subagents-dispatch-advisor.toml": "082971c9d048107451a344efab08910f10e5b646dab69b6299a4c29ba5abe812",
     "agent-profiles/subagents-dispatch-investigator.toml": "d563afa01f28397781be68d88e7a069eed703816c87f9a86f14ea8979431d561",
     "agent-profiles/subagents-dispatch-reader.toml": "beed454c902018669af8c5999a50c5cb1794e31ba291746e01266a66dcae1add",
@@ -44,7 +44,7 @@
     "scripts/scheduler_v4.py": "35c13fb55c793a55db54dc2adeb50ce37213650805430ea418a0a684540fc683",
     "scripts/state_storage.py": "f2346acbbc79499dee205594a298b873b2c3be8dafa43676bbe7401e2a8c8382",
     "scripts/uninstall-agents.py": "d59f1c8c1448aa5b6cf74df1912909a2b03c0d47dd5f60263afb5ea4879531f6",
-    "scripts/validate_team_plan.py": "03c91c984a638dde2abde996515f10923e56230e90c1883be5c6d2560ff2f816",
+    "scripts/validate_team_plan.py": "14880330ef8138fd4fa50cabe8b5ca5800c01d362bcd4edaee4bec9b85cfc601",
     "scripts/work_graph_v4.py": "56b05f58bfab760ddeb9de14b0382c4a40e11c89a4151eb1a9f3f9bb55b0fe45",
     "scripts/writer_lease_v4.py": "827ed84c02c249cdab80872c33bcd7a546259cdd4605fd5edc32b991e9003555",
     "skills/doctor/SKILL.md": "6a7f52e4b76b81465c3efc74d315182941cd48054351c3bdd92de5073a84d734",
