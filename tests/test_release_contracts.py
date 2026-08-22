@@ -45,14 +45,16 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
     assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{number}" for number in range(9)]
     assert architecture["release"]["host_campaign"] == [
         "N0_route_model_effort_fork_turns",
-        "N1_child_collaboration_absent",
+        "N1_child_collaboration_containment",
         "N2_spawn_identity_binding",
         "N3_capacity_rejection_no_materialization",
         "N4_followup_continue_same_child",
         "N5_interrupt_settlement",
         "N6_writer_takeover_settlement",
         "N7_rollout_reconciliation_privacy",
-        "N8_final_review_and_sandbox_truth",
+        "N8_final_review_and_effective_sandbox_truth",
     ]
     assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
     assert architecture["host_truth"]["capacity_owner"] == "codex_host"
+    assert architecture["host_truth"]["managed_child_collaboration_surface_owner"] == "codex_host"
+    assert architecture["host_truth"]["effective_permission_owner"] == "codex_host"
