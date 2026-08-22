@@ -14,8 +14,8 @@
   },
   "repository_validation": {
     "status": "PASS",
-    "candidate_sha": "bcd0b75ebc164090c55c6fe7eddb07c21c30124d",
-    "workflow_run_id": 32580427665,
+    "candidate_sha": "3c09aaef72115979df32c9698876799306cf01f4",
+    "workflow_run_id": 32580684187,
     "attestation_scope": "Verified repository code, contracts, package integrity, official Plugin validation, tests, managed profile lifecycle, and removal of CHANGELOG_V3.md, PRIVACY.md, TERMS.md, and THIRD_PARTY_NOTICES.md. Third-party MIT attribution remains preserved in LICENSE and the derived source points to it. The resulting status-only exact head still requires the final CI regression run."
   },
   "fixed_profiles": {
