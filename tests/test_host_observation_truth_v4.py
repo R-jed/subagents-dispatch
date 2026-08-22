@@ -30,7 +30,7 @@ def capability_evidence(*, surface: str = "multi_agent_v2") -> dict:
         "surface": surface,
         "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
         "fork_turns_none": True,
-        "max_spawned_threads": 3,
+        "max_concurrent_threads_per_session": 4,
     }
 
 
@@ -109,6 +109,13 @@ def test_current_generation_observation_updates_lifecycle_and_persists_compact_p
     current = state.load_state("thread-host", temp_root=tmp_path)
     assert current is not None
     basis = state.observation_basis(current, execution_id="exec-1")
+    assert basis == {
+        "execution_id": "exec-1",
+        "unit_id": "U1",
+        "attempt_no": 1,
+        "control_epoch": 0,
+        "lease_epoch": None,
+    }
 
     result = writer.persist_host_observation(
         "thread-host",
