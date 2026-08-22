@@ -72,7 +72,7 @@
       "id": "stalled-work-does-not-create-a-model-ladder",
       "category": "rerouting",
       "input": {"task": "The same bounded responsibility repeats the same failure without new evidence or acceptance progress."},
-      "expected": {"action": "delegate", "task_blocker": "stalled", "recovery_action": "same_role_retry", "nodes": [{"unit_id": "U1", "role": "worker", "agent_type": "subagents_dispatch_worker", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "bounded-source-write"}]}
+      "expected": {"action": "main_session", "task_blocker": "stalled", "recovery_action": null, "nodes": [], "main_reason": "unchanged_retry_not_authorized"}
     },
     {
       "id": "three-independent-readers-can-fanout",
