@@ -81,7 +81,7 @@ The Plugin owns only its bounded orchestration semantics:
 ```text
 delegation-value decision
 fixed managed role selection
-WorkUnit and optional TeamPlan structure
+WorkGraph and WorkUnit responsibility structure
 responsibility and authority projection
 single-writer coordination
 ExecutionBinding identity and recovery
