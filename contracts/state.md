@@ -93,7 +93,7 @@ execution_basis_ref
 
 `attempt_no` is a positive diagnostic sequence number and has no fixed product ceiling. A fresh retry after attempt 1 requires a changed execution basis relative to the retained recovery evidence that still authorizes the current retry. `followup_count` is a non-negative diagnostic count and has no fixed product ceiling.
 
-Main should allocate fresh `execution_id` and `native_task_name` values for clear diagnostics. Active retained ExecutionBindings still require exact identity uniqueness. Correctness does not depend on an unbounded orchestration-lifetime tombstone set after older settled attempts are compacted. If an opaque identity is later reused after compaction, stale Host evidence is rejected by the full generation basis described below.
+Every managed fresh attempt derives its canonical Host control address as `sd_<case-folded-unit-id>_a<attempt-no>`. Managed WorkUnit ids used for execution therefore use letters, digits, or underscores and are unique under case folding. `attempt_no` remains monotonic through bounded history compaction, so a later generation cannot reuse an earlier canonical task name. A recognized pre-materialization rollback removes the provisional attempt entirely; because no child materialized, the next allocation remains the same attempt generation and uses the same canonical task name. `execution_id` remains a fresh diagnostic identity among retained bindings. Correctness for delayed Host observations does not require an unbounded opaque-id tombstone set because the full generation basis below also binds WorkUnit and attempt generation.
 
 `control_epoch` is the generation counter for same-child followup, continue, and interrupt. A Host observation captured against an older epoch is stale and cannot settle the current activation.
 
@@ -131,7 +131,7 @@ last_followup_count
 
 Only `COMPLETED`, `FAILED`, or `CLOSED` historical executions may be compacted. The newest retained execution is not compacted by fresh-attempt allocation. Removing a compacted execution also removes Host observation and recovery-basis records that refer only to that execution.
 
-Compaction intentionally removes old detail to keep the 64 KiB state bound. It therefore does not promise permanent memory of every historical opaque execution id, native task name, execution basis, or correction basis. Safety across compaction comes from WorkUnit and attempt generation plus the current full Host observation basis. Delayed Host evidence for an older generation is stale and cannot mutate the current generation even if an opaque id later appears again.
+Compaction intentionally removes old detail to keep the 64 KiB state bound. It therefore does not promise permanent memory of every historical opaque execution id, execution basis, or correction basis. It does retain the monotonic `max_attempt_no`, which is enough to derive a new canonical Host task name that cannot alias a compacted generation. Delayed Host evidence for an older opaque execution id is separately rejected by the WorkUnit, attempt, control, and lease generation basis described below.
 
 ## WriterLease
 
@@ -158,6 +158,7 @@ Until effective read-only isolation is proven by Host evidence, a blocking canon
 validate WorkUnit readiness/profile/authority/writer admission
 -> require a changed execution basis for every retry relative to retained recovery evidence
 -> compact only older safely settled attempts when needed
+-> derive canonical task name from WorkUnit plus next attempt_no
 -> persist SPAWN_PENDING ExecutionBinding
 -> reserve WriterLease when writable
 -> Main invokes native spawn_agent
