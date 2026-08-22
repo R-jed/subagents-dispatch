@@ -19,7 +19,8 @@
     "FOLLOWUP": {
       "host_primitive": "followup",
       "increments_attempt": false,
-      "increments_followup_count": true
+      "increments_followup_count": true,
+      "requires_new_correction_basis": true
     },
     "INTERRUPT": {
       "host_primitive": "interrupt",
@@ -40,6 +41,8 @@
   "delegation": {
     "fork_turns": "none",
     "max_depth": 1,
+    "max_depth_scope": "project_policy",
+    "max_depth_is_v2_host_containment_proof": false,
     "product_managed_children_max": 4
   },
   "entities": {
@@ -62,7 +65,8 @@
         "followup_count",
         "failure_origin",
         "blocker",
-        "quarantine_reason"
+        "quarantine_reason",
+        "execution_basis_ref"
       ]
     },
     "WorkUnit": {
@@ -106,8 +110,11 @@
     }
   },
   "execution": {
-    "control_epoch_scope": "execution_binding",
-    "fresh_agent_attempt_limit": 2,
+    "attempt_no_is_diagnostic": true,
+    "fresh_retry_authorization": "new_execution_basis_and_safe_settlement",
+    "history_compaction": "older_safely_settled_attempts",
+    "same_child_followup_authorization": "new_correction_basis",
+    "followup_count_is_diagnostic": true,
     "same_child_followup_consumes_fresh_attempt": false,
     "states": [
       "SPAWN_PENDING",
@@ -128,13 +135,18 @@
     "fresh_context_spawn"
   ],
   "managed_profile_requirements": [
-    "child_collaboration_disabled"
+    "fixed_profile_route",
+    "behavioral_leaf_boundary",
+    "host_evidence_for_effective_child_containment",
+    "host_evidence_for_effective_read_only_when_required"
   ],
   "host_truth": {
     "capacity_owner": "codex_host",
     "child_identity_owner": "codex_host",
     "lifecycle_owner": "codex_host",
-    "materialization_owner": "codex_host"
+    "materialization_owner": "codex_host",
+    "managed_child_collaboration_surface_owner": "codex_host",
+    "effective_permission_owner": "codex_host"
   },
   "invariants": {
     "I01": "A canonical workspace has at most one managed writer lease in RESERVED, HELD, REVOKING, or UNKNOWN.",
@@ -144,13 +156,14 @@
     "I05": "A writing followup or continue must reserve or retain WriterLease before Host reactivation.",
     "I06": "An interrupt result alone never releases WriterLease.",
     "I07": "UNKNOWN writer ownership blocks conflicting managed mutation and replacement execution.",
-    "I08": "Managed children cannot control sibling managed agents under the verified profile contract.",
+    "I08": "Main is the sole managed coordinator; profile configuration or max_depth alone never proves child collaboration containment.",
     "I09": "Unresolved V3.x live state is never silently migrated into V4 execution.",
     "I10": "Plan-only orchestration never acquires WriterLease.",
     "I11": "Main must acquire the same WriterLease abstraction before managed integration writes.",
     "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
     "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement.",
-    "I14": "The product admits at most four concurrently active managed child executions."
+    "I14": "The product admits at most four concurrently active managed child executions.",
+    "I15": "Read-only overlap or strict read-only review requires effective Host evidence; configured read-only intent alone is insufficient."
   },
   "migration": {
     "silent_live_state_migration": false,
@@ -206,14 +219,14 @@
   "release": {
     "host_campaign": [
       "N0_route_model_effort_fork_turns",
-      "N1_child_collaboration_absent",
+      "N1_child_collaboration_containment",
       "N2_spawn_identity_binding",
       "N3_capacity_rejection_no_materialization",
       "N4_followup_continue_same_child",
       "N5_interrupt_settlement",
       "N6_writer_takeover_settlement",
       "N7_rollout_reconciliation_privacy",
-      "N8_final_review_and_sandbox_truth"
+      "N8_final_review_and_effective_sandbox_truth"
     ]
   },
   "review": {
@@ -242,13 +255,15 @@
   },
   "scheduler": {
     "automatic_launch_actions": false,
+    "fixed_acceptance_backpressure": false,
     "host_rejection_is_capacity_authority": true,
     "known_host_capacity_is_advisory_ceiling": true,
     "product_managed_children_max": 4,
+    "ready_frontier_ranking": "none",
     "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-4",
+  "schema_version": "4.0.0-native-core-candidate-5",
   "semantic_roles": [
     "main",
     "work",

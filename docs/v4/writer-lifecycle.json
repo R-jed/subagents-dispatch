@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-writer-lifecycle-4",
+  "schema_version": "4.0.0-writer-lifecycle-5",
   "writer_lease": {
     "scope": "canonical_workspace",
     "states": ["RESERVED", "HELD", "REVOKING", "UNKNOWN", "RELEASED"],
@@ -22,8 +22,9 @@
   },
   "same_child": {
     "fresh_attempt_increment": false,
-    "focused_followup_limit": 1,
-    "continue_consumes_followup_budget": false,
+    "followup_authorization": "new_correction_basis",
+    "followup_count_is_diagnostic": true,
+    "continue_increments_followup_count": false,
     "accepted_or_cancelled_reactivation": false
   },
   "takeover": {
