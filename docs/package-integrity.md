@@ -22,8 +22,6 @@ Orchestration state
 Legacy compatibility
 ```
 
-`scripts/doctor_runtime.py` and `scripts/doctor_runtime_core.py` are compatibility aliases only. They are not separate diagnostic engines.
-
 ## Explicit update
 
 The explicit updater is:
