@@ -190,3 +190,55 @@ def test_machine_host_contract_is_native_core_n0_n8():
     assert [probe["id"] for probe in contract["required_probes"]] == [f"N{index}" for index in range(9)]
     assert "activation_manifest" not in contract
     assert "production_manifest" not in contract
+
+
+def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
+    architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
+
+    identity = architecture["identity_binding"]
+    assert identity["canonical_native_task_address_field"] == "native_task_name"
+    assert identity["host_thread_identity_field"] == "agent_id"
+    assert identity["spawn_result_binds_canonical_task_address"] is True
+    assert identity["host_activity_binds_thread_identity"] is True
+    assert identity["task_address_is_not_thread_identity"] is True
+
+    steer = architecture["control_semantics"]["STEER"]
+    assert steer["v2_host_tool"] == "followup_task"
+    assert steer["requires_running_execution"] is True
+    assert steer["preserves_execution_binding"] is True
+    assert steer["replacement_child_forbidden"] is True
+    assert steer["requires_post_guidance_same_child_evidence"] is True
+
+    scheduler = architecture["scheduler"]
+    assert scheduler["host_capacity_public_config_key"] == "agents.max_concurrent_threads_per_session"
+    assert scheduler["host_capacity_public_config_includes_primary"] is False
+    assert scheduler["host_capacity_normalization"] == "public_spawned_agent_limit_plus_primary"
+    assert scheduler["host_capacity_semantics"] == "root_inclusive_internal_v2_session_limit"
+    assert scheduler["host_capacity_requires_runtime_binding"] is True
+    assert scheduler["host_rejection_cause_may_be_ambiguous"] is True
+
+
+def test_host_campaign_hardens_n2_n3_n4_oracles():
+    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
+    probes = {probe["id"]: probe for probe in contract["required_probes"]}
+
+    n2 = probes["N2"]
+    assert "task-address and Host-thread identity" in n2["operation"]
+    assert any("canonical native task address" in item for item in n2["requires"])
+    assert any("underlying child thread identity" in item for item in n2["requires"])
+    assert any("without conflating them" in item for item in n2["requires"])
+
+    n3 = probes["N3"]
+    assert n3["operation"] == "Host admission rejection materialization safety"
+    assert any("root-inclusive internal V2 session limit" in item for item in n3["requires"])
+    assert any("residency pressure" in item for item in n3["requires"])
+    assert any("Started activity" in item and "durable child identity" in item for item in n3["requires"])
+    assert any("UNKNOWN" in item for item in n3["requires"])
+
+    n4 = probes["N4"]
+    assert n4["operation"] == "same-child steering, correction, and continuation"
+    assert n4["v2_running_steer_tool"] == "followup_task"
+    assert any("RUNNING Steer" in item and "followup_task" in item for item in n4["requires"])
+    assert any("same child" in item and "consumed" in item for item in n4["requires"])
+    assert any("tool-call acceptance alone is insufficient" in item for item in n4["requires"])
+    assert any("attempt_no, control_epoch, and followup_count" in item for item in n4["requires"])
