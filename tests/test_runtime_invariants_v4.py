@@ -64,7 +64,7 @@ def make_execution(
     model, effort, authority = {
         "reader": ("gpt-5.6-luna", "max", "none"),
         "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "xhigh", "none"),
+        "investigator": ("gpt-5.6-terra", "high", "none"),
         "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
         "advisor": ("gpt-5.6-sol", "high", "none"),
     }[profile_id]
@@ -90,14 +90,14 @@ def make_execution(
     }
 
 
-def host_snapshot(capacity: int = 3) -> dict:
+def host_snapshot(capacity: int = 4) -> dict:
     host = load_module(f"runtime_host_{capacity}", "host_capabilities.py")
     return host.normalize_host_capabilities(
         {
             "surface": "multi_agent_v2",
             "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
             "fork_turns_none": True,
-            "max_spawned_threads": capacity,
+            "max_concurrent_threads_per_session": capacity,
         }
     )
 
@@ -209,10 +209,11 @@ def test_constraint_snapshot_reports_remaining_slots_without_selecting_work():
 
     decision = scheduler.scheduler_decision(
         payload,
-        capability_snapshot=host_snapshot(3),
+        capability_snapshot=host_snapshot(4),
         wakeup_reason="AGENT_UPDATE",
     )
     assert decision["selection_owner"] == "main"
+    assert decision["host_session_capacity"] == 4
     assert decision["product_child_limit"] == 4
     assert decision["active_managed_executions"] == 1
     assert decision["available_launch_slots"] == 2
