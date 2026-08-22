@@ -1,16 +1,16 @@
 {
-  "schema_version": "4.0.0-phase-status-14",
-  "candidate_branch": "v4/rc5-native-core",
+  "schema_version": "4.0.0-phase-status-15",
+  "candidate_branch": "v4/rc5-review-remediation",
   "architecture": "native_core",
   "repository_phases": {
-    "architecture_and_state": "PASS",
-    "native_host_lifecycle": "PASS",
-    "work_graph_scheduler": "PASS",
-    "writer_lease_recovery": "PASS",
-    "public_orchestrate_doctor_surface": "PASS",
-    "product_plane_closure": "PASS",
-    "model_effort_alignment": "PASS",
-    "v3_residue_closure": "PASS"
+    "architecture_and_state": "PENDING_REVALIDATION",
+    "native_host_lifecycle": "PENDING_REVALIDATION",
+    "work_graph_scheduler": "PENDING_REVALIDATION",
+    "writer_lease_recovery": "PENDING_REVALIDATION",
+    "public_orchestrate_doctor_surface": "PENDING_REVALIDATION",
+    "product_plane_closure": "PENDING_REVALIDATION",
+    "model_effort_alignment": "PENDING_REVALIDATION",
+    "v3_residue_closure": "PENDING_REVALIDATION"
   },
   "fixed_profiles": {
     "luna": "max",
@@ -22,6 +22,11 @@
     "scripts/legacy_migration.py",
     "scripts/legacy_state_cleanup.py"
   ],
+  "repository_validation": {
+    "status": "PENDING",
+    "candidate_sha": null,
+    "workflow_run_id": null
+  },
   "host_capability_feasibility": {
     "status": "PENDING",
     "matrix": "docs/v4/host-capability-matrix.json",
@@ -36,5 +41,5 @@
   "final_review": "PENDING_RELEASE_GATE",
   "external_release_evidence": "PENDING_RELEASE_GATE",
   "publication": "BLOCKED",
-  "release_rule": "V4.0.0 publication requires the exact candidate to pass repository validation, the candidate-bound N0-N8 Host campaign, fresh exact-candidate Final Review, external release evidence verification, installed-product checks, and human two-Skill App observation. Host capability feasibility evidence is pre-release design evidence only. PENDING or UNKNOWN is not PASS."
+  "release_rule": "V4.0.0 publication requires the exact candidate to pass repository validation, the candidate-bound N0-N8 Host campaign, fresh exact-candidate Final Review, external release evidence verification, installed-product checks, and human two-Skill App observation. Host capability feasibility evidence is pre-release design evidence only. PENDING, PENDING_REVALIDATION, or UNKNOWN is not PASS."
 }
