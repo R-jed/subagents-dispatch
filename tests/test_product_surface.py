@@ -84,16 +84,17 @@ def test_orchestrate_keeps_engineering_narration_out_of_user_deliverables():
         assert internal_process in text
 
 
-def test_compaction_uses_generation_safety_without_permanent_identity_tombstones():
+def test_compaction_uses_generation_safe_task_identity_without_permanent_tombstones():
     skill = (SKILLS / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
     recovery = (ROOT / "contracts" / "recovery.md").read_text(encoding="utf-8")
     state = (ROOT / "contracts" / "state.md").read_text(encoding="utf-8")
-    assert "Generate a fresh `execution_id` and `native_task_name` for every fresh attempt" in skill
-    assert "must not depend on permanent tombstone memory" in skill
+    assert "runtime-derived Host task name" in skill
+    assert "attempt_no` remains monotonic across bounded history compaction" in skill
+    assert "derives `native_task_name` deterministically" in recovery
     assert "unbounded orchestration-lifetime tombstone set" in recovery
-    assert "full observation generation" in recovery
-    assert "unbounded orchestration-lifetime tombstone set" in state
-    assert "WorkUnit and attempt generation" in state
+    assert "canonical Host control address" in state
+    assert "monotonic `max_attempt_no`" in state
+    assert "WorkUnit, attempt, control, and lease generation basis" in state
 
 
 def test_marketplace_plugin_source_is_exact_checkout_root():
