@@ -86,7 +86,7 @@ def test_scope_model_rejects_windows_drive_and_allows_descendant_scopes(tmp_path
                 goal="bounded change",
                 output="patch",
                 ownership_write=["src"],
-                ownership_forbidden=["src/generated"],
+                ownership_forbidden=["tests"],
                 authority_ceiling="bounded-source-write",
                 write_scope_ceiling=["src/feature"],
                 done_when="verified",
