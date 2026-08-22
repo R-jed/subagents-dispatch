@@ -50,6 +50,7 @@
         "spawn success returns the canonical native task address for the child",
         "external release evidence from authoritative Host activity or lifecycle data independently binds the underlying child thread identity to that canonical task address",
         "the canonical native task address and release-evidence Host thread identity together establish the native child identity for campaign verification",
+        "the external release campaign binds the canonical native task address and Host thread identity to the intended ExecutionBinding evidence basis without requiring ordinary runtime state to persist agent_id",
         "ordinary runtime reconciliation may continue using the canonical native task address when the public V2 control surface omits agent_id; the release campaign must not fabricate or persist a thread identity that the runtime did not expose",
         "native task address and selected managed profile match the assignment"
       ]
