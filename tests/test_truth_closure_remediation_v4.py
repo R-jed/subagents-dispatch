@@ -11,6 +11,10 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
+def read_text(relative: str) -> str:
+    return (ROOT / relative).read_text(encoding="utf-8")
+
+
 def test_machine_architecture_tracks_generation_safe_host_basis_and_capacity_truth():
     architecture = read_json("docs/v4/architecture.json")
 
@@ -42,8 +46,8 @@ def test_scheduler_machine_contract_matches_host_session_capacity_semantics():
 
 
 def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memory():
-    state_text = (ROOT / "contracts/state.md").read_text(encoding="utf-8")
-    recovery_text = (ROOT / "contracts/recovery.md").read_text(encoding="utf-8")
+    state_text = read_text("contracts/state.md")
+    recovery_text = read_text("contracts/recovery.md")
 
     for text in (state_text, recovery_text):
         lowered = text.lower()
@@ -53,8 +57,48 @@ def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memo
         assert "retained" in lowered
 
 
+def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
+    composition = read_text("contracts/composition.md")
+    handoff = read_text("contracts/handoff.md")
+    interaction = read_text("contracts/interaction.md")
+    responsibility = read_text("contracts/responsibility-packet.md")
+    receipt = read_text("contracts/receipt.md")
+    team_plan = read_text("contracts/team-plan.md")
+    policy = read_json("contracts/policy.json")
+
+    assert "WorkUnit and optional TeamPlan structure" not in composition
+    assert "WorkGraph and WorkUnit responsibility structure" in composition
+
+    for stale in (
+        "superseding TeamPlan revision",
+        "plus TeamPlan when required",
+        "TeamPlan when active",
+    ):
+        assert stale not in handoff
+    assert "WorkGraph dependencies when required" in handoff
+
+    for stale in (
+        "team-plan.md` still owns multi-responsibility dependency and integration truth",
+        "尝试: 1/2",
+        "focused-correction followup budget",
+        "one focused same-child followup",
+    ):
+        assert stale not in interaction
+    assert "WorkGraph and WorkUnit own multi-responsibility dependency and structural truth" in interaction
+    assert "no fixed followup-count ceiling" in interaction
+
+    assert "already owns the multi-responsibility structural truth" not in responsibility
+    assert "carries no dependency, routing, integration-order, retry-budget, ownership, or acceptance authority" in responsibility
+    assert "no independent TeamPlan runtime authority" in team_plan
+
+    assert policy["roles"]["investigator"]["effort"] == "high"
+    assert "Terra XHigh" not in receipt
+    assert "Terra High" in receipt
+    assert "derive from the fixed profiles in `policy.json`" in receipt
+
+
 def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery():
-    readme = (ROOT / "evals/README.md").read_text(encoding="utf-8").lower()
+    readme = read_text("evals/README.md").lower()
     interactions = read_json("evals/interaction-cases.json")
     workloads = read_json("evals/behavioral-workloads.json")
 
