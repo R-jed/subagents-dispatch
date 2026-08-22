@@ -31,7 +31,11 @@
       "advances_control_epoch": false,
       "host_primitive": "followup",
       "increments_followup_count": false,
-      "requires_running_execution": true
+      "preserves_execution_binding": true,
+      "replacement_child_forbidden": true,
+      "requires_post_guidance_same_child_evidence": true,
+      "requires_running_execution": true,
+      "v2_host_tool": "followup_task"
     },
     "TAKEOVER": {
       "host_primitive": "composite",
@@ -149,6 +153,18 @@
     "managed_child_collaboration_surface_owner": "codex_host",
     "effective_permission_owner": "codex_host"
   },
+  "identity_binding": {
+    "canonical_native_task_address_field": "native_task_name",
+    "durable_child_identity_owner": "codex_host",
+    "host_activity_binds_thread_identity": true,
+    "host_thread_identity_field": "agent_id",
+    "release_campaign_requires_thread_identity_binding": true,
+    "resident_runtime_owner": "codex_host",
+    "runtime_agent_id_persistence_required": false,
+    "runtime_control_address_when_agent_id_unavailable": "native_task_name",
+    "spawn_result_binds_canonical_task_address": true,
+    "task_address_is_not_thread_identity": true
+  },
   "invariants": {
     "I01": "A canonical workspace has at most one managed writer lease in RESERVED, HELD, REVOKING, or UNKNOWN.",
     "I02": "Host COMPLETED never directly marks a WorkUnit ACCEPTED or unlocks dependencies.",
@@ -259,8 +275,14 @@
   "scheduler": {
     "automatic_launch_actions": false,
     "fixed_acceptance_backpressure": false,
-    "host_rejection_is_capacity_authority": true,
+    "host_capacity_internal_v2_semantics": "root_inclusive_internal_v2_session_limit",
+    "host_capacity_normalization": "public_spawned_agent_limit_plus_primary",
+    "host_capacity_public_config_includes_primary": false,
+    "host_capacity_public_config_key": "agents.max_concurrent_threads_per_session",
+    "host_capacity_requires_runtime_binding": true,
     "host_capacity_semantics": "session_concurrency_includes_primary",
+    "host_rejection_cause_may_be_ambiguous": true,
+    "host_rejection_is_capacity_authority": true,
     "known_host_session_capacity_is_advisory_ceiling": true,
     "missing_capability_snapshot_blocks_spawn": true,
     "product_managed_children_max": 4,

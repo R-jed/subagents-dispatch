@@ -44,34 +44,42 @@
     },
     {
       "id": "N2",
-      "operation": "native spawn identity binding",
+      "operation": "native spawn task-address and Host-thread identity evidence binding",
       "platform": "any",
       "requires": [
-        "spawn success returns a native child identity",
-        "Main binds the returned identity to the intended ExecutionBinding",
-        "native task name and selected managed profile match the assignment"
+        "spawn success returns the canonical native task address for the child",
+        "external release evidence from authoritative Host activity or lifecycle data independently binds the underlying child thread identity to that canonical task address",
+        "the canonical native task address and release-evidence Host thread identity together establish the native child identity for campaign verification",
+        "the external release campaign binds the canonical native task address and Host thread identity to the intended ExecutionBinding evidence basis without requiring ordinary runtime state to persist agent_id",
+        "ordinary runtime reconciliation may continue using the canonical native task address when the public V2 control surface omits agent_id; the release campaign must not fabricate or persist a thread identity that the runtime did not expose",
+        "native task address and selected managed profile match the assignment"
       ]
     },
     {
       "id": "N3",
-      "operation": "capacity rejection materialization safety",
+      "operation": "Host admission rejection materialization safety",
       "platform": "any",
       "requires": [
-        "Host capacity rejection is observed at the target Host limit",
-        "for the tested explicit rejection path no child identity or resident child materializes",
+        "record the Host-runtime capacity evidence used to stage the rejection probe; when the current public agents.max_concurrent_threads_per_session setting is the source, normalize its spawned-agent-only value to the root-inclusive internal V2 session limit before projection",
+        "observe an actual Host admission rejection under deliberately saturated conditions and do not fabricate whether the cause was active-execution pressure or residency pressure when the Host error does not distinguish them",
+        "for the tested explicit rejection path no child identity or resident child materializes; specifically, no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime materializes in the authoritative Host surfaces available to the campaign",
         "pre-materialization rejection rolls back provisional execution and reserved writer without consuming a fresh attempt",
-        "ambiguous materialization is quarantined as UNKNOWN"
+        "any ambiguity about child materialization is quarantined as UNKNOWN"
       ]
     },
     {
       "id": "N4",
-      "operation": "same-child followup and continuation",
+      "operation": "same-child steering, correction, and continuation",
       "platform": "any",
+      "v2_running_steer_tool": "followup_task",
       "requires": [
-        "followup targets the original native child identity",
+        "a RUNNING Steer uses the current V2 followup_task primitive and targets the original canonical native task address",
+        "authoritative Host activity or rollout evidence binds the Steer to the original Host child thread and no replacement child identity materializes",
+        "post-guidance evidence from that same child demonstrates that the running Steer guidance was consumed; tool-call acceptance alone is insufficient proof of application",
+        "Steer preserves the same ExecutionBinding, attempt_no, control_epoch, and followup_count",
+        "focused correction targets the original native child identity and uses a changed correction basis rather than a fixed correction-count budget",
         "continuation after interruption preserves the same ExecutionBinding identity",
-        "same-child control does not create a fresh attempt",
-        "focused correction uses a changed correction basis rather than a fixed correction-count budget"
+        "same-child correction and continuation do not create a fresh attempt"
       ]
     },
     {
