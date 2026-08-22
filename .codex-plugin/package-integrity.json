@@ -45,7 +45,7 @@
     "scripts/state_storage.py": "f2346acbbc79499dee205594a298b873b2c3be8dafa43676bbe7401e2a8c8382",
     "scripts/uninstall-agents.py": "d59f1c8c1448aa5b6cf74df1912909a2b03c0d47dd5f60263afb5ea4879531f6",
     "scripts/validate_team_plan.py": "03c91c984a638dde2abde996515f10923e56230e90c1883be5c6d2560ff2f816",
-    "scripts/work_graph_v4.py": "2edcf7cee7320dfbeb22d2ece9e1f916d05ff855fdf86a8f3b48dbba3622e7a2",
+    "scripts/work_graph_v4.py": "c41dff9ccb0c6a50d8c50ce11cb67dc3651a440bfff3a1a533eaa2c397d92cfe",
     "scripts/writer_lease_v4.py": "5e28bea524c06393f2812914226182caa50d100a47def2e10eedf62a42813730",
     "skills/doctor/SKILL.md": "6a7f52e4b76b81465c3efc74d315182941cd48054351c3bdd92de5073a84d734",
     "skills/doctor/agents/openai.yaml": "1c3989188f3c3885e2e637faae04b29ac74a20bf39850e412af12301809d91a9",
