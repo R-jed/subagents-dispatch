@@ -1,6 +1,6 @@
 # Recovery
 
-Recovery owns what happens to one delegated WorkUnit after an ExecutionBinding has been created. It separates confirmed execution failure from Host uncertainty, requires new evidence for repeated work, and preserves stable responsibility identity across fresh attempts.
+Recovery owns what happens to one delegated WorkUnit after an ExecutionBinding has been created. It separates confirmed execution failure from Host uncertainty, requires changed evidence for repeated work, and preserves stable responsibility identity across fresh attempts.
 
 `routing.md` decides which fixed capability the unresolved work needs. WorkGraph and WorkUnit own responsibility and dependency truth. `interaction.md` owns user-facing control intent. `state.md` and WriterLease own project lifecycle generation and write ownership. Codex Host owns native lifecycle truth.
 
@@ -20,9 +20,9 @@ control_epoch
 execution_basis_ref
 ```
 
-`unit_id` identifies the stable WorkUnit. `execution_id` identifies one fresh Agent attempt. A fresh retry preserves the WorkUnit, receives a new `execution_id`, increments `attempt_no`, and must carry a new execution basis.
+`unit_id` identifies the stable WorkUnit. `execution_id` identifies one retained fresh Agent attempt. A fresh retry preserves the WorkUnit, receives the next `attempt_no`, and must carry a changed execution basis relative to the retained recovery evidence that still authorizes the retry.
 
-Main must treat every `execution_id` and `native_task_name` as unique for the lifetime of one orchestration. History compaction never authorizes reuse of either identity.
+Main should generate fresh `execution_id` and `native_task_name` values for diagnostics. Active retained ExecutionBindings require exact identity uniqueness. Bounded history compaction intentionally removes older opaque identity detail, so correctness does not rely on an unbounded orchestration-lifetime tombstone set. The full observation generation binds Host evidence to `unit_id`, `attempt_no`, `control_epoch`, and applicable WriterLease generation in addition to the opaque execution id.
 
 A recognized Host rejection that is proven pre-materialization may roll back the provisional `SPAWN_PENDING` ExecutionBinding. If evidence cannot establish whether a child materialized, preserve `UNKNOWN` and do not issue conflicting replacement work.
 
@@ -60,9 +60,9 @@ Timeout, absence, or elapsed time never converts `UNKNOWN` into `FAILED`.
 
 Main drives native lifecycle reconciliation.
 
-Before a reconciliation-sensitive Host observation, capture the current ExecutionBinding observation basis. The deterministic helper re-reads authoritative state and applies the observation only when `execution_id`, `control_epoch`, and applicable WriterLease generation still match.
+Before a reconciliation-sensitive Host observation, capture the current ExecutionBinding observation basis. The deterministic helper re-reads authoritative state and applies the observation only when `execution_id`, `unit_id`, `attempt_no`, `control_epoch`, and applicable WriterLease generation still match.
 
-A stale observation is discarded. An observation for an execution already compacted out of active state is stale by definition. An ambiguous observation moves lifecycle to `UNKNOWN`. For a writable execution, ambiguity also keeps WriterLease blocking.
+A stale observation is discarded. An observation for an execution already compacted out of active state is stale by definition. Reuse of an opaque execution id after compaction cannot make an older observation current because the WorkUnit and attempt generation must also match. An ambiguous observation moves lifecycle to `UNKNOWN`. For a writable execution, ambiguity also keeps WriterLease blocking.
 
 Normal recovery may use `list_agents`. Exact rollout inspection is reserved for ambiguous identity/materialization recovery and release attestation.
 
@@ -105,21 +105,23 @@ current prior execution is safely settled by Host truth
 current prior execution is not UNKNOWN
 no blocking WriterLease conflicts with the new execution
 WorkUnit responsibility is still the same
-new execution_basis_ref records a changed execution basis
-that basis is not a replay of retained recovery evidence
+execution_basis_ref records a changed execution basis
+that basis is not an exact replay of currently retained recovery evidence
 ```
 
 A changed basis may represent new evidence, corrected input, changed external conditions, a confirmed failure cause with a targeted fix, or another concrete change that makes repeating the responsibility rational.
 
 `attempt_no` is a diagnostic sequence number. It is not a product ceiling and never authorizes a retry by itself.
 
+Older execution-basis detail may be compacted. Recovery therefore does not claim permanent replay memory for every historical basis. The safety property is that the current retry must be justified by retained evidence and that stale Host observations cannot cross WorkUnit/attempt generations.
+
 ### Same-child FOLLOWUP
 
 FOLLOWUP reuses the same ExecutionBinding when the same child remains the right owner and one focused correction remains inside the existing WorkUnit boundary.
 
-Each FOLLOWUP must provide a non-empty correction basis. The project stores only its SHA-256 digest and rejects an exact replay for the active execution. FOLLOWUP advances `control_epoch` and increments `followup_count`; the count is diagnostic, not an authorization budget.
+Each FOLLOWUP must provide a non-empty correction basis. The project stores only its SHA-256 digest for the retained correction generation and rejects an exact replay while that retained basis remains authoritative. FOLLOWUP advances `control_epoch` and increments `followup_count`; the count is diagnostic, not an authorization budget.
 
-A material change to goal, output, ownership, scope, authority, or acceptance meaning requires Main to re-evaluate the WorkUnit instead of disguising the change as another correction.
+When `control_epoch` advances, superseded Host observation and recovery-basis records may be pruned. Recovery does not maintain an unbounded set of every correction digest ever used. A material change to goal, output, ownership, scope, authority, or acceptance meaning still requires Main to re-evaluate the WorkUnit instead of disguising the change as another correction.
 
 ### CONTINUE
 
@@ -139,7 +141,7 @@ last compacted execution basis
 last compacted followup_count
 ```
 
-Host observations and follow-up basis records that refer only to compacted executions are removed with those executions. A delayed observation for a compacted identity is stale and cannot mutate the current generation.
+Host observations and follow-up basis records that refer only to compacted executions are removed with those executions. Superseded same-child generation evidence may also be pruned when `control_epoch` advances. A delayed observation for an older generation is stale and cannot mutate the current generation.
 
 Do not persist raw prompts, child transcripts, private reasoning, source contents, webpage contents, credentials, or token logs as recovery history.
 
