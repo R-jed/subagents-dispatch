@@ -65,7 +65,7 @@ RESPONSIBILITY_CONTEXT_FIELDS = {
     "do_not_redo",
     "stop_boundary",
 }
-EXECUTION_FIELDS = {
+EXECUTION_REQUIRED_FIELDS = {
     "execution_id",
     "unit_id",
     "team_plan_revision",
@@ -85,6 +85,7 @@ EXECUTION_FIELDS = {
     "blocker",
     "quarantine_reason",
 }
+EXECUTION_FIELDS = EXECUTION_REQUIRED_FIELDS | {"execution_basis_ref"}
 WRITER_LEASE_FIELDS = {
     "lease_id",
     "lease_epoch",
@@ -351,13 +352,21 @@ def _validate_executions(
     agent_ids: set[str] = set()
     attempts_by_unit: dict[str, list[int]] = {}
     for index, raw in enumerate(executions):
-        execution = _require_exact_fields(raw, EXECUTION_FIELDS, label=f"execution {index}")
+        execution = _require_allowed_fields(
+            raw,
+            EXECUTION_REQUIRED_FIELDS,
+            EXECUTION_FIELDS,
+            label=f"execution {index}",
+        )
         execution_id = execution["execution_id"]
         unit_id = execution["unit_id"]
         if not _nonempty(execution_id) or execution_id in by_id:
             raise StatePayloadError(f"execution {index} has invalid or duplicate execution_id")
         if unit_id not in work_units:
             raise StatePayloadError(f"execution {execution_id} references unknown work unit")
+        basis_ref = execution.get("execution_basis_ref")
+        if basis_ref is not None and not _nonempty(basis_ref):
+            raise StatePayloadError(f"execution {execution_id} has invalid execution_basis_ref")
         revision = execution["team_plan_revision"]
         if revision is not None and not _strict_int(revision, minimum=1):
             raise StatePayloadError(f"execution {execution_id} has invalid team_plan_revision")
@@ -730,19 +739,34 @@ def mutate_state(
         return updated
 
 
+def _execution_writer_lease_epoch(
+    current: Mapping[str, Any], execution: Mapping[str, Any]
+) -> int | None:
+    if execution.get("granted_authority") == "none":
+        return None
+    lease = current.get("writer_lease")
+    if not isinstance(lease, Mapping):
+        return None
+    if (
+        lease.get("owner_kind") != "execution"
+        or lease.get("owner_id") != execution.get("execution_id")
+        or lease.get("workspace_id") != execution.get("workspace_id")
+    ):
+        return None
+    epoch = lease.get("lease_epoch")
+    return epoch if isinstance(epoch, int) and not isinstance(epoch, bool) else None
+
+
 def observation_basis(payload: Mapping[str, Any], *, execution_id: str) -> dict[str, Any]:
     current = validate_state_payload(copy.deepcopy(dict(payload)))
     matches = [item for item in current["executions"] if item["execution_id"] == execution_id]
     if len(matches) != 1:
         raise StatePayloadError("observation execution_id does not resolve exactly")
     execution = matches[0]
-    lease_epoch = (
-        current["writer_lease"]["lease_epoch"] if current["writer_lease"] is not None else None
-    )
     return {
         "execution_id": execution_id,
         "control_epoch": execution["control_epoch"],
-        "lease_epoch": lease_epoch,
+        "lease_epoch": _execution_writer_lease_epoch(current, execution),
     }
 
 
@@ -756,10 +780,7 @@ def _basis_is_current(current: Mapping[str, Any], basis: Mapping[str, Any]) -> b
     execution = matches[0]
     if basis.get("control_epoch") != execution["control_epoch"]:
         return False
-    current_lease_epoch = (
-        current["writer_lease"]["lease_epoch"] if current["writer_lease"] is not None else None
-    )
-    return basis.get("lease_epoch") == current_lease_epoch
+    return basis.get("lease_epoch") == _execution_writer_lease_epoch(current, execution)
 
 
 def reconcile_execution_observation(

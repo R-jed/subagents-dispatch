@@ -55,6 +55,10 @@ def _authority_rank(value: str) -> int:
         raise ExecutionLifecycleError("invalid mutation authority") from exc
 
 
+def _nonempty(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
 def _validate_fresh_plan_binding(current: Mapping[str, Any], unit: Mapping[str, Any]) -> None:
     if current.get("team_plan_revision") is not None:
         return
@@ -69,6 +73,21 @@ def _validate_fresh_plan_binding(current: Mapping[str, Any], unit: Mapping[str, 
         )
 
 
+def _fresh_execution_state_is_eligible(
+    unit: Mapping[str, Any], prior: Sequence[Mapping[str, Any]]
+) -> bool:
+    if not prior:
+        return unit.get("state") == "READY"
+    current = max(prior, key=lambda item: int(item.get("attempt_no", 0)))
+    if unit.get("state") == "READY":
+        return True
+    if unit.get("state") == "REJECTED":
+        return current.get("lifecycle") == "COMPLETED"
+    if unit.get("state") == "EXECUTING":
+        return current.get("lifecycle") in {"FAILED", "CLOSED"}
+    return False
+
+
 def allocate_execution(
     thread_id: str,
     *,
@@ -78,6 +97,7 @@ def allocate_execution(
     profile_id: str,
     granted_authority: str,
     granted_write_scope: Sequence[str] = (),
+    execution_basis_ref: str | None = None,
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
@@ -88,6 +108,8 @@ def allocate_execution(
         raise ExecutionLifecycleError("execution_id must be non-empty")
     if not isinstance(native_task_name, str) or not native_task_name.strip():
         raise ExecutionLifecycleError("native_task_name must be non-empty")
+    if execution_basis_ref is not None and not _nonempty(execution_basis_ref):
+        raise ExecutionLifecycleError("execution_basis_ref must be non-empty when supplied")
     profile = _PROFILE_SPECS[profile_id]
     model = profile["model"]
     effort = profile["effort"]
@@ -97,19 +119,43 @@ def allocate_execution(
 
     def mutate(current: dict[str, Any]) -> None:
         unit = _unit(current, unit_id)
-        if unit["state"] != "READY":
-            raise ExecutionLifecycleError("fresh execution requires READY WorkUnit")
         _validate_fresh_plan_binding(current, unit)
         if any(item["execution_id"] == execution_id for item in current["executions"]):
             raise ExecutionLifecycleError("execution_id is already present")
         if any(item["native_task_name"] == native_task_name for item in current["executions"]):
             raise ExecutionLifecycleError("native_task_name is already present")
         prior = [item for item in current["executions"] if item["unit_id"] == unit_id]
+        if not _fresh_execution_state_is_eligible(unit, prior):
+            raise ExecutionLifecycleError(
+                "fresh execution requires READY work or a settled unresolved current execution"
+            )
         attempt_no = len(prior) + 1
         if attempt_no > 2:
             raise ExecutionLifecycleError("fresh Agent attempt limit is exhausted")
         if any(item["lifecycle"] not in {"COMPLETED", "FAILED", "CLOSED"} for item in prior):
             raise ExecutionLifecycleError("prior fresh attempt is not settled")
+
+        basis_ref = execution_basis_ref
+        if prior:
+            prior_basis_refs = {
+                item.get("execution_basis_ref")
+                for item in prior
+                if _nonempty(item.get("execution_basis_ref"))
+            }
+            if basis_ref is None:
+                if unit.get("state") == "READY" and not prior_basis_refs:
+                    basis_ref = f"legacy-reopen:{execution_id}"
+                else:
+                    raise ExecutionLifecycleError(
+                        "fresh retry requires a new execution_basis_ref"
+                    )
+            if basis_ref in prior_basis_refs:
+                raise ExecutionLifecycleError(
+                    "fresh retry execution_basis_ref must differ from prior attempts"
+                )
+        elif basis_ref is None:
+            basis_ref = f"initial:{execution_id}"
+
         if granted_authority not in state.MUTATION_AUTHORITIES:
             raise ExecutionLifecycleError("granted_authority is invalid")
         if _authority_rank(granted_authority) > _authority_rank(unit["authority_ceiling"]):
@@ -140,6 +186,7 @@ def allocate_execution(
             "failure_origin": "none",
             "blocker": "none",
             "quarantine_reason": None,
+            "execution_basis_ref": basis_ref,
         }
         current["executions"].append(execution)
         unit["state"] = "EXECUTING"
