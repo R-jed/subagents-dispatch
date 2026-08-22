@@ -44,13 +44,13 @@ def work_unit(*, writable: bool = False) -> dict:
     }
 
 
-def native_host_snapshot(host, capacity: int | None = 3) -> dict:
+def native_host_snapshot(host, capacity: int | None = 4) -> dict:
     return host.normalize_host_capabilities(
         {
             "surface": "multi_agent_v2",
             "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
             "fork_turns_none": True,
-            "max_spawned_threads": capacity,
+            "max_concurrent_threads_per_session": capacity,
         }
     )
 
@@ -218,9 +218,9 @@ def test_scheduler_uses_native_snapshot_only_and_has_no_persisted_capacity_token
 
     decision = scheduler.scheduler_decision(
         payload,
-        capability_snapshot=native_host_snapshot(host, capacity=1),
+        capability_snapshot=native_host_snapshot(host, capacity=2),
         wakeup_reason="USER_INPUT",
     )
-    assert decision["host_capacity"] == 1
+    assert decision["host_session_capacity"] == 2
     assert decision["launch_budget"] == 1
     assert payload["accounting_refs"] == []
