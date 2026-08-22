@@ -44,13 +44,13 @@
     },
     {
       "id": "N2",
-      "operation": "native spawn task-address and Host-thread identity binding",
+      "operation": "native spawn task-address and Host-thread identity evidence binding",
       "platform": "any",
       "requires": [
         "spawn success returns the canonical native task address for the child",
-        "authoritative Host activity or lifecycle evidence binds the underlying child thread identity to that canonical task address",
-        "the canonical native task address and bound Host thread identity together establish the native child identity used by the ExecutionBinding",
-        "Main binds both the canonical native task address and Host thread identity to the intended ExecutionBinding without conflating them",
+        "external release evidence from authoritative Host activity or lifecycle data independently binds the underlying child thread identity to that canonical task address",
+        "the canonical native task address and release-evidence Host thread identity together establish the native child identity for campaign verification",
+        "ordinary runtime reconciliation may continue using the canonical native task address when the public V2 control surface omits agent_id; the release campaign must not fabricate or persist a thread identity that the runtime did not expose",
         "native task address and selected managed profile match the assignment"
       ]
     },
