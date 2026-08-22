@@ -203,6 +203,9 @@ def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     assert identity["task_address_is_not_thread_identity"] is True
     assert identity["durable_child_identity_owner"] == "codex_host"
     assert identity["resident_runtime_owner"] == "codex_host"
+    assert identity["release_campaign_requires_thread_identity_binding"] is True
+    assert identity["runtime_agent_id_persistence_required"] is False
+    assert identity["runtime_control_address_when_agent_id_unavailable"] == "native_task_name"
 
     steer = architecture["control_semantics"]["STEER"]
     assert steer["v2_host_tool"] == "followup_task"
@@ -226,10 +229,11 @@ def test_host_campaign_hardens_n2_n3_n4_oracles():
     probes = {probe["id"]: probe for probe in contract["required_probes"]}
 
     n2 = probes["N2"]
-    assert "task-address and Host-thread identity" in n2["operation"]
+    assert "task-address and Host-thread identity evidence" in n2["operation"]
     assert any("canonical native task address" in item for item in n2["requires"])
     assert any("underlying child thread identity" in item for item in n2["requires"])
-    assert any("without conflating them" in item for item in n2["requires"])
+    assert any("external release evidence" in item for item in n2["requires"])
+    assert any("ordinary runtime reconciliation" in item and "omits agent_id" in item for item in n2["requires"])
 
     n3 = probes["N3"]
     assert n3["operation"] == "Host admission rejection materialization safety"
