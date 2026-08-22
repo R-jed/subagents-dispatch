@@ -16,7 +16,7 @@ Current product behavior is owned by the two public Skills, `Orchestrate` and `D
 
 Interaction fixtures must not recreate retired runtime machinery. In particular they do not require PendingControl, Hook receipts, Host-capacity tokens, a Team Ledger, or persisted receipt counters for retry/rework/control history.
 
-Native Core fanout remains a product contract during evaluation: initial managed fanout is at most 2, ordinary managed fanout is at most 3, and known Host capacity may reduce that ceiling. Unknown Host capacity does not itself block one bounded spawn attempt.
+The managed child product ceiling is 4. Main may choose a smaller batch when responsibility structure, WriterLease safety, acceptance work, or available Host evidence makes that appropriate. There is no fixed initial-vs-ordinary fanout budget in Native Core. Codex V2 session concurrency includes the primary agent, so a known Host session capacity may reduce the available child slots. A missing capability snapshot fails closed. An otherwise valid snapshot with unknown numeric Host capacity does not by itself invent a smaller ceiling.
 
 ## Experiment schemas
 
@@ -47,7 +47,7 @@ The current production controls are:
 ```text
 Reader        gpt-5.6-luna   max
 Worker        gpt-5.6-luna   max
-Investigator  gpt-5.6-terra  xhigh
+Investigator  gpt-5.6-terra  high
 Solver        gpt-5.6-sol    high
 Advisor       gpt-5.6-sol    high
 ```
@@ -94,7 +94,7 @@ Status is one-shot and preserves UNKNOWN
 control targets resolve exactly and never guess across sessions
 Steer preserves WorkUnit, ExecutionBinding, scope, and authority
 Continue reuses an interrupted ExecutionBinding
-Correction is one bounded same-child followup
+Correction is an evidence-gated same-child followup with no fixed count ceiling
 Takeover does not transfer a writer until current-generation Host settlement
 ambiguous spawn materialization becomes UNKNOWN
 UNKNOWN blocks replacement and conflicting writer transfer
