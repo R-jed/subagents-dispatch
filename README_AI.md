@@ -1,131 +1,77 @@
 # subagents-dispatch: AI Agent Reference
 
-This file is an index to current product owners. Historical design records do not override the Native Core candidate.
+Current V4 product surface: `Orchestrate` and `Doctor`.
 
-## Project identity
+## Runtime ownership
+
+Codex Host owns child materialization, lifecycle truth, identity, and actual capacity.
+
+Main owns user intent, decomposition, explicit fixed-profile selection, dispatch judgment, integration, WorkUnit acceptance, irreversible external side effects, and the final response.
+
+WorkGraph and WorkUnit state own responsibility structure, dependencies, ownership, and acceptance. ExecutionBinding owns one concrete child execution. WriterLease owns managed write responsibility.
+
+A `team_plan_revision` field may remain temporarily as a V4 RC state-schema compatibility marker. It is not a separate planning, routing, or integration authority.
+
+## Fixed managed profiles
 
 ```text
-Product name:        subagents-dispatch
-Repository:          R-jed/subagents-dispatch
-Plugin id:           subagents-dispatch
-Current version:     4.0.0
-Distribution:        Codex Plugin
-License:             MIT
+Reader        gpt-5.6-luna   max    read-only intent
+Worker        gpt-5.6-luna   max    bounded source write when granted
+Investigator  gpt-5.6-terra  high   read-only intent
+Solver        gpt-5.6-sol    high   bounded source write when granted
+Advisor       gpt-5.6-sol    high   read-only judgment/review
 ```
 
-The public V4 surface contains exactly two explicit Skills:
+Main selects one fixed profile explicitly for each delegated responsibility. Runtime code validates the selection. There is no automatic Luna, Terra, Sol escalation ladder.
 
-| Skill id | Display label | Responsibility |
-| --- | --- | --- |
-| `orchestrate` | Orchestrate | plan-only, execute, inspect, correct, continue, cancel, take over, review, integrate |
-| `doctor` | Doctor | diagnose and explicitly maintain the installed Plugin, managed profiles, Host integration, orchestration state, legacy compatibility |
+## Dispatch invariants
 
-Do not invent literal App slash-command strings from repository identifiers. Rendered UI labels are Host facts.
+```text
+managed children <= 4
+fork_turns = none
+delegation depth = 1
+Host COMPLETED produces candidate work only
+WorkUnit ACCEPTED unlocks dependencies
+UNKNOWN blocks conflicting replacement, writer transfer, and final acceptance
+interrupt return alone never releases WriterLease
+```
 
-## Current contract owners
+Four children is a safety ceiling, not a target. Known Host capacity may reduce available slots. Unknown capacity stays unknown. Deterministic helpers report constraints and status; they do not rank WorkUnits, apply a fixed backlog threshold, or choose automatic launch actions.
+
+Independent read-only work may overlap only when effective read-only behavior and responsibility isolation are verified. The canonical mutable workspace has one active managed WriterLease. Parallel writers require Host-verifiable isolated workspaces and clear integration boundaries.
+
+Fresh children use `fork_turns = none` and receive task-needed responsibility context rather than automatic full Main history.
+
+## Contract index
 
 ```text
 contracts/policy.json
--> fixed managed profile identities, model/effort, depth and review triggers
+  fixed profiles and product child ceiling
 
 contracts/routing.md
--> delegation value, role selection, semantic coverage and fanout policy
+  delegation, profile selection, dispatch and concurrency
 
 contracts/responsibility-packet.md
--> the one serialized five-section child responsibility record
-
-contracts/team-plan.md
--> optional multi-responsibility dependency and integration truth
+  child responsibility serialization
 
 contracts/guardrails.md
--> authority, mutation, writer, consent, prompt-injection and external-action boundaries
+  authority, mutation, consent and external-action boundaries
 
 contracts/interaction.md
--> Orchestrate user controls
+  user control semantics
 
 contracts/recovery.md
--> WorkUnit / ExecutionBinding lifecycle and bounded recovery
+  ExecutionBinding recovery and UNKNOWN handling
 
 contracts/state.md
--> current V4 state schema and Host lifecycle normalization
+  V4 state schema and Host normalization
 
 contracts/final-review.md
--> exact-candidate independent review
+  exact-candidate independent review
 ```
 
-One independent delegated responsibility may keep `team_plan_revision = null`. TeamPlan is required only when multiple unresolved responsibilities or material dependency/integration order need persistent structural truth.
+The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. The candidate-bound real Host release campaign is `docs/v4/host-smoke.json`.
 
-## Current runtime owners
+V3 orchestration state is legacy evidence. Unresolved live V3 state is never silently migrated into V4 execution.
 
-The canonical machine-readable runtime owner map is `docs/v4/architecture.json#runtime_owners`. `docs/architecture.md` explains those responsibilities for humans. Do not maintain another full runtime path list in this file.
-
-`docs/v4/host-smoke.json` separately owns the candidate-bound N0-N8 real Host release gate.
-
-## Compatibility owners
-
-```text
-scripts/legacy_state_cleanup.py
--> minimal ownership-safe cleanup for stale terminal V3 orchestration capsules
-
-scripts/legacy_migration.py
--> ownership-checked V3 profile migration and compatibility diagnosis
-```
-
-Compatibility code does not define current V4 routing, lifecycle, acceptance, release or Host authority.
-
-## Evaluator-only tooling
-
-Calibration and benchmark helpers under `scripts/calibration_*`, `scripts/validate-experiment-*`, and `scripts/score-behavioral-evals.py` are excluded from the runtime integrity set. They may preserve frozen experiment identifiers for reproducibility, but they do not define production Skill names, lifecycle authority, model routing, or release readiness.
-
-## Fixed profiles
-
-```text
-Reader        gpt-5.6-luna   max    behavioral read-only
-Worker        gpt-5.6-luna   max    bounded source write when granted
-Investigator  gpt-5.6-terra  high   behavioral read-only
-Solver        gpt-5.6-sol    high   bounded source write when granted
-Advisor       gpt-5.6-sol    high   behavioral read-only review
-```
-
-Managed child profiles disable child multi-agent capability. Configured read-only sandbox is intent only until the Host proves the effective sandbox.
-
-## Core invariants
-
-```text
-Main owns user intent, authorization, integration and final acceptance
-Host COMPLETED creates candidate work only
-WorkUnit ACCEPTED unlocks dependencies
-initial managed children <= 2
-normal managed children <= 3
-canonical managed writer <= 1
-fork_turns = none
-depth = 1
-UNKNOWN blocks replacement, conflicting writer transfer and final acceptance
-interrupt return alone cannot release WriterLease
-current-generation Host settlement is required for writer release/takeover
-child self-report is never runtime or acceptance authority
-```
-
-Known Host capacity may reduce admission. Unknown Host capacity does not require a project-issued capacity token; the Host owns actual capacity and may reject a spawn before materialization.
-
-## First-use boundary
-
-When an exact managed role is unavailable and Plugin-owned profile files are safely absent, Orchestrate may provision only those managed files and then return `RESTART_REQUIRED`. A fresh task must expose the exact managed `agent_type` before delegated execution continues.
-
-## Doctor and update
-
-`scripts/doctor.py` is the current deterministic Doctor owner. Its JSON contract is `layers` plus `actions`, with five current product layers.
-
-Update check:
-
-```text
-<python-3.11+> scripts/check-plugin-update.py --codex-home <active-codex-home>
-```
-
-Explicit update:
-
-```text
-<python-3.11+> scripts/plugin_update.py --codex-home <active-codex-home>
-```
-
-Repository publication checks, N0-N8 Host evidence, Final Review and benchmark/calibration workflows remain outside ordinary Doctor authority.
+Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N8 Host evidence, Final Review, and benchmark/calibration workflows remain outside ordinary Doctor authority.

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """V4 compact Work Graph mutations.
 
-The Work Graph owns dependency and acceptance truth. Host lifecycle completion is
-execution evidence; a dependency becomes ready only after the predecessor
-WorkUnit reaches ACCEPTED.
+The Work Graph owns responsibility, dependency, and acceptance truth. Host lifecycle
+completion is execution evidence; a dependency becomes ready only after the
+predecessor WorkUnit reaches ACCEPTED.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ DEFAULT_STOP_BOUNDARY = (
     "Stop and report contract, judgment, investigation, stalled, scope, or safety blockers "
     "to the main session."
 )
+_COMPAT_MULTI_UNIT_REVISION = 1
 
 
 def _nonempty(value: Any) -> bool:
@@ -80,9 +81,17 @@ def _require_installable_unit(unit: Mapping[str, Any]) -> None:
         raise WorkGraphError("new WorkUnit requires BLOCKED or READY state")
     if any(
         unit.get(field) is not None
-        for field in ("accepted_result_ref", "accepted_execution_id", "accepted_control_epoch")
+        for field in (
+            "accepted_result_ref",
+            "accepted_execution_id",
+            "accepted_control_epoch",
+        )
     ):
         raise WorkGraphError("new WorkUnit cannot carry accepted result bindings")
+
+
+def _needs_compat_revision(units: Sequence[Mapping[str, Any]]) -> bool:
+    return len(units) > 1 or any(unit.get("depends_on") for unit in units)
 
 
 def make_work_unit(
@@ -140,7 +149,10 @@ def refresh_dependency_states(payload: Mapping[str, Any]) -> dict[str, Any]:
     for unit in current["work_units"]:
         if unit["state"] not in {"BLOCKED", "READY"}:
             continue
-        ready = all(by_id[dependency]["state"] == "ACCEPTED" for dependency in unit["depends_on"])
+        ready = all(
+            by_id[dependency]["state"] == "ACCEPTED"
+            for dependency in unit["depends_on"]
+        )
         unit["state"] = "READY" if ready else "BLOCKED"
     state.validate_state_payload(current)
     return current
@@ -148,10 +160,15 @@ def refresh_dependency_states(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 def ready_frontier(payload: Mapping[str, Any]) -> list[str]:
     refreshed = refresh_dependency_states(payload)
-    return [unit["unit_id"] for unit in refreshed["work_units"] if unit["state"] == "READY"]
+    return [
+        unit["unit_id"]
+        for unit in refreshed["work_units"]
+        if unit["state"] == "READY"
+    ]
 
 
 def critical_path_lengths(payload: Mapping[str, Any]) -> dict[str, int]:
+    """Compatibility diagnostic only. Dispatch does not rank by this value."""
     current = refresh_dependency_states(payload)
     by_id = {unit["unit_id"]: unit for unit in current["work_units"]}
     children: dict[str, list[str]] = {unit_id: [] for unit_id in by_id}
@@ -169,7 +186,10 @@ def critical_path_lengths(payload: Mapping[str, Any]) -> dict[str, int]:
             for child in children[unit_id]
             if by_id[child]["state"] not in TERMINAL_UNIT_STATES
         ]
-        memo[unit_id] = 1 + max((length(child) for child in descendants), default=0)
+        memo[unit_id] = 1 + max(
+            (length(child) for child in descendants),
+            default=0,
+        )
         return memo[unit_id]
 
     return {unit_id: length(unit_id) for unit_id in by_id}
@@ -181,7 +201,7 @@ def install_single_work_unit(
     unit: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Compatibility wrapper for callers that still install one WorkUnit."""
+    """Compatibility wrapper for callers that install one dependency-free WorkUnit."""
     supplied = copy.deepcopy(dict(unit))
     if supplied.get("depends_on") != []:
         raise WorkGraphError("single WorkUnit path cannot carry a dependency")
@@ -190,7 +210,6 @@ def install_single_work_unit(
     return install_work_graph(
         thread_id,
         units=[supplied],
-        team_plan_revision=None,
         temp_root=temp_root,
     )
 
@@ -202,12 +221,13 @@ def install_work_graph(
     team_plan_revision: int | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    if team_plan_revision is not None and (
-        not isinstance(team_plan_revision, int)
-        or isinstance(team_plan_revision, bool)
-        or team_plan_revision < 1
-    ):
-        raise WorkGraphError("team_plan_revision must be null or a positive integer")
+    """Install the one authoritative WorkGraph.
+
+    ``team_plan_revision`` is accepted only as a legacy call-shape compatibility
+    argument. It has no planning or revision semantics.
+    """
+    if team_plan_revision not in {None, _COMPAT_MULTI_UNIT_REVISION}:
+        raise WorkGraphError("legacy team_plan_revision compatibility value must be null or 1")
     supplied = copy.deepcopy([dict(unit) for unit in units])
     if not supplied:
         raise WorkGraphError("Work Graph must contain at least one WorkUnit")
@@ -216,11 +236,15 @@ def install_work_graph(
 
     def mutate(current: dict[str, Any]) -> None:
         if current["work_units"] or current["executions"]:
-            raise WorkGraphError("initial Work Graph can only be installed into an empty orchestration")
+            raise WorkGraphError(
+                "initial Work Graph can only be installed into an empty orchestration"
+            )
         if current["writer_lease"] is not None:
             raise WorkGraphError("initial Work Graph requires no WriterLease")
-        current["team_plan_revision"] = team_plan_revision
         current["work_units"] = supplied
+        current["team_plan_revision"] = (
+            _COMPAT_MULTI_UNIT_REVISION if _needs_compat_revision(supplied) else None
+        )
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
@@ -233,7 +257,7 @@ def append_work_units(
     units: Sequence[Mapping[str, Any]],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Append new responsibilities to a live Work Graph without rewriting existing units."""
+    """Append new responsibilities without rewriting existing WorkUnits."""
     supplied = copy.deepcopy([dict(unit) for unit in units])
     if not supplied:
         raise WorkGraphError("append requires at least one WorkUnit")
@@ -241,8 +265,6 @@ def append_work_units(
         _require_installable_unit(unit)
 
     def mutate(current: dict[str, Any]) -> None:
-        if current.get("team_plan_revision") is not None:
-            raise WorkGraphError("append is unavailable while legacy TeamPlan truth is active")
         existing_ids = {item["unit_id"] for item in current["work_units"]}
         supplied_ids = [item.get("unit_id") for item in supplied]
         if len(supplied_ids) != len(set(supplied_ids)):
@@ -250,6 +272,8 @@ def append_work_units(
         if any(unit_id in existing_ids for unit_id in supplied_ids):
             raise WorkGraphError("appended WorkUnit unit_id already exists")
         current["work_units"].extend(supplied)
+        if _needs_compat_revision(current["work_units"]):
+            current["team_plan_revision"] = _COMPAT_MULTI_UNIT_REVISION
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
@@ -263,20 +287,25 @@ def update_unstarted_work_unit(
     unit: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Replace responsibility semantics only before the WorkUnit has any execution history."""
+    """Replace responsibility semantics only before the WorkUnit has execution history."""
     supplied = copy.deepcopy(dict(unit))
     if supplied.get("unit_id") != unit_id:
         raise WorkGraphError("replacement WorkUnit must preserve unit_id")
     _require_installable_unit(supplied)
 
     def mutate(current: dict[str, Any]) -> None:
-        if current.get("team_plan_revision") is not None:
-            raise WorkGraphError("unstarted WorkUnit update is unavailable while legacy TeamPlan truth is active")
         existing = _unit(current, unit_id)
         if _executions(current, unit_id):
-            raise WorkGraphError("WorkUnit responsibility is frozen after ExecutionBinding creation")
+            raise WorkGraphError(
+                "WorkUnit responsibility is frozen after ExecutionBinding creation"
+            )
         index = current["work_units"].index(existing)
         current["work_units"][index] = supplied
+        current["team_plan_revision"] = (
+            _COMPAT_MULTI_UNIT_REVISION
+            if _needs_compat_revision(current["work_units"])
+            else None
+        )
         refreshed = refresh_dependency_states(current)
         current["work_units"] = refreshed["work_units"]
 
@@ -298,7 +327,9 @@ def begin_verification(
             current, unit_id=unit_id, execution_id=execution_id
         )
         if execution["lifecycle"] != "COMPLETED":
-            raise WorkGraphError("verification requires the completed current producing execution")
+            raise WorkGraphError(
+                "verification requires the completed current producing execution"
+            )
         unit["state"] = "VERIFYING"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
@@ -315,7 +346,11 @@ def accept_work_unit(
 ) -> dict[str, Any]:
     if not _nonempty(result_ref):
         raise WorkGraphError("result_ref must be non-empty")
-    if not isinstance(control_epoch, int) or isinstance(control_epoch, bool) or control_epoch < 0:
+    if (
+        not isinstance(control_epoch, int)
+        or isinstance(control_epoch, bool)
+        or control_epoch < 0
+    ):
         raise WorkGraphError("control_epoch must be a non-negative integer")
 
     def mutate(current: dict[str, Any]) -> None:
@@ -354,7 +389,9 @@ def reject_work_unit(
             current, unit_id=unit_id, execution_id=execution_id
         )
         if execution["lifecycle"] != "COMPLETED":
-            raise WorkGraphError("rejection requires the completed current producing execution")
+            raise WorkGraphError(
+                "rejection requires the completed current producing execution"
+            )
         unit["state"] = "REJECTED"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
@@ -373,12 +410,18 @@ def reopen_rejected_work_unit(
         executions = _executions(current, unit_id)
         if len(executions) >= 2:
             raise WorkGraphError("fresh Agent attempt limit is exhausted")
-        if any(item["lifecycle"] not in FRESH_RETRY_EXECUTION_STATES for item in executions):
+        if any(
+            item["lifecycle"] not in FRESH_RETRY_EXECUTION_STATES
+            for item in executions
+        ):
             raise WorkGraphError("fresh retry requires all prior executions to be settled")
         by_id = {item["unit_id"]: item for item in current["work_units"]}
         unit["state"] = (
             "READY"
-            if all(by_id[dependency]["state"] == "ACCEPTED" for dependency in unit["depends_on"])
+            if all(
+                by_id[dependency]["state"] == "ACCEPTED"
+                for dependency in unit["depends_on"]
+            )
             else "BLOCKED"
         )
 
@@ -396,8 +439,13 @@ def cancel_work_unit(
         if unit["state"] == "ACCEPTED":
             raise WorkGraphError("accepted WorkUnit cannot be cancelled")
         executions = _executions(current, unit_id)
-        if any(item["lifecycle"] in ACTIVE_OR_AMBIGUOUS_EXECUTION_STATES for item in executions):
-            raise WorkGraphError("cannot cancel WorkUnit with active or ambiguous execution")
+        if any(
+            item["lifecycle"] in ACTIVE_OR_AMBIGUOUS_EXECUTION_STATES
+            for item in executions
+        ):
+            raise WorkGraphError(
+                "cannot cancel WorkUnit with active or ambiguous execution"
+            )
         unit["state"] = "CANCELLED"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)

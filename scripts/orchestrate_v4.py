@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """V4 Native Core Orchestrate production facade.
 
-Orchestrate owns deterministic routing and project decisions. Main invokes native
-Host lifecycle tools and feeds observed lifecycle truth into the lifecycle layer.
+The main session owns decomposition, profile choice, dispatch judgment, integration,
+and final acceptance. Deterministic helpers validate fixed profile, lifecycle, and
+state constraints without selecting work on the main session's behalf.
 """
 
 from __future__ import annotations
@@ -31,34 +32,24 @@ FIXED_PROFILES = {
 
 
 class OrchestrateError(RuntimeError):
-    """An Orchestrate request violates V4 session or routing policy."""
+    """An Orchestrate request violates V4 session or fixed-profile policy."""
 
 
-def route_profile(
-    *,
-    intent: str,
-    requires_write: bool = False,
-    broad_investigation: bool = False,
-    stalled_or_high_judgment: bool = False,
-    review: bool = False,
-) -> dict[str, Any]:
-    if review:
-        profile_id = "advisor"
-    elif stalled_or_high_judgment:
-        profile_id = "solver"
-    elif requires_write:
-        profile_id = "worker"
-    elif broad_investigation:
-        profile_id = "investigator"
-    else:
-        profile_id = "reader"
+def select_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
+    """Validate one profile chosen explicitly by the main session."""
+    if profile_id not in FIXED_PROFILES:
+        raise OrchestrateError("profile_id is outside the fixed managed profiles")
+    if not isinstance(intent, str) or not intent.strip():
+        raise OrchestrateError("intent must be non-empty")
     profile = copy.deepcopy(FIXED_PROFILES[profile_id])
     profile["profile_id"] = profile_id
     profile["intent"] = intent
-    profile["granted_authority"] = (
-        "bounded-source-write" if requires_write and profile_id in {"worker", "solver"} else "none"
-    )
     return profile
+
+
+def route_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
+    """Compatibility name for explicit main-session profile selection."""
+    return select_profile(profile_id=profile_id, intent=intent)
 
 
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -69,20 +60,19 @@ def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -
         if not isinstance(responsibility, Mapping):
             raise OrchestrateError("responsibility must be an object")
         intent = str(responsibility.get("intent", "inspect"))
-        route = route_profile(
-            intent=intent,
-            requires_write=responsibility.get("requires_write") is True,
-            broad_investigation=responsibility.get("broad_investigation") is True,
-            stalled_or_high_judgment=responsibility.get("stalled_or_high_judgment") is True,
-            review=responsibility.get("review") is True,
-        )
+        profile_id = responsibility.get("profile_id")
+        if not isinstance(profile_id, str) or not profile_id.strip():
+            raise OrchestrateError(
+                "plan-only responsibility requires explicit profile_id from the main session"
+            )
+        profile = select_profile(profile_id=profile_id, intent=intent)
         units.append(
             {
                 "unit_id": f"U{index}",
                 "intent": intent,
                 "goal": str(responsibility.get("goal", intent)),
                 "depends_on": list(responsibility.get("depends_on", [])),
-                "route": route,
+                "profile": profile,
             }
         )
     return {
@@ -240,10 +230,11 @@ def reconcile_once(
     wakeup_reason: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
+    """Return machine constraints; the main session still chooses any next dispatch."""
     current = require_control_session(
         thread_id, orchestration_id=orchestration_id, temp_root=temp_root
     )
-    return scheduler.scheduler_decision(
+    return scheduler.constraint_snapshot(
         current,
         capability_snapshot=capability_snapshot,
         wakeup_reason=wakeup_reason,
@@ -285,7 +276,6 @@ def prepare_correction(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Prepare the one bounded post-completion same-child correction."""
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
     return lifecycle.prepare_same_child_followup(
         thread_id,
@@ -303,7 +293,6 @@ def prepare_continue(
     tool_input: Mapping[str, Any],
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Prepare continuation of the same interrupted child without spending correction budget."""
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
     return lifecycle.prepare_same_child_continue(
         thread_id,

@@ -27,10 +27,14 @@ def load_module(name: str, filename: str):
         sys.path.remove(scripts)
 
 
-def test_v4_policy_freezes_depth_writer_and_model_effort_profiles():
+def test_v4_policy_freezes_depth_child_ceiling_writer_and_profiles():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["schema_version"] == 9
-    assert policy["delegation"] == {"max_depth": 1, "fork_turns": "none"}
+    assert policy["delegation"] == {
+        "max_depth": 1,
+        "fork_turns": "none",
+        "max_managed_children": 4,
+    }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
     assert policy["fixed_execution_profiles"] == {
         "luna": "max",
@@ -48,9 +52,7 @@ def test_v4_policy_freezes_depth_writer_and_model_effort_profiles():
     for role, (model, effort, authority) in expected.items():
         spec = policy["roles"][role]
         assert (spec["model"], spec["effort"], spec["mutation_authority"]) == (model, effort, authority)
-        profile = tomllib.loads(
-            (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
-        )
+        profile = tomllib.loads((ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8"))
         assert profile["model"] == model
         assert profile["model_reasoning_effort"] == effort
         assert profile["agents"]["enabled"] is False

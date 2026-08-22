@@ -36,6 +36,18 @@ def _nonempty_text(value: Any, *, label: str) -> str:
     return value.strip()
 
 
+def managed_child_limit(path: Path = POLICY_CONTRACT_PATH) -> int:
+    """Return the single product ceiling for concurrently active managed children."""
+    payload = load_policy_contract(path)
+    delegation = payload.get("delegation")
+    if not isinstance(delegation, Mapping):
+        raise RuntimeError("policy delegation must be an object")
+    value = delegation.get("max_managed_children")
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise RuntimeError("policy delegation.max_managed_children must be a positive integer")
+    return value
+
+
 def profile_contracts(path: Path = POLICY_CONTRACT_PATH) -> dict[str, dict[str, str]]:
     """Return the validated canonical projection for the five managed profiles."""
     payload = load_policy_contract(path)

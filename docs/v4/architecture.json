@@ -39,9 +39,8 @@
   },
   "delegation": {
     "fork_turns": "none",
-    "initial_managed_children_max": 2,
     "max_depth": 1,
-    "product_managed_children_max": 3
+    "product_managed_children_max": 4
   },
   "entities": {
     "ExecutionBinding": {
@@ -150,7 +149,8 @@
     "I10": "Plan-only orchestration never acquires WriterLease.",
     "I11": "Main must acquire the same WriterLease abstraction before managed integration writes.",
     "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
-    "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement."
+    "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement.",
+    "I14": "The product admits at most four concurrently active managed child executions."
   },
   "migration": {
     "silent_live_state_migration": false,
@@ -225,7 +225,8 @@
   "routing": {
     "dynamic_reasoning_effort": false,
     "peer_messaging_on_correctness_path": false,
-    "principle": "lowest_eligible_capability_profile"
+    "profile_selection_owner": "main",
+    "principle": "explicit_main_selection_from_fixed_profiles"
   },
   "runtime_owners": {
     "orchestration": "scripts/orchestrate_v4.py",
@@ -240,12 +241,14 @@
     "runtime_evidence": "scripts/inspect-collaboration-runtime.py"
   },
   "scheduler": {
-    "acceptance_backpressure_threshold": 2,
+    "automatic_launch_actions": false,
     "host_rejection_is_capacity_authority": true,
     "known_host_capacity_is_advisory_ceiling": true,
+    "product_managed_children_max": 4,
+    "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-3",
+  "schema_version": "4.0.0-native-core-candidate-4",
   "semantic_roles": [
     "main",
     "work",
