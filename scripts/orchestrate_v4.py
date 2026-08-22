@@ -274,6 +274,7 @@ def prepare_correction(
     orchestration_id: str,
     execution_id: str,
     tool_input: Mapping[str, Any],
+    correction_basis_ref: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     require_control_session(thread_id, orchestration_id=orchestration_id, temp_root=temp_root)
@@ -281,6 +282,7 @@ def prepare_correction(
         thread_id,
         execution_id=execution_id,
         tool_input=tool_input,
+        correction_basis_ref=correction_basis_ref,
         temp_root=temp_root,
     )
 
