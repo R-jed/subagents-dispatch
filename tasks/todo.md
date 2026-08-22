@@ -31,7 +31,7 @@
   - Files: `scripts/host_capabilities.py`, scheduler/doctor consumers, contracts, tests.
 
 - [ ] Documentation truth closure: current authority sweep
-  - Acceptance: current contracts/docs consistently describe the two-Skill Orchestrate/Doctor surface, WorkGraph authority, evidence-gated recovery, generation-safe compaction, and current V4 terminology; retired standalone Dispatch/Preview product wording is removed from current-authority prose.
+  - Acceptance: current contracts/docs consistently describe the two-Skill Orchestrate/Doctor surface, WorkGraph authority, evidence-gated recovery, generation-safe compaction, and current V4 terminology; retired standalone pre-Orchestrate product wording is removed from current-authority prose.
   - Verify: repository-wide current-authority regression scan plus exact-head review.
 
 - [ ] Documentation truth closure: eval migration
