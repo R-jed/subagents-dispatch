@@ -9,7 +9,7 @@ a managed child can reach the Host.
 from __future__ import annotations
 
 import os as _os
-from typing import Sequence as _Sequence
+from typing import Mapping as _Mapping, Sequence as _Sequence
 
 import dispatch_state_v4 as _state
 import execution_lifecycle_v4_core as _core
@@ -32,6 +32,27 @@ def _active_managed_count(current: dict | None) -> int:
     )
 
 
+def _next_attempt_no(current: _Mapping | None, unit_id: str) -> int:
+    if current is None:
+        return 1
+    greatest = max(
+        (
+            int(item.get("attempt_no", 0))
+            for item in current.get("executions", [])
+            if isinstance(item, _Mapping) and item.get("unit_id") == unit_id
+        ),
+        default=0,
+    )
+    for event in current.get("accounting_refs", []):
+        if (
+            isinstance(event, _Mapping)
+            and event.get("kind") == "execution_history"
+            and event.get("unit_id") == unit_id
+        ):
+            greatest = max(greatest, int(event.get("max_attempt_no", 0)))
+    return greatest + 1
+
+
 def allocate_execution(
     thread_id: str,
     *,
@@ -50,6 +71,21 @@ def allocate_execution(
     if _active_managed_count(current) >= _PRODUCT_CHILD_LIMIT:
         raise ExecutionLifecycleError(
             f"product managed child limit {_PRODUCT_CHILD_LIMIT} is reached"
+        )
+    if current is None:
+        raise ExecutionLifecycleError("active V4 state is unavailable")
+    attempt_no = _next_attempt_no(current, unit_id)
+    try:
+        expected_task_name = _state.native_task_name_for(
+            current,
+            unit_id=unit_id,
+            attempt_no=attempt_no,
+        )
+    except _state.StatePayloadError as exc:
+        raise ExecutionLifecycleError(str(exc)) from exc
+    if native_task_name != expected_task_name:
+        raise ExecutionLifecycleError(
+            f"native_task_name must match WorkUnit attempt generation: {expected_task_name}"
         )
 
     result = _core.allocate_execution(
