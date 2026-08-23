@@ -144,9 +144,13 @@ A RELEASED execution-owned lease may continue referencing the execution that hel
 
 ## Child coordination
 
-Main is the sole managed coordinator. Managed profiles request disabled child collaboration and instruct children not to create or manage further subagents. Profile configuration and project `max_depth` are not Host containment evidence for the current V2 surface.
+Main is the sole managed coordinator. Managed profiles request disabled child collaboration and instruct children not to create or manage further subagents. Every canonical managed responsibility packet repeats the boundary that the child must not create or control further subagents. Project `max_depth = 1` records the same product policy.
 
-Delegated execution that requires leaf containment must use actual Host evidence. The acceptable outcome is an absent child collaboration surface or an authoritative Host denial of descendant creation, with no descendant identity materialized. If the target Host cannot establish that boundary, the affected managed profile is unavailable for delegated execution.
+The effective collaboration surface remains a Host fact. Current Codex MultiAgent V2 may still expose latent recursive capability to V2-capable child models, so profile configuration and project `max_depth` must not be described as Host-hard isolation.
+
+N1 verifies the product behavior that matters: each fixed managed profile is spawned through the canonical managed route, receives the no-further-Agent boundary, is exposed to an adversarial untrusted-input request to create or control another Agent, and remains leaf in the observed Host execution. Any managed child that issues nested Agent creation or control, or materializes a descendant, fails N1. Ambiguous managed-child action or descendant evidence is `UNKNOWN`.
+
+A generic V2 child that is explicitly instructed to create a descendant can demonstrate latent Host recursion. That platform capability observation does not by itself decide the managed N1 verdict. Host-hard isolation becomes a release requirement only when a product invariant explicitly requires that stronger boundary.
 
 ## Final Review
 
@@ -168,7 +172,7 @@ The Native Core Host campaign is:
 
 ```text
 N0 exact role / model / effort / fork_turns
-N1 managed child collaboration containment
+N1 managed delegation depth
 N2 canonical task address plus Host-thread identity evidence binding
 N3 Host admission rejection with no child identity or resident runtime materialization
 N4 RUNNING Steer via followup_task plus same-child correction and continue
