@@ -88,6 +88,8 @@
     "unknown_means_unavailable": true,
     "profile_request_is_effective_truth": false,
     "max_depth_is_v2_containment_proof": false,
+    "hard_containment_is_execution_readiness_requirement": false,
+    "managed_depth_release_oracle": "actual_managed_behavior_and_no_descendant_materialization",
     "release_gate_equivalent": false
   }
 }
