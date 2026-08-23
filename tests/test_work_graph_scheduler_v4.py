@@ -35,6 +35,7 @@ def capability_snapshot(*, capacity: int | None = 4, ready: bool = True) -> dict
             "surface": "multi_agent_v2",
             "tools": tools,
             "fork_turns_none": ready,
+            "managed_child_containment": "verified",
             "max_concurrent_threads_per_session": capacity,
         }
     )
