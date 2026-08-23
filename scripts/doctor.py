@@ -70,11 +70,11 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _profile_disables_child_collaboration(profile: Mapping[str, Any]) -> bool:
+def _profile_matches_static_containment_posture(profile: Mapping[str, Any]) -> bool:
     instructions = str(profile.get("developer_instructions", "")).lower()
     return (
-        profile.get("agents", {}).get("enabled") is False
-        and profile.get("features", {}).get("multi_agent_v2") is False
+        "agents" not in profile
+        and "features" not in profile
         and "create further subagents" in instructions
     )
 
@@ -214,7 +214,7 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         if (
             profile.get("model") != spec["model"]
             or profile.get("model_reasoning_effort") != spec["effort"]
-            or not _profile_disables_child_collaboration(profile)
+            or not _profile_matches_static_containment_posture(profile)
         ):
             mismatches.append(role)
     if mismatches:
