@@ -13,6 +13,16 @@ For plan-only requests, read `../../contracts/policy.json` and `../../contracts/
 
 When delegation adds value, read `../../contracts/policy.json` and `../../contracts/routing.md`. Main creates one or more WorkUnits and selects one fixed managed profile explicitly for each delegated responsibility. Runtime code validates that selection. Do not dynamically change child model or reasoning effort and do not apply an automatic Luna, Terra, Sol escalation ladder.
 
+The exact managed Host selectors are part of the product contract:
+
+- Reader: `subagents_dispatch_reader`
+- Worker: `subagents_dispatch_worker`
+- Investigator: `subagents_dispatch_investigator`
+- Solver: `subagents_dispatch_solver`
+- Advisor: `subagents_dispatch_advisor`
+
+Before every native spawn, call the Orchestrate facade `prepare_managed_spawn` for the current ExecutionBinding and pass its returned `tool_input` to `spawn_agent` unchanged. The facade derives the canonical payload through `build_managed_spawn_tool_input` and validates it with `prepare_spawn`. Do not handwrite or override `task_name`, `message`, `agent_type`, or `fork_turns` at the Host call site. Never substitute a built-in or generic Host Agent type for a managed profile. If the exact managed `agent_type` is unavailable, omitted from the callable Host surface, or rejected by the Host, stop delegated execution and report the Host limitation. Do not fall back to a generic Reader, Worker, default Agent, or another role.
+
 New children use `fork_turns: none`. Delegation depth remains one. Managed children cannot create or control further Agents. The product ceiling is four concurrently active managed children. This is a safety ceiling, not a target. Known lower Host session concurrency may reduce the projected child slots after accounting for the primary agent; unknown numeric Host capacity is not guessed and does not require a synthetic occupancy token. Missing required Host capability evidence stops delegated execution.
 
 WorkGraph is the responsibility structure truth for one or many WorkUnits. Before spawning a selected responsibility, read `../../contracts/responsibility-packet.md` and serialize only the task-needed goal, constraints, interfaces, accepted evidence, ownership, and acceptance condition. Do not automatically copy the full Main history into a fresh child.

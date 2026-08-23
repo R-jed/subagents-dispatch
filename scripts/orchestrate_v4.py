@@ -22,6 +22,7 @@ import scheduler_v4 as scheduler
 _PROFILE_SPECS = policy_contract.profile_contracts()
 FIXED_PROFILES = {
     role: {
+        "agent_type": spec["agent_type"],
         "model": spec["model"],
         "effort": spec["effort"],
         "authority_ceiling": spec["mutation_authority"],
@@ -173,6 +174,31 @@ def _validate_message_control_input(
     if not isinstance(message, str) or not message.strip():
         raise OrchestrateError("native control message must be non-empty")
     return copy.deepcopy(dict(tool_input))
+
+
+def prepare_managed_spawn(
+    thread_id: str,
+    *,
+    orchestration_id: str,
+    execution_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Return the only Host spawn payload allowed for the current managed execution."""
+    current = require_control_session(
+        thread_id, orchestration_id=orchestration_id, temp_root=temp_root
+    )
+    _current_control_execution(current, execution_id=execution_id)
+    tool_input = lifecycle.build_managed_spawn_tool_input(
+        thread_id,
+        execution_id=execution_id,
+        temp_root=temp_root,
+    )
+    return lifecycle.prepare_spawn(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        temp_root=temp_root,
+    )
 
 
 def status_view(
