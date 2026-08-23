@@ -6,7 +6,7 @@ This is the current V4 routing contract. The main session owns the user goal, de
 
 ## Delegation value
 
-Keep work in the main session when a child would mostly duplicate context, add handoff cost, or provide no useful isolation, parallelism, capability uplift, read-heavy investigation, or independent judgment. Zero children is a normal outcome.
+Keep work in the main session when a child would mostly duplicate context, add handoff cost, or provide no useful isolation, parallelism, read-heavy investigation, or independent judgment. Zero children is a normal outcome.
 
 Task size, file count, expense, or a description such as complex does not by itself justify delegation. The main session creates only responsibilities that can make useful progress and may add more WorkUnits later when new independent work becomes clear.
 
@@ -34,7 +34,13 @@ Use Solver when material judgment is coupled to implementation and cannot be sep
 
 Use Advisor for a demanding read-only second judgment or the fresh independent review required by `final-review.md`.
 
-Failure does not define a model ladder. A weak Luna result, one failed test, low confidence, or task size does not automatically route work to Terra or Sol. The main session reassesses the unresolved responsibility and selects the fixed profile that fits the remaining need.
+For the current RC, all five managed roles use Luna Max because that is the Host-qualified containment-safe managed lane. The semantic role names remain useful for responsibility and authority separation, but they do not imply a Terra or Sol capability uplift. Main judgment coverage is evaluated independently against the explicit Sol High reference in `policy.json`.
+
+If a responsibility specifically requires capability above the qualified managed lane and Main does not already provide the required judgment coverage, keep that material decision in Main or report the current Host containment limitation. Do not present a Luna Solver, Investigator, or Advisor as evidence that Terra or Sol capability was obtained.
+
+A Host/model update that makes the managed model V2-capable or otherwise changes effective child collaboration exposure invalidates the containment qualification. Stop delegated execution until current Host evidence re-establishes N1 containment.
+
+Failure does not define a model ladder. A weak Luna result, one failed test, low confidence, or task size does not automatically authorize an unqualified higher-model child. The main session reassesses the unresolved responsibility and selects only a currently qualified fixed profile that fits the remaining need.
 
 ## Responsibility semantics
 
