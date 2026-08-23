@@ -1,5 +1,5 @@
 {
-  "schema_version": 10,
+  "schema_version": 11,
   "delegation": {
     "max_depth": 1,
     "fork_turns": "none",
@@ -21,7 +21,9 @@
     ]
   },
   "capability_dedup": {
-    "reference_role": "solver",
+    "reference_model": "gpt-5.6-sol",
+    "reference_effort": "high",
+    "managed_lane_provides_reference_uplift": false,
     "model_aliases": [
       "gpt-5.6"
     ],
