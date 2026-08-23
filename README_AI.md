@@ -20,7 +20,7 @@ Keep one machine owner per semantic fact.
 
 `contracts/policy.json` owns fixed profile and product policy values. `docs/v4/architecture.json` owns the complete V4 machine architecture and runtime owner map. `docs/v4/host-smoke.json` owns the candidate-bound N0-N8 real Host release oracle.
 
-`docs/v4/phase-status.json` is process bookkeeping only. It may say that repository remediation or release gates are pending, but it must not be treated as exact-candidate CI evidence. Exact commit, workflow and Host evidence come from current GitHub and Issue #91.
+Current candidate commit, workflow status, and pull-request state come directly from GitHub. Real Host release evidence comes from Issue #91 and authoritative Host observation. Do not add a tracked status JSON that copies current candidate SHA, CI result, or Host verdict because updating that file creates a new commit and immediately makes its own candidate identity stale.
 
 Human documentation should explain or link these owners. Do not create another machine projection simply to restate routing, scheduler, writer, Host-feasibility, or release semantics already owned by the canonical contracts. Tests should target owner data, schemas and observable behavior instead of requiring copied prose to stay synchronized across documents.
 
