@@ -170,9 +170,11 @@ No phase auto-continues. After every H0 through H9 phase:
 7. perform a fresh Issue #91 preflight before any next-phase Host action;
 8. continue only after explicit user instruction.
 
+H10 also receives a `headoff.md` record, using the special post-decision rule from `tasks/real-host-qualification-plan.md`. Do not mutate the frozen final candidate before the release decision merely to write that H10 record.
+
 The allowed phase terminal states are `PASS_STOP`, `NOT_RUN_STOP`, `UNKNOWN_STOP`, `FAIL_STOP`, and `MUTATION_STOP`. `UNKNOWN_STOP`, `FAIL_STOP`, and `MUTATION_STOP` always block later Host phases until their cause is resolved. `NOT_RUN_STOP` blocks later Host phases until the missing prerequisite or capability basis changes.
 
-Within H3, stop after each managed profile before advancing to the next profile. Within H7, stop internally after N5 settlement before attempting N6 takeover. H5 must finish with all deliberately created children settled or cleaned before the phase can close.
+Within H3, stop after each managed profile before advancing to the next profile. Within H7, stop internally after N5 settlement before attempting N6 takeover. H5 must finish with all deliberately created children settled or cleaned before the phase can close. H5 may not exceed the product managed-child ceiling to manufacture a Host rejection. If safe saturation cannot be staged within product policy, N3 stops as `NOT_RUN_STOP`.
 
 The H9 checkpoint requires special handling. Recording H9 in `headoff.md` changes release-source identity. Because N8 and Final Review bind the exact candidate artifact, freeze the post-checkpoint source and perform one justified N8 revalidation on that exact head. Do not mutate `headoff.md` again after that revalidation before Final Review and release closure. The final N8 result stays canonical in Issue #91.
 
@@ -212,7 +214,7 @@ Follow this sequence for repository changes:
 11. Re-run or inspect post-merge exact-head CI and compare source/synthetic tree when relevant.
 12. Update Issue #91 for release evidence without using tracked repository files as the live Host ledger.
 13. Update `headoff.md` when project background, durable workflow, important development trajectory, current phase or next direction materially changes.
-14. During the real Host campaign, every H0 through H9 phase stop requires a `headoff.md` checkpoint before the next phase.
+14. During the real Host campaign, every H0 through H9 phase stop requires a `headoff.md` checkpoint before the next phase. H10 follows the post-decision checkpoint rule in the staged plan.
 
 Never mark repository work complete before verification.
 
