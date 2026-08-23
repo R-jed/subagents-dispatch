@@ -26,7 +26,7 @@ migration
 verification_gap
 ```
 
-Interpret these by consequence. Process history such as Terra use, Solver use, recovery, a large diff, or many changed files is not a trigger by itself.
+Interpret these by consequence. Process history such as Investigator use, Solver use, recovery, a large diff, or many changed files is not a trigger by itself.
 
 If process history leaves a real material uncertainty that deterministic verification cannot close, record the actual semantic reason such as `verification_gap`.
 
@@ -82,7 +82,9 @@ agent_type: subagents_dispatch_advisor
 fork_turns: none
 ```
 
-Fresh context is required even when the main session is already Sol, Sol Solver implemented part of the work, or Sol Advisor previously answered a planning question. Those uses provide capability, not independent acceptance of the final integrated candidate.
+Fresh context is required even when the main session already meets the Sol High judgment reference, a Solver implemented part of the work, or an Advisor previously answered a planning question. Earlier work may provide useful evidence or capability, but it does not independently accept the final integrated candidate.
+
+The current RC Advisor is a containment-safe Luna Max managed lane. Its role provides fresh independent context and review responsibility. It does not by itself prove Sol-level capability uplift. If the review obligation specifically requires capability beyond the qualified managed lane and Main cannot close that gap with deterministic evidence, return `INSUFFICIENT_EVIDENCE` and report the current Host containment limitation.
 
 Strict Final Review also requires current Host evidence that the Advisor's effective sandbox and permission state satisfy the read-only boundary. `sandbox_mode = read-only`, mutation authority `none`, profile feature flags, and developer instructions are configured or behavioral intent. They do not prove the effective Host boundary.
 
