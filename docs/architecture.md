@@ -88,7 +88,7 @@ WorkUnit records stable responsibility and acceptance truth. ExecutionBinding re
 
 Host `COMPLETED` produces candidate work and maps to `WorkUnit.RESULT_READY`. Main verifies the actual artifact and explicitly accepts the WorkUnit. Dependencies unlock only from `ACCEPTED`.
 
-Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction never makes stale Host evidence current again.
+Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction never makes stale Host evidence current again. Monotonic attempt generations preserve generation-distinct canonical native task names, so compacted history cannot cause a later execution to reuse an older Host control address.
 
 ## Native lifecycle
 
@@ -106,7 +106,7 @@ Recognized success binds observed child identity and lifecycle. A recognized pre
 
 FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch` before a later Host generation may become current. Writable reactivation reserves or retains WriterLease first.
 
-STEER targets a currently RUNNING child through the current V2 `followup_task` primitive without creating a replacement child or changing the ExecutionBinding generation. Release qualification requires post-guidance evidence that the original child consumed the guidance; successful tool-call acceptance alone is insufficient proof.
+STEER targets a currently RUNNING child through the current V2 `followup_task` primitive without creating a replacement child or changing the ExecutionBinding generation. Release qualification requires post-guidance evidence that the same child consumed the guidance; successful tool-call acceptance alone is insufficient proof.
 
 INTERRUPT requests native interruption. The call result alone never releases WriterLease. Current-generation Host settlement is required before writer transfer or takeover.
 
@@ -175,7 +175,7 @@ N0 exact role / model / effort / fork_turns plus managed-model Host metadata
 N1 managed child collaboration containment
 N2 canonical task address plus Host-thread identity evidence binding
 N3 Host admission rejection with no child identity or resident runtime materialization
-N4 RUNNING Steer via followup_task plus same-child correction and continue
+N4 RUNNING Steer via followup_task plus same child correction and continue
 N5 interrupt and settlement observation
 N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
