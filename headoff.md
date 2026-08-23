@@ -90,6 +90,8 @@ Release source identity is the exact final Git commit/tree. It is used by final 
 
 Do not infer invalidation from the fact that HEAD changed. Decide it from the qualification basis for Host evidence and from the final source identity for release-source checks.
 
+Host environment identity and current-turn Host capability are separate facts. A valid root `session_id`/`thread_id` binding can remain true while a later turn exposes a different collaboration version. Any probe step that invokes Native Subagent V2 Agent-control tools must therefore bind capability to its exact `turn_id`; an earlier V2 turn in the same session cannot satisfy the current probe-turn capability precondition.
+
 ## Important development trajectory
 
 The current V4 line has already completed the major repository remediation and simplification work:
@@ -102,9 +104,11 @@ The current V4 line has already completed the major repository remediation and s
 6. Prose-mirror tests were replaced with structural, contract and behavior checks where wording itself was not an interface.
 7. Repository qualification has passed on the required CI matrix for the current release line. Always verify the current exact source head again from GitHub after a repository change.
 8. Real Host binding exposed an undefined generic `run_id` requirement. The Host campaign contract and release-evidence verifier were corrected to use Codex-native root `session_id` and `thread_id` identities with explicit authoritative evidence sources and fail-closed `UNKNOWN` handling.
-9. The corrected Host-binding workflow was exercised on a real fresh Codex root task. The evidence chain successfully correlated exact checkout, clean worktree, Host build, embedded Codex version, platform, architecture, `CODEX_THREAD_ID`, one exact root rollout, `session_meta.id`, `session_meta.session_id`, repository cwd and Native Subagent V2 runtime.
-10. The root environment binding reached PASS without spawning or controlling any Agent and without repository mutation during the binding step.
-11. A later review found that the external release-evidence verifier still conflated Host qualification with Git commit/tree. That design is being corrected so handoff/documentation updates do not force needless Host reruns when the runtime/profile/Host-contract digests are unchanged.
+9. The corrected Host-binding workflow was exercised on a real fresh Codex root task. The evidence chain successfully correlated exact checkout, clean worktree, Host build, embedded Codex version, platform, architecture, `CODEX_THREAD_ID`, one exact root rollout, `session_meta.id`, `session_meta.session_id`, repository cwd and an observed Native Subagent V2 turn.
+10. The root environment identity binding reached PASS without spawning or controlling any Agent and without repository mutation during the binding step.
+11. The external release-evidence verifier was corrected to separate Host qualification identity from final Git commit/tree, so source-only handoff or release-tooling changes do not force needless Host reruns when runtime/profile/Host-contract digests are unchanged.
+12. Turn-timeline reconciliation then showed that the same root session later resumed into a second rollout segment whose N0 request turn and schema-inspection turn were authoritatively `multi_agent_version=v1`. The V1-like callable schema matched that exact turn, so there was no same-turn Host contradiction and no Agent was spawned. This exposed a qualification-protocol defect: a historical V2 turn had been treated too broadly as reusable current capability evidence.
+13. The Host campaign contract now separates stable environment identity from probe-turn capability. Current V2 capability must be established from Host-produced `turn_context.multi_agent_version` and the callable tool schema for the exact probe `turn_id`. Historical-turn V2 evidence cannot satisfy a later probe. V1, disabled, unobservable, or conflicting current-turn capability leaves the affected Agent-control step `NOT_RUN` and forbids the Agent-control action.
 
 The active release work is real Codex Host qualification followed by the remaining release gates. New product feature development is out of scope unless a Host probe finds a real defect or the user changes direction.
 
@@ -125,27 +129,30 @@ The latest qualification work established these workflow facts:
 - Host environment binding requires the current root `session_id` and `thread_id` from the authoritative sources defined in `docs/v4/host-smoke.json`; generic `run_id` is not part of the release contract;
 - `thread_id` may be bound from current root tool-execution `CODEX_THREAD_ID` and must agree with the exact root rollout `session_meta.id` when both are used;
 - `session_id` may be bound from `session_meta.session_id`; equality between root `session_id` and `thread_id` is valid when that is what the Host reports;
-- the verified Host environment used macOS 27.0 build 26A5416b on arm64, ChatGPT/Codex Desktop bundle `com.openai.codex`, Host short version `26.818.41509`, bundle build `6962`, embedded rollout Codex `0.149.0-alpha.4.1`, and Native Subagent V2;
-- the complete root Host environment binding was recorded as PASS in Issue #91 before N0;
-- N0 and N1 had not started at the time this handoff was refreshed.
+- the verified Host environment used macOS 27.0 build 26A5416b on arm64, ChatGPT/Codex Desktop bundle `com.openai.codex`, Host short version `26.818.41509`, bundle build `6962`, and embedded rollout Codex `0.149.0-alpha.4.1`;
+- that root environment identity was recorded as PASS in Issue #91 before N0 and remains useful as environment evidence;
+- an early turn in that root session exposed Native Subagent V2, but the exact later N0 request turn and schema-inspection turn were V1 with a matching V1-like spawn surface;
+- N0 therefore did not run, no `spawn_agent` call was issued, no child materialized, and the repository working tree remained clean;
+- a prior-turn V2 observation must now be treated as historical capability evidence only. It cannot authorize an Agent-control action in a later turn.
 
 For exact IDs, source SHA/tree, ledger comment IDs and live PASS/UNKNOWN state, use Issue #91. Do not copy those volatile values from this document into a new decision without checking the ledger.
 
 ## Next development direction
 
-Finish the Host-qualification identity separation first. This is release tooling and handoff correctness work. It must not change the shipped runtime manifest, managed profile contract or Host campaign contract.
+Finish and verify the probe-turn capability qualification repair first. This changes the Host campaign contract digest, so the Host qualification basis changes even though shipped runtime/profile bytes do not.
 
-After that source-only fix is merged and repository CI is green:
+After the repair is merged and repository CI is green:
 
-1. Compare the three Host qualification digests with the basis used by the already-PASS root Host environment binding.
-2. If all three are unchanged, record `REUSE` in Issue #91 for the Host environment binding. Do not restart or repeat the binding merely because the Git commit changed.
-3. Confirm the local installed Plugin/package/profile basis remains healthy.
-4. Apply the N0 preflight using `REUSE | RERUN | NOT_RUN`.
-5. Run N0 only when that preflight authorizes the first managed spawn.
-6. Run revised N1 through every fixed managed profile only when N0 and the N1 preflight permit it. Include the adversarial nested-delegation request and inspect authoritative child action plus descendant identity/spawn-edge evidence.
-7. Continue N2-N8 only after the required earlier gates pass.
-8. After N0-N8, run final-source repository checks, a fresh Final Review, installed-product/external evidence checks and human two-Skill App observation.
-9. Keep publication blocked until every required gate is PASS.
+1. Refresh the three Host qualification digests and record the changed `host_contract_sha256` basis in Issue #91.
+2. Preserve the existing root `session_id`/`thread_id`, Host build and platform observations as environment evidence where their own semantics remain valid, but do not reuse the historical V2 turn as current capability proof.
+3. Record the reconciled current root N0 state in Issue #91: exact N0 turn is V1, V1-like schema is consistent, no Agent action occurred, and N0 remains `NOT_RUN` on that root.
+4. Apply the required ledger preflight before any further real Host action. The changed basis is the now-explicit same-turn capability contract plus the proved V1 current N0 turn, not merely the creation of a new conversation.
+5. Use a fresh Host root only when the preflight authorizes a changed-basis attempt. Bind its environment identity, then establish `multi_agent_version=v2` and the V2 callable schema for the exact probe turn before the first N0 spawn.
+6. Run N0 only after the exact-turn capability precondition passes. Do not translate V1 `fork_context` into V2 `fork_turns` or otherwise emulate V2 through compatibility behavior.
+7. Run revised N1 through every fixed managed profile only after N0 passes and after the exact-turn capability precondition is re-established for each relevant Agent-control step. Include the adversarial nested-delegation request and inspect authoritative child action plus descendant identity/spawn-edge evidence.
+8. Apply the same exact-turn V2 precondition to later Host Agent-control steps covered by the machine contract, then continue N2-N8 in order.
+9. After N0-N8, run final-source repository checks, a fresh Final Review, installed-product/external evidence checks and human two-Skill App observation.
+10. Keep publication blocked until every required gate is PASS.
 
 Do not repeat the old generic recursion probe merely because a new chat/session starts.
 
