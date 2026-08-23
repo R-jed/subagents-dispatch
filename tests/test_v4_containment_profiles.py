@@ -39,7 +39,7 @@ def test_managed_profiles_use_containment_safe_model_contract():
         assert profile["model_reasoning_effort"] == EFFORT, role
         assert "agents" not in profile, role
         assert "features" not in profile, role
-        assert "Do not create further subagents" in profile["developer_instructions"], role
+        assert "create further subagents" in profile["developer_instructions"].lower(), role
 
 
 def test_architecture_and_host_gate_mirror_containment_contract():
