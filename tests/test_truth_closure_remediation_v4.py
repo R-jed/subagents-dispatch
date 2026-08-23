@@ -22,6 +22,7 @@ def current_authority_text_files() -> list[Path]:
         ROOT / "README_EN.md",
         ROOT / "README_AI.md",
         ROOT / "CHANGELOG.md",
+        ROOT / "headoff.md",
     }
     for folder, suffixes in (
         (ROOT / "contracts", {".md", ".json"}),
@@ -211,5 +212,6 @@ def test_candidate_status_has_no_self_stale_git_snapshot_or_duplicate_handoff():
     assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
     assert not (ROOT / "docs" / "v4" / "current-state.md").exists()
     assert not (ROOT / "docs" / "v4" / "development-handoff.md").exists()
-    assert (ROOT / "docs" / "current-state.md").is_file()
+    assert not (ROOT / "docs" / "current-state.md").exists()
+    assert (ROOT / "headoff.md").is_file()
     assert "phase-status.json" not in read_text("README_AI.md")
