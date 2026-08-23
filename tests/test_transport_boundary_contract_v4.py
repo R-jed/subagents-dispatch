@@ -7,10 +7,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_architecture_declares_native_host_lifecycle_and_effective_capability_authority():
-    architecture = json.loads(
+def load_architecture() -> dict:
+    return json.loads(
         (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
     )
+
+
+def test_architecture_declares_native_host_lifecycle_and_effective_capability_authority():
+    architecture = load_architecture()
 
     assert architecture["host_truth"] == {
         "capacity_owner": "codex_host",
@@ -22,23 +26,21 @@ def test_architecture_declares_native_host_lifecycle_and_effective_capability_au
     }
 
 
-def test_orchestrate_machine_contract_matches_native_core_authority():
-    orchestrate = json.loads(
-        (ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8")
-    )
+def test_architecture_owns_orchestrate_transport_and_managed_depth_authority():
+    architecture = load_architecture()
 
-    assert orchestrate["public_target"] == ["orchestrate", "doctor"]
-    assert orchestrate["host_execution"] == "native_host_only"
-    assert orchestrate["lifecycle_authority"] == "codex_host"
-    assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
-    assert orchestrate["managed_child_depth_policy"] == "behavioral_leaf_with_host_observed_no_descendant"
-    assert "managed_child_containment" not in orchestrate
+    assert architecture["public_skills"] == ["orchestrate", "doctor"]
+    assert architecture["runtime_owners"]["orchestration"] == "scripts/orchestrate_v4.py"
+    assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
+    assert architecture["routing"]["profile_selection_owner"] == "main"
+    assert architecture["delegation"]["max_depth"] == 1
+    assert architecture["delegation"]["max_depth_scope"] == "project_policy"
+    assert architecture["delegation"]["max_depth_is_v2_host_containment_proof"] is False
+    assert "managed children must not create or control descendants" in architecture["invariants"]["I08"]
 
 
 def test_native_core_keeps_main_policy_separate_from_host_transport_truth():
-    architecture = json.loads(
-        (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
-    )
+    architecture = load_architecture()
 
     assert architecture["reconciliation"]["mode"] == "main_driven_native_host_reconciliation"
     assert architecture["reconciliation"]["observation_basis"] == [
