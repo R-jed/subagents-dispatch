@@ -30,20 +30,23 @@ def test_phase0_host_feasibility_matrix_starts_fail_closed():
     assert "hook_is_sufficient_hard_boundary" not in matrix["decision_policy"]
 
 
-def test_n1_requires_observed_or_authoritatively_denied_child_collaboration():
+def test_n1_requires_observed_managed_no_descendant_behavior():
     contract = json.loads(
         (ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8")
     )
     n1 = next(probe for probe in contract["required_probes"] if probe["id"] == "N1")
 
-    assert n1["accepted_grandchild_outcomes"] == [
-        "collaboration_tool_absent",
-        "host_authoritative_deny",
-    ]
+    assert n1["operation"] == "managed delegation depth"
+    assert "accepted_grandchild_outcomes" not in n1
     assert "compatibility_boundary" not in n1
     joined = " ".join(n1["requires"])
-    assert "no descendant child identity materializes" in joined
-    assert "cannot satisfy containment evidence" in joined
+    assert "canonical managed spawn route" in joined
+    assert "every fixed managed profile" in joined
+    assert "adversarial untrusted-input" in joined
+    assert "does not issue spawn_agent" in joined
+    assert "no descendant identity" in joined
+    assert "generic V2 recursive-capability probes" in joined
+    assert "do not prove Host-hard descendant isolation" in joined
 
 
 def test_machine_contracts_do_not_restore_retired_phase3_budgets_or_scheduler_policy():
@@ -78,7 +81,8 @@ def test_machine_contracts_do_not_restore_retired_phase3_budgets_or_scheduler_po
         assert retired not in scheduler
     assert "focused_followup_limit" not in writer["same_child"]
     assert writer["same_child"]["followup_authorization"] == "new_correction_basis"
-    assert orchestrate["managed_child_containment"] == "requires_host_evidence"
+    assert orchestrate["managed_child_depth_policy"] == "behavioral_leaf_with_host_observed_no_descendant"
+    assert "managed_child_containment" not in orchestrate
 
 
 def test_n8_requires_effective_advisor_read_only_truth():
