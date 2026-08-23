@@ -28,6 +28,35 @@ def load_module(name: str, filename: str):
         sys.path.remove(scripts)
 
 
+def install_spawn_pending_reader(tmp_path: Path):
+    state = load_module("orch_state_spawn", "dispatch_state_v4.py")
+    graph = load_module("orch_graph_spawn", "work_graph_v4.py")
+    lifecycle = load_module("orch_lifecycle_spawn", "execution_lifecycle_v4.py")
+    state.write_state(state.new_state(thread_id="thread-spawn"), temp_root=tmp_path)
+    unit = graph.make_work_unit(
+        unit_id="U1",
+        intent="inspect",
+        goal="inspect one bounded target",
+        output="evidence",
+        done_when="Main can verify the evidence",
+        interfaces=["README_AI.md"],
+        invariants=["repository remains unchanged"],
+        decision_boundary="Return only bounded evidence to Main.",
+        stop_boundary="Stop and report any scope or safety blocker to Main.",
+    )
+    graph.install_single_work_unit("thread-spawn", unit=unit, temp_root=tmp_path)
+    lifecycle.allocate_execution(
+        "thread-spawn",
+        unit_id="U1",
+        execution_id="exec-1",
+        native_task_name="sd_u1_a1",
+        profile_id="reader",
+        granted_authority="none",
+        temp_root=tmp_path,
+    )
+    return state
+
+
 def install_running_reader(tmp_path: Path):
     state = load_module("orch_state_running", "dispatch_state_v4.py")
     graph = load_module("orch_graph_running", "work_graph_v4.py")
@@ -71,8 +100,45 @@ def test_orchestrate_skill_names_every_exact_managed_agent_type():
     for profile_id in ("reader", "worker", "investigator", "solver", "advisor"):
         assert f"`{roles[profile_id]['agent_type']}`" in text
     assert "generic Host Agent" in text
-    assert "build_managed_spawn_tool_input" in text
-    assert "prepare_spawn" in text
+    assert "prepare_managed_spawn" in text
+    assert "Do not handwrite" in text
+
+
+def test_prepare_managed_spawn_owns_exact_host_payload(tmp_path: Path):
+    state = install_spawn_pending_reader(tmp_path)
+    orchestrate = load_module("orch_spawn", "orchestrate_v4.py")
+    before = state.load_state("thread-spawn", temp_root=tmp_path)
+
+    prepared = orchestrate.prepare_managed_spawn(
+        "thread-spawn",
+        orchestration_id="thread-spawn",
+        execution_id="exec-1",
+        temp_root=tmp_path,
+    )
+
+    assert prepared["operation"] == "SPAWN"
+    assert prepared["execution_id"] == "exec-1"
+    tool_input = prepared["tool_input"]
+    assert set(tool_input) == {"task_name", "message", "agent_type", "fork_turns"}
+    assert tool_input["task_name"] == "sd_u1_a1"
+    assert tool_input["agent_type"] == "subagents_dispatch_reader"
+    assert tool_input["fork_turns"] == "none"
+    assert isinstance(tool_input["message"], str) and tool_input["message"]
+    packet = json.loads(tool_input["message"])
+    assert packet["objective"]["goal"] == "inspect one bounded target"
+    assert state.load_state("thread-spawn", temp_root=tmp_path) == before
+
+
+def test_prepare_managed_spawn_rejects_wrong_orchestration(tmp_path: Path):
+    install_spawn_pending_reader(tmp_path)
+    orchestrate = load_module("orch_spawn_wrong_session", "orchestrate_v4.py")
+    with pytest.raises(orchestrate.OrchestrateError, match="active orchestration"):
+        orchestrate.prepare_managed_spawn(
+            "thread-spawn",
+            orchestration_id="wrong-thread",
+            execution_id="exec-1",
+            temp_root=tmp_path,
+        )
 
 
 def test_plan_only_requires_explicit_profile_and_never_creates_runtime_state(tmp_path: Path):
