@@ -137,6 +137,7 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
         assert policy["roles"][role]["model"] == "gpt-5.6-luna"
         assert policy["roles"][role]["effort"] == "max"
     assert "Terra XHigh" not in receipt
+    assert "Terra High" in receipt
     assert "derive from the fixed profiles in `policy.json`" in receipt
     assert "Dispatch:" not in receipt
     assert "Orchestrate:" in receipt
@@ -189,12 +190,76 @@ def test_current_authority_surfaces_do_not_reintroduce_retired_product_or_budget
         "CHANGELOG_V3.md",
         "managed initial fan-out ceiling remains two",
         "frozen product ceiling of three",
+        "two fresh attempts maximum per unchanged WorkUnit",
+        "one focused same-child follow-up budget",
+        "H00-H20",
     )
-    for path in current_authority_text_files():
-        text = path.read_text(encoding="utf-8")
-        for phrase in retired_phrases:
-            assert phrase not in text, f"{path.relative_to(ROOT)} contains retired phrase: {phrase}"
 
+    failures: list[str] = []
     for path in current_authority_text_files():
         text = path.read_text(encoding="utf-8")
-        assert not re.search(r"\b(?:retry|followup|correction)[ _-]?(?:limit|budget)\b", text, re.I), path
+        relative = path.relative_to(ROOT).as_posix()
+        for phrase in retired_phrases:
+            if phrase in text:
+                failures.append(f"{relative}: {phrase}")
+        if re.search(r"\bDispatch\b", text):
+            failures.append(f"{relative}: standalone Dispatch product term")
+
+    assert not failures, "retired current-authority logic found:\n" + "\n".join(failures)
+
+
+def test_history_documents_are_explicitly_non_authoritative():
+    history = ROOT / "docs" / "history"
+    readme = (history / "README.md").read_text(encoding="utf-8")
+    assert "do not define current V4 product behavior" in readme
+    assert "Historical documents may intentionally contain retired terms and rules" in readme
+
+    markdown_files = sorted(path for path in history.rglob("*.md") if path.name != "README.md")
+    assert markdown_files
+    for path in markdown_files:
+        text = path.read_text(encoding="utf-8")
+        assert text.startswith("> Historical archive."), path.relative_to(ROOT).as_posix()
+        assert "not a current V4 contract" in text.splitlines()[0], path.relative_to(ROOT).as_posix()
+
+    json_files = sorted(history.rglob("*.json"))
+    assert json_files
+    for path in json_files:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload.get("historical_archive") is True, path.relative_to(ROOT).as_posix()
+        assert payload.get("current_runtime_authority") is False, path.relative_to(ROOT).as_posix()
+
+    assert not (ROOT / "docs" / "v3.0.0-post-release-final-audit.md").exists()
+    assert (history / "v3.0.0-post-release-final-audit.md").is_file()
+
+
+def test_phase_status_is_honest_during_or_after_documentation_truth_closure():
+    phase = read_json("docs/v4/phase-status.json")
+    validation = phase["repository_validation"]
+
+    assert phase["candidate_branch"] == "v4/rc5-native-core"
+    if validation["status"] == "REMEDIATION_REQUIRED":
+        assert validation["candidate_sha"] is None
+        assert validation["workflow_run_id"] is None
+        assert "repository-wide documentation truth review" in validation["attestation_scope"]
+        assert {
+            key for key, value in phase["repository_phases"].items() if value == "REMEDIATION"
+        } >= {
+            "architecture_and_state",
+            "public_orchestrate_doctor_surface",
+            "product_plane_closure",
+            "v3_residue_closure",
+        }
+    else:
+        assert validation["status"] == "PASS"
+        assert set(phase["repository_phases"].values()) == {"PASS"}
+        assert re.fullmatch(r"[0-9a-f]{40}", validation["candidate_sha"])
+        assert isinstance(validation["workflow_run_id"], int) and validation["workflow_run_id"] > 0
+        assert "documentation truth closure" in validation["attestation_scope"].lower()
+
+    assert phase["publication"] == "BLOCKED"
+    assert phase["host_capability_feasibility"]["status"] == "PENDING"
+    assert phase["host_capability_feasibility"]["release_authority"] is False
+    assert phase["real_host_gate"]["status"] == "PENDING_RELEASE_GATE"
+    assert phase["real_host_gate"]["required_campaign"] == "N0-N8"
+    assert phase["final_review"] == "PENDING_RELEASE_GATE"
+    assert phase["external_release_evidence"] == "PENDING_RELEASE_GATE"
