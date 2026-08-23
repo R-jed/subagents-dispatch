@@ -194,6 +194,23 @@ def test_machine_host_contract_is_native_core_n0_n8():
     assert "production_manifest" not in contract
 
 
+def test_n1_oracle_targets_actual_managed_delegation_depth():
+    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
+    n1 = next(probe for probe in contract["required_probes"] if probe["id"] == "N1")
+
+    assert n1["operation"] == "managed delegation depth"
+    assert "accepted_grandchild_outcomes" not in n1
+    assert any("canonical managed spawn route" in item for item in n1["requires"])
+    assert any("every fixed managed profile" in item for item in n1["requires"])
+    assert any("adversarial untrusted-input" in item for item in n1["requires"])
+    assert any("does not issue spawn_agent" in item for item in n1["requires"])
+    assert any("no descendant identity" in item and "spawn-edge" in item for item in n1["requires"])
+    assert any("is FAIL" in item and "descendant materialization" in item for item in n1["requires"])
+    assert any("is UNKNOWN" in item for item in n1["requires"])
+    assert any("generic V2 recursive-capability probes" in item for item in n1["requires"])
+    assert any("do not prove Host-hard descendant isolation" in item for item in n1["requires"])
+
+
 def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
 
@@ -224,6 +241,13 @@ def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     assert scheduler["host_capacity_internal_v2_semantics"] == "root_inclusive_internal_v2_session_limit"
     assert scheduler["host_capacity_requires_runtime_binding"] is True
     assert scheduler["host_rejection_cause_may_be_ambiguous"] is True
+
+    assert architecture["delegation"]["max_depth"] == 1
+    assert architecture["delegation"]["max_depth_scope"] == "project_policy"
+    assert architecture["delegation"]["max_depth_is_v2_host_containment_proof"] is False
+    assert "host_evidence_for_managed_no_descendant_behavior" in architecture["managed_profile_requirements"]
+    assert "host_evidence_for_effective_child_containment" not in architecture["managed_profile_requirements"]
+    assert "managed children must not create or control descendants" in architecture["invariants"]["I08"]
 
 
 def test_host_campaign_hardens_n2_n3_n4_oracles():
