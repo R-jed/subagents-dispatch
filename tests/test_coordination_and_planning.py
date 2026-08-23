@@ -29,25 +29,28 @@ def load_module(name: str, filename: str):
 
 def test_v4_policy_freezes_depth_child_ceiling_writer_and_profiles():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["schema_version"] == 9
+    assert policy["schema_version"] == 10
     assert policy["delegation"] == {
         "max_depth": 1,
         "fork_turns": "none",
         "max_managed_children": 4,
     }
+    assert policy["containment"] == {
+        "managed_model_multi_agent_version": "v1",
+        "v2_capable_managed_child_models_allowed": False,
+        "behavioral_leaf_instruction": "defense_only",
+    }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
     assert policy["fixed_execution_profiles"] == {
         "luna": "max",
-        "terra": "high",
-        "sol": "high",
         "dynamic_effort_routing": False,
     }
     expected = {
         "reader": ("gpt-5.6-luna", "max", "none"),
         "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "high", "none"),
-        "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-        "advisor": ("gpt-5.6-sol", "high", "none"),
+        "investigator": ("gpt-5.6-luna", "max", "none"),
+        "solver": ("gpt-5.6-luna", "max", "bounded-source-write"),
+        "advisor": ("gpt-5.6-luna", "max", "none"),
     }
     for role, (model, effort, authority) in expected.items():
         spec = policy["roles"][role]
@@ -55,8 +58,9 @@ def test_v4_policy_freezes_depth_child_ceiling_writer_and_profiles():
         profile = tomllib.loads((ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8"))
         assert profile["model"] == model
         assert profile["model_reasoning_effort"] == effort
-        assert profile["agents"]["enabled"] is False
-        assert profile["features"]["multi_agent_v2"] is False
+        assert "agents" not in profile
+        assert "features" not in profile
+        assert "create further subagents" in profile["developer_instructions"].lower()
 
 
 def test_routing_evals_match_the_frozen_profile_contract():
