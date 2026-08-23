@@ -13,6 +13,7 @@ NATIVE_RUNTIME = ROOT / "docs" / "native-subagent-runtime.md"
 REMOVED_PROJECTIONS = (
     ROOT / "docs" / "v4" / "host-capability-matrix.json",
     ROOT / "docs" / "v4" / "orchestrate.json",
+    ROOT / "docs" / "v4" / "phase-status.json",
     ROOT / "docs" / "v4" / "scheduler.json",
     ROOT / "docs" / "v4" / "writer-lifecycle.json",
 )
