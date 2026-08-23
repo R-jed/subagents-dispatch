@@ -40,6 +40,6 @@ The remediation kept Main-only managed coordination, delegation depth 1, the fiv
 
 ## Continuation
 
-This plan is closed. Current work continues through `docs/current-state.md`, `docs/v4/host-smoke.json`, `docs/release-checklist.md`, GitHub and Issue #91.
+This plan is closed. New development sessions continue from root `headoff.md`, then consult `docs/v4/host-smoke.json`, `docs/release-checklist.md`, GitHub and Issue #91 as needed.
 
-The next release work is exact installed-candidate and Host-environment binding, followed by the required preflight and revised canonical managed-profile N1 campaign. Publication remains blocked until all required Host and later release gates pass.
+`headoff.md` is the project context-transfer entrypoint for background, important workflow history, current progress and next direction. The next release work is exact installed-candidate and Host-environment binding, followed by the required preflight and revised canonical managed-profile N1 campaign. Publication remains blocked until all required Host and later release gates pass.
