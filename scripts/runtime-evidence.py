@@ -59,12 +59,10 @@ def load_main_coverage_policy() -> tuple[str, str, tuple[str, ...], tuple[str, .
     try:
         payload = load_policy_contract()
         dedup = payload["capability_dedup"]
-        role = dedup["reference_role"]
+        model = dedup["reference_model"]
+        effort = dedup["reference_effort"]
         order = dedup["reasoning_effort_order"]
         aliases = dedup.get("model_aliases", [])
-        reference = payload["roles"][role]
-        model = reference["model"]
-        effort = reference["effort"]
     except (RuntimeError, KeyError, TypeError) as exc:
         fail(f"invalid policy contract for capability dedup: {exc}")
     if not isinstance(model, str) or not model.strip() or not isinstance(effort, str) or not effort.strip():
