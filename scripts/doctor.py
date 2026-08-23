@@ -35,6 +35,11 @@ RECOVERABLE_PROFILE_CHECK_PREFIXES = (
     "Required Codex home is missing:",
     "Current managed-profile manifest is missing or stale:",
 )
+EXPECTED_CONTAINMENT = {
+    "managed_model_multi_agent_version": "v1",
+    "v2_capable_managed_child_models_allowed": False,
+    "behavioral_leaf_instruction": "defense_only",
+}
 
 
 class DoctorError(RuntimeError):
@@ -70,11 +75,11 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _profile_disables_child_collaboration(profile: Mapping[str, Any]) -> bool:
+def _profile_has_leaf_defense(profile: Mapping[str, Any]) -> bool:
     instructions = str(profile.get("developer_instructions", "")).lower()
     return (
-        profile.get("agents", {}).get("enabled") is False
-        and profile.get("features", {}).get("multi_agent_v2") is False
+        "agents" not in profile
+        and "features" not in profile
         and "create further subagents" in instructions
     )
 
@@ -199,9 +204,16 @@ def diagnose_plugin_package() -> dict[str, Any]:
 
 def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
     try:
+        policy = policy_contract.load_policy_contract()
         profiles = policy_contract.profile_contracts()
     except RuntimeError as exc:
         return layer("Managed Agents", "FAIL", f"Managed Agent configuration is unavailable: {exc}")
+    if policy.get("containment") != EXPECTED_CONTAINMENT:
+        return layer(
+            "Managed Agents",
+            "FAIL",
+            "Managed Agent containment contract does not match this Plugin version",
+        )
     mismatches: list[str] = []
     for role, spec in profiles.items():
         try:
@@ -214,7 +226,7 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         if (
             profile.get("model") != spec["model"]
             or profile.get("model_reasoning_effort") != spec["effort"]
-            or not _profile_disables_child_collaboration(profile)
+            or not _profile_has_leaf_defense(profile)
         ):
             mismatches.append(role)
     if mismatches:
