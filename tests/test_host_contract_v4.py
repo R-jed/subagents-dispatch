@@ -117,7 +117,7 @@ def test_known_host_session_capacity_is_advisory_scheduler_ceiling():
     payload["work_units"] = [work_unit("U1"), work_unit("U2"), work_unit("U3")]
     snapshot = host.normalize_host_capabilities(raw_host_evidence(capacity=2))
 
-    decision = scheduler.scheduler_decision(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
+    decision = scheduler.constraint_snapshot(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
 
     assert decision["selection_owner"] == "main"
     assert decision["host_session_capacity"] == 2
@@ -137,7 +137,7 @@ def test_unknown_host_capacity_allows_bounded_product_admission():
     payload["work_units"] = [work_unit("U1"), work_unit("U2"), work_unit("U3")]
     snapshot = host.normalize_host_capabilities(raw_host_evidence(capacity=None))
 
-    decision = scheduler.scheduler_decision(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
+    decision = scheduler.constraint_snapshot(payload, capability_snapshot=snapshot, wakeup_reason="USER_INPUT")
 
     assert decision["selection_owner"] == "main"
     assert decision["host_session_capacity"] is None
@@ -165,14 +165,13 @@ def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():
             "unknown_capability": True,
         },
         "fork_turns_none": True,
-        "managed_child_containment": "verified",
         "max_concurrent_threads_per_session": 4,
         "capacity_includes_primary": True,
         "execution_ready": True,
         "missing": [],
     }
     with pytest.raises(scheduler.SchedulerError, match="normalized|capability set"):
-        scheduler.scheduler_decision(payload, capability_snapshot=forged, wakeup_reason="USER_INPUT")
+        scheduler.constraint_snapshot(payload, capability_snapshot=forged, wakeup_reason="USER_INPUT")
 
 
 def test_release_identity_binds_native_host_contract_digest():
