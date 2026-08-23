@@ -2,7 +2,7 @@
 
 Current product surface: `Orchestrate` and `Doctor`.
 
-Before changing the active release branch, read `docs/current-state.md`. Read GitHub and Issue #91 directly for current candidate, CI and real-Host evidence. Historical development chronology is not an active contract.
+Before changing the active release branch, read root `headoff.md`. It is the development-session context transfer entrypoint for project background, important workflow history, current progress and next direction. Read GitHub and Issue #91 directly for current candidate, CI and real-Host evidence. Historical development chronology is not an active contract.
 
 ## Canonical truth
 
@@ -17,7 +17,7 @@ Keep one owner per semantic fact:
 
 Do not add another tracked status JSON that copies current SHA, CI result or Host verdict. Do not create parallel machine projections of routing, scheduling, writer or Host semantics already owned by the canonical contracts.
 
-`docs/v4/` is reserved for version-specific machine or maintenance contracts. Human continuation notes live in `docs/current-state.md`.
+`docs/v4/` is reserved for version-specific machine or maintenance contracts. Development-session continuation context lives in root `headoff.md`.
 
 ## Runtime ownership
 
