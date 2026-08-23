@@ -2,9 +2,9 @@
 
 初始记录时间：2026-08-23 05:58 +08:00。
 
-最新记录时间：2026-08-23 12:05 +08:00。
+最新记录时间：2026-08-23 12:15 +08:00。
 
-状态：持续维护。正式 release candidate 是 `v4/rc5-native-core@2f2e532ae93393e56ef56ad2a699c017678da0b6`，tree `b8c1c8d948740c8fd7aa2bb0a6ee87608e7e5863`。N0 五个 fixed managed profile 已在真实 Host 上全部 PASS。N1 已在同一 exact candidate / Host basis 上正式 FAIL，因为真实 V2 depth-1 child 成功创建了 depth-2 grandchild，并产生 durable Host thread identity 与 `thread_spawn_edges`。PR #81 继续保持 Draft，publication BLOCKED。当前修复分支为 `fix/v4-n1-host-containment-gate`。
+状态：持续维护。正式 release candidate 是 `v4/rc5-native-core@2f2e532ae93393e56ef56ad2a699c017678da0b6`，tree `b8c1c8d948740c8fd7aa2bb0a6ee87608e7e5863`。N0 五个 fixed managed profile 已在真实 Host 上全部 PASS。N1 已在同一 exact candidate / Host basis 上正式 FAIL，因为真实 V2 depth-1 child 成功创建了 depth-2 grandchild，并产生 durable Host thread identity 与 `thread_spawn_edges`。PR #81 继续保持 Draft，publication BLOCKED。当前修复分支为 `fix/v4-n1-host-containment-gate`，Draft PR #98 正在做 repository validation。
 
 此文件是 V4 的仓库内接手入口。新会话、新维护者或新 Codex session 接手前，先读本文件，再核 GitHub 当前 branch、PR、CI、Issue #91 Real Host Test Ledger 和真实 Host evidence。机器合同优先于本文件，本文件负责连续背景、当前状态、风险、验证纪律和下一步。
 
@@ -72,6 +72,8 @@ V4 目标是 Native Core。优先复用 Host 原生事实，Plugin 只保留自�
 PR #96 `Fix V4 exact managed agent selector drift` 已合并。它把旧 `630a36e...` candidate 升级到当前 `2f2e532a...` candidate，并修复 Main-facing canonical managed spawn path。
 
 当前 N1 修复 branch：`fix/v4-n1-host-containment-gate`，base 为 `2f2e532a...`。
+
+Draft PR #98：`Fail closed on unverified V4 child containment`。首轮 workflow `32617364817` 已证明 manifest、generated package integrity、Ruff 和 Ubuntu 3.11 official OpenAI Plugin validator 正常；首个完成的 macOS full pytest 暴露 14 个旧 Host evidence 测试夹具没有新增 `managed_child_containment` 字段。该问题属于 deliberate schema change 后的 test fixture drift，production normalizer 的 fail-closed 设计不应回退。相关夹具正在本分支修正后重新验证。
 
 当前分支目标是 fail closed 地修复 Host capability readiness 判断，避免任何缺少真实 managed-child containment evidence 的 Host 被误判为 execution ready。它不降低 N1 machine contract，也不声称当前 Host 已具备 containment。
 
@@ -344,7 +346,7 @@ Advisor：
 - child `01a02c6a-2559-7fa3-a321-37b4afad31dd`
 - terminal settlement PASS
 
-Advisor 的 canonical spawn 位于同一 root thread 的 continuation rollout。初始 root rollout 没包含该 spawn，后续 Host evidence search 发现 continuation rollout 后完成绑定。没有重跑 Advisor。
+Advisor 的 canonical spawn 位于同一 root thread 的 continuation rollout。初始 root rollout没包含该 spawn，后续 Host evidence search发现 continuation rollout 后完成绑定。没有重跑 Advisor。
 
 ## 15. N1 machine contract
 
@@ -555,7 +557,7 @@ Authority：`docs/v4/host-smoke.json`。
 - PR #90：建立 live V4 handoff、README_AI 入口，解决 CI / self-update loop 和 trailing newline regression。
 - PR #92：扩展 complete takeover background，建立 Issue #91 Real Host Test Ledger，合并后 candidate `630a36e...`。
 - PR #96：修 exact managed selector 和 canonical Main-facing spawn facade，合并后 candidate `2f2e532a...`。
-- 当前 branch `fix/v4-n1-host-containment-gate`：由 exact-candidate formal N1 grandchild materialization FAIL 触发。
+- PR #98：fail closed on unverified V4 child containment，当前 Draft，repository validation 进行中。
 
 ## 24. 禁止错误推理
 
@@ -603,7 +605,7 @@ CI、review、Host evidence、PR metadata属于 external evidence。禁止只为
 
 当前允许路径：
 
-1. 完成 `fix/v4-n1-host-containment-gate` 的 repository CI；
+1. 完成 PR #98 修正后的 repository CI；
 2. 检查 package integrity、official validator、Ruff、full pytest、managed Agent lifecycle、四平台 aggregate；
 3. 对抗性 review capability三态设计，确认任何 missing / failed / unknown containment 都不能 execution ready；
 4. review 无 blocking finding 后合并修复到 `v4/rc5-native-core`；
@@ -645,3 +647,9 @@ Current candidate `2f2e532a...` 完成 N0 五 profile formal Host campaign并整
 建立 `fix/v4-n1-host-containment-gate`。`scripts/host_capabilities.py` 引入必填三态 `managed_child_containment = verified | failed | unknown`。只有 `verified` 才能 `execution_ready=true`；`failed` / `unknown` 都 fail closed。回归测试覆盖 failed、unknown、missing和非法值，并让 Doctor Host integration在 failed containment evidence 下明确 FAIL。
 
 本修复只修 readiness / diagnosis contract，不伪造 current Host已修复。N1 machine contract保持原强度。真正重新开放 N1 Host campaign仍需要 Host containment primitive、Host V2 depth enforcement或经过正式架构决策的其它 pre-materialization enforcement。
+
+### H011 2026-08-23 12:15 +08:00
+
+PR #98 首轮 workflow `32617364817` 在 macOS full pytest 暴露 `14 failed, 520 passed`。失败都来自旧测试夹具仍构造四字段 Host evidence，缺少新必填 `managed_child_containment`。generated package integrity 和 Ruff已在该 workflow 先行 PASS，Ubuntu 3.11 official OpenAI Plugin validator也已 PASS，因此没有证据表明 package hash或 production normalizer本身失效。
+
+修复原则保持 fail closed：不为旧夹具给 normalizer增加隐式默认 `verified`。已更新 `test_host_adapter_remediation_v4.py`、`test_host_contract_v4.py`、`test_host_observation_truth_v4.py`、`test_orchestrate_v4.py`、`test_orchestration_recovery_v4.py`、`test_runtime_invariants_v4.py`、`test_work_graph_scheduler_v4.py` 中代表已验证 Host 的 fixture/input，显式加入 `managed_child_containment="verified"`。测试 Host surface、scheduler、recovery和Orchestrate语义继续各自验证原目标，同时新 containment gate仍由专门回归测试覆盖 missing / failed / unknown。下一步必须以新 PR head重新跑完整四平台 matrix。
