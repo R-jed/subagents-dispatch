@@ -61,12 +61,12 @@ def make_execution(
     attempt_no: int = 1,
     control_epoch: int = 0,
 ) -> dict:
-    model, effort, authority = {
-        "reader": ("gpt-5.6-luna", "max", "none"),
-        "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "high", "none"),
-        "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-        "advisor": ("gpt-5.6-sol", "high", "none"),
+    authority = {
+        "reader": "none",
+        "worker": "bounded-source-write",
+        "investigator": "none",
+        "solver": "bounded-source-write",
+        "advisor": "none",
     }[profile_id]
     return {
         "execution_id": execution_id,
@@ -76,8 +76,8 @@ def make_execution(
         "profile_id": profile_id,
         "agent_id": None,
         "native_task_name": f"sd_{unit_id.lower()}_a{attempt_no}",
-        "model": model,
-        "effort": effort,
+        "model": "gpt-5.6-luna",
+        "effort": "max",
         "granted_authority": authority,
         "granted_write_scope": [f"src/{unit_id.lower()}.py"] if authority != "none" else [],
         "workspace_id": "canonical",
@@ -97,6 +97,7 @@ def host_snapshot(capacity: int = 4) -> dict:
             "surface": "multi_agent_v2",
             "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
             "fork_turns_none": True,
+            "managed_child_containment": "verified",
             "max_concurrent_threads_per_session": capacity,
         }
     )
