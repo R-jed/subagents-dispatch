@@ -1,6 +1,6 @@
 # V4 Current State Checkpoint
 
-Updated: 2026-08-23 14:08 +08:00.
+Updated: 2026-08-23 14:12 +08:00.
 
 This file is the short current-state entrypoint for V4 maintenance. Read it before `docs/v4/development-handoff.md`. The long handoff remains the detailed chronology and architecture background, but status statements there that predate this checkpoint are historical. Machine-readable contracts and current GitHub/Host evidence still have higher authority.
 
@@ -66,7 +66,7 @@ OpenAI Codex PR #39299 bounds role-level configuration reductions. The supported
 
 Current Codex Plugin manifest capabilities do not provide a model-catalog contribution, model-selector remapping, or per-child model-capability override that could preserve Terra/Sol backend selection while advertising those children as leaves.
 
-No current OpenAI implementation PR was found for a same-model child-specific non-delegating ceiling. OpenAI issue #36381 describes a strict host-enforced delegation/capability receipt design, but explicitly identifies its implementation as a default-off external reference branch rather than an implementation PR.
+No current implementation PR in `openai/codex` was found for a same-model child-specific non-delegating ceiling. `openai/codex` issue #36381 proposes a strict host-enforced delegation/capability receipt design and identifies its implementation as a default-off external reference branch rather than an implementation PR. Treat it as proposal evidence only, not as an accepted Host roadmap or available product primitive.
 
 ## Rejected remediation paths
 
