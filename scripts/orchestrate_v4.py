@@ -176,6 +176,31 @@ def _validate_message_control_input(
     return copy.deepcopy(dict(tool_input))
 
 
+def prepare_managed_spawn(
+    thread_id: str,
+    *,
+    orchestration_id: str,
+    execution_id: str,
+    temp_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Return the only Host spawn payload allowed for the current managed execution."""
+    current = require_control_session(
+        thread_id, orchestration_id=orchestration_id, temp_root=temp_root
+    )
+    _current_control_execution(current, execution_id=execution_id)
+    tool_input = lifecycle.build_managed_spawn_tool_input(
+        thread_id,
+        execution_id=execution_id,
+        temp_root=temp_root,
+    )
+    return lifecycle.prepare_spawn(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        temp_root=temp_root,
+    )
+
+
 def status_view(
     thread_id: str,
     *,
