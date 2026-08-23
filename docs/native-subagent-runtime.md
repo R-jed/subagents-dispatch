@@ -76,7 +76,7 @@ subagents_dispatch_solver        -> gpt-5.6-sol   / high / bounded source write 
 subagents_dispatch_advisor       -> gpt-5.6-sol   / high / mutation none
 ```
 
-Managed child profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. Profile configuration records intent only. Effective child collaboration surface, model, effort and sandbox are Host facts when those facts are material. Delegation that requires leaf containment therefore depends on observed collaboration-tool absence or an authoritative Host denial with no descendant identity materialized.
+Managed child profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. Profile configuration records intent only. Effective child collaboration surface, model, effort and sandbox are Host facts when those facts are material. The depth-one product rule does not require Host-hard tool removal. N1 verifies actual canonical managed execution and fails on child-issued nested Agent creation/control or descendant materialization. Only a requirement for Host-hard isolation depends on direct evidence such as collaboration-tool absence or authoritative Host denial.
 
 ## Capacity and dispatch
 
