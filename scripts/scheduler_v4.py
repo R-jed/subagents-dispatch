@@ -122,22 +122,6 @@ def constraint_snapshot(
     }
 
 
-def scheduler_decision(
-    payload: Mapping[str, Any],
-    *,
-    capability_snapshot: Mapping[str, Any] | None,
-    wakeup_reason: str,
-    plan_only: bool = False,
-) -> dict[str, Any]:
-    """Compatibility facade for callers that still use the old scheduler name."""
-    return constraint_snapshot(
-        payload,
-        capability_snapshot=capability_snapshot,
-        wakeup_reason=wakeup_reason,
-        plan_only=plan_only,
-    )
-
-
 def scheduler_status(payload: Mapping[str, Any]) -> dict[str, Any]:
     current = work_graph.refresh_dependency_states(copy.deepcopy(dict(payload)))
     state.validate_state_payload(current)
