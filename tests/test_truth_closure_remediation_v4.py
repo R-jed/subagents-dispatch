@@ -58,7 +58,7 @@ def test_machine_architecture_tracks_current_host_and_capacity_truth():
     assert scheduler["automatic_launch_actions"] is False
 
 
-def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memory():
+def test_active_recovery_contracts_keep_generation_bounded_identity_semantics():
     state_text = read_text("contracts/state.md")
     recovery_text = read_text("contracts/recovery.md")
 
@@ -69,10 +69,10 @@ def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memo
         assert "generation" in lowered
         assert "retained" in lowered
 
-    architecture = read_text("docs/architecture.md")
-    assert "Compaction does not authorize reuse of execution or native task identities" not in architecture
-    assert "Compaction never makes stale Host evidence current again" in architecture
-    assert "generation-distinct canonical native task names" in architecture
+    architecture = read_json("docs/v4/architecture.json")
+    assert architecture["execution"]["history_compaction"] == "older_safely_settled_attempts"
+    assert architecture["execution"]["control_epoch_scope"] == "execution_binding"
+    assert architecture["reconciliation"]["stale_observation_action"] == "discard"
 
 
 def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
@@ -207,6 +207,9 @@ def test_history_documents_are_explicitly_non_authoritative():
     assert (history / "v3.0.0-post-release-final-audit.md").is_file()
 
 
-def test_candidate_status_has_no_self_stale_git_snapshot():
+def test_candidate_status_has_no_self_stale_git_snapshot_or_duplicate_handoff():
     assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
+    assert not (ROOT / "docs" / "v4" / "current-state.md").exists()
+    assert not (ROOT / "docs" / "v4" / "development-handoff.md").exists()
+    assert (ROOT / "docs" / "current-state.md").is_file()
     assert "phase-status.json" not in read_text("README_AI.md")

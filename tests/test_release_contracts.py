@@ -12,8 +12,6 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 CHANGELOG_V3 = ROOT / "CHANGELOG_V3.md"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
-RELEASE_CHECKLIST = ROOT / "docs" / "release-checklist.md"
-ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -62,17 +60,18 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
     assert architecture["host_truth"]["effective_permission_owner"] == "codex_host"
 
 
-def test_human_release_summaries_include_managed_depth_and_running_steer_gates():
+def test_machine_host_contract_owns_managed_depth_and_running_steer_requirements():
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
     n1 = next(probe for probe in smoke["required_probes"] if probe["id"] == "N1")
     n4 = next(probe for probe in smoke["required_probes"] if probe["id"] == "N4")
-    assert n1["operation"] == "managed delegation depth"
-    assert n4["v2_running_steer_tool"] == "followup_task"
 
-    for path in (RELEASE_CHECKLIST, ARCHITECTURE_DOC):
-        text = path.read_text(encoding="utf-8")
-        assert "N1 managed delegation depth" in text
-        assert "N4 RUNNING Steer via followup_task" in text
-        assert "same child" in text
-        assert "consum" in text.lower()
-        assert "tool-call" in text.lower()
+    assert n1["operation"] == "managed delegation depth"
+    n1_requirements = " ".join(n1["requires"])
+    assert "canonical managed spawn route" in n1_requirements
+    assert "no descendant identity" in n1_requirements
+
+    assert n4["v2_running_steer_tool"] == "followup_task"
+    n4_requirements = " ".join(n4["requires"])
+    assert "original Host child thread" in n4_requirements
+    assert "guidance was consumed" in n4_requirements
+    assert "tool-call acceptance alone is insufficient" in n4_requirements

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import json
 from pathlib import Path
 
 
@@ -12,30 +15,41 @@ ACTIVE_CONTRACTS = (
 )
 
 
-def test_architecture_does_not_classify_active_contracts_as_v3():
-    architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
-    lowered = architecture.lower()
-    assert "other root `contracts/` documents are hardened v3.x" not in lowered
-    for active_contract in ACTIVE_CONTRACTS:
-        assert active_contract in architecture
+def test_active_contract_files_exist_and_machine_architecture_is_canonical_owner():
+    for relative in ACTIVE_CONTRACTS:
+        assert (ROOT / relative).is_file(), relative
+
+    architecture_doc = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    architecture = json.loads(
+        (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
+    )
+
+    assert "other root `contracts/` documents are hardened v3.x" not in architecture_doc.lower()
+    assert "docs/v4/architecture.json" in architecture_doc
+    assert architecture["public_skills"] == ["orchestrate", "doctor"]
+    assert architecture["routing"]["profile_selection_owner"] == "main"
+    assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
 
 
-def test_ai_owner_index_matches_current_v4_contract_generation():
+def test_ai_reference_points_to_canonical_owners_without_mirroring_contract_inventory():
     ai_reference = (ROOT / "README_AI.md").read_text(encoding="utf-8")
-    for active_contract in ACTIVE_CONTRACTS:
-        assert active_contract in ai_reference
-    assert "contracts/policy.json" in ai_reference
-    compatibility = ai_reference.split("## Compatibility owners", 1)[1]
-    assert "contracts/policy.json" not in compatibility
-    assert "contracts/final-review.md" not in compatibility
+
+    for owner in (
+        "contracts/policy.json",
+        "docs/v4/architecture.json",
+        "docs/v4/host-smoke.json",
+        "docs/v4/technical-debt.json",
+    ):
+        assert owner in ai_reference
+
+    assert "One semantic fact gets one machine owner" not in ai_reference
+    assert "Keep one owner per semantic fact" in ai_reference
 
 
-def test_doctor_and_final_review_use_current_product_ownership():
-    architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+def test_doctor_and_final_review_keep_current_product_ownership():
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
     doctor = (ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
 
-    assert "`Doctor` diagnoses the installed Plugin package" in architecture
     assert "release-candidate evidence" in doctor
     assert "stay outside Doctor" in doctor
     assert "selection/invocation of Dispatch" not in final_review
