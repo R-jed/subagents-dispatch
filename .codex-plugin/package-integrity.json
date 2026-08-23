@@ -35,7 +35,7 @@
     "scripts/legacy_migration.py": "eddb068caa8c3ee4cc76751bf19eeb73b620fbfe894a88110d892d3aa40152e2",
     "scripts/legacy_state_cleanup.py": "9dd9eb572e91fb480eee8008d1f4a2e5f78117d6ec613ebaae7c5b4f9c291e48",
     "scripts/managed_execution_v4.py": "229842ec05869e15f8985f4ec8ad6e31291372af39f1b0db36ef44ec4faa26a4",
-    "scripts/orchestrate_v4.py": "be8ccb6610785e793313e56bda77a0703fa06cf2932e3a8441f138d70e34898d",
+    "scripts/orchestrate_v4.py": "e641fd9562f8c13c8b1e4c0c131cc7225c5269ecd2443a2aa09fba0bdd776a01",
     "scripts/package_integrity.py": "ead46357bff9f2c8c7097be557006baaef9ca025093690a473c1be00470841b0",
     "scripts/plugin_update.py": "9d33fc55f254bde6240512adf3c6e6cd94c0422db4d6e9eaab2491f82918db48",
     "scripts/policy.py": "f6502ebaed817d41ce7313c7b095e4d55f629ccf8ffd54aa281f02cee31eb873",
@@ -49,7 +49,7 @@
     "scripts/writer_lease_v4.py": "827ed84c02c249cdab80872c33bcd7a546259cdd4605fd5edc32b991e9003555",
     "skills/doctor/SKILL.md": "6a7f52e4b76b81465c3efc74d315182941cd48054351c3bdd92de5073a84d734",
     "skills/doctor/agents/openai.yaml": "1c3989188f3c3885e2e637faae04b29ac74a20bf39850e412af12301809d91a9",
-    "skills/orchestrate/SKILL.md": "b24017af98286c0a2e11291513c8f0f61c18b4867297faff2d5cbfa8bc9d7cd5",
+    "skills/orchestrate/SKILL.md": "224a2e7629b10a395ee20d302ed4a6f0cd2de12f11e086428bc3e22d234c2b63",
     "skills/orchestrate/agents/openai.yaml": "72093396dc072c6f86fc977b27db30c1799b2c2169a4fd36dc1938042ab5a012"
   },
   "normalization": "utf-8-lf",
