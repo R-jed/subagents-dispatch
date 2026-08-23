@@ -31,7 +31,8 @@ def test_orchestrate_machine_contract_matches_native_core_authority():
     assert orchestrate["host_execution"] == "native_host_only"
     assert orchestrate["lifecycle_authority"] == "codex_host"
     assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
-    assert orchestrate["managed_child_containment"] == "requires_host_evidence"
+    assert orchestrate["managed_child_depth_policy"] == "behavioral_leaf_with_host_observed_no_descendant"
+    assert "managed_child_containment" not in orchestrate
 
 
 def test_native_core_keeps_main_policy_separate_from_host_transport_truth():
