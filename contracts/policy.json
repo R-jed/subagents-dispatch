@@ -21,7 +21,8 @@
     ]
   },
   "capability_dedup": {
-    "reference_role": "solver",
+    "reference_model": "gpt-5.6-sol",
+    "reference_effort": "high",
     "model_aliases": [
       "gpt-5.6"
     ],
