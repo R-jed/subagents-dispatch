@@ -66,7 +66,8 @@ HOST_ENVIRONMENT_FIELDS = {
     "host_build",
     "platform",
     "architecture",
-    "run_id",
+    "session_id",
+    "thread_id",
 }
 HOST_RESULT_FIELDS = {"status", "evidence_ref", "environment_id"}
 FINAL_REVIEW_FIELDS = {
@@ -289,7 +290,7 @@ def _validate_host_environments(value: Any, *, issues: list[str]) -> set[str]:
         issues.append("host campaign environments must be a non-empty object")
         return set()
     valid_ids: set[str] = set()
-    seen_run_ids: set[str] = set()
+    seen_thread_ids: set[str] = set()
     for environment_id, raw in value.items():
         if not _nonempty(environment_id):
             issues.append("host campaign environment id must be non-empty")
@@ -308,11 +309,11 @@ def _validate_host_environments(value: Any, *, issues: list[str]) -> set[str]:
         platform = env.get("platform")
         if isinstance(platform, str) and platform.lower() not in SUPPORTED_PLATFORMS:
             issues.append(f"host campaign environment {environment_id}.platform is unsupported")
-        run_id = env.get("run_id")
-        if isinstance(run_id, str) and run_id in seen_run_ids:
-            issues.append("host campaign environment run_id values must be unique")
-        elif isinstance(run_id, str):
-            seen_run_ids.add(run_id)
+        thread_id = env.get("thread_id")
+        if isinstance(thread_id, str) and thread_id in seen_thread_ids:
+            issues.append("host campaign environment thread_id values must be unique")
+        elif isinstance(thread_id, str):
+            seen_thread_ids.add(thread_id)
         valid_ids.add(str(environment_id))
     return valid_ids
 

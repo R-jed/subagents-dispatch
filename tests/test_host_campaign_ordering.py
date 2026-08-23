@@ -30,6 +30,29 @@ def test_native_campaign_is_exactly_n0_through_n8_and_stays_pending_in_repo():
     assert [item["id"] for item in current["required_probes"]] == [f"N{index}" for index in range(9)]
 
 
+def test_environment_binding_uses_native_session_and_thread_identity():
+    current = payload()
+
+    assert current["required_environment_fields"] == [
+        "architecture",
+        "codex_version",
+        "host_build",
+        "platform",
+        "session_id",
+        "thread_id",
+    ]
+    assert "run_id" not in current["required_environment_fields"]
+
+    identity = current["environment_identity_semantics"]
+    assert "session-tree identity" in identity["session_id"]["meaning"]
+    assert "session_meta.session_id" in identity["session_id"]["authoritative_sources"][-1]
+    assert "current root thread" in identity["thread_id"]["meaning"]
+    assert any("CODEX_THREAD_ID" in source for source in identity["thread_id"]["authoritative_sources"])
+    assert "session_meta.id" in identity["thread_id"]["authoritative_sources"][-1]
+    assert "UNKNOWN" in identity["unknown_policy"]
+    assert "repository commit" in identity["unknown_policy"]
+
+
 def test_spawn_and_capacity_gates_separate_success_rejection_and_ambiguity():
     current = probes()
     n2 = requirements(current["N2"])
