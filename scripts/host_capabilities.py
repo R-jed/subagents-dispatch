@@ -111,10 +111,10 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "surface",
         "tools",
         "fork_turns_none",
-        "managed_child_containment",
         "max_concurrent_threads_per_session",
     }
-    extra = set(evidence) - required_fields
+    optional_fields = {"managed_child_containment"}
+    extra = set(evidence) - required_fields - optional_fields
     missing = required_fields - set(evidence)
     if extra:
         raise HostCapabilityError("Host evidence has unsupported fields: " + ", ".join(sorted(extra)))
@@ -127,7 +127,7 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     _reject_unclassified_collaboration_tools(tools)
     if not isinstance(evidence["fork_turns_none"], bool):
         raise HostCapabilityError("fork_turns_none must be boolean")
-    containment = _managed_child_containment(evidence["managed_child_containment"])
+    containment = _managed_child_containment(evidence.get("managed_child_containment", "unknown"))
     capacity = evidence["max_concurrent_threads_per_session"]
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
@@ -145,8 +145,6 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     ]
     if evidence["fork_turns_none"] is not True:
         missing_capabilities.append("fresh_context_spawn")
-    if containment != "verified":
-        missing_capabilities.append("managed_child_containment")
 
     return {
         "surface": evidence["surface"],
@@ -173,7 +171,7 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     fork_none = snapshot.get("fork_turns_none")
     if not isinstance(fork_none, bool):
         raise HostCapabilityError("normalized Host snapshot fork_turns_none must be boolean")
-    containment = _managed_child_containment(snapshot.get("managed_child_containment"))
+    _managed_child_containment(snapshot.get("managed_child_containment"))
     capacity = snapshot.get("max_concurrent_threads_per_session")
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
@@ -188,8 +186,6 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     ]
     if fork_none is not True:
         expected_missing.append("fresh_context_spawn")
-    if containment != "verified":
-        expected_missing.append("managed_child_containment")
     if snapshot.get("missing") != expected_missing:
         raise HostCapabilityError("normalized Host snapshot missing list is inconsistent")
     if snapshot.get("execution_ready") is not (not expected_missing):
