@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-native-host-smoke-1",
+  "schema_version": "4.0.0-native-host-smoke-2",
   "contract_kind": "machine-readable-native-host-campaign-contract",
   "gate_id": "v4-real-host-n0-n8",
   "status": "PENDING",
@@ -8,8 +8,27 @@
     "codex_version",
     "host_build",
     "platform",
-    "run_id"
+    "session_id",
+    "thread_id"
   ],
+  "environment_identity_semantics": {
+    "session_id": {
+      "meaning": "Host-reported session-tree identity shared by the root thread and its descendants.",
+      "authoritative_sources": [
+        "public Host/session metadata",
+        "Host-produced rollout session_meta.session_id"
+      ]
+    },
+    "thread_id": {
+      "meaning": "Host-reported identity of the current root thread used for this campaign environment binding.",
+      "authoritative_sources": [
+        "public Host/session metadata",
+        "current root tool execution CODEX_THREAD_ID",
+        "Host-produced rollout session_meta.id"
+      ]
+    },
+    "unknown_policy": "If either required identity cannot be authoritatively established for the current root Host session, environment binding is UNKNOWN. Do not substitute CLI version, process id, repository commit, configured values, or model self-report."
+  },
   "required_result_fields": [
     "environment_id",
     "evidence_ref",
