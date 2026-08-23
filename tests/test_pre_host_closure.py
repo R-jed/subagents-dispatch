@@ -111,14 +111,19 @@ def test_managed_assignment_rejects_persisted_work_unit_without_responsibility_c
         managed.assignment_packet(current, execution=execution)
 
 
-def test_managed_profiles_request_leaf_collaboration_posture():
+def test_managed_profiles_keep_leaf_defense_without_fake_host_containment_controls():
     policy = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
+    assert policy["containment"] == {
+        "managed_model_multi_agent_version": "v1",
+        "v2_capable_managed_child_models_allowed": False,
+        "behavioral_leaf_instruction": "defense_only",
+    }
     for role, spec in policy["roles"].items():
         profile = tomllib.loads(
             (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
         )
-        assert profile["agents"]["enabled"] is False, role
-        assert profile["features"]["multi_agent_v2"] is False, role
+        assert "agents" not in profile, role
+        assert "features" not in profile, role
         assert "create further subagents" in profile["developer_instructions"].lower(), role
 
 
@@ -141,6 +146,7 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
     assert architecture["managed_profile_requirements"] == [
         "fixed_profile_route",
         "behavioral_leaf_boundary",
+        "host_model_metadata_excludes_v2_child_collaboration",
         "host_evidence_for_effective_child_containment",
         "host_evidence_for_effective_read_only_when_required",
     ]
@@ -156,6 +162,7 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
     assert orchestrate["lifecycle_authority"] == "codex_host"
     assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
     assert orchestrate["managed_child_containment"] == "requires_host_evidence"
+    assert orchestrate["containment"]["host_evidence_required"] is True
 
 
 def test_rc3_integrity_closure_is_history_not_active_contract():
