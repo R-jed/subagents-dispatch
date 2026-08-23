@@ -73,6 +73,7 @@ def test_responsibility_semantics_survive_work_unit_to_wire_record():
         "tests/test_users.py::test_pagination",
     ]
     assert packet["constraints"]["do_not_redo"] == ["baseline pagination call mapping"]
+    assert packet["constraints"]["delegation_boundary"] == "Do not create or control further subagents."
     assert packet["constraints"]["stop_boundary"].startswith("Stop for contract")
 
 
@@ -141,7 +142,7 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
     assert architecture["managed_profile_requirements"] == [
         "fixed_profile_route",
         "behavioral_leaf_boundary",
-        "host_evidence_for_effective_child_containment",
+        "host_evidence_for_managed_no_descendant_behavior",
         "host_evidence_for_effective_read_only_when_required",
     ]
     assert architecture["host_truth"] == {
@@ -155,7 +156,7 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
     assert orchestrate["host_execution"] == "native_host_only"
     assert orchestrate["lifecycle_authority"] == "codex_host"
     assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
-    assert orchestrate["managed_child_containment"] == "requires_host_evidence"
+    assert orchestrate["managed_child_depth_policy"] == "behavioral_leaf_with_host_observed_no_descendant"
 
 
 def test_rc3_integrity_closure_is_history_not_active_contract():
