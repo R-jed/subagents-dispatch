@@ -105,5 +105,6 @@ def test_current_product_docs_keep_terra_high():
         assert "terra" in lowered, relative
         assert "xhigh" not in lowered, relative
 
-    machine = json.loads((ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8"))
-    assert machine["routing"]["investigator"] == ["gpt-5.6-terra", "high"]
+    architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
+    assert architecture["profiles"]["investigator"]["model"] == "gpt-5.6-terra"
+    assert architecture["profiles"]["investigator"]["effort"] == "high"
