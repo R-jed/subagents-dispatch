@@ -50,6 +50,7 @@ def native_host_snapshot(host, capacity: int | None = 4) -> dict:
             "surface": "multi_agent_v2",
             "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
             "fork_turns_none": True,
+            "managed_child_containment": "verified",
             "max_concurrent_threads_per_session": capacity,
         }
     )

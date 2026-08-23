@@ -26,7 +26,12 @@ def load_module():
         sys.path.remove(scripts)
 
 
-def evidence(*, capacity: int | None = 4, fork_turns_none: bool = True) -> dict:
+def evidence(
+    *,
+    capacity: int | None = 4,
+    fork_turns_none: bool = True,
+    managed_child_containment: str = "verified",
+) -> dict:
     return {
         "surface": "multi_agent_v2",
         "tools": [
@@ -37,6 +42,7 @@ def evidence(*, capacity: int | None = 4, fork_turns_none: bool = True) -> dict:
             "interrupt_agent",
         ],
         "fork_turns_none": fork_turns_none,
+        "managed_child_containment": managed_child_containment,
         "max_concurrent_threads_per_session": capacity,
     }
 
@@ -47,6 +53,7 @@ def test_complete_native_evidence_normalizes_to_execution_ready_snapshot():
 
     assert snapshot["execution_ready"] is True
     assert snapshot["missing"] == []
+    assert snapshot["managed_child_containment"] == "verified"
     assert snapshot["capabilities"] == {
         "spawn": True,
         "observe": True,
@@ -108,6 +115,37 @@ def test_fresh_context_capability_is_required_for_execution():
     assert snapshot["missing"] == ["fresh_context_spawn"]
 
 
+def test_failed_managed_child_containment_blocks_execution_ready():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(
+        evidence(managed_child_containment="failed")
+    )
+
+    assert snapshot["execution_ready"] is False
+    assert snapshot["managed_child_containment"] == "failed"
+    assert snapshot["missing"] == ["managed_child_containment"]
+
+
+def test_unknown_managed_child_containment_blocks_execution_ready():
+    module = load_module()
+    snapshot = module.normalize_host_capabilities(
+        evidence(managed_child_containment="unknown")
+    )
+
+    assert snapshot["execution_ready"] is False
+    assert snapshot["managed_child_containment"] == "unknown"
+    assert snapshot["missing"] == ["managed_child_containment"]
+
+
+def test_invalid_managed_child_containment_is_rejected():
+    module = load_module()
+
+    with pytest.raises(module.HostCapabilityError, match="managed_child_containment"):
+        module.normalize_host_capabilities(
+            evidence(managed_child_containment="assumed")
+        )
+
+
 def test_unknown_host_capacity_stays_unknown_instead_of_inventing_default():
     module = load_module()
     snapshot = module.normalize_host_capabilities(evidence(capacity=None))
@@ -120,6 +158,11 @@ def test_malformed_or_partial_evidence_is_rejected():
     module = load_module()
     payload = evidence()
     del payload["tools"]
+    with pytest.raises(module.HostCapabilityError, match="missing fields"):
+        module.normalize_host_capabilities(payload)
+
+    payload = evidence()
+    del payload["managed_child_containment"]
     with pytest.raises(module.HostCapabilityError, match="missing fields"):
         module.normalize_host_capabilities(payload)
 
