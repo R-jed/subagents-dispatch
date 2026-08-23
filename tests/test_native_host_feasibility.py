@@ -14,21 +14,21 @@ CHILD = "22222222-2222-7222-8222-222222222222"
 PROFILES = {
     "subagents-dispatch-reader.toml": ("gpt-5.6-luna", "max", "read-only"),
     "subagents-dispatch-worker.toml": ("gpt-5.6-luna", "max", None),
-    "subagents-dispatch-investigator.toml": ("gpt-5.6-terra", "high", "read-only"),
-    "subagents-dispatch-solver.toml": ("gpt-5.6-sol", "high", None),
-    "subagents-dispatch-advisor.toml": ("gpt-5.6-sol", "high", "read-only"),
+    "subagents-dispatch-investigator.toml": ("gpt-5.6-luna", "max", "read-only"),
+    "subagents-dispatch-solver.toml": ("gpt-5.6-luna", "max", None),
+    "subagents-dispatch-advisor.toml": ("gpt-5.6-luna", "max", "read-only"),
 }
 
 
-def test_all_managed_profiles_request_leaf_collaboration_posture_without_route_drift():
+def test_all_managed_profiles_use_static_leaf_defense_without_fake_host_controls():
     for filename, (model, effort, sandbox) in PROFILES.items():
         payload = tomllib.loads((ROOT / "agent-profiles" / filename).read_text(encoding="utf-8"))
         assert payload["model"] == model
         assert payload["model_reasoning_effort"] == effort
         assert payload.get("sandbox_mode") == sandbox
-        assert payload["agents"]["enabled"] is False
-        assert payload["features"]["multi_agent_v2"] is False
-        assert "create further subagents" in payload["developer_instructions"]
+        assert "agents" not in payload
+        assert "features" not in payload
+        assert "create further subagents" in payload["developer_instructions"].lower()
 
 
 def write_rollout(sessions: Path, records: list[dict], *, relative: str = "2026/08/20") -> Path:
