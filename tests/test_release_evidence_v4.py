@@ -68,6 +68,29 @@ def make_candidate(tmp_path: Path) -> Path:
     return repo
 
 
+def build_final_review(module, repo: Path, identity: dict) -> dict:
+    return {
+        "schema_version": module.FINAL_REVIEW_SCHEMA,
+        "candidate_commit": identity["candidate_commit"],
+        "candidate_tree": identity["candidate_tree"],
+        "review_artifact_id": module.current_review_artifact_id(repo),
+        "verdict": "ship",
+        "evidence_ref": "review:fresh-advisor",
+    }
+
+
+def build_release_envelope(module, repo: Path, campaign: dict) -> dict:
+    identity = module.current_candidate_identity(repo)
+    return {
+        "schema_version": module.RELEASE_EVIDENCE_SCHEMA,
+        "repository": module.EXPECTED_REPOSITORY,
+        **identity,
+        "host_campaign_sha256": module.canonical_json_sha256(campaign),
+        "host_campaign": campaign,
+        "final_review": build_final_review(module, repo, identity),
+    }
+
+
 def build_valid_evidence(module, repo: Path) -> dict:
     identity = module.current_candidate_identity(repo)
     environments = {
@@ -91,28 +114,13 @@ def build_valid_evidence(module, repo: Path) -> dict:
     campaign = {
         "schema_version": module.HOST_CAMPAIGN_SCHEMA,
         "repository": module.EXPECTED_REPOSITORY,
-        **identity,
+        **module.host_qualification_identity(identity),
         "contract_version": module.HOST_CAMPAIGN_CONTRACT_VERSION,
-        "campaign_id": "campaign-exact-candidate",
+        "campaign_id": "campaign-host-qualification-basis",
         "environments": environments,
         "results": results,
     }
-    review = {
-        "schema_version": module.FINAL_REVIEW_SCHEMA,
-        "candidate_commit": identity["candidate_commit"],
-        "candidate_tree": identity["candidate_tree"],
-        "review_artifact_id": module.current_review_artifact_id(repo),
-        "verdict": "ship",
-        "evidence_ref": "review:fresh-advisor",
-    }
-    return {
-        "schema_version": module.RELEASE_EVIDENCE_SCHEMA,
-        "repository": module.EXPECTED_REPOSITORY,
-        **identity,
-        "host_campaign_sha256": module.canonical_json_sha256(campaign),
-        "host_campaign": campaign,
-        "final_review": review,
-    }
+    return build_release_envelope(module, repo, campaign)
 
 
 def test_exact_candidate_bound_release_evidence_passes(tmp_path: Path):
@@ -128,20 +136,56 @@ def test_exact_candidate_bound_release_evidence_passes(tmp_path: Path):
     assert result["candidate_tree"] == run(repo, "rev-parse", "HEAD^{tree}")
 
 
-def test_candidate_a_evidence_is_rejected_after_candidate_b_commit(tmp_path: Path):
-    module = load_module("native_release_drift", "release_evidence_v4.py")
+def test_old_release_envelope_is_rejected_after_source_commit(tmp_path: Path):
+    module = load_module("native_release_source_drift", "release_evidence_v4.py")
     repo = make_candidate(tmp_path)
     evidence = build_valid_evidence(module, repo)
 
-    write(repo / "docs" / "python-runtime.md", "runtime changed\n")
-    package = load_module("native_release_package_b", "package_integrity.py")
-    package.write_manifest(repo)
+    write(repo / "headoff.md", "updated handoff only\n")
     run(repo, "add", ".")
-    run(repo, "commit", "-m", "test: candidate B")
+    run(repo, "commit", "-m", "docs: update handoff")
 
     result = module.verify_release_evidence(repo, evidence)
     assert result["ok"] is False
     assert any("candidate_commit" in issue or "candidate_tree" in issue for issue in result["issues"])
+
+
+def test_host_campaign_is_reusable_after_handoff_only_commit(tmp_path: Path):
+    module = load_module("native_release_handoff_reuse", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    original = build_valid_evidence(module, repo)
+    campaign = copy.deepcopy(original["host_campaign"])
+
+    qualification_before = module.host_qualification_identity(module.current_candidate_identity(repo))
+    write(repo / "headoff.md", "new development-session context\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "docs: refresh headoff")
+    qualification_after = module.host_qualification_identity(module.current_candidate_identity(repo))
+
+    assert qualification_after == qualification_before
+
+    rebound = build_release_envelope(module, repo, campaign)
+    result = module.verify_release_evidence(repo, rebound)
+    assert result["ok"] is True
+    assert result["issues"] == []
+
+
+def test_host_campaign_is_rejected_after_runtime_qualification_drift(tmp_path: Path):
+    module = load_module("native_release_runtime_reuse", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    original = build_valid_evidence(module, repo)
+    campaign = copy.deepcopy(original["host_campaign"])
+
+    write(repo / "skills" / "orchestrate" / "SKILL.md", "runtime changed\n")
+    package = load_module("native_release_package_b", "package_integrity.py")
+    package.write_manifest(repo)
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "test: runtime candidate B")
+
+    rebound = build_release_envelope(module, repo, campaign)
+    result = module.verify_release_evidence(repo, rebound)
+    assert result["ok"] is False
+    assert any("runtime_manifest_sha256" in issue for issue in result["issues"])
 
 
 def test_runtime_profile_and_host_contract_digest_drift_are_rejected(tmp_path: Path):
