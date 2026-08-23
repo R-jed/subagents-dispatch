@@ -208,9 +208,6 @@ def test_runtime_integrity_keeps_product_runtime_and_excludes_maintainer_tools()
 
 def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
-    repository_architecture = (ROOT / "docs" / "repository-architecture.md").read_text(
-        encoding="utf-8"
-    )
     orchestrate_skill = (ROOT / "skills" / "orchestrate" / "SKILL.md").read_text(
         encoding="utf-8"
     )
@@ -240,7 +237,7 @@ def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
         assert expected in architecture
     assert machine["runtime_owners"] == expected_runtime_owners
     assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
-    assert "docs/v4/architecture.json#runtime_owners" in repository_architecture
+    assert not (ROOT / "docs" / "repository-architecture.md").exists()
     assert "../../docs/v4/architecture.json#runtime_owners" in orchestrate_skill
     assert "selection/invocation of Orchestrate" in final_review
     assert machine["public_skills"] == ["orchestrate", "doctor"]

@@ -1,42 +1,45 @@
 # subagents-dispatch: AI Agent Reference
 
-Current V4 product surface: `Orchestrate` and `Doctor`.
+Current product surface: `Orchestrate` and `Doctor`.
 
-Before changing V4 repository content, read `docs/v4/current-state.md`, then `docs/v4/development-handoff.md`. The current-state checkpoint is the short status entrypoint for the active release branch and Host gate. The handoff provides detailed chronology and architecture background. Neither document replaces current machine contracts, GitHub state, Issue #91 evidence, or real Host observations.
+Before changing the active release branch, read `docs/current-state.md`. Read GitHub and Issue #91 directly for current candidate, CI and real-Host evidence. Historical development chronology is not an active contract.
+
+## Canonical truth
+
+Keep one owner per semantic fact:
+
+- `contracts/policy.json`: fixed profile and product policy values.
+- `docs/v4/architecture.json`: complete V4 machine architecture and runtime owner map.
+- `docs/v4/host-smoke.json`: candidate-bound N0-N8 real-Host release oracle.
+- `docs/v4/technical-debt.json`: explicit V4 technical debt.
+- GitHub: current branch, PR, candidate and CI state.
+- Issue #91: real-Host evidence and `REUSE | RERUN | NOT_RUN` preflight decisions.
+
+Do not add another tracked status JSON that copies current SHA, CI result or Host verdict. Do not create parallel machine projections of routing, scheduling, writer or Host semantics already owned by the canonical contracts.
+
+`docs/v4/` is reserved for version-specific machine or maintenance contracts. Human continuation notes live in `docs/current-state.md`.
 
 ## Runtime ownership
 
-Codex Host owns child materialization, lifecycle truth, identity, actual capacity, effective permission state, and managed-child collaboration surface.
+Codex Host owns child materialization, lifecycle truth, child identity, actual capacity, effective permission and effective collaboration capability.
 
-Main owns user intent, decomposition, explicit fixed-profile selection, dispatch judgment, integration, WorkUnit acceptance, irreversible external side effects, and the final response.
+Main owns user intent, decomposition, explicit fixed-profile selection, dispatch judgment, integration, WorkUnit acceptance, irreversible external effects and the final response.
 
-WorkGraph and WorkUnit state own responsibility structure, dependencies, ownership, and acceptance. ExecutionBinding owns one concrete child execution. WriterLease owns managed write responsibility.
+WorkGraph and WorkUnit own responsibility structure, dependencies and acceptance. ExecutionBinding owns one concrete managed attempt. WriterLease owns managed write coordination for the canonical workspace.
 
-A `team_plan_revision` field may remain temporarily as a V4 RC state-schema compatibility marker. It has no independent planning, routing, dependency, execution, or integration authority.
-
-## Canonical machine truth
-
-Keep one machine owner per semantic fact.
-
-`contracts/policy.json` owns fixed profile and product policy values. `docs/v4/architecture.json` owns the complete V4 machine architecture and runtime owner map. `docs/v4/host-smoke.json` owns the candidate-bound N0-N8 real Host release oracle.
-
-Current candidate commit, workflow status, and pull-request state come directly from GitHub. Real Host release evidence comes from Issue #91 and authoritative Host observation. Do not add a tracked status JSON that copies current candidate SHA, CI result, or Host verdict because updating that file creates a new commit and immediately makes its own candidate identity stale.
-
-Human documentation should explain or link these owners. Do not create another machine projection simply to restate routing, scheduler, writer, Host-feasibility, or release semantics already owned by the canonical contracts. Tests should target owner data, schemas and observable behavior instead of requiring copied prose to stay synchronized across documents.
-
-## Fixed managed profiles
+## Fixed profiles
 
 ```text
-Reader        gpt-5.6-luna   max    read-only intent
+Reader        gpt-5.6-luna   max    no mutation
 Worker        gpt-5.6-luna   max    bounded source write when granted
-Investigator  gpt-5.6-terra  high   read-only intent
+Investigator  gpt-5.6-terra  high   no mutation
 Solver        gpt-5.6-sol    high   bounded source write when granted
-Advisor       gpt-5.6-sol    high   read-only judgment/review
+Advisor       gpt-5.6-sol    high   review / no mutation
 ```
 
-Main selects one fixed profile explicitly for each delegated responsibility. Runtime code validates the selection. There is no automatic Luna, Terra, Sol escalation ladder.
+Main selects one fixed profile explicitly. There is no automatic model or effort escalation ladder.
 
-## Orchestration invariants
+## Core invariants
 
 ```text
 managed children <= 4
@@ -44,72 +47,33 @@ fork_turns = none
 delegation depth = 1
 Host COMPLETED produces candidate work only
 WorkUnit ACCEPTED unlocks dependencies
-UNKNOWN blocks conflicting replacement, writer transfer, and final acceptance
+UNKNOWN blocks conflicting replacement, writer transfer and final acceptance
 interrupt return alone never releases WriterLease
 ```
 
-Four children is a safety ceiling, not a target. Known Host capacity may reduce available slots. Unknown capacity stays unknown. Deterministic helpers report constraints and status; they do not rank WorkUnits, apply a fixed backlog threshold, or choose automatic launch actions.
+Main is the sole managed coordinator. Managed profiles and responsibility packets instruct children not to create or control further Agents. Effective child collaboration remains Host truth. Latent V2 recursive capability alone does not decide managed N1; N1 evaluates actual canonical managed execution and descendant evidence.
 
-Delegation depth 1 is a project policy. Managed profiles and responsibility packets instruct children not to create or control further Agents. The effective child collaboration surface remains a Host fact, and latent V2 recursive capability does not by itself violate the product contract. N1 judges actual managed executions: any managed child that initiates nested Agent creation/control, or materializes a descendant, fails the gate; ambiguous evidence remains UNKNOWN.
-
-Independent read-only work may overlap only when effective read-only behavior and responsibility isolation are verified. The canonical mutable workspace has one active managed WriterLease. Parallel writers require Host-verifiable isolated workspaces and clear integration boundaries.
-
-Fresh children use `fork_turns = none` and receive task-needed responsibility context rather than automatic full Main history.
+Independent read-only overlap requires effective read-only evidence and responsibility isolation. The canonical mutable workspace has one managed writer unless a future Host-verifiable isolated-workspace mode is explicitly designed and validated.
 
 ## Contract index
 
-```text
-contracts/policy.json
-  fixed profiles and product child ceiling
+Use the smallest relevant owner:
 
-contracts/routing.md
-  delegation, profile selection, dispatch and concurrency
+- `contracts/routing.md`: delegation value, profile selection and dispatch judgment.
+- `contracts/responsibility-packet.md`: managed child responsibility serialization.
+- `contracts/guardrails.md`: authority, mutation, consent and external-action boundaries.
+- `contracts/interaction.md`: user control semantics.
+- `contracts/recovery.md`: ExecutionBinding recovery and UNKNOWN handling.
+- `contracts/state.md`: V4 state schema.
+- `contracts/final-review.md`: exact-candidate independent review.
 
-contracts/responsibility-packet.md
-  child responsibility serialization
-
-contracts/team-plan.md
-  RC compatibility boundary only; no runtime planning authority
-
-contracts/guardrails.md
-  authority, mutation, consent and external-action boundaries
-
-contracts/interaction.md
-  user control semantics
-
-contracts/recovery.md
-  ExecutionBinding recovery and UNKNOWN handling
-
-contracts/state.md
-  V4 state schema and Host normalization
-
-contracts/final-review.md
-  exact-candidate independent review
-```
-
-The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. The candidate-bound real Host release campaign is `docs/v4/host-smoke.json`.
-
-V3 orchestration state is legacy evidence. Unresolved live V3 state is never silently migrated into V4 execution.
-
-Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N8 Host evidence, Final Review, and benchmark/calibration workflows remain outside ordinary Doctor authority.
-
-## Compatibility owners
-
-```text
-scripts/legacy_state_cleanup.py
-  ownership-safe cleanup for stale terminal V3 orchestration capsules
-
-scripts/legacy_migration.py
-  explicit profile/install migration support
-
-contracts/team-plan.md
-  pre-release V4 call-shape compatibility only
-```
-
-A compatibility surface must have a current consumer and removal condition. Do not keep a compatibility alias or state field solely because an old test mentions it.
+Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N8 Host evidence, Final Review and benchmark/calibration workflows stay outside ordinary Doctor authority.
 
 ## Change discipline
 
-Preserve proven safety boundaries such as UNKNOWN fail-closed handling, candidate identity, Host observation basis, WriterLease settlement, and materialization ambiguity. Simplification targets duplicate representation and unnecessary compatibility, not line count.
-
-For behavior-preserving refactors, prove consumers before deletion, make one coherent change at a time, run focused tests, then run the full suite before completion. Product behavior changes require their own specification and review rather than being hidden inside cleanup.
+- Prove active consumers before deleting a compatibility surface.
+- Keep behavior changes separate from refactors and documentation cleanup.
+- Protect behavior, schema, ownership and safety invariants in tests; avoid exact prose mirrors unless wording is an interface.
+- Preserve UNKNOWN fail-closed handling, candidate identity, Host observation basis, WriterLease settlement and materialization ambiguity.
+- Generate package-integrity data with repository tooling when shipped bytes change.
+- Run focused checks and then the complete required repository matrix before declaring a change complete.
