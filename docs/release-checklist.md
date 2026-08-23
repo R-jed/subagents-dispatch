@@ -89,6 +89,8 @@ plan-only creates no runtime state, lease or Host action
 
 `docs/v4/host-smoke.json` is the machine-readable authority. Bind each campaign environment to the exact root `session_id` and `thread_id` before any N0/N1 child spawn. Public Host/session metadata is preferred. The machine contract defines the permitted Host-produced fallback evidence and the `UNKNOWN` policy when either identity remains unavailable.
 
+Environment identity does not prove that a later probe turn still exposes the Native Subagent V2 control surface. Before every Host Agent-control step covered by the machine contract, bind the exact probe `turn_id` to Host-produced `turn_context.multi_agent_version=v2` and verify that the callable schema for that same turn is V2-shaped. For spawn, `task_name` and `message` are required, `fork_turns` is present, and legacy `fork_context` is absent. A V2 observation from another turn in the same session is historical capability evidence only. If the current turn is V1, disabled, unobservable, or the turn context and callable schema conflict, record the affected step as `NOT_RUN` and do not invoke an Agent-control tool.
+
 The external Host campaign must also bind the current Host qualification identity from the runtime package manifest, managed profile contract and Host campaign contract. Git commit/tree are release-source identity and do not by themselves determine whether Host evidence remains reusable.
 
 The required campaign is exactly:
