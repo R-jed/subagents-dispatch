@@ -17,14 +17,16 @@ SCHEMA = ROOT / "evals" / "behavioral-result.schema.json"
 SCORER = ROOT / "scripts" / "score-behavioral-evals.py"
 
 
-def test_advisor_route_is_fixed_sol_high_read_only():
+def test_advisor_route_is_fixed_containment_safe_read_only():
     spec = POLICY["roles"]["advisor"]
     profile = tomllib.loads(ADVISOR.read_text(encoding="utf-8"))
-    assert spec["model"] == profile["model"] == "gpt-5.6-sol"
-    assert spec["effort"] == profile["model_reasoning_effort"] == "high"
+    assert spec["model"] == profile["model"] == "gpt-5.6-luna"
+    assert spec["effort"] == profile["model_reasoning_effort"] == "max"
     assert spec["mutation_authority"] == "none"
     assert spec["agent_type"] == "subagents_dispatch_advisor"
     assert POLICY["delegation"]["fork_turns"] == "none"
+    assert POLICY["containment"]["managed_model_multi_agent_version"] == "v1"
+    assert POLICY["containment"]["v2_capable_managed_child_models_allowed"] is False
 
 
 def test_review_verdict_policy_remains_fail_closed():
