@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "skill_name": "subagents-dispatch",
   "cases": [
     {
@@ -27,40 +27,46 @@
       "expected": {"action": "delegate", "nodes": [{"unit_id": "U1", "role": "worker", "agent_type": "subagents_dispatch_worker", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "bounded-source-write"}]}
     },
     {
-      "id": "judgment-before-writing-uses-advisor",
+      "id": "independent-judgment-uses-advisor",
       "category": "role_choice",
-      "input": {"task": "Choose a material compatibility policy before implementation; Main is below the Sol reference capability."},
-      "expected": {"action": "delegate", "main_judgment_coverage": "uncovered", "nodes": [{"unit_id": "U1", "role": "advisor", "agent_type": "subagents_dispatch_advisor", "model": "gpt-5.6-sol", "effort": "high", "mutation_authority": "none"}]}
+      "input": {"task": "Obtain an independent read-only second judgment on a material compatibility policy before implementation."},
+      "expected": {"action": "delegate", "nodes": [{"unit_id": "U1", "role": "advisor", "agent_type": "subagents_dispatch_advisor", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "none"}]}
     },
     {
       "id": "judgment-coupled-writing-uses-solver",
       "category": "role_choice",
-      "input": {"task": "Refactor state handling where consequential compatibility decisions continue during implementation; Main is below the Sol reference capability."},
-      "expected": {"action": "delegate", "main_judgment_coverage": "uncovered", "nodes": [{"unit_id": "U1", "role": "solver", "agent_type": "subagents_dispatch_solver", "model": "gpt-5.6-sol", "effort": "high", "mutation_authority": "bounded-source-write"}]}
+      "input": {"task": "Refactor state handling where consequential compatibility decisions continue during implementation and must stay coupled to one writing responsibility."},
+      "expected": {"action": "delegate", "nodes": [{"unit_id": "U1", "role": "solver", "agent_type": "subagents_dispatch_solver", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "bounded-source-write"}]}
     },
     {
       "id": "sol-main-keeps-judgment-work",
       "category": "main_coverage",
-      "input": {"task": "Perform the same judgment-heavy work while trusted runtime evidence shows Main meets the Sol reference route."},
+      "input": {"task": "Perform judgment-heavy work while trusted runtime evidence shows Main meets the Sol reference route."},
       "expected": {"action": "main_session", "main_judgment_coverage": "covered", "nodes": [], "main_reason": "main_capability_already_covers_judgment"}
     },
     {
-      "id": "unknown-main-routine-work-does-not-buy-sol",
+      "id": "safe-managed-lane-does-not-claim-sol-uplift",
+      "category": "main_coverage",
+      "input": {"task": "Main is below the Sol judgment reference and the task specifically depends on Sol-level capability uplift."},
+      "expected": {"action": "main_session", "main_judgment_coverage": "uncovered", "nodes": [], "main_reason": "safe_managed_lane_does_not_provide_sol_uplift"}
+    },
+    {
+      "id": "unknown-main-routine-work-does-not-buy-model-uplift",
       "category": "main_coverage",
       "input": {"task": "Main route is not observable. Implement a fully specified local fix with deterministic tests."},
       "expected": {"action": "delegate", "main_judgment_coverage": "unknown", "nodes": [{"unit_id": "U1", "role": "worker", "agent_type": "subagents_dispatch_worker", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "bounded-source-write"}]}
     },
     {
-      "id": "stable-read-heavy-investigation-uses-terra",
+      "id": "stable-read-heavy-investigation-uses-investigator",
       "category": "role_choice",
       "input": {"task": "Desired semantics are fixed. Investigate a difficult compiler/runtime interaction across a broad read-only surface."},
-      "expected": {"action": "delegate", "task_blocker": "investigation", "nodes": [{"unit_id": "U1", "role": "investigator", "agent_type": "subagents_dispatch_investigator", "model": "gpt-5.6-terra", "effort": "high", "mutation_authority": "none"}]}
+      "expected": {"action": "delegate", "task_blocker": "investigation", "nodes": [{"unit_id": "U1", "role": "investigator", "agent_type": "subagents_dispatch_investigator", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "none"}]}
     },
     {
-      "id": "ambiguous-semantics-do-not-use-terra",
+      "id": "ambiguous-semantics-use-advisor-role",
       "category": "rerouting",
-      "input": {"task": "A Worker asks for broader investigation, but the remaining blocker is actually an unresolved externally visible ordering decision."},
-      "expected": {"action": "delegate", "task_blocker": "judgment", "recovery_action": "semantic_reroute", "nodes": [{"unit_id": "U1", "role": "advisor", "agent_type": "subagents_dispatch_advisor", "model": "gpt-5.6-sol", "effort": "high", "mutation_authority": "none"}]}
+      "input": {"task": "A Worker asks for broader investigation, but the remaining blocker is actually an unresolved externally visible ordering decision requiring an independent read-only judgment."},
+      "expected": {"action": "delegate", "task_blocker": "judgment", "recovery_action": "semantic_reroute", "nodes": [{"unit_id": "U1", "role": "advisor", "agent_type": "subagents_dispatch_advisor", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "none"}]}
     },
     {
       "id": "local-defect-can-retry-same-worker",
@@ -100,7 +106,7 @@
       "id": "public-contract-change-requires-fresh-review",
       "category": "final_review",
       "input": {"task": "The candidate changes a public API contract and ordinary deterministic verification passes."},
-      "expected": {"action": "delegate", "independent_review_required": true, "nodes": [{"unit_id": "U1", "role": "advisor", "agent_type": "subagents_dispatch_advisor", "model": "gpt-5.6-sol", "effort": "high", "mutation_authority": "none", "fresh_context": true}]}
+      "expected": {"action": "delegate", "independent_review_required": true, "nodes": [{"unit_id": "U1", "role": "advisor", "agent_type": "subagents_dispatch_advisor", "model": "gpt-5.6-luna", "effort": "max", "mutation_authority": "none", "fresh_context": true}]}
     },
     {
       "id": "process-history-alone-does-not-force-review",
