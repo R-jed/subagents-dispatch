@@ -75,6 +75,7 @@ The current V4 line has already completed the major repository remediation and s
 5. Human documentation was pruned so architecture and release guidance point to canonical machine owners instead of duplicating them.
 6. Prose-mirror tests were replaced with structural, contract and behavior checks where wording itself was not an interface.
 7. Repository qualification has passed on the required CI matrix for the current release line before the latest handoff-only update. Always verify the current exact head again from GitHub after any repository change.
+8. Real Host binding exposed an undefined generic `run_id` requirement. The Host campaign contract was corrected to use Codex-native `session_id` and `thread_id` identities with explicit authoritative evidence sources and fail-closed `UNKNOWN` handling.
 
 The current release work is no longer repository feature development. The active blocker is real Codex Host qualification on the exact current candidate, followed by the remaining release gates.
 
@@ -91,9 +92,10 @@ The latest local qualification preparation established the following workflow fa
 - `python3 scripts/doctor.py --codex-home "$HOME/.codex" --check` must report Plugin package and all five managed profiles healthy before Host probing;
 - `Host integration = UNKNOWN` is expected before current Host capability evidence is supplied;
 - `Orchestration state = UNKNOWN` is expected when no active task is selected;
-- static checkout, Plugin source and package/profile verification are separate from fresh Host identity binding.
+- static checkout, Plugin source and package/profile verification are separate from fresh Host identity binding;
+- Host environment binding now requires the current root `session_id` and `thread_id` from the authoritative sources defined in `docs/v4/host-smoke.json`; a generic `run_id` is not part of the release contract.
 
-The static candidate/package/profile preparation has been performed and recorded in Issue #91. Fresh Host identity/capability binding remains the next gate. Read the latest Issue #91 entries before repeating any operation.
+The static candidate/package/profile preparation and the real Host build/capability inspection have been recorded in Issue #91. Because the Host identity contract changed, read the latest candidate and ledger entries before deciding what evidence can be reused. Do not repeat Host actions without the required preflight decision.
 
 ## Next development direction
 
@@ -104,9 +106,9 @@ Sequence:
 1. Read this file, PR #81 and the newest Issue #91 ledger entries.
 2. Verify the current release candidate and exact repository head from GitHub.
 3. Verify the local installed Plugin/package/profile basis without spawning or controlling an Agent.
-4. Start a fresh Codex Host session.
-5. Before invoking `Orchestrate` or any Agent-control primitive, bind the current Host build/version, platform/architecture, run/session/thread identity and actually exposed Native Subagent V2 capability surface from authoritative current-session evidence.
-6. Keep unavailable Host facts as `UNKNOWN`. Do not infer Host truth from configuration, requested profile values or model self-report.
+4. Start a fresh Codex Host session when the current preflight requires one.
+5. Before invoking `Orchestrate` or any Agent-control primitive, bind the current Host build/version, platform/architecture, root `session_id`, root `thread_id` and actually exposed Native Subagent V2 capability surface from the authoritative evidence sources defined in `docs/v4/host-smoke.json`.
+6. Keep unavailable Host facts as `UNKNOWN`. Do not infer Host truth from configuration, requested profile values, repository identity, CLI assumptions or model self-report.
 7. Record the fresh Host binding in Issue #91 before the first N0/N1 child spawn.
 8. Apply the current N0 and revised N1 preflight using `REUSE | RERUN | NOT_RUN`.
 9. Run revised N1 through every fixed managed profile only when the preflight authorizes it. Include the adversarial nested-delegation request and inspect authoritative child action plus descendant identity/spawn-edge evidence.
