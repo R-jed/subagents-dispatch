@@ -100,13 +100,18 @@ def test_marketplace_plugin_source_is_exact_checkout_root():
     assert market["plugins"][0]["source"] == {"source": "local", "path": "./"}
 
 
-def test_fixed_profiles_follow_policy_and_request_leaf_containment():
+def test_fixed_profiles_follow_policy_and_request_leaf_defense():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["schema_version"] == 9
+    assert policy["schema_version"] == 10
     assert policy["delegation"] == {
         "max_depth": 1,
         "fork_turns": "none",
         "max_managed_children": 4,
+    }
+    assert policy["containment"] == {
+        "managed_model_multi_agent_version": "v1",
+        "v2_capable_managed_child_models_allowed": False,
+        "behavioral_leaf_instruction": "defense_only",
     }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
     assert set(policy["roles"]) == {"reader", "worker", "investigator", "solver", "advisor"}
@@ -117,8 +122,9 @@ def test_fixed_profiles_follow_policy_and_request_leaf_containment():
         )
         assert profile["model"] == spec["model"], role
         assert profile["model_reasoning_effort"] == spec["effort"], role
-        assert profile["agents"]["enabled"] is False, role
-        assert profile["features"]["multi_agent_v2"] is False, role
+        assert "agents" not in profile, role
+        assert "features" not in profile, role
+        assert "create further subagents" in profile["developer_instructions"].lower(), role
 
 
 def test_native_core_release_is_blocked_until_external_n0_n8_campaign_passes():
