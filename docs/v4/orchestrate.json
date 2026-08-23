@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-orchestrate-5",
+  "schema_version": "4.0.0-orchestrate-6",
   "public_target": [
     "orchestrate",
     "doctor"
@@ -25,18 +25,28 @@
       "max"
     ],
     "investigator": [
-      "gpt-5.6-terra",
-      "high"
+      "gpt-5.6-luna",
+      "max"
     ],
     "solver": [
-      "gpt-5.6-sol",
-      "high"
+      "gpt-5.6-luna",
+      "max"
     ],
     "advisor": [
-      "gpt-5.6-sol",
-      "high"
+      "gpt-5.6-luna",
+      "max"
     ]
   },
+  "containment": {
+    "managed_model_multi_agent_version": "v1",
+    "v2_capable_managed_child_models_allowed": false,
+    "behavioral_leaf_instruction": "defense_only",
+    "host_evidence_required": true
+  },
+  "main_judgment_reference": [
+    "gpt-5.6-sol",
+    "high"
+  ],
   "host_execution": "native_host_only",
   "lifecycle_authority": "codex_host",
   "child_collaboration_policy": "main_only_managed_dispatch",
