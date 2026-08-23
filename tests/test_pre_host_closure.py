@@ -127,9 +127,6 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
     architecture = json.loads(
         (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
     )
-    orchestrate = json.loads(
-        (ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8")
-    )
 
     assert architecture["host_capability_requirements"] == [
         "spawn",
@@ -153,10 +150,10 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
         "managed_child_collaboration_surface_owner": "codex_host",
         "effective_permission_owner": "codex_host",
     }
-    assert orchestrate["host_execution"] == "native_host_only"
-    assert orchestrate["lifecycle_authority"] == "codex_host"
-    assert orchestrate["child_collaboration_policy"] == "main_only_managed_dispatch"
-    assert orchestrate["managed_child_depth_policy"] == "behavioral_leaf_with_host_observed_no_descendant"
+    assert architecture["routing"]["profile_selection_owner"] == "main"
+    assert architecture["routing"]["principle"] == "explicit_main_selection_from_fixed_profiles"
+    assert architecture["reconciliation"]["mode"] == "main_driven_native_host_reconciliation"
+    assert architecture["invariants"]["I08"].startswith("Main is the sole managed coordinator")
 
 
 def test_rc3_integrity_closure_is_history_not_active_contract():
