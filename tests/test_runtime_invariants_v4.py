@@ -208,7 +208,7 @@ def test_constraint_snapshot_reports_remaining_slots_without_selecting_work():
     ]
     state.validate_state_payload(payload)
 
-    decision = scheduler.scheduler_decision(
+    decision = scheduler.constraint_snapshot(
         payload,
         capability_snapshot=host_snapshot(4),
         wakeup_reason="AGENT_UPDATE",
