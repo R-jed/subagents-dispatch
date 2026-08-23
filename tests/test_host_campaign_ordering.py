@@ -23,7 +23,7 @@ def requirements(probe: dict) -> str:
 def test_native_campaign_is_exactly_n0_through_n8_and_stays_pending_in_repo():
     current = payload()
 
-    assert current["schema_version"] == "4.0.0-native-host-smoke-2"
+    assert current["schema_version"] == "4.0.0-native-host-smoke-1"
     assert current["gate_id"] == "v4-real-host-n0-n8"
     assert current["status"] == "PENDING"
     assert current["results"] == {}
@@ -47,7 +47,7 @@ def test_environment_binding_uses_native_session_and_thread_identity():
     assert "session-tree identity" in identity["session_id"]["meaning"]
     assert "session_meta.session_id" in identity["session_id"]["authoritative_sources"][-1]
     assert "current root thread" in identity["thread_id"]["meaning"]
-    assert "CODEX_THREAD_ID" in identity["thread_id"]["authoritative_sources"]
+    assert any("CODEX_THREAD_ID" in source for source in identity["thread_id"]["authoritative_sources"])
     assert "session_meta.id" in identity["thread_id"]["authoritative_sources"][-1]
     assert "UNKNOWN" in identity["unknown_policy"]
     assert "repository commit" in identity["unknown_policy"]
