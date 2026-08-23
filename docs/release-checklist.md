@@ -6,6 +6,8 @@ Use this checklist for the exact Native Core V4.0.0 candidate. Repository comple
 
 Record the exact candidate commit/tree, Plugin version, Marketplace identity, package-integrity manifest, managed profile contract digest, Host campaign contract, Codex Host version/build, and operating systems used for validation.
 
+For real Host environment binding, use the Codex-native identities defined by `docs/v4/host-smoke.json`: `session_id` is the Host-reported session-tree identity shared by the root thread and its descendants, and `thread_id` is the Host-reported identity of the current root thread. Use only the authoritative sources listed in that machine contract. Do not invent or substitute a generic `run_id`. If either required identity cannot be established for the current root Host session, the environment binding remains `UNKNOWN`.
+
 `.codex-plugin/plugin.json`, Marketplace metadata and the V4 changelog must agree on `4.0.0` before tagging. Use a versioned semantic-version tag only after all release gates pass, then verify Marketplace installation resolves the exact tagged candidate. Resolving a ref to the expected commit does not by itself prove platform-enforced tag immutability.
 
 ## 2. Repository gates
@@ -71,7 +73,9 @@ plan-only creates no runtime state, lease or Host action
 
 ## 4. Real Codex Host gate
 
-`docs/v4/host-smoke.json` is the machine-readable authority. The required campaign is exactly:
+`docs/v4/host-smoke.json` is the machine-readable authority. Bind each campaign to the exact root `session_id` and `thread_id` before any N0/N1 child spawn. Public Host/session metadata is preferred. The machine contract defines the permitted Host-produced fallback evidence and the `UNKNOWN` policy when either identity remains unavailable.
+
+The required campaign is exactly:
 
 ```text
 N0 exact role / model / effort / fork_turns
