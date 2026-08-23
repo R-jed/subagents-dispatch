@@ -70,6 +70,7 @@ def make_candidate(tmp_path: Path) -> Path:
 
 def build_valid_evidence(module, repo: Path) -> dict:
     identity = module.current_candidate_identity(repo)
+    host_identity = module.host_qualification_identity(identity)
     environments = {
         "env-main": {
             "codex_version": "test-current",
@@ -91,9 +92,9 @@ def build_valid_evidence(module, repo: Path) -> dict:
     campaign = {
         "schema_version": module.HOST_CAMPAIGN_SCHEMA,
         "repository": module.EXPECTED_REPOSITORY,
-        **identity,
+        **host_identity,
         "contract_version": module.HOST_CAMPAIGN_CONTRACT_VERSION,
-        "campaign_id": "campaign-exact-candidate",
+        "campaign_id": "campaign-host-basis",
         "environments": environments,
         "results": results,
     }
@@ -126,12 +127,53 @@ def test_exact_candidate_bound_release_evidence_passes(tmp_path: Path):
     assert result["required_host_probes"] == [f"N{index}" for index in range(9)]
     assert result["candidate_commit"] == run(repo, "rev-parse", "HEAD")
     assert result["candidate_tree"] == run(repo, "rev-parse", "HEAD^{tree}")
+    assert len(result["host_qualification_basis_sha256"]) == 64
 
 
-def test_candidate_a_evidence_is_rejected_after_candidate_b_commit(tmp_path: Path):
-    module = load_module("native_release_drift", "release_evidence_v4.py")
+def test_stale_top_level_release_identity_is_rejected_after_any_commit(tmp_path: Path):
+    module = load_module("native_release_revision_drift", "release_evidence_v4.py")
     repo = make_candidate(tmp_path)
     evidence = build_valid_evidence(module, repo)
+
+    write(repo / "headoff.md", "handoff changed\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "docs: refresh handoff")
+
+    result = module.verify_release_evidence(repo, evidence)
+    assert result["ok"] is False
+    assert any("candidate_commit" in issue or "candidate_tree" in issue for issue in result["issues"])
+
+
+def test_host_campaign_survives_handoff_only_commit_when_release_identity_is_refreshed(tmp_path: Path):
+    module = load_module("native_release_handoff_reuse", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    old_evidence = build_valid_evidence(module, repo)
+    old_campaign = copy.deepcopy(old_evidence["host_campaign"])
+    old_campaign_digest = old_evidence["host_campaign_sha256"]
+    old_basis = old_evidence["host_qualification_basis_sha256"]
+
+    write(repo / "headoff.md", "handoff changed\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "docs: refresh handoff")
+
+    refreshed = build_valid_evidence(module, repo)
+    assert refreshed["candidate_commit"] != old_evidence["candidate_commit"]
+    assert refreshed["candidate_tree"] != old_evidence["candidate_tree"]
+    assert refreshed["host_qualification_basis_sha256"] == old_basis
+    refreshed["host_campaign"] = old_campaign
+    refreshed["host_campaign_sha256"] = old_campaign_digest
+
+    result = module.verify_release_evidence(repo, refreshed)
+    assert result["ok"] is True
+    assert result["issues"] == []
+
+
+def test_host_campaign_is_invalidated_by_runtime_basis_change(tmp_path: Path):
+    module = load_module("native_release_runtime_invalidation", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    old_evidence = build_valid_evidence(module, repo)
+    old_campaign = copy.deepcopy(old_evidence["host_campaign"])
+    old_campaign_digest = old_evidence["host_campaign_sha256"]
 
     write(repo / "docs" / "python-runtime.md", "runtime changed\n")
     package = load_module("native_release_package_b", "package_integrity.py")
@@ -139,9 +181,16 @@ def test_candidate_a_evidence_is_rejected_after_candidate_b_commit(tmp_path: Pat
     run(repo, "add", ".")
     run(repo, "commit", "-m", "test: candidate B")
 
-    result = module.verify_release_evidence(repo, evidence)
+    refreshed = build_valid_evidence(module, repo)
+    refreshed["host_campaign"] = old_campaign
+    refreshed["host_campaign_sha256"] = old_campaign_digest
+
+    result = module.verify_release_evidence(repo, refreshed)
     assert result["ok"] is False
-    assert any("candidate_commit" in issue or "candidate_tree" in issue for issue in result["issues"])
+    assert any(
+        "runtime_manifest_sha256" in issue or "host_qualification_basis_sha256" in issue
+        for issue in result["issues"]
+    )
 
 
 def test_runtime_profile_and_host_contract_digest_drift_are_rejected(tmp_path: Path):
@@ -149,11 +198,7 @@ def test_runtime_profile_and_host_contract_digest_drift_are_rejected(tmp_path: P
     repo = make_candidate(tmp_path)
     evidence = build_valid_evidence(module, repo)
 
-    for field in (
-        "runtime_manifest_sha256",
-        "profile_contract_sha256",
-        "host_contract_sha256",
-    ):
+    for field in module.HOST_BASIS_FIELDS:
         tampered = copy.deepcopy(evidence)
         tampered[field] = "0" * 64
         tampered["host_campaign"][field] = "0" * 64
@@ -264,6 +309,7 @@ def test_malformed_all_green_json_does_not_create_release_authority(tmp_path: Pa
         "runtime_manifest_sha256": "a" * 64,
         "profile_contract_sha256": "c" * 64,
         "host_contract_sha256": "d" * 64,
+        "host_qualification_basis_sha256": "b" * 64,
         "host_campaign_sha256": "e" * 64,
         "host_campaign": {"status": "PASS"},
         "final_review": {"verdict": "ship"},
