@@ -165,14 +165,14 @@ Actions:
 
 1. Perform the dedicated N3 preflight.
 2. Record authoritative Host capacity evidence. If the public spawned-agent limit is used, normalize it to the root-inclusive internal V2 session limit as required by the contract.
-3. Create controlled residency/concurrency pressure without exceeding the project's managed-child ceiling outside the planned rejection setup.
-4. Immediately before every covered Agent-control action, re-establish exact-turn V2 capability.
-5. Trigger one actual Host admission rejection.
+3. Design the rejection setup so the product managed-child ceiling of four is never exceeded. Prefer a Host capacity that can be saturated below that product ceiling. If safe saturation cannot be established within product policy, stop H5 as `NOT_RUN_STOP` rather than violating the product limit.
+4. For each child used to create controlled pressure, perform its own preflight and exact-turn V2 capability check before the covered Agent-control action.
+5. Trigger one actual Host admission rejection only when the attempted spawn remains within the product managed-child ceiling and the Host capacity setup makes rejection expected.
 6. Prove the rejected attempt produced no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime.
 7. Verify provisional execution and writer reservation rollback semantics.
 8. Settle/clean all intentionally created children before leaving H5.
 
-Any ambiguity about rejected-child materialization is `UNKNOWN_STOP`.
+Any ambiguity about rejected-child materialization is `UNKNOWN_STOP`. Any setup that would require a fifth managed child or another product-policy violation is `NOT_RUN_STOP`.
 
 Mandatory stop: `H5_STOP` with zero intentionally running children left behind.
 
@@ -203,10 +203,17 @@ Headoff checkpoint: record N4 state and the same-child evidence reference.
 
 Purpose: validate the safety boundary between interruption, Host settlement, WriterLease release, and Main takeover.
 
+Setup:
+
+1. Perform the H7 preflight.
+2. Start a new controlled writable managed execution through the canonical route and acquire the corresponding WriterLease under the normal product rules.
+3. Re-establish exact-turn V2 capability before every covered Agent-control action used in the setup.
+4. Bind the active execution, current generation, canonical native task address, and WriterLease before attempting N5.
+
 N5 substep:
 
-1. Perform preflight and exact-turn V2 qualification before covered Agent-control actions.
-2. Interrupt the current managed execution.
+1. Perform a fresh preflight and exact-turn V2 qualification for the interrupt turn.
+2. Interrupt the active managed execution.
 3. Verify the interrupt result alone does not release WriterLease.
 4. Require current-generation Host lifecycle evidence to settle the execution.
 5. Reject stale control/lease generation evidence.
@@ -282,9 +289,16 @@ Mandatory stop: `H10_RELEASE_DECISION_STOP`.
 
 No release action auto-runs after this stop. Tagging, Marketplace verification, and publication require an explicit final release decision.
 
+H10 headoff record rule:
+
+- H10 must also be recorded in `headoff.md` to satisfy the phase-by-phase handoff requirement.
+- Do not mutate the frozen release candidate merely to write that record before the final release decision.
+- If H10 is blocked, the H10 checkpoint may be committed after the blocking decision; any later resumption must then refresh final-source gates as required.
+- If H10 reaches release approval, perform the tag/Marketplace/publication sequence first, then record the H10 completion checkpoint on the resulting post-release development line. This post-release administrative record does not alter the already-tagged release artifact.
+
 ## Headoff checkpoint template
 
-At each H0 through H9 mandatory stop, update root `headoff.md` with only this durable summary shape:
+At each H0 through H9 mandatory stop, and at H10 using its special post-decision rule, update root `headoff.md` with only this durable summary shape:
 
 ```text
 Host phase: Hx <name>
@@ -297,7 +311,7 @@ Next permitted phase: Hy | none
 
 Do not paste raw rollout logs, transient task identifiers, full child transcripts, or detailed live Host verdicts into `headoff.md`.
 
-After every headoff checkpoint merge:
+After every pre-release headoff checkpoint merge:
 
 1. verify repository CI for the new exact head;
 2. compare `.codex-plugin/package-integrity.json`, `contracts/policy.json`, and `docs/v4/host-smoke.json` qualification digests;
