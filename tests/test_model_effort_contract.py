@@ -13,20 +13,10 @@ POLICY = ROOT / "contracts" / "policy.json"
 EXPECTED = {
     "reader": ("gpt-5.6-luna", "max", "none"),
     "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-    "investigator": ("gpt-5.6-terra", "high", "none"),
-    "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-    "advisor": ("gpt-5.6-sol", "high", "none"),
+    "investigator": ("gpt-5.6-luna", "max", "none"),
+    "solver": ("gpt-5.6-luna", "max", "bounded-source-write"),
+    "advisor": ("gpt-5.6-luna", "max", "none"),
 }
-CURRENT_DOCS = (
-    "README.md",
-    "README_EN.md",
-    "README_AI.md",
-    "CHANGELOG.md",
-    "docs/architecture.md",
-    "docs/native-subagent-runtime.md",
-    "docs/release-checklist.md",
-    "evals/README.md",
-)
 
 
 def load_module(name: str, filename: str):
@@ -46,10 +36,10 @@ def test_fixed_model_effort_authority_is_exact():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     assert policy["fixed_execution_profiles"] == {
         "luna": "max",
-        "terra": "high",
-        "sol": "high",
         "dynamic_effort_routing": False,
     }
+    assert policy["capability_dedup"]["reference_model"] == "gpt-5.6-sol"
+    assert policy["capability_dedup"]["reference_effort"] == "high"
     actual = {
         role: (spec["model"], spec["effort"], spec["mutation_authority"])
         for role, spec in policy["roles"].items()
@@ -98,12 +88,14 @@ def test_routing_evals_use_current_production_profiles():
             )
 
 
-def test_current_product_docs_keep_terra_high():
-    for relative in CURRENT_DOCS:
-        text = (ROOT / relative).read_text(encoding="utf-8")
-        lowered = text.lower()
-        assert "terra" in lowered, relative
-        assert "xhigh" not in lowered, relative
-
+def test_machine_orchestrate_uses_containment_safe_managed_routes():
     machine = json.loads((ROOT / "docs" / "v4" / "orchestrate.json").read_text(encoding="utf-8"))
-    assert machine["routing"]["investigator"] == ["gpt-5.6-terra", "high"]
+    for role in EXPECTED:
+        assert machine["routing"][role] == ["gpt-5.6-luna", "max"]
+    assert machine["containment"] == {
+        "managed_model_multi_agent_version": "v1",
+        "v2_capable_managed_child_models_allowed": False,
+        "behavioral_leaf_instruction": "defense_only",
+        "host_evidence_required": True,
+    }
+    assert machine["main_judgment_reference"] == ["gpt-5.6-sol", "high"]
