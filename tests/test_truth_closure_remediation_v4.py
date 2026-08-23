@@ -207,36 +207,8 @@ def test_history_documents_are_explicitly_non_authoritative():
     assert (history / "v3.0.0-post-release-final-audit.md").is_file()
 
 
-def test_phase_status_is_process_bookkeeping_not_stale_candidate_evidence():
-    phase = read_json("docs/v4/phase-status.json")
-    validation = phase["repository_validation"]
-
-    assert phase["candidate_branch"] == "v4/rc5-native-core"
-    if validation["status"] == "REMEDIATION_REQUIRED":
-        assert validation["candidate_sha"] is None
-        assert validation["workflow_run_id"] is None
-        assert "documentation truth review" in validation["attestation_scope"]
-        assert {
-            key for key, value in phase["repository_phases"].items() if value == "REMEDIATION"
-        } >= {
-            "architecture_and_state",
-            "public_orchestrate_doctor_surface",
-            "product_plane_closure",
-            "v3_residue_closure",
-        }
-    else:
-        assert validation["status"] == "PASS"
-        assert set(phase["repository_phases"].values()) == {"PASS"}
-        assert re.fullmatch(r"[0-9a-f]{40}", validation["candidate_sha"])
-        assert isinstance(validation["workflow_run_id"], int) and validation["workflow_run_id"] > 0
-        assert "documentation truth closure" in validation["attestation_scope"].lower()
-
-    feasibility = phase["host_capability_feasibility"]
-    assert feasibility["status"] == "PENDING"
-    assert feasibility["release_authority"] is False
-    assert "matrix" not in feasibility
-    assert phase["publication"] == "BLOCKED"
-    assert phase["real_host_gate"]["status"] == "PENDING_RELEASE_GATE"
-    assert phase["real_host_gate"]["required_campaign"] == "N0-N8"
-    assert phase["final_review"] == "PENDING_RELEASE_GATE"
-    assert phase["external_release_evidence"] == "PENDING_RELEASE_GATE"
+def test_candidate_status_has_no_self_stale_git_snapshot():
+    assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
+    current_state = read_text("docs/v4/current-state.md")
+    assert "current GitHub / real-Host evidence have higher authority" in current_state
+    assert "Issue #91 remains the append-only Real Host Test Ledger" in current_state
