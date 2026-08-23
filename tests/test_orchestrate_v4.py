@@ -216,6 +216,7 @@ def test_reconcile_returns_constraints_without_selecting_work(tmp_path: Path):
         "surface": "multi_agent_v2",
         "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
         "fork_turns_none": True,
+        "managed_child_containment": "verified",
         "max_concurrent_threads_per_session": 4,
     })
     decision = orchestrate.reconcile_once(
