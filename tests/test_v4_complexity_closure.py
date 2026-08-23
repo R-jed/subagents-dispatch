@@ -218,9 +218,6 @@ def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     machine = json.loads(
         (ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8")
     )
-    phase = json.loads(
-        (ROOT / "docs" / "v4" / "phase-status.json").read_text(encoding="utf-8")
-    )
     expected_runtime_owners = {
         "orchestration": "scripts/orchestrate_v4.py",
         "state": "scripts/dispatch_state_v4.py",
@@ -242,8 +239,7 @@ def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     ):
         assert expected in architecture
     assert machine["runtime_owners"] == expected_runtime_owners
-    assert phase["runtime_owner_contract"] == "docs/v4/architecture.json#runtime_owners"
-    assert "current_runtime_owners" not in phase
+    assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
     assert "docs/v4/architecture.json#runtime_owners" in repository_architecture
     assert "../../docs/v4/architecture.json#runtime_owners" in orchestrate_skill
     assert "selection/invocation of Orchestrate" in final_review
