@@ -1,6 +1,6 @@
 # Headoff
 
-Updated: 2026-08-23.
+Updated: 2026-08-24.
 
 ## Purpose
 
@@ -59,6 +59,7 @@ Use one owner per kind of truth:
 - `docs/v4/technical-debt.json`: explicitly tracked V4 technical debt.
 - `docs/architecture.md`: human architecture overview.
 - `docs/release-checklist.md`: release gate sequence and identity/invalidation rules.
+- `tasks/real-host-qualification-plan.md`: human staged execution procedure for the real Host campaign. It never overrides the machine contract or live ledger.
 - GitHub: current branch, PR, final release-source SHA/tree and CI state.
 - Issue #91: append-only real-Host evidence and `REUSE | RERUN | NOT_RUN` preflight decisions.
 
@@ -109,6 +110,7 @@ The current V4 line has already completed the major repository remediation and s
 11. The external release-evidence verifier was corrected to separate Host qualification identity from final Git commit/tree, so source-only handoff or release-tooling changes do not force needless Host reruns when runtime/profile/Host-contract digests are unchanged.
 12. Turn-timeline reconciliation then showed that the same root session later resumed into a second rollout segment whose N0 request turn and schema-inspection turn were authoritatively `multi_agent_version=v1`. The V1-like callable schema matched that exact turn, so there was no same-turn Host contradiction and no Agent was spawned. This exposed a qualification-protocol defect: a historical V2 turn had been treated too broadly as reusable current capability evidence.
 13. The Host campaign contract now separates stable environment identity from probe-turn capability. Current V2 capability must be established from Host-produced `turn_context.multi_agent_version` and the callable tool schema for the exact probe `turn_id`. Historical-turn V2 evidence cannot satisfy a later probe. V1, disabled, unobservable, or conflicting current-turn capability leaves the affected Agent-control step `NOT_RUN` and forbids the Agent-control action.
+14. The repaired Host contract and post-merge repository qualification are complete. The remaining work is staged real Host qualification, followed by final release closure gates.
 
 The active release work is real Codex Host qualification followed by the remaining release gates. New product feature development is out of scope unless a Host probe finds a real defect or the user changes direction.
 
@@ -133,26 +135,63 @@ The latest qualification work established these workflow facts:
 - that root environment identity was recorded as PASS in Issue #91 before N0 and remains useful as environment evidence;
 - an early turn in that root session exposed Native Subagent V2, but the exact later N0 request turn and schema-inspection turn were V1 with a matching V1-like spawn surface;
 - N0 therefore did not run, no `spawn_agent` call was issued, no child materialized, and the repository working tree remained clean;
-- a prior-turn V2 observation must now be treated as historical capability evidence only. It cannot authorize an Agent-control action in a later turn.
+- a prior-turn V2 observation must now be treated as historical capability evidence only. It cannot authorize an Agent-control action in a later turn;
+- the Host campaign contract now requires exact-turn V2 capability before every covered Agent-control step and blocks V1 compatibility translation;
+- the real Host campaign must follow the staged procedure in `tasks/real-host-qualification-plan.md`.
 
 For exact IDs, source SHA/tree, ledger comment IDs and live PASS/UNKNOWN state, use Issue #91. Do not copy those volatile values from this document into a new decision without checking the ledger.
 
+## Real Host staged execution protocol
+
+The campaign is divided into mandatory phases with hard stop points:
+
+```text
+H0   exact source, installed basis, fresh Host environment
+H1   N0 Reader canary
+H2   remaining N0 fixed profiles
+H3   N1 managed delegation depth across all five profiles
+H4   N2 native task-address and Host-thread identity binding
+H5   N3 admission rejection and materialization safety
+H6   N4 same-child steering, correction, and continuation
+H7   N5/N6 interrupt, settlement, and writer takeover
+H8   N7 rollout reconciliation and privacy
+H9   N8 Advisor review and effective sandbox truth
+H10  release closure and explicit release decision stop
+```
+
+No phase auto-continues. After every H0 through H9 phase:
+
+1. write the canonical action/result evidence to Issue #91;
+2. stop all further Host work;
+3. update `headoff.md` with a concise durable checkpoint that references Issue #91, records qualification-basis impact, and identifies the next permitted phase;
+4. merge that checkpoint through the normal short-lived branch and CI workflow;
+5. compare all three Host qualification digests after the checkpoint merge;
+6. sync the target local checkout;
+7. perform a fresh Issue #91 preflight before any next-phase Host action;
+8. continue only after explicit user instruction.
+
+The allowed phase terminal states are `PASS_STOP`, `NOT_RUN_STOP`, `UNKNOWN_STOP`, `FAIL_STOP`, and `MUTATION_STOP`. `UNKNOWN_STOP`, `FAIL_STOP`, and `MUTATION_STOP` always block later Host phases until their cause is resolved. `NOT_RUN_STOP` blocks later Host phases until the missing prerequisite or capability basis changes.
+
+Within H3, stop after each managed profile before advancing to the next profile. Within H7, stop internally after N5 settlement before attempting N6 takeover. H5 must finish with all deliberately created children settled or cleaned before the phase can close.
+
+The H9 checkpoint requires special handling. Recording H9 in `headoff.md` changes release-source identity. Because N8 and Final Review bind the exact candidate artifact, freeze the post-checkpoint source and perform one justified N8 revalidation on that exact head. Do not mutate `headoff.md` again after that revalidation before Final Review and release closure. The final N8 result stays canonical in Issue #91.
+
+`headoff.md` must never contain raw rollout logs, full child transcripts, or a duplicated live Host ledger. Its phase checkpoint is a durable navigation summary only.
+
 ## Next development direction
 
-Finish and verify the probe-turn capability qualification repair first. This changes the Host campaign contract digest, so the Host qualification basis changes even though shipped runtime/profile bytes do not.
+The probe-turn capability repair is complete. The next phase is H0 from `tasks/real-host-qualification-plan.md`.
 
-After the repair is merged and repository CI is green:
+Before H0 begins:
 
-1. Refresh the three Host qualification digests and record the changed `host_contract_sha256` basis in Issue #91.
-2. Preserve the existing root `session_id`/`thread_id`, Host build and platform observations as environment evidence where their own semantics remain valid, but do not reuse the historical V2 turn as current capability proof.
-3. Record the reconciled current root N0 state in Issue #91: exact N0 turn is V1, V1-like schema is consistent, no Agent action occurred, and N0 remains `NOT_RUN` on that root.
-4. Apply the required ledger preflight before any further real Host action. The changed basis is the now-explicit same-turn capability contract plus the proved V1 current N0 turn, not merely the creation of a new conversation.
-5. Use a fresh Host root only when the preflight authorizes a changed-basis attempt. Bind its environment identity, then establish `multi_agent_version=v2` and the V2 callable schema for the exact probe turn before the first N0 spawn.
-6. Run N0 only after the exact-turn capability precondition passes. Do not translate V1 `fork_context` into V2 `fork_turns` or otherwise emulate V2 through compatibility behavior.
-7. Run revised N1 through every fixed managed profile only after N0 passes and after the exact-turn capability precondition is re-established for each relevant Agent-control step. Include the adversarial nested-delegation request and inspect authoritative child action plus descendant identity/spawn-edge evidence.
-8. Apply the same exact-turn V2 precondition to later Host Agent-control steps covered by the machine contract, then continue N2-N8 in order.
-9. After N0-N8, run final-source repository checks, a fresh Final Review, installed-product/external evidence checks and human two-Skill App observation.
-10. Keep publication blocked until every required gate is PASS.
+1. Merge and verify this staged qualification plan through the normal repository workflow.
+2. Confirm the current release source and post-merge CI from GitHub.
+3. Read the newest Issue #91 ledger entry and perform the required H0 preflight.
+4. Sync the target local checkout to the exact release head and verify clean source plus package/profile health.
+5. Establish the fresh Host environment without any Agent-control action.
+6. Stop at `H0_STOP`, write Issue #91 evidence, update this `headoff.md`, and wait for explicit user continuation.
+
+Do not begin H1, do not invoke Orchestrate, and do not create or control any Agent during H0.
 
 Do not repeat the old generic recursion probe merely because a new chat/session starts.
 
@@ -173,6 +212,7 @@ Follow this sequence for repository changes:
 11. Re-run or inspect post-merge exact-head CI and compare source/synthetic tree when relevant.
 12. Update Issue #91 for release evidence without using tracked repository files as the live Host ledger.
 13. Update `headoff.md` when project background, durable workflow, important development trajectory, current phase or next direction materially changes.
+14. During the real Host campaign, every H0 through H9 phase stop requires a `headoff.md` checkpoint before the next phase.
 
 Never mark repository work complete before verification.
 
@@ -186,3 +226,4 @@ Never mark repository work complete before verification.
 - Host evidence invalidation is determined by the Host qualification identity, not by Git HEAD alone.
 - Final Review invalidation is determined by the exact final release source and review artifact identity.
 - Historical development chronology belongs in Git history or `docs/history/`. `headoff.md` keeps only the history needed for a new development session to understand why the current direction exists.
+- During staged Host qualification, Issue #91 remains canonical for live evidence. `headoff.md` only records durable phase checkpoints and next-direction context.
