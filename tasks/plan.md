@@ -1,58 +1,70 @@
-# RC5 Review Remediation Plan
+# N1 Managed Delegation Depth Remediation Plan
 
 ## Objective
 
-Close the ten repository-side findings from the three independent Native Core reviews without weakening the frozen Host/release boundaries. Keep `v4/rc5-native-core` unchanged; all remediation lands on `v4/rc5-review-remediation` until a new exact candidate is reviewed.
+Correct the V4 N1 release oracle so it verifies the product's real single-layer managed delegation contract without requiring Codex Host to remove all latent V2 recursive capability.
 
-## Capability map
+This plan implements `tasks/SPEC-n1-managed-depth.md` and keeps the Native Core architecture intact.
 
-| Module id | Responsibility | Depends on |
-| --- | --- | --- |
-| runtime-safety | Scope containment, generation-safe execution identity, idempotent Host observation persistence, bounded same-child recovery evidence | none |
-| host-adapter | Fail-closed capability readiness and Codex V2 session-capacity projection | runtime-safety |
-| truth-closure | Remove stale TeamPlan/fixed-budget semantics, align evals and profile labels to current policy, make phase status evidence-based | runtime-safety, host-adapter |
-| candidate-verification | Package integrity, lint, full tests, cross-platform CI, adversarial diff review | runtime-safety, host-adapter, truth-closure |
+## Source boundary
 
-Build order: `runtime-safety` -> `host-adapter` -> `truth-closure` -> `candidate-verification`.
+- Product requirement: Main is the sole managed coordinator; managed children do not create or control further Agents.
+- Current official OpenAI Codex source confirms MultiAgent V2 may expose recursive collaboration to V2-capable child models.
+- Therefore Host latent recursion is recorded as a platform fact, while N1 must judge actual managed execution behavior.
 
-## Source and version boundary
+Official source:
 
-- Python runtime: 3.11+ as declared by the repository.
-- Dev validation uses the pinned versions in `requirements-dev.txt`.
-- Codex Host semantics must be verified only against current official `openai/codex` source. Profile configuration remains requested intent unless the Host proves effective runtime behavior.
+- `openai/codex` `codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs`
+- `openai/codex` `codex-rs/core/src/tools/spec_plan.rs`
 
-## Design decisions
+## Implementation order
 
-### Runtime safety
+1. Correct Host readiness semantics.
+   - Keep `managed_child_containment` as optional diagnostic compatibility data.
+   - Remove it from ordinary execution-readiness requirements.
+   - Preserve strict validation when the field is supplied.
 
-- Repository write scopes are canonical repository-relative POSIX paths. Windows drive/UNC forms are rejected. Directory scopes contain descendants by path-segment ancestry.
-- Bounded state cannot retain unbounded opaque identity or correction sets. Safety therefore binds lifecycle observations to monotonic attempt/control generations. Native task names must remain generation-distinct. Same-child correction evidence is compacted to a bounded generation summary rather than an unbounded event list.
-- Duplicate current-generation Host observations are true no-ops and must not advance `state_revision`.
+2. Correct the N1 machine oracle.
+   - Replace generic Host hard-containment acceptance with managed-profile leaf-behavior evidence.
+   - Require canonical managed spawn, real delegation boundary, adversarial untrusted input, no child-issued nested Agent action, and no descendant identity/spawn edge.
+   - Treat ambiguous evidence as UNKNOWN.
 
-### Host adapter
+3. Align architecture and release documentation.
+   - Keep `max_depth=1` explicitly scoped to product policy.
+   - Record latent V2 recursion as residual Host capability rather than a release blocker by itself.
+   - Keep N8 strict read-only Host evidence unchanged.
 
-- Missing Host capability evidence remains unavailable/unknown and cannot be projected as ready.
-- Codex V2 capacity is treated as session-level evidence. Any child-capacity projection must account for the active root/session participant and must not invent a private capacity ledger.
+4. Verify and simplify.
+   - Run focused regression tests first.
+   - Review changed code for unnecessary branching or duplicated semantics.
+   - Refresh package integrity because `scripts/host_capabilities.py` is shipped.
+   - Run the complete GitHub Actions matrix on the exact final head.
+   - Perform an adversarial diff review before merge.
 
-### Truth closure
+## Risks and mitigations
 
-- WorkGraph/WorkUnit own responsibility and dependency truth. TeamPlan fields are compatibility residue only.
-- `contracts/policy.json` owns managed model/effort truth; receipt/eval/test surfaces must not maintain independent stale copies.
-- `phase-status.json` may report PASS only for currently verified repository phases.
+- Risk: weakening the product boundary accidentally.
+  - Mitigation: N1 still fails on any actual managed nested delegation or descendant materialization.
+
+- Risk: converting Host facts into assumptions.
+  - Mitigation: keep Host collaboration capability observable and document it as residual risk; do not claim hard isolation.
+
+- Risk: weakening unrelated safety gates.
+  - Mitigation: do not change WriterLease, UNKNOWN lifecycle handling, fixed profiles, spawn contract, or N8 effective read-only requirements.
 
 ## Verification checkpoints
 
-1. Add focused regressions that fail on the frozen candidate for each runtime-safety issue, then implement the smallest coherent fix.
-2. Validate Host-adapter behavior against official OpenAI Codex source and focused tests.
-3. Sweep active contracts/evals/tests for retired semantics and duplicated model/effort constants.
-4. Refresh generated package integrity only after runtime files stabilize.
-5. Run Ruff and the full pytest suite through GitHub Actions on the remediation branch, then require all supported platform jobs to pass.
-6. Compare the remediation branch against `5c577870a134e683c78a6c6dc584b18c878c99f5` and perform a fresh adversarial review before proposing a new candidate.
+1. Focused host-capability tests prove failed/unknown/omitted hard containment does not block otherwise valid native execution readiness.
+2. N1 contract tests prove the release oracle targets actual managed children and requires zero descendants.
+3. Package integrity regenerates cleanly.
+4. Ruff and full pytest pass.
+5. Ubuntu 3.11, Ubuntu 3.12, macOS 3.11, Windows 3.11 and aggregate policy-tests all pass on the final exact head.
+6. Fresh adversarial review confirms no managed child is authorized to create or control another Agent layer.
 
 ## Boundaries
 
-Always: preserve fail-closed UNKNOWN semantics, one-writer safety, Main acceptance authority, WorkGraph dependency truth, candidate-bound release evidence, and the real Host N0-N8 gate.
+Always: preserve Main-only coordination, managed delegation depth 1, UNKNOWN fail-closed lifecycle semantics, one-writer safety, candidate-bound release evidence and exact profile model/effort contracts.
 
-Ask first: none for the ten already-approved review findings. Any newly discovered product-semantic change outside this scope must be reported instead of silently added.
+Ask first: any fixed profile change, any nested-managed-delegation allowance, or any restored Plugin-owned lifecycle interception.
 
-Never: change the frozen `v4/rc5-native-core` branch in place, infer Host truth from profile TOML, restore fixed retry/followup ceilings, add an unbounded tombstone/event ledger, or mark release gates PASS from repository CI alone.
+Never: claim Host-hard descendant isolation without evidence, use generic V2 recursion alone as N1 failure, or mark N1 PASS from repository CI.
