@@ -144,7 +144,7 @@ def test_doctor_accepts_current_native_host_capability_snapshot(tmp_path: Path):
     assert "max_spawned_threads" not in host_layer["details"]
 
 
-def test_doctor_rejects_failed_managed_child_containment(tmp_path: Path):
+def test_doctor_treats_failed_hard_containment_as_diagnostic(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     evidence = tmp_path / "host.json"
@@ -155,8 +155,8 @@ def test_doctor_rejects_failed_managed_child_containment(tmp_path: Path):
 
     result = run_doctor(home, tmp_path, "--host-evidence", str(evidence), "--check")
 
-    assert result.returncode != 0
-    assert "[FAIL] Host integration: Required Native Subagent capabilities are unavailable" in result.stdout
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[OK] Host integration: Native Subagent capabilities are ready" in result.stdout
 
     structured = run_doctor(
         home,
@@ -164,11 +164,12 @@ def test_doctor_rejects_failed_managed_child_containment(tmp_path: Path):
         "--host-evidence",
         str(evidence),
         "--json",
+        "--check",
     )
     assert structured.returncode == 0, structured.stdout + structured.stderr
     host_layer = json.loads(structured.stdout)["layers"][2]
-    assert host_layer["status"] == "FAIL"
-    assert host_layer["details"]["missing"] == ["managed_child_containment"]
+    assert host_layer["status"] == "OK"
+    assert "missing" not in host_layer["details"]
 
 
 def test_doctor_rejects_missing_required_native_host_primitive(tmp_path: Path):

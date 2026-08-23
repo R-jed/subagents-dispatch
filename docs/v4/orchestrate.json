@@ -40,5 +40,5 @@
   "host_execution": "native_host_only",
   "lifecycle_authority": "codex_host",
   "child_collaboration_policy": "main_only_managed_dispatch",
-  "managed_child_containment": "requires_host_evidence"
+  "managed_child_depth_policy": "behavioral_leaf_with_host_observed_no_descendant"
 }

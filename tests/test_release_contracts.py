@@ -47,7 +47,7 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
     assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{number}" for number in range(9)]
     assert architecture["release"]["host_campaign"] == [
         "N0_route_model_effort_fork_turns",
-        "N1_child_collaboration_containment",
+        "N1_managed_delegation_depth",
         "N2_spawn_identity_binding",
         "N3_capacity_rejection_no_materialization",
         "N4_followup_continue_same_child",
@@ -62,13 +62,16 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
     assert architecture["host_truth"]["effective_permission_owner"] == "codex_host"
 
 
-def test_human_release_summaries_include_running_steer_gate():
+def test_human_release_summaries_include_managed_depth_and_running_steer_gates():
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
+    n1 = next(probe for probe in smoke["required_probes"] if probe["id"] == "N1")
     n4 = next(probe for probe in smoke["required_probes"] if probe["id"] == "N4")
+    assert n1["operation"] == "managed delegation depth"
     assert n4["v2_running_steer_tool"] == "followup_task"
 
     for path in (RELEASE_CHECKLIST, ARCHITECTURE_DOC):
         text = path.read_text(encoding="utf-8")
+        assert "N1 managed delegation depth" in text
         assert "N4 RUNNING Steer via followup_task" in text
         assert "same child" in text
         assert "consum" in text.lower()

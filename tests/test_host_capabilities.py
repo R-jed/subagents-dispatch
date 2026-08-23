@@ -30,9 +30,9 @@ def evidence(
     *,
     capacity: int | None = 4,
     fork_turns_none: bool = True,
-    managed_child_containment: str = "verified",
+    managed_child_containment: str | None = "verified",
 ) -> dict:
-    return {
+    payload = {
         "surface": "multi_agent_v2",
         "tools": [
             "spawn_agent",
@@ -42,9 +42,11 @@ def evidence(
             "interrupt_agent",
         ],
         "fork_turns_none": fork_turns_none,
-        "managed_child_containment": managed_child_containment,
         "max_concurrent_threads_per_session": capacity,
     }
+    if managed_child_containment is not None:
+        payload["managed_child_containment"] = managed_child_containment
+    return payload
 
 
 def test_complete_native_evidence_normalizes_to_execution_ready_snapshot():
@@ -115,29 +117,30 @@ def test_fresh_context_capability_is_required_for_execution():
     assert snapshot["missing"] == ["fresh_context_spawn"]
 
 
-def test_failed_managed_child_containment_blocks_execution_ready():
+@pytest.mark.parametrize("containment", ["failed", "unknown"])
+def test_hard_containment_is_diagnostic_not_execution_readiness(containment: str):
     module = load_module()
     snapshot = module.normalize_host_capabilities(
-        evidence(managed_child_containment="failed")
+        evidence(managed_child_containment=containment)
     )
 
-    assert snapshot["execution_ready"] is False
-    assert snapshot["managed_child_containment"] == "failed"
-    assert snapshot["missing"] == ["managed_child_containment"]
+    assert snapshot["execution_ready"] is True
+    assert snapshot["managed_child_containment"] == containment
+    assert snapshot["missing"] == []
 
 
-def test_unknown_managed_child_containment_blocks_execution_ready():
+def test_omitted_hard_containment_defaults_to_unknown_without_blocking_execution():
     module = load_module()
     snapshot = module.normalize_host_capabilities(
-        evidence(managed_child_containment="unknown")
+        evidence(managed_child_containment=None)
     )
 
-    assert snapshot["execution_ready"] is False
+    assert snapshot["execution_ready"] is True
     assert snapshot["managed_child_containment"] == "unknown"
-    assert snapshot["missing"] == ["managed_child_containment"]
+    assert snapshot["missing"] == []
 
 
-def test_invalid_managed_child_containment_is_rejected():
+def test_invalid_managed_child_containment_is_rejected_when_supplied():
     module = load_module()
 
     with pytest.raises(module.HostCapabilityError, match="managed_child_containment"):
@@ -158,11 +161,6 @@ def test_malformed_or_partial_evidence_is_rejected():
     module = load_module()
     payload = evidence()
     del payload["tools"]
-    with pytest.raises(module.HostCapabilityError, match="missing fields"):
-        module.normalize_host_capabilities(payload)
-
-    payload = evidence()
-    del payload["managed_child_containment"]
     with pytest.raises(module.HostCapabilityError, match="missing fields"):
         module.normalize_host_capabilities(payload)
 

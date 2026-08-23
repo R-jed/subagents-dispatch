@@ -2,7 +2,7 @@
 
 Current V4 product surface: `Orchestrate` and `Doctor`.
 
-Before changing V4 repository content, read `docs/v4/current-state.md`, then `docs/v4/development-handoff.md`. The current-state checkpoint is the short status entrypoint for the active release branch, Host gate and upstream blocker. The handoff provides the detailed development chronology, remediation history, architecture background and validation discipline. Neither document replaces machine-readable contracts or current GitHub / real-Host evidence.
+Before changing V4 repository content, read `docs/v4/current-state.md`, then `docs/v4/development-handoff.md`. The current-state checkpoint is the short status entrypoint for the active release branch and Host gate. The handoff provides the detailed development chronology, remediation history, architecture background and validation discipline. Neither document replaces machine-readable contracts or current GitHub / real-Host evidence.
 
 ## Runtime ownership
 
@@ -40,7 +40,7 @@ interrupt return alone never releases WriterLease
 
 Four children is a safety ceiling, not a target. Known Host capacity may reduce available slots. Unknown capacity stays unknown. Deterministic helpers report constraints and status; they do not rank WorkUnits, apply a fixed backlog threshold, or choose automatic launch actions.
 
-Delegation depth 1 is a project policy. It does not prove V2 Host containment. Profile configuration records leaf intent only; effective managed-child collaboration surface remains a Host fact.
+Delegation depth 1 is a project policy. Managed profiles and responsibility packets instruct children not to create or control further Agents. The effective child collaboration surface remains a Host fact, and latent V2 recursive capability does not by itself violate the product contract. N1 judges the actual managed executions: any managed child that initiates nested Agent creation/control, or materializes a descendant, fails the gate; ambiguous evidence remains UNKNOWN.
 
 Independent read-only work may overlap only when effective read-only behavior and responsibility isolation are verified. The canonical mutable workspace has one active managed WriterLease. Parallel writers require Host-verifiable isolated workspaces and clear integration boundaries.
 

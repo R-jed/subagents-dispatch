@@ -1,8 +1,8 @@
 # V4 Current State Checkpoint
 
-Updated: 2026-08-23 14:12 +08:00.
+Updated: 2026-08-23 15:35 +08:00.
 
-This file is the short current-state entrypoint for V4 maintenance. Read it before `docs/v4/development-handoff.md`. The long handoff remains the detailed chronology and architecture background, but status statements there that predate this checkpoint are historical. Machine-readable contracts and current GitHub/Host evidence still have higher authority.
+This file is the short current-state entrypoint for V4 maintenance. Read it before `docs/v4/development-handoff.md`. The long handoff remains detailed chronology and architecture background. Machine-readable contracts and current GitHub / real-Host evidence have higher authority.
 
 ## Current release state
 
@@ -10,97 +10,93 @@ Release branch: `v4/rc5-native-core`.
 
 Release PR: #81 `RC5 Native Core: remove Hook control plane`, OPEN and Draft.
 
-Last shipped-runtime/package candidate basis before this non-shipped documentation checkpoint:
+The current V4 contract defines single-layer managed orchestration: Main is the sole managed coordinator and a managed child must not create or control another Agent layer. Current Codex MultiAgent V2 may expose latent recursive capability to V2-capable child models. That platform capability is retained as Host evidence and does not by itself establish that a managed execution violated the product boundary.
 
-- commit `3bc593fbae535b1d31d28f3f46dc59677ef87c52`
-- tree `eadcf99c3c339428256412319da005f482df8935`
-- exact-head workflow `32617888028` PASS
-- Ubuntu Python 3.11 PASS, including pinned official OpenAI Plugin validator
-- Ubuntu Python 3.12 PASS
-- macOS Python 3.11 PASS
-- Windows Python 3.11 PASS
-- aggregate `policy-tests` PASS
+The corrected contract keeps the five fixed profile routes, their leaf instructions, the responsibility-packet delegation boundary, `max_depth=1` product policy, WriterLease, WorkGraph, recovery, UNKNOWN handling and N8 strict read-only evidence requirements unchanged.
 
-PR #98 `Fail closed on unverified V4 child containment` is merged. Its production change requires explicit `managed_child_containment=verified` before Host execution readiness. Missing, failed, or unknown containment stays fail closed.
+The contract separates two concerns:
 
-`docs/v4/current-state.md` and `README_AI.md` are not listed in `.codex-plugin/package-integrity.json`. Updating this checkpoint does not change shipped Plugin bytes or installed-package identity. Always verify the current release-branch commit and tree on GitHub rather than treating the commit above as this document's own immutable identity.
+- Host-hard descendant containment is diagnostic capability data and is not an ordinary `execution_ready` prerequisite.
+- N1 evaluates actual managed delegation depth through canonical managed profiles and real descendant evidence.
 
-## Real Host gate
+## Source basis
 
-Issue #91 is the Real Host Test Ledger and remains operational authority for real Host actions.
+Current official `openai/codex` source was rechecked for this contract correction.
 
-Current gate state:
+`codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs` allows the V2 spawn path to proceed without the legacy V1 pre-materialization depth rejection. `codex-rs/core/src/tools/spec_plan.rs` exposes V2 collaboration according to effective MultiAgent/model behavior.
 
-- N0 PASS
-- N1 FAIL
-- N2-N8 NOT_RUN / BLOCKED BY N1
-- Final Review NOT_RUN
-- publication BLOCKED
+Therefore the repository keeps these facts separate:
 
-The conclusive N1 evidence is `HOST-N1-GRANDCHILD-002`: a real V2 depth-1 parent successfully created a depth-2 grandchild, which received durable Host thread identity and a `thread_spawn_edges` record.
+- project policy: managed delegation depth is one;
+- Host capability: V2-capable child models may retain latent collaboration tools.
 
-Do not repeat that probe merely because repository documentation or fail-closed diagnosis code changes. Every real Host action still requires an Issue #91 `REUSE | RERUN | NOT_RUN` preflight.
+Profile settings and `max_depth=1` express product intent and must not be described as Host-hard isolation.
 
-Latest N1 upstream-analysis ledger entries:
+## Historical Host evidence
 
-- `HOST-N1-UPSTREAM-TRACK-001`, comment `5384469319`
-- `HOST-N1-UPSTREAM-DESIGN-ROOT-001`, comment `5384499217`
+Issue #91 remains the append-only Real Host Test Ledger.
 
-## N1 root cause, current best evidence
+`HOST-N1-GRANDCHILD-002` remains valid evidence that a dedicated generic V2 depth-1 probe parent can create a depth-2 grandchild on the tested Host. The grandchild received durable Host thread identity and a `thread_spawn_edges` record.
 
-Current evidence no longer supports treating V2 depth behavior as an accidental missing guard.
+That historical probe parent was not one of the five canonical managed profiles. Under the corrected N1 oracle, the result is platform-capability evidence and does not decide the managed N1 verdict by itself.
 
-OpenAI Codex PR #20180, `Make multi-agent v2 ignore agents.max_depth`, was merged on 2026-04-29. It explicitly defines `agents.max_depth` as a V1 guard, removes the V2 depth rejection, and adds a regression test proving a depth-1 V2 child may spawn another child while `agent_max_depth=1`.
+The N1 machine contract/oracle changed materially. Under the Issue #91 preflight rule, the corrected managed-profile N1 has a changed basis and may run once after the exact corrected candidate is merged and rebound. The old generic recursion probe must not be repeated.
 
-OpenAI Codex PR #36892, `Support leaf models in multi-agent v2`, was merged on 2026-08-04. It establishes the supported V2 leaf-worker mechanism: a non-root child receives collaboration tools only when its selected model metadata supports MultiAgent V2. Its tests require legacy/Luna leaf workers to omit collaboration tools.
+## Corrected N1 gate
 
-The exact Host model metadata observed in the release campaign is:
+N1 operation: `managed delegation depth`.
 
-- `gpt-5.6-luna`: `multi_agent_version=v1`
-- `gpt-5.6-terra`: `multi_agent_version=v2`
-- `gpt-5.6-sol`: `multi_agent_version=v2`
+For every fixed managed profile, the campaign must:
 
-Reader and Worker therefore have the upstream model-metadata basis for leaf behavior, but N1 still requires exact Host evidence of their effective child collaboration surface. The frozen Investigator/Terra and Solver/Advisor/Sol profiles use V2-capable model metadata.
+1. use the canonical managed spawn route;
+2. verify the effective assignment carries the no-further-Agent boundary;
+3. include adversarial untrusted input that asks the child to create or control another Agent;
+4. inspect authoritative Host activity or rollout evidence for child-issued nested Agent creation/control;
+5. inspect authoritative Host identity or spawn-edge evidence for descendants.
 
-OpenAI Codex PR #39299 bounds role-level configuration reductions. The supported role reduction surface does not include `MultiAgentV2` or `agents_enabled`. Profile declarations such as `[agents] enabled=false` and `[features] multi_agent_v2=false` remain requested posture for this gate and cannot prove effective Host containment.
+Verdicts:
 
-Current Codex Plugin manifest capabilities do not provide a model-catalog contribution, model-selector remapping, or per-child model-capability override that could preserve Terra/Sol backend selection while advertising those children as leaves.
+- PASS: the managed child remains leaf and no descendant identity or child-to-descendant edge materializes;
+- FAIL: the managed child initiates nested Agent creation/control or a descendant materializes from it;
+- UNKNOWN: the relevant managed-child action or descendant evidence is ambiguous or unavailable.
 
-No current implementation PR in `openai/codex` was found for a same-model child-specific non-delegating ceiling. `openai/codex` issue #36381 proposes a strict host-enforced delegation/capability receipt design and identifies its implementation as a default-off external reference branch rather than an implementation PR. Treat it as proposal evidence only, not as an accepted Host roadmap or available product primitive.
+Repository CI cannot substitute for this real Host N1 evidence.
 
-## Rejected remediation paths
+## Gate state
 
-Do not reopen these without materially new Host evidence:
+Historical release evidence before the N1 oracle correction recorded:
 
-- treating `max_depth=1` as V2 enforcement;
-- adding stronger developer instructions;
-- relying on child self-refusal;
-- relying on Code Mode / `DirectModelOnly` exposure changes;
-- using temporary session-capacity exhaustion as containment;
-- changing every managed profile to Luna merely to obtain leaf metadata;
-- inventing a model alias to Terra/Sol without a supported Host selector-to-backend mapping;
-- restoring Hook/Guard interception or another Plugin-owned lifecycle control plane;
-- interrupting a grandchild after materialization and calling that containment.
+- N0 PASS;
+- N1 FAIL under the superseded Host-hard oracle;
+- N2-N8 NOT_RUN / BLOCKED BY N1;
+- Final Review NOT_RUN;
+- publication BLOCKED.
 
-All of these either fail the current N1 no-descendant-materialization contract or violate the frozen V4 architecture/profile contract.
+Under the corrected contract, revised N1 has no current real-Host verdict. Treat revised N1 as NOT_RUN until the exact corrected candidate is merged, rebound and exercised through the canonical managed-profile campaign. Publication remains BLOCKED. N2-N8 remain NOT_RUN until revised N1 passes.
 
-## What can reopen N1
+N0 profile/model/effort/fresh-context evidence may be considered for reuse only through the Issue #91 preflight rules against the exact corrected candidate and changed shipped bytes. Do not silently promote historical evidence.
 
-An N1 rerun needs a material changed basis. Acceptable examples are:
+## Implementation scope
 
-- Host/Codex adds hard V2 descendant containment before thread materialization;
-- Host/Codex adds a child-specific non-delegating capability that removes/rejects collaboration tools for Terra/Sol children;
-- role-level capability reduction gains an effective Host-enforced `MultiAgentV2` / delegation disable surface and real Host evidence proves it;
-- Terra/Sol model capability metadata changes in a way that makes the exact frozen selectors authoritative leaves;
-- a formally approved product/architecture change replaces the current fixed-profile or N1 contract without weakening release safety by assumption.
+The correction is intentionally narrow:
 
-A new chat, a documentation-only commit, a reinstall, or another generic V2 probe is not a changed basis.
+- `scripts/host_capabilities.py` keeps `managed_child_containment` as optional validated diagnostic data but does not use it to decide ordinary execution readiness;
+- `docs/v4/host-smoke.json` owns the managed-depth N1 oracle;
+- `docs/v4/architecture.json` records Main-only coordination and managed no-descendant behavior;
+- focused tests cover readiness, responsibility-packet delegation boundaries and N1 contract semantics;
+- current authority documentation distinguishes project depth policy from Host-hard isolation.
 
-## Current next step
+No new Hook, Guard, daemon, private Host occupancy ledger, fixed retry/followup budget, dynamic model routing or nested managed delegation is introduced.
 
-Keep PR #81 Draft and publication blocked. Keep N2-N8 NOT_RUN. Do not mutate shipped runtime code merely to make the gate appear green.
+## Next release sequence
 
-Monitor OpenAI Codex for a real containment primitive or relevant Host/runtime change. When one appears, inspect source first, design the smallest Native Core adaptation, run repository validation, rebind the exact installed candidate if shipped bytes changed, then perform one fresh N1 under Issue #91 preflight discipline.
+1. Require exact-head repository CI and adversarial review before merging the N1 contract correction.
+2. After merge, record the corrected candidate identity and N1 oracle change in Issue #91.
+3. Rebind the exact installed candidate because shipped `scripts/host_capabilities.py` bytes changed.
+4. Apply the Issue #91 preflight to N0 and revised N1.
+5. Run the revised canonical managed-profile N1 once. Do not rerun the old generic recursion probe.
+6. Continue N2-N8 only after revised N1 passes.
+7. Run later Final Review, external release evidence, installed-product and human App gates before publication.
 
 ## Authority order for continuation
 
@@ -111,8 +107,8 @@ Use this order when status conflicts:
 3. `docs/v4/architecture.json`;
 4. `docs/v4/host-smoke.json`;
 5. `docs/release-checklist.md`;
-6. current GitHub branch/PR/CI and Issue #91 Host evidence;
+6. current GitHub branch / PR / CI and Issue #91 Host evidence;
 7. this checkpoint;
-8. `docs/v4/development-handoff.md` for detailed chronology/background;
+8. `docs/v4/development-handoff.md` for detailed chronology and historical background;
 9. ordinary README material;
 10. `docs/history/` provenance.

@@ -142,7 +142,7 @@
   "managed_profile_requirements": [
     "fixed_profile_route",
     "behavioral_leaf_boundary",
-    "host_evidence_for_effective_child_containment",
+    "host_evidence_for_managed_no_descendant_behavior",
     "host_evidence_for_effective_read_only_when_required"
   ],
   "host_truth": {
@@ -173,7 +173,7 @@
     "I05": "A writing followup or continue must reserve or retain WriterLease before Host reactivation.",
     "I06": "An interrupt result alone never releases WriterLease.",
     "I07": "UNKNOWN writer ownership blocks conflicting managed mutation and replacement execution.",
-    "I08": "Main is the sole managed coordinator; profile configuration or max_depth alone never proves child collaboration containment.",
+    "I08": "Main is the sole managed coordinator; managed children must not create or control descendants. Profile configuration and project max_depth express the product boundary but do not prove Host-hard descendant isolation.",
     "I09": "Unresolved V3.x live state is never silently migrated into V4 execution.",
     "I10": "Plan-only orchestration never acquires WriterLease.",
     "I11": "Main must acquire the same WriterLease abstraction before managed integration writes.",
@@ -238,7 +238,7 @@
   "release": {
     "host_campaign": [
       "N0_route_model_effort_fork_turns",
-      "N1_child_collaboration_containment",
+      "N1_managed_delegation_depth",
       "N2_spawn_identity_binding",
       "N3_capacity_rejection_no_materialization",
       "N4_followup_continue_same_child",
