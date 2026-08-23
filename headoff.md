@@ -141,6 +141,20 @@ The latest qualification work established these workflow facts:
 
 For exact IDs, source SHA/tree, ledger comment IDs and live PASS/UNKNOWN state, use Issue #91. Do not copy those volatile values from this document into a new decision without checking the ledger.
 
+## Latest Host phase checkpoint
+
+Host phase: H0 exact source, installed basis, and fresh Host environment
+
+Phase state: `NOT_RUN_STOP`
+
+Canonical evidence: Issue #91 `H0-EVIDENCE-001` comment `5387101074`; interpretation clarified by `H0-CHECKPOINT-CORRECTION-001` comment `5387501117`.
+
+Qualification-basis impact: unchanged for the formal release candidate. The target local checkout was still on an older source and older Host-contract blob, so the observed condition is a local checkout basis mismatch rather than a new formal qualification-basis mutation.
+
+Durable conclusion: H0 correctly stopped before package/profile health checks or Host identity collection because the target checkout did not match the formal release source. No Agent-control action occurred and the repository remained clean.
+
+Next permitted phase: H0 only. Synchronize the target checkout to the current release head, verify the formal qualification inputs, then perform a fresh Issue #91 H0 preflight. H1 and N0 remain unauthorized.
+
 ## Real Host staged execution protocol
 
 The campaign is divided into mandatory phases with hard stop points:
@@ -182,16 +196,17 @@ The H9 checkpoint requires special handling. Recording H9 in `headoff.md` change
 
 ## Next development direction
 
-The probe-turn capability repair is complete. The next phase is H0 from `tasks/real-host-qualification-plan.md`.
+H0 remains the active phase because the first H0 attempt stopped before Host evidence collection.
 
-Before H0 begins:
+Before H0 is retried:
 
-1. Merge and verify this staged qualification plan through the normal repository workflow.
-2. Confirm the current release source and post-merge CI from GitHub.
-3. Read the newest Issue #91 ledger entry and perform the required H0 preflight.
-4. Sync the target local checkout to the exact release head and verify clean source plus package/profile health.
-5. Establish the fresh Host environment without any Agent-control action.
-6. Stop at `H0_STOP`, write Issue #91 evidence, update this `headoff.md`, and wait for explicit user continuation.
+1. Confirm the current release source and CI directly from GitHub.
+2. Synchronize the target local checkout to the current release head.
+3. Verify clean source and the three formal Host qualification inputs.
+4. Verify package/profile health.
+5. Read the newest Issue #91 ledger entry and perform a fresh H0 `REUSE | RERUN | NOT_RUN` preflight.
+6. Only if that preflight authorizes Host evidence collection, establish the fresh Host environment without any Agent-control action.
+7. Stop again at `H0_STOP`, write Issue #91 evidence, update this `headoff.md`, and wait for explicit user continuation.
 
 Do not begin H1, do not invoke Orchestrate, and do not create or control any Agent during H0.
 
@@ -222,7 +237,7 @@ Never mark repository work complete before verification.
 
 - One semantic fact gets one machine owner.
 - Human documentation explains or links canonical owners and should not become a parallel machine oracle.
-- Tests protect behavior, schema, ownership, public interfaces and safety invariants. Avoid prose synchronization tests unless wording is itself an interface.
+- Tests protect behavior, schema, ownership, public interfaces and safety invariants. Avoid prose synchronization tests unless wording itself is an interface.
 - A compatibility surface needs a real consumer and a removal condition.
 - Generate package-integrity data with repository tooling. Do not hand-copy hashes.
 - Host evidence invalidation is determined by the Host qualification identity, not by Git HEAD alone.
