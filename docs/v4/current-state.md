@@ -1,6 +1,6 @@
 # V4 Current State Checkpoint
 
-Updated: 2026-08-23 14:05 +08:00.
+Updated: 2026-08-23 14:08 +08:00.
 
 This file is the short current-state entrypoint for V4 maintenance. Read it before `docs/v4/development-handoff.md`. The long handoff remains the detailed chronology and architecture background, but status statements there that predate this checkpoint are historical. Machine-readable contracts and current GitHub/Host evidence still have higher authority.
 
@@ -60,7 +60,7 @@ The exact Host model metadata observed in the release campaign is:
 - `gpt-5.6-terra`: `multi_agent_version=v2`
 - `gpt-5.6-sol`: `multi_agent_version=v2`
 
-Therefore Reader and Worker can be model-capability leaves, while the frozen Investigator/Terra and Solver/Advisor/Sol profiles remain V2-capable children.
+Reader and Worker therefore have the upstream model-metadata basis for leaf behavior, but N1 still requires exact Host evidence of their effective child collaboration surface. The frozen Investigator/Terra and Solver/Advisor/Sol profiles use V2-capable model metadata.
 
 OpenAI Codex PR #39299 bounds role-level configuration reductions. The supported role reduction surface does not include `MultiAgentV2` or `agents_enabled`. Profile declarations such as `[agents] enabled=false` and `[features] multi_agent_v2=false` remain requested posture for this gate and cannot prove effective Host containment.
 
