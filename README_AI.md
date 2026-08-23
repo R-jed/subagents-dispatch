@@ -2,7 +2,7 @@
 
 Current V4 product surface: `Orchestrate` and `Doctor`.
 
-Before changing V4 repository content, read `docs/v4/development-handoff.md`. It is the live development-continuity record for the current candidate, recent remediation history, upstream Codex MultiAgent V2 assumptions, validation state, known risks, and strict next-step ordering. Every repository content change must keep that handoff synchronized. The handoff does not replace the machine-readable contracts or external real-Host evidence.
+Before changing V4 repository content, read `docs/v4/current-state.md`, then `docs/v4/development-handoff.md`. The current-state checkpoint is the short status entrypoint for the active release branch, Host gate and upstream blocker. The handoff provides the detailed development chronology, remediation history, architecture background and validation discipline. Neither document replaces machine-readable contracts or current GitHub / real-Host evidence.
 
 ## Runtime ownership
 
