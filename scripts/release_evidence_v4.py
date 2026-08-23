@@ -2,9 +2,10 @@
 """Verify candidate-bound external release evidence for V4.0.0 Native Core.
 
 The release evidence artifact must live outside the candidate repository. This
-verifier recomputes exact candidate identity, runtime/profile/Host-contract
-digests, requires a complete environment-bound N0-N8 Native Core Host campaign,
-and binds a fresh Final Review receipt to the same candidate.
+verifier keeps repository revision identity separate from the Host qualification
+basis. Repository commit/tree bind CI, Final Review, and release traceability.
+The Host campaign binds only the runtime package manifest, managed profile
+contract, and Host campaign contract that can change Host qualification meaning.
 
 This is release-process evidence, not cryptographic Host attestation. The trusted
 boundary remains the release/CI operator supplying the external evidence artifact.
@@ -26,8 +27,8 @@ import package_integrity
 
 
 EXPECTED_REPOSITORY = "R-jed/subagents-dispatch"
-RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-3"
-HOST_CAMPAIGN_SCHEMA = "4.0.0-native-host-campaign-1"
+RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-4"
+HOST_CAMPAIGN_SCHEMA = "4.0.0-native-host-campaign-2"
 FINAL_REVIEW_SCHEMA = "4.0.0-final-review-1"
 HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-native-host-smoke-1"
 REQUIRED_HOST_PROBES = tuple(f"N{index}" for index in range(9))
@@ -37,12 +38,22 @@ RUNTIME_MANIFEST = Path(".codex-plugin/package-integrity.json")
 PROFILE_CONTRACT = Path("contracts/policy.json")
 HOST_CAMPAIGN_CONTRACT = Path("docs/v4/host-smoke.json")
 
-IDENTITY_FIELDS = {
+REPOSITORY_IDENTITY_FIELDS = {
     "candidate_commit",
     "candidate_tree",
+}
+HOST_BASIS_COMPONENT_FIELDS = {
     "runtime_manifest_sha256",
     "profile_contract_sha256",
     "host_contract_sha256",
+}
+HOST_BASIS_FIELDS = {
+    *HOST_BASIS_COMPONENT_FIELDS,
+    "host_qualification_basis_sha256",
+}
+IDENTITY_FIELDS = {
+    *REPOSITORY_IDENTITY_FIELDS,
+    *HOST_BASIS_FIELDS,
 }
 TOP_LEVEL_FIELDS = {
     "schema_version",
@@ -55,7 +66,7 @@ TOP_LEVEL_FIELDS = {
 HOST_CAMPAIGN_FIELDS = {
     "schema_version",
     "repository",
-    *IDENTITY_FIELDS,
+    *HOST_BASIS_FIELDS,
     "contract_version",
     "campaign_id",
     "environments",
@@ -167,6 +178,14 @@ def _load_host_contract(repo: Path) -> Mapping[str, Any]:
     return payload
 
 
+def _host_basis_components(repo: Path) -> dict[str, str]:
+    return {
+        "runtime_manifest_sha256": normalized_file_sha256(repo / RUNTIME_MANIFEST),
+        "profile_contract_sha256": normalized_file_sha256(repo / PROFILE_CONTRACT),
+        "host_contract_sha256": normalized_file_sha256(repo / HOST_CAMPAIGN_CONTRACT),
+    }
+
+
 def current_candidate_identity(repo: Path) -> dict[str, str]:
     repo = _resolve_repo(repo)
     _load_host_contract(repo)
@@ -174,13 +193,17 @@ def current_candidate_identity(repo: Path) -> dict[str, str]:
     tree = _git(repo, "rev-parse", "HEAD^{tree}")
     if not _valid_hex(commit, 40) or not _valid_hex(tree, 40):
         raise ReleaseEvidenceError("candidate Git identity is malformed")
+    host_components = _host_basis_components(repo)
     return {
         "candidate_commit": commit,
         "candidate_tree": tree,
-        "runtime_manifest_sha256": normalized_file_sha256(repo / RUNTIME_MANIFEST),
-        "profile_contract_sha256": normalized_file_sha256(repo / PROFILE_CONTRACT),
-        "host_contract_sha256": normalized_file_sha256(repo / HOST_CAMPAIGN_CONTRACT),
+        **host_components,
+        "host_qualification_basis_sha256": canonical_json_sha256(host_components),
     }
+
+
+def host_qualification_identity(identity: Mapping[str, str]) -> dict[str, str]:
+    return {field: identity[field] for field in HOST_BASIS_FIELDS}
 
 
 def _review_module():
@@ -257,15 +280,16 @@ def _compare_identity(
     expected: Mapping[str, str],
     *,
     label: str,
+    mismatch_target: str,
     issues: list[str],
 ) -> None:
     for field, actual in expected.items():
         supplied = value.get(field)
-        required_length = 40 if field in {"candidate_commit", "candidate_tree"} else 64
+        required_length = 40 if field in REPOSITORY_IDENTITY_FIELDS else 64
         if not _valid_hex(supplied, required_length):
             issues.append(f"{label}.{field} is malformed")
         elif supplied != actual:
-            issues.append(f"{label}.{field} does not match the exact candidate")
+            issues.append(f"{label}.{field} does not match {mismatch_target}")
 
 
 def _validate_host_campaign_digest(top: Mapping[str, Any], *, issues: list[str]) -> None:
@@ -321,7 +345,7 @@ def _validate_host_environments(value: Any, *, issues: list[str]) -> set[str]:
 def _validate_host_campaign(
     campaign: Any,
     *,
-    identity: Mapping[str, str],
+    host_identity: Mapping[str, str],
     issues: list[str],
 ) -> None:
     value = _exact_fields(campaign, HOST_CAMPAIGN_FIELDS, label="host campaign", issues=issues)
@@ -335,7 +359,13 @@ def _validate_host_campaign(
         issues.append("host campaign contract_version is unsupported")
     if not _nonempty(value.get("campaign_id")):
         issues.append("host campaign campaign_id must be non-empty")
-    _compare_identity(value, identity, label="host campaign", issues=issues)
+    _compare_identity(
+        value,
+        host_identity,
+        label="host campaign",
+        mismatch_target="the current Host qualification basis",
+        issues=issues,
+    )
 
     environments = value.get("environments")
     environment_ids = _validate_host_environments(environments, issues=issues)
@@ -382,7 +412,7 @@ def _validate_final_review(
         return
     if value.get("schema_version") != FINAL_REVIEW_SCHEMA:
         issues.append("final review.schema_version is unsupported")
-    for field in ("candidate_commit", "candidate_tree"):
+    for field in REPOSITORY_IDENTITY_FIELDS:
         if value.get(field) != identity[field]:
             issues.append(f"final review.{field} does not match the exact candidate")
     if value.get("review_artifact_id") != review_artifact_id:
@@ -415,6 +445,7 @@ def verify_release_evidence(
         identity = current_candidate_identity(candidate)
     except ReleaseEvidenceError as exc:
         return {"ok": False, "issues": issues + [str(exc)]}
+    host_identity = host_qualification_identity(identity)
 
     status = _git(candidate, "status", "--porcelain", "--untracked-files=all")
     if status:
@@ -430,7 +461,13 @@ def verify_release_evidence(
             issues.append("release evidence schema_version is unsupported")
         if top.get("repository") != EXPECTED_REPOSITORY:
             issues.append("release evidence repository identity is invalid")
-        _compare_identity(top, identity, label="release evidence", issues=issues)
+        _compare_identity(
+            top,
+            identity,
+            label="release evidence",
+            mismatch_target="the exact candidate",
+            issues=issues,
+        )
         _validate_host_campaign_digest(top, issues=issues)
 
     try:
@@ -440,7 +477,11 @@ def verify_release_evidence(
         review_artifact_id = ""
 
     if top is not None:
-        _validate_host_campaign(top.get("host_campaign"), identity=identity, issues=issues)
+        _validate_host_campaign(
+            top.get("host_campaign"),
+            host_identity=host_identity,
+            issues=issues,
+        )
         _validate_final_review(
             top.get("final_review"),
             identity=identity,
