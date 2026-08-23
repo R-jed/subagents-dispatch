@@ -9,6 +9,7 @@ ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 ORCHESTRATE_SKILL = ROOT / "skills" / "orchestrate" / "SKILL.md"
 GUARDRAILS = ROOT / "contracts" / "guardrails.md"
+NATIVE_RUNTIME = ROOT / "docs" / "native-subagent-runtime.md"
 REMOVED_PROJECTIONS = (
     ROOT / "docs" / "v4" / "host-capability-matrix.json",
     ROOT / "docs" / "v4" / "orchestrate.json",
@@ -56,6 +57,7 @@ def test_n1_requires_observed_managed_no_descendant_behavior():
 def test_runtime_guidance_does_not_restore_host_hard_depth_requirement():
     skill = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
+    runtime = NATIVE_RUNTIME.read_text(encoding="utf-8")
 
     assert "Managed child profiles must expose no child collaboration surface" not in skill
     assert "effective child collaboration surface remains a Host fact" in skill
@@ -65,6 +67,10 @@ def test_runtime_guidance_does_not_restore_host_hard_depth_requirement():
     assert "Delegated execution is eligible only when the required Host containment evidence is available" not in guardrails
     assert "Ordinary delegated execution does not require Host-hard descendant isolation" in guardrails
     assert "N1 release qualification verifies that canonical managed children remain leaf" in guardrails
+
+    assert "Delegation that requires leaf containment therefore depends on observed collaboration-tool absence" not in runtime
+    assert "The depth-one product rule does not require Host-hard tool removal" in runtime
+    assert "N1 verifies actual canonical managed execution" in runtime
 
 
 def test_machine_contract_keeps_current_phase3_semantics_without_parallel_projections():
