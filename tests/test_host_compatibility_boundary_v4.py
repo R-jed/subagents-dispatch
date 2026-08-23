@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
+ORCHESTRATE_SKILL = ROOT / "skills" / "orchestrate" / "SKILL.md"
 REMOVED_PROJECTIONS = (
     ROOT / "docs" / "v4" / "host-capability-matrix.json",
     ROOT / "docs" / "v4" / "orchestrate.json",
@@ -49,6 +50,15 @@ def test_n1_requires_observed_managed_no_descendant_behavior():
         "do not prove Host-hard descendant isolation",
     ):
         assert required in joined
+
+
+def test_orchestrate_skill_does_not_restore_host_hard_depth_requirement():
+    text = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
+
+    assert "Managed child profiles must expose no child collaboration surface" not in text
+    assert "effective child collaboration surface remains a Host fact" in text
+    assert "latent V2 recursive capability does not by itself block ordinary managed execution" in text
+    assert "Managed children cannot create or control further Agents" in text
 
 
 def test_machine_contract_keeps_current_phase3_semantics_without_parallel_projections():
