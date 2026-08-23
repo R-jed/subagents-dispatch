@@ -8,7 +8,7 @@ This is the short continuation entrypoint for current development and release wo
 
 Repository-side V4 Native Core remediation is complete. The remaining release work is real Codex Host qualification on the exact current candidate.
 
-No repository mutation is required before Host qualification unless a real defect is discovered. If repository content changes, treat the resulting commit as a new candidate and re-run the affected repository and Host gates.
+No repository mutation is required before Host qualification unless a real defect or durable handoff defect is discovered. If repository content changes, treat the resulting commit as a new candidate and re-run the affected repository and Host gates.
 
 ## Product boundaries
 
@@ -43,6 +43,22 @@ Use one owner per kind of truth:
 - Issue #91: append-only real-Host evidence and `REUSE | RERUN | NOT_RUN` preflight decisions.
 
 `docs/v4/` is reserved for version-specific machine or maintenance contracts. Human continuation notes live at `docs/current-state.md`.
+
+## Host qualification startup
+
+Before any real Host probe, establish the candidate and installed-product basis without spawning or controlling an Agent.
+
+1. Start from the current release branch with a clean working tree and confirm the exact Git `HEAD` against GitHub.
+2. Read `codex plugin list --json` and identify the installed `subagents-dispatch@subagents-dispatch` source.
+3. When the installed Plugin source is the local repository checkout, the checkout itself is the Plugin source. Do not run the stable Marketplace updater merely to refresh that local candidate. A Marketplace updater is for an explicit stable-update operation and may change the candidate basis.
+4. Verify package bytes with `python3 scripts/package_integrity.py --check-generated` and `python3 scripts/package_integrity.py`.
+5. Run `python3 scripts/doctor.py --codex-home "$HOME/.codex" --check` and require Plugin package plus all five managed profiles to be healthy. `Host integration = UNKNOWN` is expected until current Host evidence is supplied. `Orchestration state = UNKNOWN` is expected when no task is selected.
+6. Record the static checkout, Plugin source and package/profile binding in Issue #91. Do not treat these static checks as fresh Host identity evidence.
+7. Start a fresh Codex session. Before invoking `Orchestrate` or any Agent-control primitive, capture the current Host build/version, platform/architecture, run/session/thread identity and the actually exposed Native Subagent V2 capability surface from authoritative current-session evidence.
+8. Keep any unavailable Host fact as `UNKNOWN`. Configured values, requested profile settings and model self-report do not become observed Host truth.
+9. Record the fresh Host binding in Issue #91 before the first N0 or N1 child spawn.
+
+The fresh Host binding and package/profile binding are separate evidence layers. Both are required for exact-candidate qualification.
 
 ## Next allowed sequence
 
