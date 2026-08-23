@@ -76,7 +76,8 @@ def build_valid_evidence(module, repo: Path) -> dict:
             "host_build": "build-main",
             "platform": "linux",
             "architecture": "x86_64",
-            "run_id": "run-main",
+            "session_id": "session-main",
+            "thread_id": "thread-main",
         }
     }
     results = {
@@ -207,11 +208,11 @@ def test_host_campaign_requires_complete_environment_identity(tmp_path: Path):
     repo = make_candidate(tmp_path)
     evidence = build_valid_evidence(module, repo)
 
-    evidence["host_campaign"]["environments"]["env-main"]["codex_version"] = ""
+    evidence["host_campaign"]["environments"]["env-main"]["session_id"] = ""
     evidence["host_campaign_sha256"] = module.canonical_json_sha256(evidence["host_campaign"])
     result = module.verify_release_evidence(repo, evidence)
     assert result["ok"] is False
-    assert any("codex_version" in issue for issue in result["issues"])
+    assert any("session_id" in issue for issue in result["issues"])
 
     evidence = build_valid_evidence(module, repo)
     evidence["host_campaign"]["results"]["N4"]["environment_id"] = "missing-env"
@@ -219,6 +220,20 @@ def test_host_campaign_requires_complete_environment_identity(tmp_path: Path):
     result = module.verify_release_evidence(repo, evidence)
     assert result["ok"] is False
     assert any("N4" in issue and "environment_id" in issue for issue in result["issues"])
+
+
+def test_host_campaign_rejects_duplicate_root_thread_identity(tmp_path: Path):
+    module = load_module("native_release_thread_identity", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    evidence = build_valid_evidence(module, repo)
+    duplicate = copy.deepcopy(evidence["host_campaign"]["environments"]["env-main"])
+    duplicate["session_id"] = "session-other"
+    evidence["host_campaign"]["environments"]["env-other"] = duplicate
+    evidence["host_campaign_sha256"] = module.canonical_json_sha256(evidence["host_campaign"])
+
+    result = module.verify_release_evidence(repo, evidence)
+    assert result["ok"] is False
+    assert any("thread_id values must be unique" in issue for issue in result["issues"])
 
 
 def test_final_review_must_be_ship_and_match_current_review_artifact(tmp_path: Path):
