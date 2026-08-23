@@ -4,7 +4,19 @@ Use this checklist for the exact Native Core V4.0.0 candidate. Repository comple
 
 ## 1. Candidate identity
 
-Record the exact candidate commit/tree, Plugin version, Marketplace identity, package-integrity manifest, managed profile contract digest, Host campaign contract, Codex Host version/build, and operating systems used for validation.
+Keep repository revision identity separate from Host qualification identity.
+
+Repository revision identity is the exact Git commit/tree used for CI, Final Review, tag and release traceability. Host qualification identity is the digest of the three inputs that can change the meaning of real-Host qualification:
+
+```text
+.codex-plugin/package-integrity.json
+contracts/policy.json
+docs/v4/host-smoke.json
+```
+
+`scripts/release_evidence_v4.py` computes `host_qualification_basis_sha256` from those three normalized digests. A Host campaign binds to that stable basis. It does not bind directly to repository commit/tree.
+
+Record the exact repository commit/tree, Plugin version, Marketplace identity, package-integrity manifest, managed profile contract digest, Host campaign contract, Host qualification basis digest, Codex Host version/build, and operating systems used for validation.
 
 For real Host environment binding, use the Codex-native identities defined by `docs/v4/host-smoke.json`: `session_id` is the Host-reported session-tree identity shared by the root thread and its descendants, and `thread_id` is the Host-reported identity of the current root thread. Use only the authoritative sources listed in that machine contract. Do not invent or substitute a generic `run_id`. If either required identity cannot be established for the current root Host session, the environment binding remains `UNKNOWN`.
 
@@ -75,6 +87,8 @@ plan-only creates no runtime state, lease or Host action
 
 `docs/v4/host-smoke.json` is the machine-readable authority. Bind each campaign to the exact root `session_id` and `thread_id` before any N0/N1 child spawn. Public Host/session metadata is preferred. The machine contract defines the permitted Host-produced fallback evidence and the `UNKNOWN` policy when either identity remains unavailable.
 
+The Host campaign is reusable across repository-only documentation and handoff revisions while `host_qualification_basis_sha256` remains unchanged. Before reusing evidence, recompute the current basis and require equality. Any change to the package-integrity manifest, managed profile contract, or Host campaign contract invalidates the old Host campaign.
+
 The required campaign is exactly:
 
 ```text
@@ -93,13 +107,23 @@ For N1, run the canonical managed route for every fixed profile. Confirm the man
 
 For N4, successful `followup_task` tool-call acceptance is not sufficient by itself. Release evidence must show that the RUNNING Steer targeted the original canonical task address, stayed bound to the original Host child with no replacement materialized, and was consumed by that same child. Steer must preserve the ExecutionBinding, `attempt_no`, `control_epoch`, and `followup_count`. Correction and Continue remain same-child controls and must not create a fresh attempt.
 
-Offline CI, source inspection, profile configuration, model self-report or evidence from another candidate cannot substitute for required real Host observations. Profile configuration and project `max_depth=1` establish product intent but do not prove Host-hard descendant isolation.
+Offline CI, source inspection, profile configuration, model self-report or evidence from a different Host qualification basis cannot substitute for required real Host observations. Profile configuration and project `max_depth=1` establish product intent but do not prove Host-hard descendant isolation.
 
 Configured read-only profiles do not by themselves prove Host-enforced read-only. N8 must establish the Advisor's actual effective permission state before strict read-only Final Review can pass.
 
 ## 5. Candidate stability
 
-Any material mutation after Host evidence changes the candidate. Refresh package integrity and candidate identity, rerun the repository matrix, and repeat every Host probe affected by the mutation.
+Repository revision changes and Host qualification changes have different invalidation rules.
+
+A Git commit/tree change always creates a new repository revision. Re-run the repository matrix as required and refresh exact-revision Final Review/release traceability at the final release stage.
+
+Host evidence is invalidated only when its qualification basis changes. Recompute `host_qualification_basis_sha256` after repository mutations:
+
+- unchanged basis: prior Host environment/campaign evidence may be `REUSE` after ledger preflight;
+- changed runtime manifest, profile contract, or Host contract: affected Host evidence must be rerun;
+- development-only context changes such as root `headoff.md`, README prose or other files outside the Host qualification basis do not invalidate Host evidence by themselves.
+
+This distinction does not allow documentation changes to bypass repository CI or Final Review. It prevents unrelated repository prose from forcing destructive or redundant real-Host reruns.
 
 Representative flows must remain covered by repository or Host evidence as applicable:
 
@@ -123,15 +147,15 @@ legacy unresolved-state block
 
 ## 6. Final Review and release evidence
 
-After deterministic checks and N0-N8 pass, run a fresh independent Final Review against the exact candidate under `contracts/final-review.md`.
+After deterministic checks and N0-N8 pass, run a fresh independent Final Review against the exact repository revision under `contracts/final-review.md`.
 
-Then verify candidate-bound external evidence with:
+Then verify external evidence with:
 
 ```text
 <python-3.11+> scripts/release_evidence_v4.py --repo <candidate-root> --evidence <external-release-evidence>
 ```
 
-The verifier must remain non-zero for absent, stale, incomplete or differently bound evidence.
+The verifier requires current repository commit/tree for top-level release evidence and Final Review, while the nested Host campaign binds to `host_qualification_basis_sha256`. It must remain non-zero for absent, stale, incomplete or differently bound evidence.
 
 ## 7. Installed-product gate
 
@@ -144,8 +168,8 @@ Also exercise explicit update/check documentation against the shipped CLI surfac
 ```text
 repository matrix PASS
 product-surface consistency PASS
-real Host N0-N8 PASS on exact candidate
-fresh exact-candidate Advisor Final Review PASS
+real Host N0-N8 PASS on current Host qualification basis
+fresh exact-revision Advisor Final Review PASS
 external release evidence verifies
 installed Doctor has no blocking failure
 human two-Skill App observation PASS
