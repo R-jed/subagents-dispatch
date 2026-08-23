@@ -52,18 +52,18 @@ def test_same_child_interrupt_and_writer_settlement_are_explicitly_sequenced():
     assert "single-writer invariant" in requirements(current["N6"])
 
 
-def test_profile_containment_rollout_privacy_and_sandbox_truth_have_separate_gates():
+def test_managed_depth_rollout_privacy_and_sandbox_truth_have_separate_gates():
     current = probes()
     n1 = requirements(current["N1"])
     n8 = requirements(current["N8"])
 
-    assert current["N1"]["accepted_grandchild_outcomes"] == [
-        "collaboration_tool_absent",
-        "host_authoritative_deny",
-    ]
-    assert "effective child collaboration surface" in n1
-    assert "no descendant child identity materializes" in n1
-    assert "cannot satisfy containment evidence" in n1
+    assert current["N1"]["operation"] == "managed delegation depth"
+    assert "canonical managed spawn route" in n1
+    assert "adversarial untrusted-input" in n1
+    assert "does not issue spawn_agent" in n1
+    assert "no descendant identity" in n1
+    assert "is fail" in n1
+    assert "generic v2 recursive-capability probes" in n1
     assert "allowlisted inspection omits assignment text and reasoning content" in requirements(current["N7"])
     assert "effective advisor sandbox and permission state" in n8
     assert "requested profile sandbox" in n8
