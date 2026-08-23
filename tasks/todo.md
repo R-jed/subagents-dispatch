@@ -1,57 +1,33 @@
-# RC5 Review Remediation Tasks
+# N1 Managed Delegation Depth Tasks
 
-- [x] Runtime safety: canonical scope containment
-  - Acceptance: Windows drive/UNC paths fail closed; directory ceilings safely contain descendants; forbidden ancestry remains rejected.
-  - Verify: focused state/lifecycle regressions plus full suite.
-  - Files: `scripts/dispatch_state_v4_core.py`, `scripts/dispatch_state_v4.py`, `scripts/execution_lifecycle_v4_core.py`, focused tests.
+- [x] Specify the corrected product boundary
+  - Acceptance: Main is the sole managed coordinator; managed children cannot create or control another Agent layer; latent Host V2 recursion is documented separately.
+  - Verify: `tasks/SPEC-n1-managed-depth.md` matches current product contracts and official Codex source.
+  - Files: `tasks/SPEC-n1-managed-depth.md`, `tasks/plan.md`.
 
-- [x] Runtime safety: generation-safe identity after compaction
-  - Acceptance: compacted attempts cannot make stale Host evidence current; native task names remain distinct by attempt generation; contract no longer promises an unenforceable unbounded opaque-id set.
-  - Verify: compact an old attempt, create a later generation, replay old observation/identity inputs, require stale/rejection.
-  - Files: state/lifecycle contracts and focused recovery tests.
+- [ ] Correct Host readiness semantics
+  - Acceptance: `managed_child_containment` is optional diagnostic compatibility data and does not decide ordinary `execution_ready`; malformed supplied values still fail closed.
+  - Verify: focused `tests/test_host_capabilities.py` plus downstream scheduler/Doctor tests.
+  - Files: `scripts/host_capabilities.py`, focused tests.
 
-- [x] Runtime safety: idempotent Host observation persistence
-  - Acceptance: repeating the same current-generation Host observation produces `noop` without changing `state_revision` or `updated_at`.
-  - Verify: focused duplicate-observation test.
-  - Files: `scripts/dispatch_state_v4_core.py`, `scripts/writer_lease_v4.py`, tests.
+- [ ] Correct the N1 machine contract
+  - Acceptance: N1 evaluates canonical managed profiles, their delegation boundary, adversarial untrusted-input behavior, child-issued nested Agent actions, and descendant identities/spawn edges; a generic forced V2 grandchild probe is platform evidence only.
+  - Verify: `tests/test_host_contract_v4.py` assertions against `docs/v4/host-smoke.json` and architecture contract.
+  - Files: `docs/v4/host-smoke.json`, `docs/v4/architecture.json`, tests.
 
-- [x] Runtime safety: bounded same-child correction evidence
-  - Acceptance: many legal followups do not grow `accounting_refs` linearly or hit the state-size bound because of recovery-basis history; current generation remains replay-safe.
-  - Verify: high-count followup regression under the normal 64 KiB limit.
-  - Files: state/lifecycle implementation, recovery/state contracts, tests.
+- [ ] Align current-authority documentation
+  - Acceptance: architecture, release checklist, AI reference and current-state checkpoint consistently distinguish product depth policy from Host-hard isolation; N8 read-only Host evidence remains unchanged.
+  - Verify: repository contract tests and direct adversarial text review.
+  - Files: `docs/architecture.md`, `docs/release-checklist.md`, `README_AI.md`, `docs/v4/current-state.md`, relevant V4 evidence docs.
 
-- [x] Host adapter: fail-closed readiness
-  - Acceptance: absent capability snapshot never becomes `host_ready=true`; known supported surface with unknown numeric capacity stays distinct from absent evidence.
-  - Verify: scheduler capability tests.
-  - Files: `scripts/scheduler_v4.py`, `docs/v4/scheduler.json`, tests.
-
-- [x] Host adapter: V2 session capacity semantics
-  - Acceptance: project never treats Host session concurrency as child-only capacity; root/session participation is accounted for or capacity remains advisory/unknown.
-  - Verify: tests derived from current official OpenAI Codex semantics.
-  - Files: `scripts/host_capabilities.py`, scheduler/doctor consumers, contracts, tests.
-
-- [x] Documentation truth closure: current authority sweep
-  - Acceptance: current contracts/docs consistently describe the two-Skill Orchestrate/Doctor surface, WorkGraph authority, evidence-gated recovery, generation-safe compaction, and current V4 terminology; retired standalone pre-Orchestrate product wording is removed from current-authority prose.
-  - Verify: repository-wide current-authority regression scan plus exact-head review.
-
-- [x] Documentation truth closure: eval migration
-  - Acceptance: current expected-behavior evals use Native Core product rules; unchanged stalled work without new evidence cannot authorize a fresh same-role retry; historical experiment labels cannot act as runtime policy.
-  - Verify: eval loader/tests and direct fixture inspection.
-
-- [x] Documentation truth closure: history isolation
-  - Acceptance: `docs/history/` has an explicit archive authority boundary and every historical Markdown document declares that it cannot guide current implementation or release decisions.
-  - Verify: archive-marker regression test.
-
-- [x] Truth closure: profile effort single source
-  - Acceptance: Terra is `high` everywhere current behavior is represented; consumers derive fixed route truth from `contracts/policy.json` where practical.
-  - Verify: model/effort contract tests.
-
-- [x] Truth closure: evidence-based phase status
-  - Acceptance: repository phase PASS values match the remediated, verified state; release/Host gates remain pending until real evidence exists.
-  - Verify: phase-status/release-contract tests.
-  - Verified remediation basis: `6ad0cce30ab24259fe423588ff5fb07942832d29`, workflow `32588144574`, all four CI matrix jobs and the aggregate policy gate passed.
+- [ ] Refresh shipped package integrity
+  - Acceptance: `.codex-plugin/package-integrity.json` contains the exact new SHA-256 for changed shipped runtime files and no unrelated payload drift.
+  - Verify: generated package-integrity check in CI.
 
 - [ ] Candidate verification
-  - Acceptance: generated integrity refreshed if required, Ruff clean, full pytest clean, all GitHub Actions matrix jobs pass, fresh adversarial review finds no blocking repository issue.
-  - Preliminary full-matrix basis `6ad0cce30ab24259fe423588ff5fb07942832d29` / workflow `32588144574` is green.
-  - Final stop check: run the same full CI on the final exact head after phase-status/task bookkeeping; do not advance the remediation branch until that exact-head result and a fresh adversarial diff review are green.
+  - Acceptance: Ruff, full pytest, managed Agent lifecycle, package integrity, official Plugin validator where applicable, all four platform jobs and aggregate policy-tests pass on the exact final head.
+  - Verify: GitHub Actions workflow bound to the final head.
+
+- [ ] Fresh adversarial review
+  - Acceptance: no current contract authorizes managed nested delegation; no stale Host-hard N1 wording remains in current-authority surfaces; no unrelated safety invariant is weakened.
+  - Verify: compare final branch against `v4/rc5-native-core`, inspect diff and CI logs, then merge only if review is clean.
