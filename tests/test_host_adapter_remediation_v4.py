@@ -36,6 +36,7 @@ def host_snapshot(capacity: int | None = 4) -> dict:
                 "wait_agent",
             ],
             "fork_turns_none": True,
+            "managed_child_containment": "verified",
             "max_concurrent_threads_per_session": capacity,
         }
     )
