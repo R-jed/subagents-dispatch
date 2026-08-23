@@ -91,4 +91,4 @@ Human documents describe how to use or reason about those owners. They should no
 
 Repository tests establish deterministic implementation behavior. Real Host N0-N8 establishes the Host behavior the release depends on. Final Review, installed-product verification and external evidence bind to the exact candidate after those earlier gates are satisfied.
 
-The release sequence is maintained in `docs/release-checklist.md`. Current continuation state is in `docs/current-state.md`. Historical design records belong in Git history and `docs/history/`.
+The release sequence is maintained in `docs/release-checklist.md`. New development sessions should read root `headoff.md` first for project background, important workflow history, current progress and next direction. Historical design records belong in Git history and `docs/history/`.
