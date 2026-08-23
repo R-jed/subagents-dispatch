@@ -59,8 +59,8 @@ def test_ai_and_runtime_docs_match_current_public_roles_and_child_ceiling():
     runtime = (ROOT / "docs" / "native-subagent-runtime.md").read_text(encoding="utf-8")
     for text in (ai, runtime):
         assert "Orchestrate" in text and "Doctor" in text
-        assert "gpt-5.6-terra" in text
-        assert "high" in text
+        assert "gpt-5.6-luna" in text
+        assert "max" in text
         assert "managed children <= 4" in text
         assert "initial managed children <= 2" not in text
         assert "normal managed children <= 3" not in text
