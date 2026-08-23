@@ -1,191 +1,94 @@
 # Architecture
 
-subagents-dispatch V4.0.0 is a bounded orchestration layer over Codex Native Subagents. Codex remains the Agent runtime and the authoritative source for child materialization, lifecycle status, native control results, actual Host capacity, effective permission state, and managed-child collaboration surface.
+subagents-dispatch is a bounded orchestration layer over Codex Native Subagents. Codex remains the Agent runtime and the authority for child materialization, lifecycle state, native control results, actual Host capacity, effective permission and effective child collaboration capability.
 
-The user-facing Main session owns user intent, authorization, decomposition, explicit fixed-profile selection, dispatch judgment, WriterLease coordination, artifact verification, WorkUnit acceptance, integration, and the final response. The normative machine-readable contract is `docs/v4/architecture.json`.
+The complete machine-readable V4 architecture and runtime owner map live in `docs/v4/architecture.json`. This document is the human overview and should not duplicate a second machine contract.
 
-## Public surface
+## Product surface
 
-V4 exposes exactly two explicit Skills:
+The Plugin exposes exactly two explicit Skills:
 
 ```text
 Orchestrate
 Doctor
 ```
 
-`Orchestrate` owns plan-only routing, delegated execution, status, correction, continuation, interruption, cancellation, takeover, integration, and consequence-based independent review. `Doctor` diagnoses the installed Plugin package, managed profiles, Host capability surface, orchestration state, and legacy compatibility.
+`Orchestrate` owns user-requested orchestration controls and coordinated engineering work. `Doctor` owns deterministic installed-product diagnosis and explicitly requested ownership-safe maintenance.
 
-## Fixed profiles
+Main keeps the user goal, decomposition, fixed-profile selection, dispatch judgment, integration, WorkUnit acceptance, irreversible external effects and final response.
 
-| Profile | Model / effort | Ordinary authority | Semantic role |
-| --- | --- | --- | --- |
-| Reader | Luna Max | none | Work |
-| Worker | Luna Max | bounded-source-write | Work |
-| Investigator | Terra High | none | Work |
-| Solver | Sol High | bounded-source-write | Work |
-| Advisor | Sol High | none | Review |
+## Fixed managed profiles
 
-Reasoning effort is fixed. Managed profiles request a leaf-style capability posture and give children a behavioral boundary against further delegation. Those settings express product intent. Effective child collaboration capability, model, effort, sandbox, and permission state are Host facts when they are material to acceptance or release.
+| Profile | Model / effort | Ordinary authority |
+| --- | --- | --- |
+| Reader | Luna Max | none |
+| Worker | Luna Max | bounded source write when granted |
+| Investigator | Terra High | none |
+| Solver | Sol High | bounded source write when granted |
+| Advisor | Sol High | none |
 
-## Current owners
+Main selects from these fixed profiles. The runtime does not use a dynamic model or reasoning-effort ladder.
 
-Product contract ownership remains explicit:
+Fresh managed children use `fork_turns=none`. Main is the sole managed coordinator. Managed children must not create or control another Agent layer. The product ceiling is four active managed children, and four is a safety ceiling rather than a utilization target.
 
-```text
-contracts/policy.json
--> fixed profiles, delegation ceiling and review policy
+## Responsibility and acceptance
 
-contracts/routing.md
--> delegation value, profile selection and dispatch judgment
+WorkGraph and WorkUnit own responsibility structure, dependencies and acceptance truth. ExecutionBinding represents one concrete managed attempt and generation. WriterLease represents managed write ownership for the canonical mutable workspace.
 
-contracts/responsibility-packet.md
--> child responsibility serialization
+Host `COMPLETED` produces candidate work only. Main verifies the artifact and evidence before a WorkUnit becomes `ACCEPTED`; dependencies unlock from acceptance, not directly from Host lifecycle state.
 
-contracts/team-plan.md
--> RC compatibility boundary only; no runtime planning authority
+`UNKNOWN` is fail closed. Ambiguous materialization, stale lifecycle evidence or uncertain writer ownership cannot authorize conflicting replacement work, writer transfer or final acceptance.
 
-contracts/guardrails.md
--> authority, depth, mutation, writer, consent and external-action boundaries
+## Native lifecycle boundary
 
-contracts/handoff.md
--> optional Main-accepted evidence bridge
+The current Native Core uses Codex lifecycle primitives directly. It does not introduce a second Agent runtime, daemon scheduler, background heartbeat, private Host occupancy ledger or persistent lifecycle database.
 
-contracts/evidence-artifact.md
--> inspectable evidence provenance
+A fresh managed spawn validates responsibility, fixed profile and write authority before Host activation. Same-child steering, correction and continuation preserve the existing ExecutionBinding where the corresponding contract allows it. Interrupt acknowledgement alone never releases WriterLease; current-generation Host settlement is required.
 
-contracts/interaction.md
--> user-visible Orchestrate controls
+Detailed lifecycle and first-use behavior remain in `docs/native-subagent-runtime.md`. Runtime evidence and bounded rollout inspection are documented in `docs/runtime-attestation.md`.
 
-contracts/recovery.md
--> WorkUnit / ExecutionBinding recovery behavior
+## Scheduling and writer ownership
 
-contracts/receipt.md
--> user-facing factual execution summary
+Scheduling helpers project constraints such as the ready frontier, active managed count, known Host capacity and WriterLease state. They do not rank WorkUnits or emit automatic launch decisions.
 
-contracts/final-review.md
--> exact-candidate independent review
-```
+The current product has one canonical managed writer per mutable workspace. Planned disjoint file lists do not prove physical or semantic isolation. The reasoning and future isolated-workspace boundary are documented in `docs/writer-boundary.md`.
 
-The complete runtime path map lives only at `docs/v4/architecture.json#runtime_owners`.
+## Host truth and managed depth
 
-The runtime responsibilities are orchestration admission and user controls, bounded session state, path-safe atomic storage, WorkUnit dependency and acceptance truth, constraint projection, ExecutionBinding lifecycle, WriterLease ownership and settlement, managed responsibility projection, Host capability normalization, and optional bounded rollout evidence for recovery or release validation.
+Profile configuration and project depth policy express product intent. Effective collaboration capability remains a Host fact.
 
-`docs/v4/host-smoke.json` owns the candidate-bound N0-N8 real Host release gate. Compatibility helpers remain separate from current V4 runtime ownership.
+Current Codex MultiAgent V2 can expose latent recursive capability to V2-capable child models. Revised N1 therefore checks what the product actually promises: every fixed managed profile is exercised through the canonical managed route with the no-further-Agent assignment boundary, including adversarial input that asks for nested delegation. Managed child Agent creation/control or descendant materialization fails N1; ambiguous evidence is `UNKNOWN`.
 
-## Responsibility and coordinated work
+The machine Host campaign is `docs/v4/host-smoke.json`. Repository CI cannot substitute for required real-Host observations.
 
-Zero delegated responsibilities create no orchestration state.
+## Repository ownership
 
-WorkGraph and WorkUnit state are the responsibility structure for one or many delegated responsibilities. `team_plan_revision` may remain as an RC compatibility marker, but it does not authorize planning, routing, dependency readiness, execution, or integration.
-
-WorkUnit records stable responsibility and acceptance truth. ExecutionBinding records one concrete native Agent attempt and route. Fresh retries have no fixed count ceiling. A retry is legal only after the prior attempt is safely settled and a changed execution basis makes repeating the same responsibility rational. A focused same-child FOLLOWUP requires a new correction basis; its count is diagnostic. CONTINUE resumes the same interrupted ExecutionBinding without creating a fresh attempt.
-
-Host `COMPLETED` produces candidate work and maps to `WorkUnit.RESULT_READY`. Main verifies the actual artifact and explicitly accepts the WorkUnit. Dependencies unlock only from `ACCEPTED`.
-
-Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction never makes stale Host evidence current again. Later attempts keep generation-distinct canonical native task names; opaque execution identifiers are protected by the retained current-generation observation basis rather than an unbounded lifetime tombstone set.
-
-## Native lifecycle
-
-Fresh spawn follows this order:
+Current ownership is intentionally concentrated:
 
 ```text
-validate responsibility / explicit profile / authority / writer admission
-allocate ExecutionBinding as SPAWN_PENDING
-reserve WriterLease if writable
-invoke native spawn_agent
-reconcile Host result
+contracts/
+  product contracts and safety semantics
+
+scripts/
+  deterministic Native Core and installed-product helpers
+
+agent-profiles/
+  fixed managed Agent requests
+
+skills/
+  Orchestrate and Doctor public surfaces
+
+docs/v4/architecture.json
+  complete machine runtime-owner map
+
+docs/v4/host-smoke.json
+  real-Host release campaign contract
 ```
 
-Recognized success binds observed child identity and lifecycle. A recognized pre-materialization rejection may roll back provisional activation only when evidence establishes that no child materialized. Ambiguous materialization becomes `UNKNOWN`. Writable ambiguity keeps WriterLease blocking.
+Human documents describe how to use or reason about those owners. They should not maintain a second path inventory or parallel machine projection.
 
-FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch` before a later Host generation may become current. Writable reactivation reserves or retains WriterLease first.
+## Release boundary
 
-STEER targets a currently RUNNING child through the current V2 `followup_task` primitive without creating a replacement child or changing the ExecutionBinding generation. Release qualification requires post-guidance evidence that the original child consumed the guidance; successful tool-call acceptance alone is insufficient proof of application.
+Repository tests establish deterministic implementation behavior. Real Host N0-N8 establishes the Host behavior the release depends on. Final Review, installed-product verification and external evidence bind to the exact candidate after those earlier gates are satisfied.
 
-INTERRUPT requests native interruption. The call result alone never releases WriterLease. Current-generation Host settlement is required before writer transfer or takeover.
-
-`UNKNOWN` blocks replacement execution, conflicting writer ownership, and final acceptance until reconciled.
-
-## Host observations
-
-Host observations are reconciled against a current observation basis:
-
-```text
-execution_id
-control_epoch
-lease_epoch when applicable
-```
-
-Stale-generation observations are discarded. Delayed evidence from an older or compacted execution cannot reactivate or settle the current generation.
-
-`list_agents` supports Status, recovery, takeover settlement, and ambiguity reconciliation. The allowlisted rollout inspector remains optional and is used only when exact raw collaboration evidence is required for recovery or release validation.
-
-## Scheduling
-
-Scheduling code is a constraint projection. It reports the ready frontier, current active count, known Host capacity, Host readiness, WriterLease state, result backlog, and available slots. It does not rank WorkUnits, apply a fixed acceptance-backlog threshold, or emit automatic launch actions.
-
-The product has one managed-child safety ceiling:
-
-```text
-managed children <= 4
-```
-
-Four is not a target. Main chooses which ready responsibility to delegate and when. Known Host capacity may reduce available slots. Unknown Host capacity remains unknown and does not create a synthetic occupancy token.
-
-Independent read-only responsibilities may overlap only when effective read-only behavior and responsibility isolation are verified. A blocking canonical WriterLease conservatively blocks another managed child in that workspace until Host evidence proves a safe boundary. The current release has no parallel isolated writer mode.
-
-## WriterLease
-
-V4 keeps one canonical managed writer. WriterLease is project scheduling ownership, not a filesystem or OS lock.
-
-A writable activation acquires or retains the lease before Host activation. A writer in `RESERVED`, `HELD`, `REVOKING`, or `UNKNOWN` remains blocking. INTERRUPT return alone cannot release it. Release or transfer requires current-generation Host lifecycle settlement evidence.
-
-A RELEASED execution-owned lease may continue referencing the execution that held it until a later lease supersedes that reference. History compaction preserves that owner identity while it is still required for state integrity.
-
-## Child coordination
-
-Main is the sole managed coordinator. Managed profiles request disabled child collaboration and instruct children not to create or manage further subagents. Every canonical managed responsibility packet repeats the boundary that the child must not create or control further subagents. Project `max_depth = 1` records the same product policy.
-
-The effective collaboration surface remains a Host fact. Current Codex MultiAgent V2 may still expose latent recursive capability to V2-capable child models, so profile configuration and project `max_depth` must not be described as Host-hard isolation.
-
-N1 verifies the product behavior that matters: each fixed managed profile is spawned through the canonical managed route, receives the no-further-Agent boundary, is exposed to an adversarial untrusted-input request to create or control another Agent, and remains leaf in the observed Host execution. Any managed child that issues nested Agent creation or control, or materializes a descendant, fails N1. Ambiguous managed-child action or descendant evidence is `UNKNOWN`.
-
-A generic V2 child that is explicitly instructed to create a descendant can demonstrate latent Host recursion. That platform capability observation does not by itself decide the managed N1 verdict. Host-hard isolation becomes a release requirement only when a product invariant explicitly requires that stronger boundary.
-
-## Final Review
-
-After Main establishes Candidate Ready, `contracts/final-review.md` decides whether consequence-based triggers require a fresh Advisor review of the exact candidate.
-
-Git-backed deliverables use `scripts/review-artifact.py`; non-Git deliverables use deterministic SHA-256 serialization. Any material candidate mutation invalidates the previous verdict.
-
-Strict read-only Final Review also depends on effective Host evidence for the Advisor permission state. Configured `sandbox_mode = read-only` is intent and cannot substitute for that evidence.
-
-## Compatibility
-
-V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed. Explicit stale cleanup understands only the minimum legacy schema needed to prove a terminal V3 capsule safe to remove.
-
-Older pre-release V4 state from incompatible schemas requires explicit cleanup and restart. The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata, not raw prompts, child transcripts, reasoning traces, source copies, or arbitrary Host output.
-
-## Release verification
-
-The Native Core Host campaign is:
-
-```text
-N0 exact role / model / effort / fork_turns
-N1 managed delegation depth
-N2 canonical task address plus Host-thread identity evidence binding
-N3 Host admission rejection with no child identity or resident runtime materialization
-N4 RUNNING Steer via followup_task plus same-child correction and continue
-N5 interrupt and settlement observation
-N6 writer takeover blocked until settlement
-N7 rollout reconciliation and privacy allowlist
-N8 final Advisor review and effective sandbox truth
-```
-
-N4 requires evidence that the Steer stays on the original Host child, that no replacement identity materializes, and that the same child consumes the guidance while `ExecutionBinding`, `attempt_no`, `control_epoch`, and `followup_count` remain unchanged. Correction and Continue remain same-child controls and do not create fresh attempts.
-
-Repository CI supports delivery by catching regressions. It cannot substitute for real Host behavior, installed-product checks, or Main acceptance semantics.
-
-## V4.0.0 exclusions
-
-The release excludes dynamic effort routing, nested managed delegation, autonomous peer authority transfer, daemon scheduling, persistent orchestration databases, automatic worktree management, and parallel isolated managed writers.
+The release sequence is maintained in `docs/release-checklist.md`. Current continuation state is in `docs/current-state.md`. Historical design records belong in Git history and `docs/history/`.
