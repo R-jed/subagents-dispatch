@@ -21,11 +21,19 @@ Doctor
 | --- | --- | --- | --- |
 | Reader | Luna Max | none | Work |
 | Worker | Luna Max | bounded-source-write | Work |
-| Investigator | Terra High | none | Work |
-| Solver | Sol High | bounded-source-write | Work |
-| Advisor | Sol High | none | Review |
+| Investigator | Luna Max | none | Work |
+| Solver | Luna Max | bounded-source-write | Work |
+| Advisor | Luna Max | none | Review |
 
-Reasoning effort is fixed. Managed profiles request a leaf-style capability posture and give children a behavioral boundary against further delegation. Those settings express product intent. Effective child collaboration capability, model, effort, sandbox, and permission state are Host facts when they are material to acceptance or release.
+The roles remain semantically distinct while managed child execution is currently pinned to Luna Max. This is a Host-containment constraint, not an automatic quality ranking.
+
+Formal N1 evidence on Host build 6962 with embedded Codex `0.149.0-alpha.4.1` proved that a V2-capable depth-1 child can successfully create a depth-2 grandchild. The Host returned a canonical grandchild task address and persisted a parent/child spawn edge. The same Codex source family ignores project `agent_max_depth` on the V2 spawn path. Current Host model metadata reports Luna as `multi_agent_version=v1`, while Terra and Sol report V2. Under the Host's `collab_tools_enabled()` rule, a spawned V2-session child using Luna does not receive collaboration tools.
+
+For that reason the current managed lanes use Luna. Main can still use other Host models for its own work. A Host/model update that changes the managed model's effective collaboration exposure invalidates the containment basis and requires requalification before delegated execution can rely on it.
+
+The profile developer instruction against further delegation remains defense in depth. Role-local `[agents] enabled=false` and `[features] multi_agent_v2=false` are not shipped as containment controls because the current Codex agent-role override layer does not apply those settings.
+
+Reasoning effort is fixed. Effective child collaboration capability, model, effort, sandbox, and permission state remain Host facts when material to acceptance or release.
 
 ## Current owners
 
@@ -33,7 +41,7 @@ Product contract ownership remains explicit:
 
 ```text
 contracts/policy.json
--> fixed profiles, delegation ceiling and review policy
+-> fixed profiles, containment posture, delegation ceiling and review policy
 
 contracts/routing.md
 -> delegation value, profile selection and dispatch judgment
@@ -66,9 +74,7 @@ contracts/final-review.md
 -> exact-candidate independent review
 ```
 
-The complete runtime path map lives only at `docs/v4/architecture.json#runtime_owners`.
-
-The runtime responsibilities are orchestration admission and user controls, bounded session state, path-safe atomic storage, WorkUnit dependency and acceptance truth, constraint projection, ExecutionBinding lifecycle, WriterLease ownership and settlement, managed responsibility projection, Host capability normalization, and optional bounded rollout evidence for recovery or release validation.
+The complete runtime path map lives at `docs/v4/architecture.json#runtime_owners`.
 
 `docs/v4/host-smoke.json` owns the candidate-bound N0-N8 real Host release gate. Compatibility helpers remain separate from current V4 runtime ownership.
 
@@ -82,7 +88,7 @@ WorkUnit records stable responsibility and acceptance truth. ExecutionBinding re
 
 Host `COMPLETED` produces candidate work and maps to `WorkUnit.RESULT_READY`. Main verifies the actual artifact and explicitly accepts the WorkUnit. Dependencies unlock only from `ACCEPTED`.
 
-Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction never makes stale Host evidence current again. Later attempts keep generation-distinct canonical native task names; opaque execution identifiers are protected by the retained current-generation observation basis rather than an unbounded lifetime tombstone set.
+Older safely settled attempts may be compacted into bounded execution history while the current ExecutionBinding remains fully represented. Compaction never makes stale Host evidence current again.
 
 ## Native lifecycle
 
@@ -100,7 +106,7 @@ Recognized success binds observed child identity and lifecycle. A recognized pre
 
 FOLLOWUP and CONTINUE reuse the same ExecutionBinding and advance `control_epoch` before a later Host generation may become current. Writable reactivation reserves or retains WriterLease first.
 
-STEER targets a currently RUNNING child through the current V2 `followup_task` primitive without creating a replacement child or changing the ExecutionBinding generation. Release qualification requires post-guidance evidence that the original child consumed the guidance; successful tool-call acceptance alone is insufficient proof of application.
+STEER targets a currently RUNNING child through the current V2 `followup_task` primitive without creating a replacement child or changing the ExecutionBinding generation. Release qualification requires post-guidance evidence that the original child consumed the guidance; successful tool-call acceptance alone is insufficient proof.
 
 INTERRUPT requests native interruption. The call result alone never releases WriterLease. Current-generation Host settlement is required before writer transfer or takeover.
 
@@ -140,13 +146,13 @@ V4 keeps one canonical managed writer. WriterLease is project scheduling ownersh
 
 A writable activation acquires or retains the lease before Host activation. A writer in `RESERVED`, `HELD`, `REVOKING`, or `UNKNOWN` remains blocking. INTERRUPT return alone cannot release it. Release or transfer requires current-generation Host lifecycle settlement evidence.
 
-A RELEASED execution-owned lease may continue referencing the execution that held it until a later lease supersedes that reference. History compaction preserves that owner identity while it is still required for state integrity.
-
 ## Child coordination
 
-Main is the sole managed coordinator. Managed profiles request disabled child collaboration and instruct children not to create or manage further subagents. Profile configuration and project `max_depth` are not Host containment evidence for the current V2 surface.
+Main is the sole managed coordinator. Delegation depth one remains project policy.
 
-Delegated execution that requires leaf containment must use actual Host evidence. The acceptable outcome is an absent child collaboration surface or an authoritative Host denial of descendant creation, with no descendant identity materialized. If the target Host cannot establish that boundary, the affected managed profile is unavailable for delegated execution.
+Current managed profiles deliberately use a Host-qualified model whose child metadata does not expose the V2 collaboration surface. The profile-level instruction against creating further Agents is defense only. Project `max_depth`, role-local feature requests, and behavioral instructions cannot satisfy release containment by themselves.
+
+The acceptable N1 outcome remains an absent child collaboration surface or an authoritative Host denial of descendant creation, with no descendant identity materialized. If the target Host cannot establish that boundary, the affected managed profile is unavailable for delegated execution.
 
 ## Final Review
 
@@ -158,16 +164,14 @@ Strict read-only Final Review also depends on effective Host evidence for the Ad
 
 ## Compatibility
 
-V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed. Explicit stale cleanup understands only the minimum legacy schema needed to prove a terminal V3 capsule safe to remove.
-
-Older pre-release V4 state from incompatible schemas requires explicit cleanup and restart. The ordinary V4 state remains bounded, temporary, session-scoped, and outside the project working tree. It stores coordination metadata, not raw prompts, child transcripts, reasoning traces, source copies, or arbitrary Host output.
+V3.x live state remains legacy evidence and is never silently rewritten into V4 state. Unresolved legacy ownership, active execution, pending takeover, corrupt state, or uncertain writer ownership fails closed.
 
 ## Release verification
 
 The Native Core Host campaign is:
 
 ```text
-N0 exact role / model / effort / fork_turns
+N0 exact role / model / effort / fork_turns plus managed-model Host metadata
 N1 managed child collaboration containment
 N2 canonical task address plus Host-thread identity evidence binding
 N3 Host admission rejection with no child identity or resident runtime materialization
@@ -177,8 +181,6 @@ N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and effective sandbox truth
 ```
-
-N4 requires evidence that the Steer stays on the original Host child, that no replacement identity materializes, and that the same child consumes the guidance while `ExecutionBinding`, `attempt_no`, `control_epoch`, and `followup_count` remain unchanged. Correction and Continue remain same-child controls and do not create fresh attempts.
 
 Repository CI supports delivery by catching regressions. It cannot substitute for real Host behavior, installed-product checks, or Main acceptance semantics.
 

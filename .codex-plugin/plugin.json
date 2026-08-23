@@ -2,11 +2,20 @@
   "name": "subagents-dispatch",
   "version": "4.0.0",
   "description": "Coordinate complex Codex coding work with bounded subagents, safe write ownership, and verified results.",
-  "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
+  "author": {
+    "name": "R-jed",
+    "url": "https://github.com/R-jed"
+  },
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",
   "repository": "https://github.com/R-jed/subagents-dispatch",
   "license": "MIT",
-  "keywords": ["codex", "subagents", "delegation", "orchestration", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"],
+  "keywords": [
+    "codex",
+    "subagents",
+    "delegation",
+    "orchestration",
+    "gpt-5.6-luna"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "subagents-dispatch",
@@ -14,7 +23,10 @@
     "longDescription": "Split complex coding tasks into focused responsibilities when delegation helps. Orchestrate coordinates investigation, implementation, status, correction, takeover, review, and integration while Main stays responsible for the final result. Doctor checks installation health and performs only explicitly requested maintenance on Plugin-owned configuration.",
     "developerName": "R-jed",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/R-jed/subagents-dispatch",
     "brandColor": "#2563EB",
     "composerIcon": "./assets/subagents-dispatch-composer-icon.svg",

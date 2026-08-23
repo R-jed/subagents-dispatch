@@ -2,7 +2,7 @@
 
 Current V4 product surface: `Orchestrate` and `Doctor`.
 
-Before changing V4 repository content, read `docs/v4/development-handoff.md`. It is the live development-continuity record for the current candidate, recent remediation history, upstream Codex MultiAgent V2 assumptions, validation state, known risks, and strict next-step ordering. Every repository content change must keep that handoff synchronized. The handoff does not replace the machine-readable contracts or external real-Host evidence.
+Before changing V4 repository content, read `docs/v4/development-handoff.md`. It is the live development-continuity record for the current candidate, remediation history, upstream Codex MultiAgent V2 assumptions, validation state, known risks, and strict next-step ordering. Every repository content change must keep that handoff synchronized. The handoff does not replace machine-readable contracts or external real-Host evidence.
 
 ## Runtime ownership
 
@@ -19,12 +19,14 @@ A `team_plan_revision` field may remain temporarily as a V4 RC state-schema comp
 ```text
 Reader        gpt-5.6-luna   max    read-only intent
 Worker        gpt-5.6-luna   max    bounded source write when granted
-Investigator  gpt-5.6-terra  high   read-only intent
-Solver        gpt-5.6-sol    high   bounded source write when granted
-Advisor       gpt-5.6-sol    high   read-only judgment/review
+Investigator  gpt-5.6-luna   max    read-only investigation
+Solver        gpt-5.6-luna   max    bounded source write with granted judgment
+Advisor       gpt-5.6-luna   max    read-only judgment/review
 ```
 
-Main selects one fixed profile explicitly for each delegated responsibility. Runtime code validates the selection. There is no automatic Luna, Terra, Sol escalation ladder.
+The semantic profiles remain distinct, but all managed child routes are currently pinned to Luna Max for Host containment. Exact-host N1 evidence on Codex `0.149.0-alpha.4.1` proved that a V2-capable child can materialize a grandchild even with project `max_depth=1`. The qualified Host model metadata reports Luna as V1, which makes `collab_tools_enabled()` false for a spawned V2-session child using Luna.
+
+Main may use other Host models. Managed Terra or Sol child routing is unavailable in this RC until Host-enforced descendant containment exists and passes the same N1 contract. Profile developer instructions against further delegation are defense only. Role-local `[agents] enabled=false` and `[features] multi_agent_v2=false` are not used as containment controls because the current Codex role override layer does not apply those settings.
 
 ## Orchestration invariants
 
@@ -32,6 +34,7 @@ Main selects one fixed profile explicitly for each delegated responsibility. Run
 managed children <= 4
 fork_turns = none
 delegation depth = 1
+managed child model metadata must remain containment-qualified
 Host COMPLETED produces candidate work only
 WorkUnit ACCEPTED unlocks dependencies
 UNKNOWN blocks conflicting replacement, writer transfer, and final acceptance
@@ -40,7 +43,7 @@ interrupt return alone never releases WriterLease
 
 Four children is a safety ceiling, not a target. Known Host capacity may reduce available slots. Unknown capacity stays unknown. Deterministic helpers report constraints and status; they do not rank WorkUnits, apply a fixed backlog threshold, or choose automatic launch actions.
 
-Delegation depth 1 is a project policy. It does not prove V2 Host containment. Profile configuration records leaf intent only; effective managed-child collaboration surface remains a Host fact.
+Delegation depth 1 is project policy. It does not prove V2 Host containment. Effective child collaboration surface remains a Host fact. A Host/model update that changes the qualified managed model to a V2-capable child surface invalidates the containment basis and requires requalification.
 
 Independent read-only work may overlap only when effective read-only behavior and responsibility isolation are verified. The canonical mutable workspace has one active managed WriterLease. Parallel writers require Host-verifiable isolated workspaces and clear integration boundaries.
 
@@ -50,7 +53,7 @@ Fresh children use `fork_turns = none` and receive task-needed responsibility co
 
 ```text
 contracts/policy.json
-  fixed profiles and product child ceiling
+  fixed profiles, containment posture and product child ceiling
 
 contracts/routing.md
   delegation, profile selection, dispatch and concurrency

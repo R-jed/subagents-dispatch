@@ -21,9 +21,8 @@
       "operation": "route model effort and fresh-context contract",
       "platform": "any",
       "requires": [
-        "Reader and Worker use gpt-5.6-luna max",
-        "Investigator uses gpt-5.6-terra high",
-        "Solver and Advisor use gpt-5.6-sol high",
+        "Reader, Worker, Investigator, Solver, and Advisor all use gpt-5.6-luna max",
+        "the active Host model metadata used by managed children reports gpt-5.6-luna multi_agent_version v1",
         "managed spawn uses fork_turns none"
       ]
     },
@@ -37,6 +36,7 @@
       ],
       "requires": [
         "record the effective child collaboration surface for every fixed managed profile",
+        "record the active Host model metadata that determines V2 child collaboration exposure for the managed model",
         "an adversarial grandchild-creation probe ends with collaboration tool absence or an authoritative Host denial",
         "no descendant child identity materializes from the denied or unavailable grandchild attempt",
         "profile configuration behavioral instructions and project max_depth are recorded as intent only and cannot satisfy containment evidence"

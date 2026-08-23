@@ -47,7 +47,9 @@
     "max_depth": 1,
     "max_depth_scope": "project_policy",
     "max_depth_is_v2_host_containment_proof": false,
-    "product_managed_children_max": 4
+    "product_managed_children_max": 4,
+    "managed_model_multi_agent_version": "v1",
+    "v2_capable_managed_child_models_allowed": false
   },
   "entities": {
     "ExecutionBinding": {
@@ -142,6 +144,7 @@
   "managed_profile_requirements": [
     "fixed_profile_route",
     "behavioral_leaf_boundary",
+    "host_model_metadata_excludes_v2_child_collaboration",
     "host_evidence_for_effective_child_containment",
     "host_evidence_for_effective_read_only_when_required"
   ],
@@ -180,7 +183,8 @@
     "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
     "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement.",
     "I14": "The product admits at most four concurrently active managed child executions.",
-    "I15": "Read-only overlap or strict read-only review requires effective Host evidence; configured read-only intent alone is insufficient."
+    "I15": "Read-only overlap or strict read-only review requires effective Host evidence; configured read-only intent alone is insufficient.",
+    "I16": "A managed model whose active Host metadata enables V2 child collaboration is unavailable for V4 managed delegation until Host-enforced descendant containment is independently proven."
   },
   "migration": {
     "silent_live_state_migration": false,
@@ -188,28 +192,10 @@
     "unresolved_live_state": "fail_closed"
   },
   "profiles": {
-    "advisor": {
-      "effort": "high",
-      "model": "gpt-5.6-sol",
-      "mutation_authority": "none",
-      "semantic_role": "review"
-    },
-    "investigator": {
-      "effort": "high",
-      "model": "gpt-5.6-terra",
-      "mutation_authority": "none",
-      "semantic_role": "work"
-    },
     "reader": {
       "effort": "max",
       "model": "gpt-5.6-luna",
       "mutation_authority": "none",
-      "semantic_role": "work"
-    },
-    "solver": {
-      "effort": "high",
-      "model": "gpt-5.6-sol",
-      "mutation_authority": "bounded-source-write",
       "semantic_role": "work"
     },
     "worker": {
@@ -217,6 +203,24 @@
       "model": "gpt-5.6-luna",
       "mutation_authority": "bounded-source-write",
       "semantic_role": "work"
+    },
+    "solver": {
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "mutation_authority": "bounded-source-write",
+      "semantic_role": "work"
+    },
+    "investigator": {
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "mutation_authority": "none",
+      "semantic_role": "work"
+    },
+    "advisor": {
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "mutation_authority": "none",
+      "semantic_role": "review"
     }
   },
   "public_skills": [
@@ -290,7 +294,7 @@
     "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-6",
+  "schema_version": "4.0.0-native-core-candidate-7",
   "semantic_roles": [
     "main",
     "work",
