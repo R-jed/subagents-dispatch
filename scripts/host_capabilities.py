@@ -41,7 +41,6 @@ NORMALIZED_SNAPSHOT_FIELDS = {
     "surface",
     "capabilities",
     "fork_turns_none",
-    "managed_child_containment",
     "max_concurrent_threads_per_session",
     "capacity_includes_primary",
     "execution_ready",
@@ -127,7 +126,8 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
     _reject_unclassified_collaboration_tools(tools)
     if not isinstance(evidence["fork_turns_none"], bool):
         raise HostCapabilityError("fork_turns_none must be boolean")
-    containment = _managed_child_containment(evidence.get("managed_child_containment", "unknown"))
+    if "managed_child_containment" in evidence:
+        _managed_child_containment(evidence["managed_child_containment"])
     capacity = evidence["max_concurrent_threads_per_session"]
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
@@ -150,7 +150,6 @@ def normalize_host_capabilities(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "surface": evidence["surface"],
         "capabilities": capabilities,
         "fork_turns_none": evidence["fork_turns_none"],
-        "managed_child_containment": containment,
         "max_concurrent_threads_per_session": capacity,
         "capacity_includes_primary": True,
         "execution_ready": not missing_capabilities,
@@ -171,7 +170,6 @@ def validate_normalized_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     fork_none = snapshot.get("fork_turns_none")
     if not isinstance(fork_none, bool):
         raise HostCapabilityError("normalized Host snapshot fork_turns_none must be boolean")
-    _managed_child_containment(snapshot.get("managed_child_containment"))
     capacity = snapshot.get("max_concurrent_threads_per_session")
     if capacity is not None and (
         not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1
