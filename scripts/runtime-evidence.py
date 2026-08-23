@@ -59,14 +59,15 @@ def load_main_coverage_policy() -> tuple[str, str, tuple[str, ...], tuple[str, .
     try:
         payload = load_policy_contract()
         dedup = payload["capability_dedup"]
-        role = dedup["reference_role"]
+        model = dedup["reference_model"]
+        effort = dedup["reference_effort"]
+        uplift = dedup["managed_lane_provides_reference_uplift"]
         order = dedup["reasoning_effort_order"]
         aliases = dedup.get("model_aliases", [])
-        reference = payload["roles"][role]
-        model = reference["model"]
-        effort = reference["effort"]
     except (RuntimeError, KeyError, TypeError) as exc:
         fail(f"invalid policy contract for capability dedup: {exc}")
+    if uplift is not False:
+        fail("managed lane must not claim reference capability uplift")
     if not isinstance(model, str) or not model.strip() or not isinstance(effort, str) or not effort.strip():
         fail("capability dedup reference route is invalid")
     if not isinstance(order, list) or not order or not all(isinstance(x, str) and x for x in order):
