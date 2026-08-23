@@ -1,70 +1,114 @@
-# N1 Managed Delegation Depth Remediation Plan
+# V4 Contract Truth Simplification Plan
 
 ## Objective
 
-Correct the V4 N1 release oracle so it verifies the product's real single-layer managed delegation contract without requiring Codex Host to remove all latent V2 recursive capability.
+Reduce V4 maintenance complexity while preserving the behavior and safety semantics of PR #102 exact head `54aec5eeb0cbe2d9e44c7ba4e3a748c65d64c6ce`.
 
-This plan implements `tasks/SPEC-n1-managed-depth.md` and keeps the Native Core architecture intact.
+The primary failure mode to remove is semantic duplication: one product fact currently appears in several machine JSON files, human documents and string-mirror tests. N1 remediation demonstrated that this structure creates avoidable synchronization failures even when the underlying implementation is correct.
 
-## Source boundary
+## Non-negotiable behavior boundary
 
-- Product requirement: Main is the sole managed coordinator; managed children do not create or control further Agents.
-- Current official OpenAI Codex source confirms MultiAgent V2 may expose recursive collaboration to V2-capable child models.
-- Therefore Host latent recursion is recorded as a platform fact, while N1 must judge actual managed execution behavior.
+Preserve:
 
-Official source:
+- Main-only managed coordination and managed delegation depth 1;
+- all five fixed profile model and effort routes;
+- canonical managed spawn with `fork_turns=none`;
+- UNKNOWN fail-closed lifecycle semantics;
+- WorkGraph acceptance semantics;
+- WriterLease settlement and one-writer safety;
+- Host-owned lifecycle, identity, capacity and effective permission truth;
+- candidate-bound real Host release evidence;
+- revised N1 managed-depth oracle from PR #102;
+- N8 strict read-only requirement until separately specified and reviewed.
 
-- `openai/codex` `codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs`
-- `openai/codex` `codex-rs/core/src/tools/spec_plan.rs`
+This refactor must not silently change product behavior.
 
-## Implementation order
+## Simplification rules
 
-1. Correct Host readiness semantics.
-   - Keep `managed_child_containment` as optional diagnostic compatibility data.
-   - Remove it from ordinary execution-readiness requirements.
-   - Preserve strict validation when the field is supplied.
+1. One semantic fact has one machine owner.
+2. Human documentation explains or links owners and does not become a parallel oracle.
+3. Tests verify behavior, schema, ownership or explicit references. Avoid exact prose synchronization tests unless wording itself is a public interface.
+4. Temporary RC compatibility survives only with a confirmed consumer and explicit removal condition.
+5. A normalized runtime field must have an actual runtime consumer or a documented evidence-boundary reason.
+6. Keep facade boundaries that protect supported APIs, but remove duplicate implementations behind them.
+7. Do not simplify proven safety boundaries merely to reduce line count.
 
-2. Correct the N1 machine oracle.
-   - Replace generic Host hard-containment acceptance with managed-profile leaf-behavior evidence.
-   - Require canonical managed spawn, real delegation boundary, adversarial untrusted input, no child-issued nested Agent action, and no descendant identity/spawn edge.
-   - Treat ambiguous evidence as UNKNOWN.
+## Batch 1: current truth-source convergence
 
-3. Align architecture and release documentation.
-   - Keep `max_depth=1` explicitly scoped to product policy.
-   - Record latent V2 recursion as residual Host capability rather than a release blocker by itself.
-   - Keep N8 strict read-only Host evidence unchanged.
+- Prove all consumers of `docs/v4/phase-status.json` and `docs/v4/host-capability-matrix.json`.
+- Archive non-authoritative current-state artifacts when their current location creates a competing truth source.
+- Remove tests that only require permanently stale/PENDING mirror content.
+- Keep canonical release truth in `docs/v4/host-smoke.json`, `docs/v4/architecture.json`, current GitHub/Issue #91 evidence and runtime behavior.
+- Replace prose mirror assertions with owner/reference assertions where a regression guard is still valuable.
 
-4. Verify and simplify.
-   - Run focused regression tests first.
-   - Review changed code for unnecessary branching or duplicated semantics.
-   - Refresh package integrity because `scripts/host_capabilities.py` is shipped.
-   - Run the complete GitHub Actions matrix on the exact final head.
-   - Perform an adversarial diff review before merge.
+Verification after batch:
 
-## Risks and mitigations
+- focused affected tests;
+- full pytest;
+- Ruff;
+- no shipped package byte change expected.
 
-- Risk: weakening the product boundary accidentally.
-  - Mitigation: N1 still fails on any actual managed nested delegation or descendant materialization.
+## Batch 2: production duplicate and compatibility cleanup
 
-- Risk: converting Host facts into assumptions.
-  - Mitigation: keep Host collaboration capability observable and document it as residual risk; do not claim hard isolation.
+Investigate before deletion:
 
-- Risk: weakening unrelated safety gates.
-  - Mitigation: do not change WriterLease, UNKNOWN lifecycle handling, fixed profiles, spawn contract, or N8 effective read-only requirements.
+- duplicate fresh attempt-number calculation in `execution_lifecycle_v4.py` and `execution_lifecycle_v4_core.py`;
+- `route_profile` compatibility alias;
+- `scheduler_decision` compatibility alias;
+- compatibility `write_state` create-only alias;
+- `team_plan_revision` RC compatibility field and `validate_team_plan.py` consumers.
 
-## Verification checkpoints
+Only remove a compatibility surface when repository and external release tooling have no current required consumer. Prefer one implementation behind an explicit supported facade.
 
-1. Focused host-capability tests prove failed/unknown/omitted hard containment does not block otherwise valid native execution readiness.
-2. N1 contract tests prove the release oracle targets actual managed children and requires zero descendants.
-3. Package integrity regenerates cleanly.
-4. Ruff and full pytest pass.
-5. Ubuntu 3.11, Ubuntu 3.12, macOS 3.11, Windows 3.11 and aggregate policy-tests all pass on the final exact head.
-6. Fresh adversarial review confirms no managed child is authorized to create or control another Agent layer.
+Verification after each isolated change:
 
-## Boundaries
+- focused unit tests;
+- full pytest before the next semantic area;
+- compare current behavior with PR #102 baseline.
 
-Always: preserve Main-only coordination, managed delegation depth 1, UNKNOWN fail-closed lifecycle semantics, one-writer safety, candidate-bound release evidence and exact profile model/effort contracts.
+## Batch 3: runtime diagnostic model cleanup
 
-Ask first: any fixed profile change, any nested-managed-delegation allowance, or any restored Plugin-owned lifecycle interception.
+Evaluate `managed_child_containment` after consumer proof.
 
-Never: claim Host-hard descendant isolation without evidence, use generic V2 recursion alone as N1 failure, or mark N1 PASS from repository CI.
+Preferred shape if compatibility allows:
+
+- accept historical input field at the evidence boundary;
+- validate it when supplied;
+- do not carry it in the normalized runtime snapshot when no runtime decision consumes it;
+- keep actual recursive Host capability and N1 managed behavior in release evidence, not ordinary readiness state.
+
+Because `scripts/host_capabilities.py` is shipped, any byte change requires package-integrity regeneration and invalidates previously bound Host candidate evidence.
+
+## Deferred debt
+
+Keep Experiment Plane calibration core/adapter consolidation separate from release-critical Native Core unless a small independently verifiable patch emerges. It is known non-runtime debt and should not enlarge this refactor unnecessarily.
+
+## N8 boundary
+
+Do not alter N8 during behavior-preserving simplification. Its strict effective Advisor read-only requirement requires a separate original-intent review before any product-contract change.
+
+## Validation and completion
+
+For every batch:
+
+1. prove the consumer and owner model before editing;
+2. make the smallest coherent change;
+3. run focused tests;
+4. run full pytest before marking the batch complete;
+5. review the diff for new duplicate truth or compatibility residue.
+
+Before merge:
+
+- Ruff PASS;
+- full pytest PASS;
+- package integrity PASS when shipped bytes change;
+- managed Agent profile lifecycle PASS when relevant;
+- official OpenAI Plugin validator PASS where applicable;
+- Ubuntu Python 3.11 PASS;
+- Ubuntu Python 3.12 PASS;
+- macOS Python 3.11 PASS;
+- Windows Python 3.11 PASS;
+- aggregate policy-tests PASS;
+- adversarial diff review confirms behavior is preserved and one-owner rules are improved.
+
+Do not mark the remediation complete until the exact final head has passed the full repository matrix.
