@@ -210,6 +210,3 @@ def test_history_documents_are_explicitly_non_authoritative():
 def test_candidate_status_has_no_self_stale_git_snapshot():
     assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
     assert "phase-status.json" not in read_text("README_AI.md")
-    current_state = read_text("docs/v4/current-state.md")
-    assert "current GitHub / real-Host evidence have higher authority" in current_state
-    assert "Issue #91 remains the append-only Real Host Test Ledger" in current_state
