@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-phase-status-18",
+  "schema_version": "4.0.0-phase-status-19",
   "candidate_branch": "v4/rc5-native-core",
   "architecture": "native_core",
   "repository_phases": {
@@ -30,7 +30,6 @@
   ],
   "host_capability_feasibility": {
     "status": "PENDING",
-    "matrix": "docs/v4/host-capability-matrix.json",
     "release_authority": false,
     "unknown_means_unavailable": true
   },
@@ -42,5 +41,5 @@
   "final_review": "PENDING_RELEASE_GATE",
   "external_release_evidence": "PENDING_RELEASE_GATE",
   "publication": "BLOCKED",
-  "release_rule": "V4.0.0 publication requires the exact candidate to pass repository validation, the candidate-bound N0-N8 Host campaign, fresh exact-candidate Final Review, external release evidence verification, installed-product checks, and human two-Skill App observation. Host capability feasibility evidence is pre-release design evidence only. PENDING or UNKNOWN is not PASS."
+  "release_rule": "V4.0.0 publication requires the exact candidate to pass repository validation, the candidate-bound N0-N8 Host campaign, fresh exact-candidate Final Review, external release evidence verification, installed-product checks, and human two-Skill App observation. PENDING or UNKNOWN is not PASS."
 }
