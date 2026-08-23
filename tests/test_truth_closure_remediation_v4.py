@@ -38,7 +38,7 @@ def current_authority_text_files() -> list[Path]:
     return sorted(files)
 
 
-def test_machine_architecture_tracks_generation_safe_host_basis_and_capacity_truth():
+def test_machine_architecture_tracks_current_host_and_capacity_truth():
     architecture = read_json("docs/v4/architecture.json")
 
     assert architecture["reconciliation"]["observation_basis"] == [
@@ -49,36 +49,13 @@ def test_machine_architecture_tracks_generation_safe_host_basis_and_capacity_tru
         "lease_epoch",
     ]
     scheduler = architecture["scheduler"]
-    assert scheduler["host_capacity_semantics"] == "session_concurrency_includes_primary"
-    assert scheduler["missing_capability_snapshot_blocks_spawn"] is True
-    assert scheduler["unknown_host_capacity_blocks_spawn"] is False
-
-
-def test_scheduler_machine_contract_matches_host_session_capacity_semantics():
-    scheduler = read_json("docs/v4/scheduler.json")
-
-    assert scheduler["mode"] == "constraint_projection"
     assert scheduler["selection_owner"] == "main"
-    assert scheduler["host_capacity_owner"] == "codex_host"
     assert scheduler["host_capacity_semantics"] == "session_concurrency_includes_primary"
     assert scheduler["known_host_session_capacity_is_advisory_ceiling"] is True
     assert scheduler["missing_capability_snapshot_blocks_spawn"] is True
     assert scheduler["unknown_host_capacity_blocks_spawn"] is False
     assert scheduler["product_managed_children_max"] == 4
     assert scheduler["automatic_launch_actions"] is False
-
-
-def test_host_feasibility_matrix_contains_no_retired_hook_authority_or_fixed_main_route():
-    matrix = read_json("docs/v4/host-capability-matrix.json")
-
-    assert matrix["schema_version"] == "4.0.0-host-capability-feasibility-2"
-    assert matrix["main"]["required_fixed_route"] is False
-    assert "required_model" not in matrix["main"]
-    assert not {"hook_available", "hook_trusted"} & set(matrix["environment"])
-    assert "hook_guard" not in matrix["capabilities"]
-    assert "hook_is_sufficient_hard_boundary" not in matrix["decision_policy"]
-    assert matrix["decision_policy"]["unknown_means_unavailable"] is True
-    assert matrix["release_authority"] is False
 
 
 def test_active_recovery_contracts_do_not_claim_unbounded_identity_or_basis_memory():
@@ -230,34 +207,6 @@ def test_history_documents_are_explicitly_non_authoritative():
     assert (history / "v3.0.0-post-release-final-audit.md").is_file()
 
 
-def test_phase_status_is_honest_during_or_after_documentation_truth_closure():
-    phase = read_json("docs/v4/phase-status.json")
-    validation = phase["repository_validation"]
-
-    assert phase["candidate_branch"] == "v4/rc5-native-core"
-    if validation["status"] == "REMEDIATION_REQUIRED":
-        assert validation["candidate_sha"] is None
-        assert validation["workflow_run_id"] is None
-        assert "repository-wide documentation truth review" in validation["attestation_scope"]
-        assert {
-            key for key, value in phase["repository_phases"].items() if value == "REMEDIATION"
-        } >= {
-            "architecture_and_state",
-            "public_orchestrate_doctor_surface",
-            "product_plane_closure",
-            "v3_residue_closure",
-        }
-    else:
-        assert validation["status"] == "PASS"
-        assert set(phase["repository_phases"].values()) == {"PASS"}
-        assert re.fullmatch(r"[0-9a-f]{40}", validation["candidate_sha"])
-        assert isinstance(validation["workflow_run_id"], int) and validation["workflow_run_id"] > 0
-        assert "documentation truth closure" in validation["attestation_scope"].lower()
-
-    assert phase["publication"] == "BLOCKED"
-    assert phase["host_capability_feasibility"]["status"] == "PENDING"
-    assert phase["host_capability_feasibility"]["release_authority"] is False
-    assert phase["real_host_gate"]["status"] == "PENDING_RELEASE_GATE"
-    assert phase["real_host_gate"]["required_campaign"] == "N0-N8"
-    assert phase["final_review"] == "PENDING_RELEASE_GATE"
-    assert phase["external_release_evidence"] == "PENDING_RELEASE_GATE"
+def test_candidate_status_has_no_self_stale_git_snapshot():
+    assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
+    assert "phase-status.json" not in read_text("README_AI.md")

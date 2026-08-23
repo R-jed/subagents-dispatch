@@ -30,7 +30,7 @@ def evidence(
     *,
     capacity: int | None = 4,
     fork_turns_none: bool = True,
-    managed_child_containment: str | None = "verified",
+    managed_child_containment: str | None = None,
 ) -> dict:
     payload = {
         "surface": "multi_agent_v2",
@@ -55,7 +55,7 @@ def test_complete_native_evidence_normalizes_to_execution_ready_snapshot():
 
     assert snapshot["execution_ready"] is True
     assert snapshot["missing"] == []
-    assert snapshot["managed_child_containment"] == "verified"
+    assert "managed_child_containment" not in snapshot
     assert snapshot["capabilities"] == {
         "spawn": True,
         "observe": True,
@@ -117,27 +117,16 @@ def test_fresh_context_capability_is_required_for_execution():
     assert snapshot["missing"] == ["fresh_context_spawn"]
 
 
-@pytest.mark.parametrize("containment", ["failed", "unknown"])
-def test_hard_containment_is_diagnostic_not_execution_readiness(containment: str):
+@pytest.mark.parametrize("containment", ["verified", "failed", "unknown"])
+def test_legacy_containment_input_is_validated_but_not_promoted_to_runtime_state(containment: str):
     module = load_module()
     snapshot = module.normalize_host_capabilities(
         evidence(managed_child_containment=containment)
     )
 
     assert snapshot["execution_ready"] is True
-    assert snapshot["managed_child_containment"] == containment
     assert snapshot["missing"] == []
-
-
-def test_omitted_hard_containment_defaults_to_unknown_without_blocking_execution():
-    module = load_module()
-    snapshot = module.normalize_host_capabilities(
-        evidence(managed_child_containment=None)
-    )
-
-    assert snapshot["execution_ready"] is True
-    assert snapshot["managed_child_containment"] == "unknown"
-    assert snapshot["missing"] == []
+    assert "managed_child_containment" not in snapshot
 
 
 def test_invalid_managed_child_containment_is_rejected_when_supplied():
@@ -221,6 +210,11 @@ def test_normalized_snapshot_validation_rejects_shape_drift():
 
     with pytest.raises(module.HostCapabilityError, match="capability set"):
         module.validate_normalized_snapshot(drifted)
+
+    legacy_field = dict(snapshot)
+    legacy_field["managed_child_containment"] = "verified"
+    with pytest.raises(module.HostCapabilityError, match="invalid fields"):
+        module.validate_normalized_snapshot(legacy_field)
 
 
 def test_capability_snapshot_copy_is_validated_and_detached():

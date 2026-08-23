@@ -9,7 +9,7 @@ a managed child can reach the Host.
 from __future__ import annotations
 
 import os as _os
-from typing import Mapping as _Mapping, Sequence as _Sequence
+from typing import Sequence as _Sequence
 
 import dispatch_state_v4 as _state
 import execution_lifecycle_v4_core as _core
@@ -30,27 +30,6 @@ def _active_managed_count(current: dict | None) -> int:
         if isinstance(execution, dict)
         and execution.get("lifecycle") in _ACTIVE_MANAGED_STATES
     )
-
-
-def _next_attempt_no(current: _Mapping | None, unit_id: str) -> int:
-    if current is None:
-        return 1
-    greatest = max(
-        (
-            int(item.get("attempt_no", 0))
-            for item in current.get("executions", [])
-            if isinstance(item, _Mapping) and item.get("unit_id") == unit_id
-        ),
-        default=0,
-    )
-    for event in current.get("accounting_refs", []):
-        if (
-            isinstance(event, _Mapping)
-            and event.get("kind") == "execution_history"
-            and event.get("unit_id") == unit_id
-        ):
-            greatest = max(greatest, int(event.get("max_attempt_no", 0)))
-    return greatest + 1
 
 
 def allocate_execution(
@@ -74,7 +53,7 @@ def allocate_execution(
         )
     if current is None:
         raise ExecutionLifecycleError("active V4 state is unavailable")
-    attempt_no = _next_attempt_no(current, unit_id)
+    attempt_no = _core._next_attempt_no(current, unit_id)
     try:
         expected_task_name = _state.native_task_name_for(
             current,

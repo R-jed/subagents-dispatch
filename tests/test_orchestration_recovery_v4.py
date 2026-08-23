@@ -217,7 +217,7 @@ def test_scheduler_uses_native_snapshot_only_and_has_no_persisted_capacity_token
     payload["work_units"] = [work_unit(), {**work_unit(), "unit_id": "U2"}]
     state.validate_state_payload(payload)
 
-    decision = scheduler.scheduler_decision(
+    decision = scheduler.constraint_snapshot(
         payload,
         capability_snapshot=native_host_snapshot(host, capacity=2),
         wakeup_reason="USER_INPUT",

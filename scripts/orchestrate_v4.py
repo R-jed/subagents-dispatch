@@ -48,11 +48,6 @@ def select_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
     return profile
 
 
-def route_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
-    """Compatibility name for explicit main-session profile selection."""
-    return select_profile(profile_id=profile_id, intent=intent)
-
-
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
     if not isinstance(goal, str) or not goal.strip():
         raise OrchestrateError("goal must be non-empty")

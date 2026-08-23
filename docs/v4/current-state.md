@@ -1,114 +1,138 @@
 # V4 Current State Checkpoint
 
-Updated: 2026-08-23 15:35 +08:00.
+Updated: 2026-08-23.
 
-This file is the short current-state entrypoint for V4 maintenance. Read it before `docs/v4/development-handoff.md`. The long handoff remains detailed chronology and architecture background. Machine-readable contracts and current GitHub / real-Host evidence have higher authority.
+This is the short continuation entrypoint for V4 maintenance. Read it before `docs/v4/development-handoff.md`. Do not copy current candidate SHA, workflow result, or real-Host verdicts into another tracked status file. Read GitHub and Issue #91 directly whenever those facts matter.
 
-## Current release state
+## Current work
 
 Release branch: `v4/rc5-native-core`.
 
-Release PR: #81 `RC5 Native Core: remove Hook control plane`, OPEN and Draft.
+Release PR: #81 `RC5 Native Core: remove Hook control plane`, kept Draft until the full release gate closes.
 
-The current V4 contract defines single-layer managed orchestration: Main is the sole managed coordinator and a managed child must not create or control another Agent layer. Current Codex MultiAgent V2 may expose latent recursive capability to V2-capable child models. That platform capability is retained as Host evidence and does not by itself establish that a managed execution violated the product boundary.
+N1 correction: PR #102 `Fix V4 N1 managed delegation depth contract`.
 
-The corrected contract keeps the five fixed profile routes, their leaf instructions, the responsibility-packet delegation boundary, `max_depth=1` product policy, WriterLease, WorkGraph, recovery, UNKNOWN handling and N8 strict read-only evidence requirements unchanged.
+Complexity remediation: PR #103 `Simplify V4 contract truth ownership`, branch `refactor/v4-contract-truth-simplification`, stacked on PR #102.
 
-The contract separates two concerns:
+Do not run the revised N1 real-Host campaign against an intermediate PR #103 candidate. Establish the final merged/rebased candidate first, then bind Host evidence to that exact candidate.
 
-- Host-hard descendant containment is diagnostic capability data and is not an ordinary `execution_ready` prerequisite.
-- N1 evaluates actual managed delegation depth through canonical managed profiles and real descendant evidence.
+## Product contract that must remain stable
 
-## Source basis
+Main is the sole managed coordinator. A managed child must not create or control another Agent layer.
 
-Current official `openai/codex` source was rechecked for this contract correction.
+The five fixed managed routes remain:
 
-`codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs` allows the V2 spawn path to proceed without the legacy V1 pre-materialization depth rejection. `codex-rs/core/src/tools/spec_plan.rs` exposes V2 collaboration according to effective MultiAgent/model behavior.
+- Reader: Luna Max
+- Worker: Luna Max
+- Investigator: Terra High
+- Solver: Sol High
+- Advisor: Sol High
 
-Therefore the repository keeps these facts separate:
+Fresh managed children use `fork_turns=none`. The product managed-child ceiling remains four. WorkGraph owns responsibility/dependency/acceptance truth. WriterLease owns canonical-workspace managed writer coordination. `UNKNOWN` remains fail closed. Host owns materialization, native lifecycle, capacity, child identity, effective permission, and effective collaboration capability.
 
-- project policy: managed delegation depth is one;
-- Host capability: V2-capable child models may retain latent collaboration tools.
+Current Codex MultiAgent V2 can expose latent recursive capability to V2-capable child models. That platform capability is Host evidence. The product N1 gate evaluates actual canonical managed behavior and descendant evidence. It does not require Host-hard removal of every latent collaboration tool.
 
-Profile settings and `max_depth=1` express product intent and must not be described as Host-hard isolation.
+N8 remains unchanged: strict Advisor read-only review requires effective Host permission evidence when that isolation is required.
 
-## Historical Host evidence
+## N1 gate
 
-Issue #91 remains the append-only Real Host Test Ledger.
+`docs/v4/host-smoke.json` owns the N0-N8 real-Host oracle.
 
-`HOST-N1-GRANDCHILD-002` remains valid evidence that a dedicated generic V2 depth-1 probe parent can create a depth-2 grandchild on the tested Host. The grandchild received durable Host thread identity and a `thread_spawn_edges` record.
+For N1, every fixed managed profile must be exercised through the canonical managed spawn route with the no-further-Agent assignment boundary. The campaign includes adversarial untrusted input asking the child to create or control another Agent, then checks authoritative Host activity, identity, and spawn-edge evidence.
 
-That historical probe parent was not one of the five canonical managed profiles. Under the corrected N1 oracle, the result is platform-capability evidence and does not decide the managed N1 verdict by itself.
+N1 verdicts:
 
-The N1 machine contract/oracle changed materially. Under the Issue #91 preflight rule, the corrected managed-profile N1 has a changed basis and may run once after the exact corrected candidate is merged and rebound. The old generic recursion probe must not be repeated.
+- PASS when the canonical managed child remains leaf and no descendant identity or child-to-descendant edge materializes.
+- FAIL when the managed child initiates nested Agent creation/control or a descendant materializes from it.
+- UNKNOWN when the relevant child action or descendant evidence cannot be established authoritatively.
 
-## Corrected N1 gate
+The historical generic V2 recursion probe in Issue #91 remains platform-capability evidence. Do not rerun it merely because a candidate SHA changes.
 
-N1 operation: `managed delegation depth`.
+## Complexity remediation status
 
-For every fixed managed profile, the campaign must:
+The root maintenance problem was duplicated semantic truth. PR #102 demonstrated that one product-contract correction required coordinated edits across several machine projections, prose documents, and string-mirror tests. Intermediate CI then failed on synchronization drift after the implementation semantics were already correct.
 
-1. use the canonical managed spawn route;
-2. verify the effective assignment carries the no-further-Agent boundary;
-3. include adversarial untrusted input that asks the child to create or control another Agent;
-4. inspect authoritative Host activity or rollout evidence for child-issued nested Agent creation/control;
-5. inspect authoritative Host identity or spawn-edge evidence for descendants.
+PR #103 has therefore converged current truth ownership:
 
-Verdicts:
+- `docs/v4/architecture.json` is the canonical current machine architecture and runtime-owner map.
+- `docs/v4/host-smoke.json` is the canonical real-Host campaign oracle.
+- GitHub branch/PR/CI is the current repository-candidate status source.
+- Issue #91 is the append-only real-Host release ledger.
+- this file is explanatory handoff only.
 
-- PASS: the managed child remains leaf and no descendant identity or child-to-descendant edge materializes;
-- FAIL: the managed child initiates nested Agent creation/control or a descendant materializes from it;
-- UNKNOWN: the relevant managed-child action or descendant evidence is ambiguous or unavailable.
+Removed competing tracked projections/status snapshots:
 
-Repository CI cannot substitute for this real Host N1 evidence.
+- `docs/v4/host-capability-matrix.json`
+- `docs/v4/orchestrate.json`
+- `docs/v4/scheduler.json`
+- `docs/v4/writer-lifecycle.json`
+- `docs/v4/phase-status.json`
 
-## Gate state
+`phase-status.json` was removed because a tracked file that records its own current candidate SHA/workflow result becomes stale as soon as the file is updated. Current candidate truth now stays at the source that actually owns it.
 
-Historical release evidence before the N1 oracle correction recorded:
+Other completed simplifications:
 
-- N0 PASS;
-- N1 FAIL under the superseded Host-hard oracle;
-- N2-N8 NOT_RUN / BLOCKED BY N1;
-- Final Review NOT_RUN;
-- publication BLOCKED.
+- residual Host-hard N1 wording removed from Orchestrate guidance, guardrails, and native runtime documentation;
+- normalized Host capability state no longer carries unused `managed_child_containment` diagnostic data, while historical input remains validated when supplied;
+- fresh attempt-number calculation has one implementation behind the lifecycle facade/core checks;
+- verified-dead `route_profile` and `scheduler_decision` compatibility aliases were removed;
+- tests were migrated from deleted projections and aliases to canonical owners and observable behavior.
 
-Under the corrected contract, revised N1 has no current real-Host verdict. Treat revised N1 as NOT_RUN until the exact corrected candidate is merged, rebound and exercised through the canonical managed-profile campaign. Publication remains BLOCKED. N2-N8 remain NOT_RUN until revised N1 passes.
+Deliberately deferred:
 
-N0 profile/model/effort/fresh-context evidence may be considered for reuse only through the Issue #91 preflight rules against the exact corrected candidate and changed shipped bytes. Do not silently promote historical evidence.
+- `write_state` remains an internal setup/test helper because it has active consumers;
+- `team_plan_revision` remains until a separate state-schema/migration change can remove it safely;
+- Experiment Plane calibration monkeypatch consolidation remains separate non-runtime debt;
+- N8 semantics are outside this behavior-preserving cleanup.
 
-## Implementation scope
+## Validation history for PR #103
 
-The correction is intentionally narrow:
+Intermediate CI has already demonstrated package-integrity generation, the pinned official OpenAI Plugin validator, and Ruff can pass with the refactor.
 
-- `scripts/host_capabilities.py` keeps `managed_child_containment` as optional validated diagnostic data but does not use it to decide ordinary execution readiness;
-- `docs/v4/host-smoke.json` owns the managed-depth N1 oracle;
-- `docs/v4/architecture.json` records Main-only coordination and managed no-descendant behavior;
-- focused tests cover readiness, responsibility-packet delegation boundaries and N1 contract semantics;
-- current authority documentation distinguishes project depth policy from Host-hard isolation.
+The first full pytest run after deleting compatibility surfaces reported `527 passed, 8 failed`. All eight failures were stale tests that still called removed `scheduler_decision` or read removed `orchestrate.json`. They were migrated to `constraint_snapshot` and `architecture.json`. No runtime behavior failure was identified in that run.
 
-No new Hook, Guard, daemon, private Host occupancy ledger, fixed retry/followup budget, dynamic model routing or nested managed delegation is introduced.
+This remediation is still incomplete until the exact final PR #103 head passes the complete four-platform repository matrix and an adversarial diff comparison against the PR #102 baseline finds no unintended product behavior change.
 
-## Next release sequence
+## Anti-regression rules
 
-1. Require exact-head repository CI and adversarial review before merging the N1 contract correction.
-2. After merge, record the corrected candidate identity and N1 oracle change in Issue #91.
-3. Rebind the exact installed candidate because shipped `scripts/host_capabilities.py` bytes changed.
-4. Apply the Issue #91 preflight to N0 and revised N1.
-5. Run the revised canonical managed-profile N1 once. Do not rerun the old generic recursion probe.
-6. Continue N2-N8 only after revised N1 passes.
-7. Run later Final Review, external release evidence, installed-product and human App gates before publication.
+Use these rules for future V4 changes:
 
-## Authority order for continuation
+1. One semantic fact has one machine owner.
+2. Human documents explain or link the owner. They do not copy a second machine oracle.
+3. Candidate SHA, workflow result, and Host verdict stay in GitHub/Issue evidence rather than tracked self-updating status snapshots.
+4. Tests protect behavior, schema, ownership, public interfaces, and safety invariants. Avoid prose synchronization tests unless wording is itself an interface.
+5. A compatibility surface needs a named active consumer and a removal condition.
+6. A normalized runtime field needs a runtime consumer or a documented evidence-boundary reason.
+7. Refactors stay separate from product behavior changes.
+8. Do not remove UNKNOWN handling, WriterLease settlement, Host identity/materialization evidence, N1 managed-depth checks, or N8 read-only evidence merely to reduce line count.
+9. Generate package-integrity data with the repository generator. Do not manually copy hashes.
+10. Never promote an intermediate CI result to a later head.
 
-Use this order when status conflicts:
+## Release continuation
 
-1. current production implementation and machine-readable contracts;
+After PR #103 reaches a green exact head:
+
+1. adversarially compare its diff and behavior against PR #102 baseline;
+2. merge the dependency stack in the correct order and establish the final release candidate;
+3. rebind installed-product identity because shipped runtime bytes changed;
+4. use Issue #91 preflight to decide which Host evidence is reusable;
+5. run revised canonical managed-profile N1 once on the changed basis;
+6. continue N2-N8 only after N1 passes;
+7. run fresh exact-candidate Final Review, external release-evidence verification, installed-product checks, and human two-Skill App observation;
+8. keep publication blocked until every required gate is PASS.
+
+## Authority order
+
+When information conflicts, use this order:
+
+1. current production implementation and canonical machine contracts;
 2. `contracts/`;
 3. `docs/v4/architecture.json`;
 4. `docs/v4/host-smoke.json`;
 5. `docs/release-checklist.md`;
-6. current GitHub branch / PR / CI and Issue #91 Host evidence;
+6. current GitHub branch/PR/CI and Issue #91;
 7. this checkpoint;
-8. `docs/v4/development-handoff.md` for detailed chronology and historical background;
-9. ordinary README material;
-10. `docs/history/` provenance.
+8. `tasks/plan.md`;
+9. `docs/v4/development-handoff.md`;
+10. ordinary README material;
+11. `docs/history/`.

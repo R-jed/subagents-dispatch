@@ -2,7 +2,7 @@
 
 Current V4 product surface: `Orchestrate` and `Doctor`.
 
-Before changing V4 repository content, read `docs/v4/current-state.md`, then `docs/v4/development-handoff.md`. The current-state checkpoint is the short status entrypoint for the active release branch and Host gate. The handoff provides the detailed development chronology, remediation history, architecture background and validation discipline. Neither document replaces machine-readable contracts or current GitHub / real-Host evidence.
+Before changing V4 repository content, read `docs/v4/current-state.md`, then `docs/v4/development-handoff.md`. The current-state checkpoint is the short status entrypoint for the active release branch and Host gate. The handoff provides detailed chronology and architecture background. Neither document replaces current machine contracts, GitHub state, Issue #91 evidence, or real Host observations.
 
 ## Runtime ownership
 
@@ -12,7 +12,17 @@ Main owns user intent, decomposition, explicit fixed-profile selection, dispatch
 
 WorkGraph and WorkUnit state own responsibility structure, dependencies, ownership, and acceptance. ExecutionBinding owns one concrete child execution. WriterLease owns managed write responsibility.
 
-A `team_plan_revision` field may remain temporarily as a V4 RC state-schema compatibility marker. It is not a separate planning, routing, or integration authority.
+A `team_plan_revision` field may remain temporarily as a V4 RC state-schema compatibility marker. It has no independent planning, routing, dependency, execution, or integration authority.
+
+## Canonical machine truth
+
+Keep one machine owner per semantic fact.
+
+`contracts/policy.json` owns fixed profile and product policy values. `docs/v4/architecture.json` owns the complete V4 machine architecture and runtime owner map. `docs/v4/host-smoke.json` owns the candidate-bound N0-N8 real Host release oracle.
+
+Current candidate commit, workflow status, and pull-request state come directly from GitHub. Real Host release evidence comes from Issue #91 and authoritative Host observation. Do not add a tracked status JSON that copies current candidate SHA, CI result, or Host verdict because updating that file creates a new commit and immediately makes its own candidate identity stale.
+
+Human documentation should explain or link these owners. Do not create another machine projection simply to restate routing, scheduler, writer, Host-feasibility, or release semantics already owned by the canonical contracts. Tests should target owner data, schemas and observable behavior instead of requiring copied prose to stay synchronized across documents.
 
 ## Fixed managed profiles
 
@@ -40,7 +50,7 @@ interrupt return alone never releases WriterLease
 
 Four children is a safety ceiling, not a target. Known Host capacity may reduce available slots. Unknown capacity stays unknown. Deterministic helpers report constraints and status; they do not rank WorkUnits, apply a fixed backlog threshold, or choose automatic launch actions.
 
-Delegation depth 1 is a project policy. Managed profiles and responsibility packets instruct children not to create or control further Agents. The effective child collaboration surface remains a Host fact, and latent V2 recursive capability does not by itself violate the product contract. N1 judges the actual managed executions: any managed child that initiates nested Agent creation/control, or materializes a descendant, fails the gate; ambiguous evidence remains UNKNOWN.
+Delegation depth 1 is a project policy. Managed profiles and responsibility packets instruct children not to create or control further Agents. The effective child collaboration surface remains a Host fact, and latent V2 recursive capability does not by itself violate the product contract. N1 judges actual managed executions: any managed child that initiates nested Agent creation/control, or materializes a descendant, fails the gate; ambiguous evidence remains UNKNOWN.
 
 Independent read-only work may overlap only when effective read-only behavior and responsibility isolation are verified. The canonical mutable workspace has one active managed WriterLease. Parallel writers require Host-verifiable isolated workspaces and clear integration boundaries.
 
@@ -77,7 +87,7 @@ contracts/final-review.md
   exact-candidate independent review
 ```
 
-The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. The candidate-bound real Host release campaign is `docs/v4/host-smoke.json`. `docs/v4/host-capability-matrix.json` is pre-release feasibility evidence only and has no release authority.
+The canonical runtime owner map is `docs/v4/architecture.json#runtime_owners`. The candidate-bound real Host release campaign is `docs/v4/host-smoke.json`.
 
 V3 orchestration state is legacy evidence. Unresolved live V3 state is never silently migrated into V4 execution.
 
@@ -90,7 +100,16 @@ scripts/legacy_state_cleanup.py
   ownership-safe cleanup for stale terminal V3 orchestration capsules
 
 scripts/legacy_migration.py
-  ownership-checked V3 profile migration and compatibility diagnosis
+  explicit profile/install migration support
+
+contracts/team-plan.md
+  pre-release V4 call-shape compatibility only
 ```
 
-Compatibility code and the TeamPlan compatibility marker do not define current V4 routing, lifecycle, acceptance, release, or Host authority.
+A compatibility surface must have a current consumer and removal condition. Do not keep a compatibility alias or state field solely because an old test mentions it.
+
+## Change discipline
+
+Preserve proven safety boundaries such as UNKNOWN fail-closed handling, candidate identity, Host observation basis, WriterLease settlement, and materialization ambiguity. Simplification targets duplicate representation and unnecessary compatibility, not line count.
+
+For behavior-preserving refactors, prove consumers before deletion, make one coherent change at a time, run focused tests, then run the full suite before completion. Product behavior changes require their own specification and review rather than being hidden inside cleanup.
