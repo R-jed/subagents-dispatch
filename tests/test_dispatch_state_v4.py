@@ -71,7 +71,6 @@ def execution(
     return {
         "execution_id": execution_id,
         "unit_id": unit_id,
-        "team_plan_revision": None,
         "attempt_no": 1,
         "profile_id": profile_id,
         "agent_id": agent_id,
@@ -116,7 +115,6 @@ def test_new_v4_state_has_exact_bounded_top_level_shape():
         "schema_version": "4.0",
         "root_session_id": "thread-1",
         "state_revision": 0,
-        "team_plan_revision": None,
         "work_units": [],
         "executions": [],
         "writer_lease": None,
@@ -138,6 +136,22 @@ def test_v4_state_rejects_extra_fields_and_v3_schema():
     state = module.new_state(thread_id="thread-1")
     state["schema_version"] = "1.0"
     with pytest.raises(module.StatePayloadError, match="schema_version"):
+        module.validate_state_payload(state)
+
+
+def test_retired_team_plan_fields_are_rejected():
+    module = load_module("dispatch_state_v4_no_team_plan", MODULE_PATH)
+    state = module.new_state(thread_id="thread-1")
+    state["team_plan_revision"] = 1
+    with pytest.raises(module.StatePayloadError, match="unsupported fields: team_plan_revision"):
+        module.validate_state_payload(state)
+
+    state = module.new_state(thread_id="thread-1")
+    state["work_units"] = [work_unit()]
+    record = execution()
+    record["team_plan_revision"] = 1
+    state["executions"] = [record]
+    with pytest.raises(module.StatePayloadError, match="unsupported fields: team_plan_revision"):
         module.validate_state_payload(state)
 
 
@@ -230,6 +244,58 @@ def test_retired_pending_control_field_is_rejected():
         module.validate_state_payload(state)
 
 
+def test_invalid_failed_failure_origin_is_rejected_without_coercion():
+    module = load_module("dispatch_state_v4_failure_origin", MODULE_PATH)
+    state = populated_state(module)
+    basis = module.observation_basis(state, execution_id="exec-1")
+
+    with pytest.raises(module.StatePayloadError, match="valid failure_origin"):
+        module.reconcile_execution_observation(
+            state,
+            basis=basis,
+            host_state="errored",
+            failure_origin="made_up_failure",
+        )
+    assert state["executions"][0]["lifecycle"] == "RUNNING"
+    assert state["executions"][0]["failure_origin"] == "none"
+
+
+def test_managed_child_ceiling_is_rejected_inside_atomic_mutation(tmp_path: Path):
+    module = load_module("dispatch_state_v4_child_ceiling", MODULE_PATH)
+    state = module.new_state(thread_id="thread-1", now="2026-08-17T00:00:00Z")
+    state["work_units"] = [
+        work_unit(unit_id=f"U{index}", authority="none") for index in range(1, 5)
+    ]
+    state["executions"] = [
+        execution(
+            execution_id=f"exec-{index}",
+            unit_id=f"U{index}",
+            profile_id="reader",
+            agent_id=f"agent-{index}",
+        )
+        for index in range(1, 5)
+    ]
+    module.write_state(state, temp_root=tmp_path)
+    before = module.load_state("thread-1", temp_root=tmp_path)
+    assert before is not None
+
+    def add_fifth(current: dict) -> None:
+        current["work_units"].append(work_unit(unit_id="U5", authority="none"))
+        current["executions"].append(
+            execution(
+                execution_id="exec-5",
+                unit_id="U5",
+                profile_id="reader",
+                agent_id="agent-5",
+            )
+        )
+
+    with pytest.raises(module.StatePayloadError, match="managed child limit"):
+        module.mutate_state("thread-1", add_fifth, temp_root=tmp_path)
+
+    assert module.load_state("thread-1", temp_root=tmp_path) == before
+
+
 def test_state_revision_cas_and_atomic_persistence(tmp_path: Path):
     module = load_module("dispatch_state_v4_mutation", MODULE_PATH)
     state = module.new_state(thread_id="thread-1", now="2026-08-17T00:00:00Z")
@@ -256,8 +322,8 @@ def test_state_revision_cas_and_atomic_persistence(tmp_path: Path):
         )
 
 
-def test_v4_loader_fails_closed_on_v3_live_state(tmp_path: Path):
-    v4 = load_module("dispatch_state_v4_legacy", MODULE_PATH)
+def test_v4_loader_fails_closed_on_pre_current_live_state(tmp_path: Path):
+    v4 = load_module("dispatch_state_v4_pre_current", MODULE_PATH)
     legacy_path = v4.state_path("thread-1", temp_root=tmp_path)
     legacy_path.parent.mkdir(parents=True, mode=0o700)
     legacy_path.write_text(
