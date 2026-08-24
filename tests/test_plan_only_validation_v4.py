@@ -25,6 +25,16 @@ def load_orchestrate(name: str):
         sys.path.remove(scripts)
 
 
+@pytest.mark.parametrize("responsibilities", [None, {}, "U1"])
+def test_plan_only_rejects_non_array_responsibilities(responsibilities):
+    orchestrate = load_orchestrate("plan_only_invalid_container")
+    with pytest.raises(orchestrate.OrchestrateError, match="responsibilities must be an array"):
+        orchestrate.plan_only_preview(
+            goal="preview a bounded plan",
+            responsibilities=responsibilities,
+        )
+
+
 @pytest.mark.parametrize(
     "responsibility",
     [
@@ -87,4 +97,4 @@ def test_plan_only_accepts_valid_dependencies_without_runtime_side_effects(tmp_p
     assert preview["writer_lease_acquired"] is False
     assert preview["host_actions"] == []
     assert preview["work_units"][1]["depends_on"] == ["U1"]
-    assert not any(tmp_path.iterdir())
+    assert orchestrate.state.load_state("plan-only-preview", temp_root=tmp_path) is None
