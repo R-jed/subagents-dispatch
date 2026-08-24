@@ -82,7 +82,6 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
     interaction = read_text("contracts/interaction.md")
     responsibility = read_text("contracts/responsibility-packet.md")
     receipt = read_text("contracts/receipt.md")
-    team_plan = read_text("contracts/team-plan.md")
     policy = read_json("contracts/policy.json")
 
     assert "WorkUnit and optional TeamPlan structure" not in composition
@@ -108,7 +107,7 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
 
     assert "already owns the multi-responsibility structural truth" not in responsibility
     assert "carries no dependency, routing, integration-order, retry-budget, ownership, or acceptance authority" in responsibility
-    assert "no independent TeamPlan runtime authority" in team_plan
+    assert not (ROOT / "contracts" / "team-plan.md").exists()
 
     assert policy["roles"]["investigator"]["effort"] == "high"
     assert "Terra XHigh" not in receipt
@@ -118,6 +117,17 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
     assert "Orchestrate:" in receipt
     assert "Ordinary Dispatch" not in evidence_artifact
     assert "Orchestrate responsibility" in evidence_artifact
+
+
+def test_clean_break_removes_pre_1_compatibility_artifacts():
+    retired_paths = (
+        "contracts/team-plan.md",
+        "scripts/legacy_migration.py",
+        "scripts/legacy_state_cleanup.py",
+        "scripts/validate_team_plan.py",
+    )
+    for relative in retired_paths:
+        assert not (ROOT / relative).exists(), relative
 
 
 def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery():
@@ -168,6 +178,7 @@ def test_current_authority_surfaces_do_not_reintroduce_retired_product_or_budget
         "two fresh attempts maximum per unchanged WorkUnit",
         "one focused same-child follow-up budget",
         "H00-H20",
+        "team_plan_revision",
     )
 
     failures: list[str] = []
