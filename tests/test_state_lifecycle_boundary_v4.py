@@ -52,7 +52,6 @@ def execution(*, lifecycle: str, authority: str = "none") -> dict:
     return {
         "execution_id": "exec-1",
         "unit_id": "U1",
-        "team_plan_revision": None,
         "attempt_no": 1,
         "profile_id": profile_id,
         "agent_id": "agent-1",
@@ -141,7 +140,7 @@ def test_create_state_if_absent_preserves_existing_held_writer(tmp_path: Path):
     assert current["writer_lease"]["owner_id"] == "exec-1"
 
 
-def test_compat_write_state_cannot_overwrite_existing_state(tmp_path: Path):
+def test_write_state_cannot_overwrite_existing_state(tmp_path: Path):
     module = load_state_module()
     first = module.new_state(thread_id="thread-1")
     module.write_state(first, temp_root=tmp_path)
