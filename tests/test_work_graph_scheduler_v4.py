@@ -53,7 +53,7 @@ def test_dependencies_unlock_only_after_work_unit_acceptance(tmp_path: Path):
     u2 = graph.make_work_unit(
         unit_id="U2", intent="verify", goal="consume accepted evidence", output="conclusion", depends_on=["U1"], done_when="accepted"
     )
-    graph.install_work_graph("thread-accept", team_plan_revision=1, units=[u1, u2], temp_root=tmp_path)
+    graph.install_work_graph("thread-accept", units=[u1, u2], temp_root=tmp_path)
     lifecycle.allocate_execution(
         "thread-accept", unit_id="U1", execution_id="exec-1", native_task_name="sd_u1_a1", profile_id="reader", granted_authority="none", temp_root=tmp_path
     )
@@ -77,7 +77,6 @@ def test_constraint_snapshot_exposes_capacity_without_selecting_work():
     graph = load_module("constraint_graph_snapshot", "work_graph_v4.py")
     scheduler = load_module("constraint_scheduler_snapshot", "scheduler_v4.py")
     payload = state.new_state(thread_id="thread-snapshot")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [
         graph.make_work_unit(unit_id=f"U{i}", intent="inspect", goal=f"g{i}", output="evidence", done_when="done")
         for i in range(1, 4)
@@ -100,7 +99,6 @@ def test_known_host_capacity_reduces_available_slots_and_unknown_capacity_is_not
     graph = load_module("constraint_graph_capacity", "work_graph_v4.py")
     scheduler = load_module("constraint_scheduler_capacity", "scheduler_v4.py")
     payload = state.new_state(thread_id="thread-capacity")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [
         graph.make_work_unit(unit_id=f"U{i}", intent="inspect", goal=f"g{i}", output="evidence", done_when="done")
         for i in range(1, 3)
@@ -128,7 +126,7 @@ def test_unknown_execution_counts_against_product_and_host_capacity():
     ]
     payload["work_units"][0]["state"] = "EXECUTING"
     payload["executions"] = [{
-        "execution_id": "exec-1", "unit_id": "U1", "team_plan_revision": None,
+        "execution_id": "exec-1", "unit_id": "U1",
         "attempt_no": 1, "profile_id": "reader", "agent_id": "agent-1",
         "native_task_name": "sd_u1_a1", "model": "gpt-5.6-luna", "effort": "max",
         "granted_authority": "none", "granted_write_scope": [], "workspace_id": "canonical",
@@ -153,7 +151,7 @@ def test_execution_facade_enforces_single_product_child_ceiling(tmp_path: Path):
         graph.make_work_unit(unit_id=f"U{i}", intent="inspect", goal=f"g{i}", output="evidence", done_when="done")
         for i in range(1, 6)
     ]
-    graph.install_work_graph("thread-limit", team_plan_revision=1, units=units, temp_root=tmp_path)
+    graph.install_work_graph("thread-limit", units=units, temp_root=tmp_path)
 
     for i in range(1, 5):
         lifecycle.allocate_execution(
