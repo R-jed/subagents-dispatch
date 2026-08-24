@@ -24,7 +24,7 @@
     "scripts/check-plugin-update.py": "0d427e5b4443c68f419aa4bf60cfc5cbada9a043d5dcba04c98822cc245d345d",
     "scripts/dispatch_state_v4.py": "27e8da109b2a8baf06e54e66717f9991e8abc408702a50eaac5a7f7f3d155629",
     "scripts/dispatch_state_v4_core.py": "747818cab1e6fc06228cd8a1dbfbe23141b5af9cdf3311027e5a1af7c13ebe08",
-    "scripts/doctor.py": "c4c973324617c8017e41aebe49f44b45f06553852fcdc0383664c989d6e571a0",
+    "scripts/doctor.py": "c527c6a65569e308cf958c2b0fa85c38e0cd087ca04649ab66f622500f873774",
     "scripts/execution_lifecycle_v4.py": "fdc272218e6a82755e19dc76095d4fc53932d3d3713e0b3c1aee6fa7000023b3",
     "scripts/execution_lifecycle_v4_core.py": "787218d5c60fb60f9c91f2de49cfcd7f9296cc9eb23764f3fcea5de220b2ebbf",
     "scripts/host_capabilities.py": "2471aa69a0800ebdb6f68c0d91b81ca83bff0968130dedf7c5da277863c0093c",
