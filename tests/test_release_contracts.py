@@ -22,7 +22,7 @@ def current_version() -> str:
 
 
 def test_release_version_identity_uses_exact_marketplace_checkout_as_plugin_source():
-    assert current_version() == "4.0.0"
+    assert current_version() == "1.0.0"
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
     source = market["plugins"][0]["source"]
     assert source == {"source": "local", "path": "./"}
@@ -30,7 +30,7 @@ def test_release_version_identity_uses_exact_marketplace_checkout_as_plugin_sour
 
 def test_latest_changelog_matches_release_version_without_legacy_v3_file():
     text = CHANGELOG.read_text(encoding="utf-8")
-    match = re.search(r"^## \[([^\]]+)\]", text, flags=re.MULTILINE)
+    match = re.search(r"^## (\d+\.\d+\.\d+)$", text, flags=re.MULTILINE)
     assert match and match.group(1) == current_version()
     assert not CHANGELOG_V3.exists()
 
