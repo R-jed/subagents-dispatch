@@ -43,7 +43,7 @@ def install_unplanned_unit(state, graph, tmp_path: Path, *, writable: bool = Fal
     return unit
 
 
-def test_single_reader_execution_does_not_require_team_plan(tmp_path: Path):
+def test_single_reader_execution_does_not_carry_team_plan_compatibility(tmp_path: Path):
     state = load_module("closure_state_reader", "dispatch_state_v4.py")
     graph = load_module("closure_graph_reader", "work_graph_v4.py")
     lifecycle = load_module("closure_lifecycle_reader", "execution_lifecycle_v4.py")
@@ -59,11 +59,11 @@ def test_single_reader_execution_does_not_require_team_plan(tmp_path: Path):
         temp_root=tmp_path,
     )
 
-    assert result["execution"]["team_plan_revision"] is None
+    assert "team_plan_revision" not in result["execution"]
     assert result["writer_lease"] is None
 
 
-def test_single_writer_execution_reserves_lease_without_team_plan(tmp_path: Path):
+def test_single_writer_execution_reserves_lease_without_compatibility_marker(tmp_path: Path):
     state = load_module("closure_state_writer", "dispatch_state_v4.py")
     graph = load_module("closure_graph_writer", "work_graph_v4.py")
     lifecycle = load_module("closure_lifecycle_writer", "execution_lifecycle_v4.py")
@@ -81,11 +81,11 @@ def test_single_writer_execution_reserves_lease_without_team_plan(tmp_path: Path
         temp_root=tmp_path,
     )
 
-    assert result["execution"]["team_plan_revision"] is None
+    assert "team_plan_revision" not in result["execution"]
     assert result["writer_lease"]["state"] == "RESERVED"
 
 
-def test_single_work_unit_installer_keeps_null_revision_and_rejects_dependencies(tmp_path: Path):
+def test_single_unit_uses_the_same_authoritative_work_graph_api(tmp_path: Path):
     state = load_module("closure_state_install", "dispatch_state_v4.py")
     graph = load_module("closure_graph_install", "work_graph_v4.py")
     state.write_state(state.new_state(thread_id="thread-complexity"), temp_root=tmp_path)
@@ -97,11 +97,12 @@ def test_single_work_unit_installer_keeps_null_revision_and_rejects_dependencies
         output="evidence",
         done_when="evidence exists",
     )
-    installed = graph.install_single_work_unit(
-        "thread-complexity", unit=unit, temp_root=tmp_path
+    installed = graph.install_work_graph(
+        "thread-complexity", units=[unit], temp_root=tmp_path
     )
-    assert installed["team_plan_revision"] is None
+    assert "team_plan_revision" not in installed
     assert installed["work_units"][0]["state"] == "READY"
+    assert not hasattr(graph, "install_single_work_unit")
 
     second_root = tmp_path / "second"
     second_root.mkdir()
@@ -114,9 +115,9 @@ def test_single_work_unit_installer_keeps_null_revision_and_rejects_dependencies
         depends_on=["U0"],
         done_when="never",
     )
-    with pytest.raises(graph.WorkGraphError, match="dependency|single"):
-        graph.install_single_work_unit(
-            "thread-complexity-2", unit=dependent, temp_root=second_root
+    with pytest.raises(state.StatePayloadError, match="unknown unit"):
+        graph.install_work_graph(
+            "thread-complexity-2", units=[dependent], temp_root=second_root
         )
 
 
@@ -153,7 +154,6 @@ def test_managed_assignment_has_one_canonical_five_section_record():
     execution = {
         "execution_id": "exec-1",
         "unit_id": "U1",
-        "team_plan_revision": None,
         "attempt_no": 1,
         "granted_authority": "none",
         "granted_write_scope": [],
@@ -162,6 +162,7 @@ def test_managed_assignment_has_one_canonical_five_section_record():
     packet = managed.assignment_packet(current, execution=execution)
     assert list(packet) == ["objective", "ownership", "interfaces", "constraints", "verification"]
     assert packet["ownership"]["execution_id"] == "exec-1"
+    assert "team_plan_revision" not in packet["ownership"]
 
 
 def test_profile_machine_truth_has_one_policy_projection():
