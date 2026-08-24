@@ -179,6 +179,10 @@ def test_current_authority_surfaces_do_not_reintroduce_retired_product_or_budget
         "one focused same-child follow-up budget",
         "H00-H20",
         "team_plan_revision",
+        "team-plan.md",
+        "legacy_migration.py",
+        "legacy_state_cleanup.py",
+        "validate_team_plan.py",
     )
 
     failures: list[str] = []
