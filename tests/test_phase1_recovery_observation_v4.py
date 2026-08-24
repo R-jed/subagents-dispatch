@@ -53,12 +53,7 @@ def install_units(tmp_path: Path, thread_id: str, *, writable_second: bool = Fal
                 done_when="Main verifies the change",
             )
         )
-    graph.install_work_graph(
-        thread_id,
-        team_plan_revision=1,
-        units=units,
-        temp_root=tmp_path,
-    )
+    graph.install_work_graph(thread_id, units=units, temp_root=tmp_path)
     return state, lifecycle
 
 
