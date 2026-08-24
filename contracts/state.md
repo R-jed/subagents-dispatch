@@ -41,7 +41,6 @@ The top-level payload contains exactly:
 schema_version
 root_session_id
 state_revision
-team_plan_revision
 work_units
 executions
 writer_lease
@@ -51,7 +50,7 @@ updated_at
 locale
 ```
 
-`team_plan_revision` is an RC compatibility marker only. It has no planning, routing, dependency, integration-order, or execution-authorization semantics.
+There is no TeamPlan object or TeamPlan revision in current state. WorkGraph and WorkUnit are the only responsibility-structure truth.
 
 There is no `PendingControl`, Hook acknowledgement ledger, capacity token, `OperationIntent`, or `OperationReceipt` in the Native Core state schema.
 
@@ -63,7 +62,7 @@ WorkUnit owns responsibility and acceptance truth. It records intent, goal, outp
 
 A dependency unlocks only when its predecessor WorkUnit reaches `ACCEPTED`. Host `COMPLETED` alone produces candidate evidence and never unlocks downstream work.
 
-One WorkGraph may contain one or many WorkUnits without an independent TeamPlan runtime object.
+One WorkGraph may contain one or many WorkUnits. Main owns semantic decomposition and final acceptance.
 
 ## ExecutionBinding
 
@@ -72,7 +71,6 @@ ExecutionBinding records one fresh attempt identity and its current same-child a
 ```text
 execution_id
 unit_id
-team_plan_revision
 attempt_no
 profile_id
 agent_id
@@ -110,6 +108,8 @@ CLOSED
 ```
 
 `UNKNOWN` requires `runtime_ambiguous` and blocks conflicting progress.
+
+For `FAILED`, `failure_origin` must be one of the supported concrete failure origins. Invalid explicit values are rejected. They are not rewritten to another failure category.
 
 ## Bounded execution history
 
@@ -149,6 +149,8 @@ UNKNOWN
 Release or transfer requires current-generation Host observation proving the execution is settled. An ambiguous writer observation makes the lease `UNKNOWN`. `UNKNOWN` never authorizes transfer.
 
 Until effective read-only isolation is proven by Host evidence, a blocking canonical WriterLease also blocks starting another managed child in that canonical workspace.
+
+The product-managed active-child ceiling is validated inside the locked state mutation boundary. A mutation that would persist more than the configured managed-child limit is rejected before the state file is replaced.
 
 ## Native lifecycle flow
 
@@ -243,18 +245,18 @@ State-changing helpers:
 4. mutate a copy;
 5. prune superseded generation evidence when applicable;
 6. increment `state_revision` only when the persisted state actually changes;
-7. validate the complete payload;
+7. validate the complete payload, including the managed-child ceiling;
 8. atomically replace the state file.
 
 A semantically duplicate Host observation that changes no persisted fact is a true no-op. It does not advance `state_revision` or `updated_at`.
 
 Do not hold the state lock while waiting for child work or a Host call.
 
-## Upgrade boundary
+## Clean-break boundary
 
-V3.x state is legacy compatibility evidence while V4 remains pre-release. Native Core has no compatibility promise for experimental V4 capsules created by the earlier Hook/PendingControl design.
+The first public product line starts at Plugin `1.0.0`. Current runtime does not migrate pre-1.0 orchestration capsules, TeamPlan compatibility markers, retired Hook/PendingControl state, or earlier installation identities.
 
-After the V4 schema cutover, development and release validation start with fresh V4 state. V3.x profile/install ownership migration remains separately supported and tested.
+State must match the current schema exactly. Unsupported or unrecognized state fails closed. Development and release qualification use fresh current state.
 
 ## Normal completion
 
