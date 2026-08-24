@@ -49,13 +49,13 @@ current_execution_for_unit = _core.current_execution_for_unit
 new_state = _core.new_state
 state_path = _core.state_path
 observation_basis = _core.observation_basis
+reconcile_execution_observation = _core.reconcile_execution_observation
 
 _TERMINAL_WORK_UNIT_STATES = {"ACCEPTED", "CANCELLED"}
 _UNSETTLED_EXECUTION_STATES = {"SPAWN_PENDING", "RUNNING", "INTERRUPTED", "UNKNOWN"}
 _ACTIVE_MANAGED_STATES = {"SPAWN_PENDING", "RUNNING", "INTERRUPTED", "UNKNOWN"}
 _PRODUCT_CHILD_LIMIT = _policy.managed_child_limit()
 _TASK_UNIT_PATTERN = _re.compile(r"[A-Za-z0-9_]+\Z")
-_VALID_FAILED_ORIGINS = FAILURE_ORIGINS - {"none", "runtime_ambiguous"}
 
 
 def native_task_name_for(
@@ -164,31 +164,6 @@ def mutate_state(
         max_bytes=max_bytes,
         now=now,
     )
-
-
-def reconcile_execution_observation(
-    payload: _Mapping[str, _Any],
-    *,
-    basis: _Mapping[str, _Any],
-    host_state: str,
-    agent_id: str | None = None,
-    failure_origin: str = "tool_failure",
-    now: _Any = None,
-) -> dict[str, _Any]:
-    """Reconcile Host evidence while rejecting invalid explicit failure origins."""
-    if host_state in HOST_STATE_MAP and HOST_STATE_MAP[host_state] == "FAILED":
-        if failure_origin not in _VALID_FAILED_ORIGINS:
-            raise StatePayloadError("FAILED Host observation requires a valid failure_origin")
-    result = _core.reconcile_execution_observation(
-        payload,
-        basis=basis,
-        host_state=host_state,
-        agent_id=agent_id,
-        failure_origin=failure_origin,
-        now=now,
-    )
-    _validate_managed_child_ceiling(result["state"])
-    return result
 
 
 def create_state_if_absent(
