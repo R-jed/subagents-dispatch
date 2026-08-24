@@ -45,7 +45,6 @@ def unit(*, write: list[str], forbidden: list[str], ceiling: list[str] | None = 
 
 def payload(state, *, write: list[str], forbidden: list[str], ceiling: list[str] | None = None) -> dict:
     value = state.new_state(thread_id="thread-scope")
-    value["team_plan_revision"] = 1
     value["work_units"] = [unit(write=write, forbidden=forbidden, ceiling=ceiling)]
     return value
 
@@ -96,7 +95,6 @@ def test_execution_granted_scope_must_also_be_canonical():
         {
             "execution_id": "exec-1",
             "unit_id": "U1",
-            "team_plan_revision": 1,
             "attempt_no": 1,
             "profile_id": "worker",
             "agent_id": None,
