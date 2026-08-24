@@ -275,7 +275,6 @@ def allocate_execution(
         execution = {
             "execution_id": execution_id,
             "unit_id": unit_id,
-            "team_plan_revision": current["team_plan_revision"],
             "attempt_no": attempt_no,
             "profile_id": profile_id,
             "agent_id": None,
