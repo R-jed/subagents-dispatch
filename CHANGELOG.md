@@ -31,7 +31,7 @@ Initial public release of subagents-dispatch.
 - Managed Agent installation is ownership-safe and no-clobber.
 - Doctor diagnoses only the current product and supports explicit managed-profile repair or uninstall.
 - Update checking and update installation require the canonical Marketplace-local Plugin source.
-- Unsupported pre-1.0 state, installation sources, manifests, and ownership are rejected explicitly. No pre-1.0 migration path is shipped.
+- Pre-1.0 product state is unsupported and rejected by the current state schema. Current installer and updater ownership metadata must match current product identities; unrelated files remain outside product ownership. No pre-1.0 discovery, migration, or cleanup path is shipped.
 
 ### Release qualification
 
