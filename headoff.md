@@ -137,6 +137,7 @@ The latest qualification work established these workflow facts:
 - N0 therefore did not run, no `spawn_agent` call was issued, no child materialized, and the repository working tree remained clean;
 - a prior-turn V2 observation must now be treated as historical capability evidence only. It cannot authorize an Agent-control action in a later turn;
 - the Host campaign contract now requires exact-turn V2 capability before every covered Agent-control step and blocks V1 compatibility translation;
+- the staged H0 retry subsequently established a fresh authoritative Host environment binding against the corrected local source and qualification basis without any Agent-control action or repository mutation;
 - the real Host campaign must follow the staged procedure in `tasks/real-host-qualification-plan.md`.
 
 For exact IDs, source SHA/tree, ledger comment IDs and live PASS/UNKNOWN state, use Issue #91. Do not copy those volatile values from this document into a new decision without checking the ledger.
@@ -145,15 +146,15 @@ For exact IDs, source SHA/tree, ledger comment IDs and live PASS/UNKNOWN state, 
 
 Host phase: H0 exact source, installed basis, and fresh Host environment
 
-Phase state: `NOT_RUN_STOP`
+Phase state: `PASS_STOP`
 
-Canonical evidence: Issue #91 `H0-EVIDENCE-001` comment `5387101074`; interpretation clarified by `H0-CHECKPOINT-CORRECTION-001` comment `5387501117`.
+Canonical evidence: Issue #91 `H0_EVIDENCE` comment `5393230855`; independent contract review recorded as `H0-REVIEW-001` comment `5393357753`.
 
-Qualification-basis impact: unchanged for the formal release candidate. The target local checkout was still on an older source and older Host-contract blob, so the observed condition is a local checkout basis mismatch rather than a new formal qualification-basis mutation.
+Qualification-basis impact: unchanged. The exact release source, package manifest, profile contract and Host contract matched the formal basis used by the H0 campaign. H0 itself produced no repository or installed-package mutation.
 
-Durable conclusion: H0 correctly stopped before package/profile health checks or Host identity collection because the target checkout did not match the formal release source. No Agent-control action occurred and the repository remained clean.
+Durable conclusion: H0 established an authoritative fresh Host environment binding with exact source and clean worktree, healthy package/profile basis, authoritative root session/thread identity, Host build, embedded Codex version, platform, architecture, cwd and rollout identity. Agent-control action count and child materialization count were both zero. The H0 turn observed Native Subagent V2, but that observation is environment context only and cannot authorize the H1 Reader spawn.
 
-Next permitted phase: H0 only. Synchronize the target checkout to the current release head, verify the formal qualification inputs, then perform a fresh Issue #91 H0 preflight. H1 and N0 remain unauthorized.
+Next permitted phase: H1 N0 Reader canary only after this checkpoint is merged, post-merge repository CI is green, all three Host qualification inputs are re-compared, the target local checkout is synchronized to the new release head, a fresh H1 Issue #91 preflight is recorded, and the user explicitly authorizes continuation. H1 must prove exact-turn V2 capability again before any Agent-control action.
 
 ## Real Host staged execution protocol
 
@@ -196,19 +197,20 @@ The H9 checkpoint requires special handling. Recording H9 in `headoff.md` change
 
 ## Next development direction
 
-H0 remains the active phase because the first H0 attempt stopped before Host evidence collection.
+H0 is complete at `PASS_STOP`. H1 is the next stage, but it remains unauthorized until the H0 checkpoint closure steps finish and the user explicitly continues.
 
-Before H0 is retried:
+Before H1 begins:
 
-1. Confirm the current release source and CI directly from GitHub.
-2. Synchronize the target local checkout to the current release head.
-3. Verify clean source and the three formal Host qualification inputs.
-4. Verify package/profile health.
-5. Read the newest Issue #91 ledger entry and perform a fresh H0 `REUSE | RERUN | NOT_RUN` preflight.
-6. Only if that preflight authorizes Host evidence collection, establish the fresh Host environment without any Agent-control action.
-7. Stop again at `H0_STOP`, write Issue #91 evidence, update this `headoff.md`, and wait for explicit user continuation.
+1. Merge and verify this H0 checkpoint through the normal repository workflow.
+2. Confirm the new release source and post-merge CI directly from GitHub.
+3. Compare all three Host qualification inputs and record whether H0 evidence remains reusable.
+4. Synchronize the target local checkout to the new release head and verify clean source plus package/profile health.
+5. Read the newest Issue #91 ledger entries and perform a dedicated H1/N0 Reader `REUSE | RERUN | NOT_RUN` preflight.
+6. In the actual Reader probe turn, establish the exact `turn_id`, prove Host-produced `multi_agent_version=v2`, and verify the callable V2 spawn schema requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`.
+7. Only after that same-turn capability precondition passes may the canonical Reader be spawned through Orchestrate with the fixed managed profile and `fork_turns=none`.
+8. Stop at `H1_STOP` after Reader evaluation even when it passes. Do not continue to Worker in the same phase.
 
-Do not begin H1, do not invoke Orchestrate, and do not create or control any Agent during H0.
+Do not infer H1 capability from the H0 V2 observation. Do not invoke any Agent-control tool before the H1 exact-turn capability precondition passes.
 
 Do not repeat the old generic recursion probe merely because a new chat/session starts.
 
