@@ -106,7 +106,7 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
     assert "There is no fixed correction-count ceiling" in interaction
 
     assert "already owns the multi-responsibility structural truth" not in responsibility
-    assert "carries no dependency, routing, integration-order, retry-budget, ownership, or acceptance authority" in responsibility
+    assert "does not create a second task state, authority model, scheduler, acceptance model, evidence store, retry protocol, or compatibility marker" in responsibility
     assert not (ROOT / "contracts" / "team-plan.md").exists()
 
     assert policy["roles"]["investigator"]["effort"] == "high"
