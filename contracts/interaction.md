@@ -2,7 +2,7 @@
 
 This file owns the user-visible control semantics for an active Orchestrate workflow. It defines plan-only Preview, Status, Steer, Takeover, cancel, continue, correction, and the Execution Receipt boundary without creating another Agent runtime, scheduler, ledger, or telemetry service.
 
-`routing.md` still decides delegation value and role suitability. WorkGraph and WorkUnit own multi-responsibility dependency and responsibility truth. Main owns semantic decomposition, dispatch judgment, integration, and acceptance. `team-plan.md` is compatibility documentation only. `recovery.md` still owns attempt lifecycle and evidence-gated recovery. `guardrails.md` still owns authority and writer safety.
+`routing.md` still decides delegation value and role suitability. WorkGraph and WorkUnit own multi-responsibility dependency and responsibility truth. Main owns semantic decomposition, dispatch judgment, integration, and acceptance. `recovery.md` still owns attempt lifecycle and evidence-gated recovery. `guardrails.md` still owns authority and writer safety.
 
 Orchestrate control intents include Preview, Status, Steer, Takeover, cancel, continue, and correction. Preview, Status, Steer, and Takeover are conceptual control names in this contract, not public Skill ids. `Orchestrate` is the single public orchestration Skill; `Doctor` is the only other public Skill. This contract defines conceptual control inputs after explicit Orchestrate selection/invocation and does not invent the exact slash entry rendered by a particular Codex App build.
 
