@@ -14,7 +14,6 @@ Some schema/mode names remain from earlier Routing V4 experiments so historical 
 contracts/interaction.md
 contracts/routing.md
 contracts/handoff.md
-contracts/team-plan.md
 contracts/recovery.md
 contracts/guardrails.md
 contracts/final-review.md
@@ -471,7 +470,7 @@ derive material obligations from current task truth
 Negative controls:
 
 ```text
-valid TeamPlan compatibility structure with one dropped material obligation
+structurally valid WorkGraph with one dropped material obligation
 -> Candidate Ready forbidden
 
 valid integration order with an unowned material seam
@@ -528,6 +527,6 @@ Interaction and semantic-coordination experiments may initially use structured n
 
 Do not claim improved quality, lower cost, reduced rework, Solver superiority, Terra value, onboarding improvement, receipt usability, takeover usability, Handoff Capsule efficiency, semantic-coverage improvement, or phase-transition improvement until named live workloads on named runtime versions support that claim.
 
-Static contract tests can prove that Orchestrate Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, that capsules require accepted evidence, that structural TeamPlan compatibility validity is not treated as semantic completeness, and that later-phase readiness does not create authority. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
+Static contract tests can prove that Orchestrate Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, that capsules require accepted evidence, that structural WorkGraph validity alone is not treated as semantic completeness, and that later-phase readiness does not create authority. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
 
 The runtime mechanism defines where each role and control is allowed to operate. Behavioral evidence determines whether those choices create user value in practice.
