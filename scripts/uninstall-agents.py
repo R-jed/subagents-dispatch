@@ -24,7 +24,6 @@ def load_installer() -> dict[str, Any]:
     except (OSError, RuntimeError) as exc:
         fail(f"Could not load managed-profile lifecycle owner {INSTALLER}: {exc}")
     required = {
-        "LOCK_NAME",
         "MANIFEST_NAME",
         "PROFILE_FILES",
         "file_hash",
@@ -135,12 +134,7 @@ def uninstall(codex_home_arg: Path) -> None:
         print("Managed Agent profiles are not installed; no changes made.")
         return
 
-    with lifecycle["managed_lock"](
-        codex_home,
-        lifecycle["LOCK_NAME"],
-        check_only=False,
-        label="installer",
-    ):
+    with lifecycle["managed_lock"](codex_home, check_only=False):
         manifest_path, owned = _owned_targets(codex_home, lifecycle)
         if not manifest_path.exists() and not manifest_path.is_symlink():
             if not owned:

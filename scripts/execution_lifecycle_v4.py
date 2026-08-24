@@ -2,8 +2,8 @@
 """Supported V4 ExecutionBinding lifecycle facade.
 
 Lifecycle transitions live in ``execution_lifecycle_v4_core``. This module keeps
-one explicit public surface and enforces product-wide admission constraints before
-a managed child can reach the Host.
+one explicit public surface. Product-wide state invariants, including the managed
+child ceiling, are enforced atomically by ``dispatch_state_v4.mutate_state``.
 """
 
 from __future__ import annotations
@@ -13,23 +13,9 @@ from typing import Sequence as _Sequence
 
 import dispatch_state_v4 as _state
 import execution_lifecycle_v4_core as _core
-import policy as _policy
 
 
 ExecutionLifecycleError = _core.ExecutionLifecycleError
-_PRODUCT_CHILD_LIMIT = _policy.managed_child_limit()
-_ACTIVE_MANAGED_STATES = {"SPAWN_PENDING", "RUNNING", "INTERRUPTED", "UNKNOWN"}
-
-
-def _active_managed_count(current: dict | None) -> int:
-    if current is None:
-        return 0
-    return sum(
-        1
-        for execution in current.get("executions", [])
-        if isinstance(execution, dict)
-        and execution.get("lifecycle") in _ACTIVE_MANAGED_STATES
-    )
 
 
 def allocate_execution(
@@ -45,12 +31,8 @@ def allocate_execution(
     writer_lease_id: str | None = None,
     temp_root: str | _os.PathLike[str] | None = None,
 ) -> dict:
-    """Allocate one provisional execution without exceeding the product child ceiling."""
+    """Allocate one provisional execution under the atomic state invariants."""
     current = _state.load_state(thread_id, temp_root=temp_root)
-    if _active_managed_count(current) >= _PRODUCT_CHILD_LIMIT:
-        raise ExecutionLifecycleError(
-            f"product managed child limit {_PRODUCT_CHILD_LIMIT} is reached"
-        )
     if current is None:
         raise ExecutionLifecycleError("active V4 state is unavailable")
     attempt_no = _core._next_attempt_no(current, unit_id)
@@ -67,35 +49,23 @@ def allocate_execution(
             f"native_task_name must match WorkUnit attempt generation: {expected_task_name}"
         )
 
-    result = _core.allocate_execution(
-        thread_id,
-        unit_id=unit_id,
-        execution_id=execution_id,
-        native_task_name=native_task_name,
-        profile_id=profile_id,
-        granted_authority=granted_authority,
-        granted_write_scope=granted_write_scope,
-        execution_basis_ref=execution_basis_ref,
-        writer_lease_id=writer_lease_id,
-        temp_root=temp_root,
-    )
-
-    persisted = _state.load_state(thread_id, temp_root=temp_root)
-    if _active_managed_count(persisted) > _PRODUCT_CHILD_LIMIT:
-        try:
-            _core.rollback_pre_materialization_spawn(
-                thread_id,
-                execution_id=execution_id,
-                temp_root=temp_root,
-            )
-        except Exception as exc:
-            raise ExecutionLifecycleError(
-                "product child ceiling was exceeded and provisional rollback failed"
-            ) from exc
-        raise ExecutionLifecycleError(
-            f"product managed child limit {_PRODUCT_CHILD_LIMIT} is reached"
+    try:
+        return _core.allocate_execution(
+            thread_id,
+            unit_id=unit_id,
+            execution_id=execution_id,
+            native_task_name=native_task_name,
+            profile_id=profile_id,
+            granted_authority=granted_authority,
+            granted_write_scope=granted_write_scope,
+            execution_basis_ref=execution_basis_ref,
+            writer_lease_id=writer_lease_id,
+            temp_root=temp_root,
         )
-    return result
+    except _state.StatePayloadError as exc:
+        if "product managed child limit" in str(exc):
+            raise ExecutionLifecycleError(str(exc)) from exc
+        raise
 
 
 build_managed_spawn_tool_input = _core.build_managed_spawn_tool_input

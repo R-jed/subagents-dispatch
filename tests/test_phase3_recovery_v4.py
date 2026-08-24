@@ -71,17 +71,15 @@ def persist_status(lifecycle, thread_id: str, execution_id: str, tmp_path: Path,
     )
 
 
-def test_multi_unit_dependency_executes_without_teamplan_runtime_gate(tmp_path: Path):
-    state, graph, lifecycle = modules("teamplan-free")
-    thread_id = "phase3-teamplan-free"
+def test_multi_unit_dependency_executes_through_work_graph(tmp_path: Path):
+    state, graph, lifecycle = modules("work-graph")
+    thread_id = "phase3-work-graph"
     state.write_state(state.new_state(thread_id=thread_id), temp_root=tmp_path)
     installed = graph.install_work_graph(
         thread_id,
-        team_plan_revision=1,
         units=[read_unit(graph, "U1"), read_unit(graph, "U2", depends_on=["U1"])],
         temp_root=tmp_path,
     )
-    assert installed["team_plan_revision"] is None
     assert graph.ready_frontier(installed) == ["U1"]
 
     lifecycle.allocate_execution(
@@ -106,7 +104,6 @@ def test_multi_unit_dependency_executes_without_teamplan_runtime_gate(tmp_path: 
 
     current = state.load_state(thread_id, temp_root=tmp_path)
     assert current is not None
-    assert current["team_plan_revision"] is None
     assert graph.ready_frontier(current) == ["U2"]
 
     allocated = lifecycle.allocate_execution(

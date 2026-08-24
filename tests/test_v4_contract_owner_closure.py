@@ -8,7 +8,6 @@ ROOT = Path(__file__).resolve().parents[1]
 ACTIVE_CONTRACTS = (
     "contracts/routing.md",
     "contracts/responsibility-packet.md",
-    "contracts/team-plan.md",
     "contracts/interaction.md",
     "contracts/recovery.md",
     "contracts/final-review.md",
@@ -18,6 +17,7 @@ ACTIVE_CONTRACTS = (
 def test_active_contract_files_exist_and_machine_architecture_is_canonical_owner():
     for relative in ACTIVE_CONTRACTS:
         assert (ROOT / relative).is_file(), relative
+    assert not (ROOT / "contracts" / "team-plan.md").exists()
 
     architecture_doc = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
     architecture = json.loads(

@@ -110,7 +110,6 @@ def test_current_generation_compact_host_observation_is_sufficient_for_writer_se
         {
             "execution_id": "exec-1",
             "unit_id": "U1",
-            "team_plan_revision": None,
             "attempt_no": 1,
             "profile_id": "worker",
             "agent_id": "agent-1",
@@ -171,7 +170,6 @@ def test_stale_lease_epoch_proof_cannot_release_writer(tmp_path: Path):
         {
             "execution_id": "exec-1",
             "unit_id": "U1",
-            "team_plan_revision": None,
             "attempt_no": 1,
             "profile_id": "worker",
             "agent_id": "agent-1",

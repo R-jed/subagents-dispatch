@@ -58,13 +58,11 @@ def work_unit(unit_id: str, *, state_name: str = "READY", writable: bool = False
 def test_execution_binding_rejects_host_invalid_native_task_name():
     state = load_module("native_name_state", "dispatch_state_v4.py")
     payload = state.new_state(thread_id="thread-native-name")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit("U1", state_name="EXECUTING")]
     payload["executions"] = [
         {
             "execution_id": "exec_1",
             "unit_id": "U1",
-            "team_plan_revision": 1,
             "attempt_no": 1,
             "profile_id": "reader",
             "agent_id": "agent-exec-1",
@@ -91,7 +89,6 @@ def test_allocate_execution_rejects_host_invalid_task_names(tmp_path: Path, bad_
     state = load_module(f"native_allocate_state_{bad_name!r}", "dispatch_state_v4.py")
     lifecycle = load_module(f"native_allocate_lifecycle_{bad_name!r}", "execution_lifecycle_v4.py")
     payload = state.new_state(thread_id="thread-native-allocate")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit("U1")]
     state.write_state(payload, temp_root=tmp_path)
 
@@ -113,7 +110,6 @@ def test_known_host_session_capacity_is_advisory_scheduler_ceiling():
     scheduler = load_module("native_capacity_scheduler", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-native-capacity")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit("U1"), work_unit("U2"), work_unit("U3")]
     snapshot = host.normalize_host_capabilities(raw_host_evidence(capacity=2))
 
@@ -133,7 +129,6 @@ def test_unknown_host_capacity_allows_bounded_product_admission():
     scheduler = load_module("native_unknown_capacity_scheduler", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-native-unknown-capacity")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit("U1"), work_unit("U2"), work_unit("U3")]
     snapshot = host.normalize_host_capabilities(raw_host_evidence(capacity=None))
 
@@ -152,7 +147,6 @@ def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():
     state = load_module("native_snapshot_state", "dispatch_state_v4.py")
     scheduler = load_module("native_snapshot_scheduler", "scheduler_v4.py")
     payload = state.new_state(thread_id="thread-native-snapshot")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit("U1")]
     forged = {
         "surface": "multi_agent_v2",

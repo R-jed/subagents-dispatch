@@ -10,7 +10,7 @@ Keep work in the main session when a child would mostly duplicate context, add h
 
 Task size, file count, expense, or a description such as complex does not by itself justify delegation. The main session creates only responsibilities that can make useful progress and may add more WorkUnits later when new independent work becomes clear.
 
-There is no separate TeamPlan planning authority. WorkGraph is the structural source of truth for one or many WorkUnits. A persisted `team_plan_revision` value may remain temporarily as a state-schema compatibility marker during the V4 RC; it carries no planning, routing, revision, or integration-order authority.
+WorkGraph is the structural source of truth for one or many WorkUnits.
 
 ## Preserve task truth
 

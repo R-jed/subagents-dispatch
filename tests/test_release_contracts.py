@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 import re
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
 PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 CHANGELOG = ROOT / "CHANGELOG.md"
 CHANGELOG_V3 = ROOT / "CHANGELOG_V3.md"
+RELEASE_CHECKLIST = ROOT / "docs" / "release-checklist.md"
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
 ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
@@ -21,8 +25,17 @@ def current_version() -> str:
     return version
 
 
+def load_state_core():
+    scripts = str(SCRIPTS)
+    sys.path.insert(0, scripts)
+    try:
+        return importlib.import_module("dispatch_state_v4_core")
+    finally:
+        sys.path.remove(scripts)
+
+
 def test_release_version_identity_uses_exact_marketplace_checkout_as_plugin_source():
-    assert current_version() == "4.0.0"
+    assert current_version() == "1.0.0"
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
     source = market["plugins"][0]["source"]
     assert source == {"source": "local", "path": "./"}
@@ -30,9 +43,29 @@ def test_release_version_identity_uses_exact_marketplace_checkout_as_plugin_sour
 
 def test_latest_changelog_matches_release_version_without_legacy_v3_file():
     text = CHANGELOG.read_text(encoding="utf-8")
-    match = re.search(r"^## \[([^\]]+)\]", text, flags=re.MULTILINE)
+    match = re.search(r"^## (\d+\.\d+\.\d+)$", text, flags=re.MULTILINE)
     assert match and match.group(1) == current_version()
     assert not CHANGELOG_V3.exists()
+
+
+def test_release_checklist_tracks_public_plugin_version():
+    version = current_version()
+    text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
+
+    assert text.startswith(f"# {version} Release Checklist\n")
+    assert f"create v{version} versioned semantic-version tag" in text
+    assert "v4.0.0" not in text
+
+
+def test_machine_architecture_state_schema_matches_runtime():
+    architecture = json.loads(ARCHITECTURE.read_text(encoding="utf-8"))
+    state_core = load_state_core()
+
+    assert set(architecture["state"]["top_level_fields"]) == state_core.TOP_LEVEL_FIELDS
+    assert set(architecture["entities"]["ExecutionBinding"]["fields"]) == state_core.EXECUTION_FIELDS
+    work_unit = architecture["entities"]["WorkUnit"]
+    assert set(work_unit["fields"]) | set(work_unit["optional_fields"]) == state_core.WORK_UNIT_FIELDS
+    assert set(architecture["entities"]["WriterLease"]["fields"]) == state_core.WRITER_LEASE_FIELDS
 
 
 def test_host_release_gate_matches_native_core_architecture_campaign():

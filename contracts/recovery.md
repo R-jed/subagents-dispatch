@@ -12,7 +12,6 @@ Every concrete managed fresh attempt is an ExecutionBinding with:
 unit_id
 execution_id
 attempt_no
-team_plan_revision: compatibility marker only
 native_task_name
 profile_id
 agent_id, when Host evidence establishes it
@@ -183,10 +182,6 @@ resolve current WorkUnit and ExecutionBinding
 ```
 
 A user takeover request expresses intent to transfer ownership. It does not prove that the child stopped. Missing or `notFound` identity evidence remains uncertainty and cannot authorize conflicting mutation.
-
-## TeamPlan compatibility
-
-TeamPlan has no V4 runtime authority. WorkGraph and WorkUnit own responsibility structure and dependencies. `team_plan_revision` may remain temporarily in the state schema as an RC compatibility field, but it does not gate fresh execution, retry, dependency readiness, routing, or integration.
 
 ## Evidence and close
 

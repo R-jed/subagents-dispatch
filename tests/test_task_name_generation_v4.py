@@ -171,7 +171,6 @@ def test_state_boundary_rejects_execution_task_name_generation_drift():
         {
             "execution_id": "exec-1",
             "unit_id": "U1",
-            "team_plan_revision": None,
             "attempt_no": 2,
             "profile_id": "reader",
             "agent_id": None,

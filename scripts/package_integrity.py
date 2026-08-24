@@ -39,8 +39,6 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/inspect-agent-runtime.py",
         "scripts/inspect-collaboration-runtime.py",
         "scripts/install-agents.py",
-        "scripts/legacy_migration.py",
-        "scripts/legacy_state_cleanup.py",
         "scripts/managed_execution_v4.py",
         "scripts/orchestrate_v4.py",
         "scripts/package_integrity.py",
@@ -51,7 +49,6 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/scheduler_v4.py",
         "scripts/state_storage.py",
         "scripts/uninstall-agents.py",
-        "scripts/validate_team_plan.py",
         "scripts/work_graph_v4.py",
         "scripts/writer_lease_v4.py",
     )
@@ -202,7 +199,14 @@ def verify_package(root: Path = ROOT, *, profile: str = "full") -> dict[str, Any
         root = root.resolve(strict=True)
         manifest = load_manifest(root)
     except (OSError, IntegrityError) as exc:
-        return {"ok": False, "profile": profile, "missing": [], "mismatched": [], "unsafe": [], "manifest_error": str(exc)}
+        return {
+            "ok": False,
+            "profile": profile,
+            "missing": [],
+            "mismatched": [],
+            "unsafe": [],
+            "manifest_error": str(exc),
+        }
     files = manifest["files"]
     assert isinstance(files, Mapping)
     if profile == "full":
@@ -264,7 +268,11 @@ def write_manifest(root: Path = ROOT) -> Path:
     path = _manifest_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = build_manifest(root)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return path
 
 
@@ -283,7 +291,9 @@ def _format_result(result: Mapping[str, Any]) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate or verify subagents-dispatch runtime package integrity.")
+    parser = argparse.ArgumentParser(
+        description="Generate or verify subagents-dispatch runtime package integrity."
+    )
     parser.add_argument("--root", type=Path, default=ROOT)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--write", action="store_true")
@@ -303,7 +313,11 @@ def main() -> None:
             raise SystemExit(1) from None
         print(path)
         return
-    result = check_generated(args.root) if args.check_generated else verify_package(args.root, profile=args.profile)
+    result = (
+        check_generated(args.root)
+        if args.check_generated
+        else verify_package(args.root, profile=args.profile)
+    )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     else:

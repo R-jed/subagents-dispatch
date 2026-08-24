@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic Doctor for the Native Core subagents-dispatch Plugin."""
+"""Deterministic Doctor for the subagents-dispatch Plugin."""
 
 from __future__ import annotations
 
@@ -19,10 +19,8 @@ if sys.platform == "win32":
 
 import dispatch_state_v4 as state_v4
 import host_capabilities
-import legacy_state_cleanup as legacy_state
 import package_integrity
 import policy as policy_contract
-from legacy_migration import detect_legacy_state, format_migration_state
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,7 +78,9 @@ def _profile_disables_child_collaboration(profile: Mapping[str, Any]) -> bool:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Check subagents-dispatch health and safe maintenance options.")
+    parser = argparse.ArgumentParser(
+        description="Check subagents-dispatch health and safe maintenance options."
+    )
     parser.add_argument(
         "--codex-home",
         type=Path,
@@ -91,10 +91,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host-evidence", type=Path)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--legacy", action="store_true")
     parser.add_argument("--repair", action="store_true")
-    parser.add_argument("--migrate-legacy", action="store_true")
-    parser.add_argument("--cleanup-stale", action="store_true")
     parser.add_argument("--uninstall-managed", action="store_true")
     return parser.parse_args()
 
@@ -112,34 +109,20 @@ def _run_owned_action(command: list[str], *, label: str) -> None:
 
 
 def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
-    selected = sum(
-        bool(value)
-        for value in (
-            args.repair,
-            args.migrate_legacy,
-            args.cleanup_stale,
-            args.uninstall_managed,
-        )
-    )
-    if selected > 1:
+    if args.repair and args.uninstall_managed:
         raise DoctorError("explicit Doctor maintenance actions are mutually exclusive")
     actions: list[str] = []
-    if args.repair or args.migrate_legacy:
-        command = [
-            sys.executable,
-            str(ROOT / "scripts" / "install-agents.py"),
-            "--codex-home",
-            str(codex_home),
-        ]
-        if args.migrate_legacy:
-            command.append("--migrate-legacy")
-        label_text = "managed profile migration" if args.migrate_legacy else "managed profile repair"
-        _run_owned_action(command, label=label_text)
-        actions.append(
-            "Legacy managed profiles migrated"
-            if args.migrate_legacy
-            else "Managed Agent profiles repaired"
+    if args.repair:
+        _run_owned_action(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "install-agents.py"),
+                "--codex-home",
+                str(codex_home),
+            ],
+            label="managed profile repair",
         )
+        actions.append("Managed Agent profiles repaired")
     if args.uninstall_managed:
         _run_owned_action(
             [
@@ -151,18 +134,6 @@ def _explicit_actions(args: argparse.Namespace, codex_home: Path) -> list[str]:
             label="managed profile uninstall",
         )
         actions.append("Managed Agent profiles removed")
-    if args.cleanup_stale:
-        active = args.thread_id or os.environ.get("CODEX_THREAD_ID")
-        if active:
-            legacy_state.resolve_thread_id(active)
-        if args.temp_root.exists():
-            report = legacy_state.cleanup_stale_states(
-                temp_root=args.temp_root,
-                active_thread_id=active,
-            )
-            actions.append(f"Removed {len(report['removed'])} stale terminal state item(s)")
-        else:
-            actions.append("Removed 0 stale terminal state item(s)")
     return actions
 
 
@@ -226,7 +197,13 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         )
 
     verifier = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "install-agents.py"), "--codex-home", str(codex_home), "--check"],
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "install-agents.py"),
+            "--codex-home",
+            str(codex_home),
+            "--check",
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -309,43 +286,30 @@ def diagnose_orchestration_state(thread_id: str | None, temp_root: Path) -> dict
         for item in current["executions"]
         if item["lifecycle"] in {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
     ]
+    unknown_executions = [
+        item["execution_id"]
+        for item in current["executions"]
+        if item["lifecycle"] == "UNKNOWN"
+    ]
     lease = current.get("writer_lease")
+    writer_state = lease.get("state") if isinstance(lease, Mapping) else None
+    if unknown_executions or writer_state == "UNKNOWN":
+        return layer(
+            "Orchestration state",
+            "UNKNOWN",
+            "Current orchestration state contains unresolved Host uncertainty",
+            state_revision=current["state_revision"],
+            active_executions=active,
+            unknown_executions=unknown_executions,
+            writer_state=writer_state,
+        )
     return layer(
         "Orchestration state",
         "OK",
         "Current orchestration state is healthy",
         state_revision=current["state_revision"],
         active_executions=active,
-        writer_state=lease.get("state") if isinstance(lease, Mapping) else None,
-    )
-
-
-def diagnose_legacy(codex_home: Path) -> dict[str, Any]:
-    try:
-        migration = detect_legacy_state(codex_home)
-    except Exception as exc:
-        return layer("Legacy compatibility", "FAIL", f"Legacy installation data cannot be checked safely: {exc}")
-    status = format_migration_state(migration)
-    if migration.ownership_unknown:
-        return layer(
-            "Legacy compatibility",
-            "WARN",
-            "Legacy installation ownership is unclear. Automatic migration is blocked",
-            migration_state=status,
-        )
-    if status == "current_with_preserved_legacy_modified":
-        return layer(
-            "Legacy compatibility",
-            "OK",
-            "Legacy installation is preserved safely",
-            action="Keep the modified legacy profile in place unless you explicitly resolve or remove it.",
-            migration_state=status,
-        )
-    return layer(
-        "Legacy compatibility",
-        "OK",
-        "Legacy compatibility is healthy",
-        migration_state=status,
+        writer_state=writer_state,
     )
 
 
@@ -357,20 +321,15 @@ def run_diagnosis(args: argparse.Namespace) -> dict[str, Any]:
         diagnose_managed_agents(args.codex_home),
         diagnose_host_integration(args.host_evidence),
         diagnose_orchestration_state(args.thread_id, args.temp_root),
-        diagnose_legacy(args.codex_home),
     ]
     return {"layers": layers, "actions": actions}
 
 
-def _print_report(report: Mapping[str, Any], *, legacy_details: bool = False) -> None:
+def _print_report(report: Mapping[str, Any]) -> None:
     for item in report["layers"]:
         print(f"[{item['status']}] {item['name']}: {item['summary']}")
         if item.get("action"):
             print(f"  Action: {item['action']}")
-        if legacy_details and item["name"] == "Legacy compatibility":
-            migration_state = item.get("details", {}).get("migration_state")
-            if migration_state:
-                print(f"  Migration state: {migration_state}")
     for action in report.get("actions", []):
         print(f"[OK] Action: {action}")
 
@@ -387,13 +346,13 @@ def main() -> None:
         raise SystemExit(1)
     try:
         report = run_diagnosis(args)
-    except (DoctorError, legacy_state.StateError, ValueError) as exc:
+    except (DoctorError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(1) from None
     if args.json:
         print(json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     else:
-        _print_report(report, legacy_details=args.legacy)
+        _print_report(report)
     if args.check and any(item["status"] == "FAIL" for item in report["layers"]):
         raise SystemExit(1)
 

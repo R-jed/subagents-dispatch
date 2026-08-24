@@ -57,7 +57,6 @@ def execution() -> dict:
     return {
         "execution_id": "exec-1",
         "unit_id": "U1",
-        "team_plan_revision": 1,
         "attempt_no": 1,
         "profile_id": "reader",
         "agent_id": "agent-id-1",
@@ -78,7 +77,6 @@ def execution() -> dict:
 
 def install(state, tmp_path: Path) -> None:
     payload = state.new_state(thread_id="thread-host")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit()]
     payload["executions"] = [execution()]
     state.write_state(payload, temp_root=tmp_path)

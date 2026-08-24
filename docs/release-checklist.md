@@ -1,6 +1,6 @@
-# V4.0.0 Release Checklist
+# 1.0.0 Release Checklist
 
-Use this checklist for the Native Core V4.0.0 release. Repository completion does not imply Host release readiness.
+Use this checklist for the first public `1.0.0` release built on Native Core V4. Repository completion does not imply Host release readiness.
 
 ## 1. Release identity
 
@@ -22,7 +22,7 @@ Also record Plugin version, Marketplace identity, Codex Host version/build and o
 
 For real Host environment binding, use the Codex-native identities defined by `docs/v4/host-smoke.json`: `session_id` is the Host-reported session-tree identity shared by the root thread and its descendants, and `thread_id` is the Host-reported identity of the current root thread. Use only the authoritative sources listed in that machine contract. Do not invent or substitute a generic `run_id`. If either required identity cannot be established for the current root Host session, the environment binding remains `UNKNOWN`.
 
-`.codex-plugin/plugin.json`, Marketplace metadata and the V4 changelog must agree on `4.0.0` before tagging. Use a versioned semantic-version tag only after all release gates pass, then verify Marketplace installation resolves the exact tagged source. Resolving a ref to the expected commit does not by itself prove platform-enforced tag immutability.
+`.codex-plugin/plugin.json`, Marketplace metadata and the current changelog must agree on `1.0.0` before tagging. Use the versioned semantic-version tag `v1.0.0` only after all release gates pass, then verify Marketplace installation resolves the exact tagged source. Resolving a ref to the expected commit does not by itself prove platform-enforced tag immutability.
 
 ## 2. Repository gates
 
@@ -35,7 +35,7 @@ macOS / Python 3.11
 Windows / Python 3.11
 ```
 
-Required checks include Plugin/Marketplace validation, package-integrity regeneration, official Plugin validator, Ruff, full pytest, managed profile install/check/uninstall lifecycle, Doctor, V4 state/work graph/scheduler/lifecycle/writer tests, update lifecycle tests, migration fail-closed tests and product-surface consistency tests.
+Required checks include Plugin/Marketplace validation, package-integrity regeneration, official Plugin validator, Ruff, full pytest, managed profile install/check/uninstall lifecycle, Doctor, Native Core state/work graph/scheduler/lifecycle/writer tests, update lifecycle tests, unsupported pre-1.0 state rejection tests and product-surface consistency tests.
 
 Public Skill directories must be exactly:
 
@@ -66,7 +66,7 @@ WorkUnit acceptance is separate from Host lifecycle
 Host COMPLETED advances to RESULT_READY only
 dependencies unlock only from ACCEPTED
 WorkGraph owns one-or-many responsibility structure
-team_plan_revision has compatibility-marker semantics only
+TeamPlan and TeamPlan revision are absent from current product state and contracts
 managed spawn requires complete responsibility context
 fresh child uses exact managed agent_type and fork_turns = none
 stale control/lease observations are rejected
@@ -79,9 +79,7 @@ same-child correction requires a new correction basis
 attempt_no and followup_count are diagnostic, not fixed authorization budgets
 CONTINUE preserves the same interrupted ExecutionBinding
 older safely settled attempts compact without invalidating current identity or lease references
-V3 active/corrupt state is never silently migrated
-V4 state depends only on schema-neutral state_storage primitives
-legacy stale cleanup does not load the retired V3 orchestration engine
+unsupported pre-1.0 state is rejected; no migration or stale-state cleanup path ships
 plan-only creates no runtime state, lease or Host action
 ```
 
@@ -142,7 +140,7 @@ cancellation
 managed-child adversarial no-descendant behavior
 fresh Advisor review
 post-review mutation invalidation
-legacy unresolved-state block
+unsupported pre-1.0 state rejection
 ```
 
 ## 6. Final Review and release evidence
@@ -174,7 +172,7 @@ external release evidence verifies
 installed Doctor has no blocking failure
 human two-Skill App observation PASS
 merge approved source
-create v4.0.0 versioned semantic-version tag
+create v1.0.0 versioned semantic-version tag
 verify Marketplace resolves the exact tagged source
 publish release notes
 ```

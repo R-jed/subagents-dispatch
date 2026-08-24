@@ -1,45 +1,50 @@
-# V4 Contract Truth Simplification Plan
+# 1.0.0 Clean-Break Closure Plan
 
-Status: COMPLETE.
+This plan covers the repository closure required for the first public `1.0.0` line. Live branch, commit, CI, review, and Host verdicts belong in GitHub and Issue #91 rather than in this file.
 
-This record summarizes the completed PR #102 and PR #103 repository remediation. Live candidate identifiers, CI results and Host verdicts belong in GitHub and Issue #91.
+## Objective
 
-## Preserved behavior
+Finish the clean break from pre-1.0 development architecture without adding compatibility machinery to preserve retired internal designs.
 
-The remediation kept Main-only managed coordination, delegation depth 1, the five fixed profile routes, `fork_turns=none`, UNKNOWN fail-closed behavior, WorkGraph acceptance semantics, WriterLease settlement, Host-owned lifecycle/identity/capacity/effective permission truth, revised managed N1 and the strict N8 read-only requirement.
+The current product keeps Native Core V4 as an internal architecture generation. Public product identity starts at Plugin `1.0.0`.
 
-## Completed simplification
+## Acceptance conditions
 
-- removed competing V4 machine projections and the self-staling phase-status snapshot;
-- retained `docs/v4/architecture.json` as the machine architecture/runtime-owner map;
-- retained `docs/v4/host-smoke.json` as the real-Host campaign oracle;
-- moved live candidate/CI truth to GitHub and Host evidence to Issue #91;
-- corrected residual Host-hard N1 wording in active contracts and guidance;
-- removed unused normalized `managed_child_containment` output while preserving historical input validation;
-- consolidated fresh attempt-number calculation;
-- removed dead `route_profile` and `scheduler_decision` aliases;
-- migrated tests from deleted projections and aliases to canonical owners and observable behavior.
+- Plugin, changelog, release checklist, and publication tag all identify the first public release as `1.0.0`.
+- WorkGraph and WorkUnit are the only current responsibility/dependency structure. Retired TeamPlan files, fields, validators, and compatibility callers are absent.
+- Pre-1.0 migration and stale-state cleanup implementations are absent from the shipped product.
+- Unsupported or unrecognized state, ownership, installation source, Host evidence, and runtime identity fail explicitly or remain `UNKNOWN` where uncertainty is the contract.
+- Machine architecture state/entity fields match the runtime schema instead of carrying deleted compatibility fields.
+- Current tests exercise current interfaces. Historical tests do not keep deleted APIs alive.
+- The exact PR head passes the complete GitHub Actions matrix, package-integrity verification, Ruff, full pytest, official Plugin validation where applicable, and managed Agent install/check/Doctor/uninstall lifecycle.
+- Real Host qualification remains a separate release gate and is rebound only after the final merged runtime basis is frozen and Issue #91 preflight permits the next action.
 
-## Deferred debt
+## Implementation order
 
-- `write_state` remains because active internal test/setup consumers exist.
-- `team_plan_revision` requires a separate state-schema migration.
-- Experiment Plane calibration consolidation remains separate non-runtime debt.
-- N8 semantics require separate product-intent review before any change.
+1. Repair stale tests that still call deleted TeamPlan compatibility surfaces.
+2. Close machine-contract and release-document drift created by the clean break.
+3. Add repository assertions that prevent retired pre-1.0 compatibility artifacts and fields from returning to current authority surfaces.
+4. Align development handoff and Host procedure with the current `1.0.0` release boundary without copying live SHA or CI state into source files.
+5. Run the exact-head repository matrix and use failures as evidence of any remaining consumer or contract drift.
+6. Perform a fresh adversarial five-axis review of the final diff before leaving Draft.
 
-## Permanent rules
+## Boundaries
 
-1. One semantic fact gets one machine owner.
-2. Human docs explain or link canonical owners rather than becoming a parallel oracle.
-3. Tests verify behavior, schema, ownership or public interfaces instead of copied prose.
-4. Compatibility surfaces require a real consumer and removal condition.
-5. Preserve safety boundaries even when simplification would remove lines.
-6. Generate package-integrity data with repository tooling.
-7. Do not promote intermediate CI evidence to a later head.
-8. Current candidate SHA, CI and Host verdict belong in GitHub and Issue #91.
+Always:
 
-## Continuation
+- fail closed on unsupported state, unsafe ownership, stale generation, ambiguous writer ownership, and unverifiable installed source;
+- preserve `UNKNOWN` when Host truth is genuinely unavailable;
+- use current canonical helpers and truth owners;
+- regenerate package integrity only when shipped bytes change;
+- verify the exact final head.
 
-This plan is closed. New development sessions continue from root `headoff.md`, then consult `docs/v4/host-smoke.json`, `docs/release-checklist.md`, GitHub and Issue #91 as needed.
+Do not:
 
-`headoff.md` is the project context-transfer entrypoint for background, important workflow history, current progress and next direction. The next release work is exact installed-candidate and Host-environment binding, followed by the required preflight and revised canonical managed-profile N1 campaign. Publication remains blocked until all required Host and later release gates pass.
+- reintroduce a migration path, cleanup path, compatibility marker, wrapper, or fallback solely because an old test or document still references it;
+- silently translate unsupported pre-1.0 data into current state;
+- turn missing or conflicting Host evidence into success;
+- add a tracked checkbox or status snapshot whose only purpose is to record the final CI result and thereby create a new unverified source head.
+
+## Verification
+
+Repository completion requires the live GitHub exact-head matrix to pass. Tests are necessary but the final review must also check correctness, simplicity, architecture, security, and performance. Host N0-N8, Final Review, installed-product verification, and human App observation remain later release gates under `docs/release-checklist.md`.

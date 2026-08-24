@@ -1,6 +1,6 @@
 {
   "name": "subagents-dispatch",
-  "version": "4.0.0",
+  "version": "1.0.0",
   "description": "Coordinate complex Codex coding work with bounded subagents, safe write ownership, and verified results.",
   "author": {"name": "R-jed", "url": "https://github.com/R-jed"},
   "homepage": "https://github.com/R-jed/subagents-dispatch#readme",

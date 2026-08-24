@@ -30,7 +30,6 @@ DEFAULT_STOP_BOUNDARY = (
     "Stop and report contract, judgment, investigation, stalled, scope, or safety blockers "
     "to the main session."
 )
-_LEGACY_TEAM_PLAN_REVISION = 1
 
 
 def _nonempty(value: Any) -> bool:
@@ -163,67 +162,13 @@ def ready_frontier(payload: Mapping[str, Any]) -> list[str]:
     ]
 
 
-def critical_path_lengths(payload: Mapping[str, Any]) -> dict[str, int]:
-    """Compatibility diagnostic only. Dispatch does not rank by this value."""
-    current = refresh_dependency_states(payload)
-    by_id = {unit["unit_id"]: unit for unit in current["work_units"]}
-    children: dict[str, list[str]] = {unit_id: [] for unit_id in by_id}
-    for unit in current["work_units"]:
-        for dependency in unit["depends_on"]:
-            children[dependency].append(unit["unit_id"])
-
-    memo: dict[str, int] = {}
-
-    def length(unit_id: str) -> int:
-        if unit_id in memo:
-            return memo[unit_id]
-        descendants = [
-            child
-            for child in children[unit_id]
-            if by_id[child]["state"] not in TERMINAL_UNIT_STATES
-        ]
-        memo[unit_id] = 1 + max(
-            (length(child) for child in descendants),
-            default=0,
-        )
-        return memo[unit_id]
-
-    return {unit_id: length(unit_id) for unit_id in by_id}
-
-
-def install_single_work_unit(
-    thread_id: str,
-    *,
-    unit: Mapping[str, Any],
-    temp_root: str | os.PathLike[str] | None = None,
-) -> dict[str, Any]:
-    """Compatibility wrapper for callers that install one dependency-free WorkUnit."""
-    supplied = copy.deepcopy(dict(unit))
-    if supplied.get("depends_on") != []:
-        raise WorkGraphError("single WorkUnit path cannot carry a dependency")
-    if supplied.get("state") != "READY":
-        raise WorkGraphError("single WorkUnit path requires a READY WorkUnit")
-    return install_work_graph(
-        thread_id,
-        units=[supplied],
-        temp_root=temp_root,
-    )
-
-
 def install_work_graph(
     thread_id: str,
     *,
     units: Sequence[Mapping[str, Any]],
-    team_plan_revision: int | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Install the one authoritative WorkGraph.
-
-    ``team_plan_revision`` remains accepted only for legacy callers. It does not
-    create or authorize a TeamPlan and never changes WorkGraph runtime truth.
-    """
-    if team_plan_revision not in {None, _LEGACY_TEAM_PLAN_REVISION}:
-        raise WorkGraphError("legacy team_plan_revision compatibility value must be null or 1")
+    """Install the one authoritative WorkGraph."""
     supplied = copy.deepcopy([dict(unit) for unit in units])
     if not supplied:
         raise WorkGraphError("Work Graph must contain at least one WorkUnit")

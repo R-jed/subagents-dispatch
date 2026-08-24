@@ -32,7 +32,6 @@ TOP_LEVEL_FIELDS = {
     "schema_version",
     "root_session_id",
     "state_revision",
-    "team_plan_revision",
     "work_units",
     "executions",
     "writer_lease",
@@ -68,7 +67,6 @@ RESPONSIBILITY_CONTEXT_FIELDS = {
 EXECUTION_REQUIRED_FIELDS = {
     "execution_id",
     "unit_id",
-    "team_plan_revision",
     "attempt_no",
     "profile_id",
     "agent_id",
@@ -380,9 +378,6 @@ def _validate_executions(
         basis_ref = execution.get("execution_basis_ref")
         if basis_ref is not None and not _nonempty(basis_ref):
             raise StatePayloadError(f"execution {execution_id} has invalid execution_basis_ref")
-        revision = execution["team_plan_revision"]
-        if revision is not None and not _strict_int(revision, minimum=1):
-            raise StatePayloadError(f"execution {execution_id} has invalid compatibility revision")
         attempt = execution["attempt_no"]
         if not _strict_int(attempt, minimum=1):
             raise StatePayloadError(f"execution {execution_id} attempt_no must be positive")
@@ -693,9 +688,6 @@ def validate_state_payload(
         raise StatePayloadError("locale must be zh or en")
     if not _strict_int(state["state_revision"]):
         raise StatePayloadError("state_revision must be a non-negative integer")
-    revision = state["team_plan_revision"]
-    if revision is not None and not _strict_int(revision, minimum=1):
-        raise StatePayloadError("team_plan_revision compatibility marker must be null or positive")
     work_units = _validate_work_units(state["work_units"])
     executions = _validate_executions(state["executions"], work_units=work_units)
     _validate_writer_lease(
@@ -728,7 +720,6 @@ def new_state(
         "schema_version": SCHEMA_VERSION,
         "root_session_id": identity,
         "state_revision": 0,
-        "team_plan_revision": None,
         "work_units": [],
         "executions": [],
         "writer_lease": None,
@@ -921,11 +912,9 @@ def reconcile_execution_observation(
             execution["lifecycle"] = mapped
             execution["quarantine_reason"] = None
             if mapped == "FAILED":
-                execution["failure_origin"] = (
-                    failure_origin
-                    if failure_origin in FAILURE_ORIGINS - {"none", "runtime_ambiguous"}
-                    else "tool_failure"
-                )
+                if failure_origin not in FAILURE_ORIGINS - {"none", "runtime_ambiguous"}:
+                    raise StatePayloadError("FAILED Host observation requires a valid failure_origin")
+                execution["failure_origin"] = failure_origin
                 execution["blocker"] = "none"
             else:
                 execution["failure_origin"] = "none"

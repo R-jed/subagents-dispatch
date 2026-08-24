@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,17 +15,6 @@ import tomllib
 from typing import NoReturn
 import uuid
 
-from legacy_migration import (
-    LEGACY_LOCK_NAME,
-    LEGACY_MANIFEST_NAME,
-    backup_legacy_files,
-    commit_legacy_cleanup,
-    detect_legacy_state,
-    format_migration_state,
-    load_legacy_manifest,
-    rollback_legacy_cleanup,
-    sha256_bytes,
-)
 from policy import load_policy_contract
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +28,10 @@ ROLE_KEYS = {"reader", "worker", "solver", "investigator", "advisor"}
 
 def fail(message: str) -> NoReturn:
     raise SystemExit(message)
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 def lock_file(fd: int) -> None:
@@ -65,22 +59,15 @@ def unlock_file(fd: int) -> None:
 
 
 @contextmanager
-def managed_lock(
-    codex_home: Path,
-    lock_name: str,
-    *,
-    check_only: bool,
-    label: str,
-):
-    lock_path = codex_home / lock_name
+def managed_lock(codex_home: Path, *, check_only: bool):
+    lock_path = codex_home / LOCK_NAME
     if check_only and not codex_home.is_dir():
         fail(f"Required Codex home is missing: {codex_home}")
     if not check_only:
         codex_home.mkdir(parents=True, exist_ok=True)
     if lock_path.is_symlink():
-        fail(f"Refusing symlinked {label} lock: {lock_path}")
+        fail(f"Refusing symlinked installer lock: {lock_path}")
     if check_only and not lock_path.exists():
-        # Read-only check on a never-provisioned install: no lock has been created yet.
         yield
         return
 
@@ -90,16 +77,16 @@ def managed_lock(
     try:
         fd = os.open(lock_path, flags, 0o600)
     except OSError as exc:
-        fail(f"Could not open {label} lock {lock_path}: {exc}")
+        fail(f"Could not open installer lock {lock_path}: {exc}")
 
     locked = False
     try:
         metadata = os.fstat(fd)
         if not stat.S_ISREG(metadata.st_mode):
-            fail(f"{label.capitalize()} lock is not a regular file: {lock_path}")
+            fail(f"Installer lock is not a regular file: {lock_path}")
         if metadata.st_size == 0:
             if check_only:
-                fail(f"{label.capitalize()} lock is missing initialization state: {lock_path}")
+                fail(f"Installer lock is missing initialization state: {lock_path}")
             os.write(fd, b"\0")
             os.fsync(fd)
         lock_file(fd)
@@ -109,51 +96,6 @@ def managed_lock(
         if locked:
             unlock_file(fd)
         os.close(fd)
-
-
-@contextmanager
-def installation_locks(
-    codex_home: Path,
-    *,
-    check_only: bool,
-    migrate_legacy: bool,
-):
-    """Acquire locks in one global order: legacy first, current second.
-
-    Legacy codex-delegate installers only know the legacy lock. Taking it before
-    the current lock gives migration mutual exclusion with both generations.
-    Ordinary current installs only need the current lock.
-    """
-
-    if migrate_legacy and not check_only:
-        with managed_lock(
-            codex_home,
-            LEGACY_LOCK_NAME,
-            check_only=False,
-            label="legacy migration",
-        ):
-            state = detect_legacy_state(codex_home)
-            if state.ownership_unknown:
-                fail(
-                    "Refusing automatic legacy migration because ownership metadata is missing, invalid, or unsafe. "
-                    "Run --legacy-status or Doctor and resolve the preserved legacy files explicitly."
-                )
-            with managed_lock(
-                codex_home,
-                LOCK_NAME,
-                check_only=False,
-                label="installer",
-            ):
-                yield
-        return
-
-    with managed_lock(
-        codex_home,
-        LOCK_NAME,
-        check_only=check_only,
-        label="installer",
-    ):
-        yield
 
 
 def file_hash(path: Path) -> str:
@@ -214,16 +156,10 @@ def parse_args() -> argparse.Namespace:
         default=Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")),
         help="Codex home directory (default: $CODEX_HOME or ~/.codex).",
     )
-    parser.add_argument("--check", action="store_true", help="Verify current managed state without mutation.")
     parser.add_argument(
-        "--migrate-legacy",
+        "--check",
         action="store_true",
-        help="Migrate from legacy codex-delegate installation before installing.",
-    )
-    parser.add_argument(
-        "--legacy-status",
-        action="store_true",
-        help="Show legacy migration status without mutation.",
+        help="Verify current managed state without mutation.",
     )
     return parser.parse_args()
 
@@ -284,7 +220,9 @@ def validate_sources() -> None:
         )
         if actual != expected:
             fail(f"Agent profile {filename} pins {actual!r}; expected {expected!r}")
-        if not str(data.get("description", "")).strip() or not str(data.get("developer_instructions", "")).strip():
+        if not str(data.get("description", "")).strip() or not str(
+            data.get("developer_instructions", "")
+        ).strip():
             fail(f"Agent profile is incomplete: {filename}")
         if expected[0] in seen_names:
             fail(f"Duplicate shipped Agent role name: {expected[0]}")
@@ -317,11 +255,8 @@ def preflight_profiles(
     *,
     check_only: bool,
     managed_hashes: dict[str, str],
-    pending_cleanup: set[str] | None = None,
 ) -> dict[str, str]:
     upgrades: dict[str, str] = {}
-    skip_names = pending_cleanup or set()
-
     for filename in PROFILE_FILES:
         source = PROFILE_SOURCE / filename
         target = agents_dir / filename
@@ -352,8 +287,6 @@ def preflight_profiles(
     if agents_dir.exists():
         for existing in agents_dir.glob("*.toml"):
             if existing.name in PROFILE_FILES or existing.is_symlink() or not existing.is_file():
-                continue
-            if existing.name in skip_names:
                 continue
             existing_name = parse_profile_name(existing)
             if existing_name in current_roles:
@@ -498,43 +431,17 @@ def rollback(
     return errors
 
 
-def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = False) -> None:
+def install_locked(codex_home: Path, check_only: bool) -> None:
     agents_dir = codex_home / "agents"
     manifest_path = codex_home / MANIFEST_NAME
-    legacy_backup = None
-
-    if migrate_legacy and not check_only:
-        legacy_state = detect_legacy_state(codex_home)
-        if legacy_state.ownership_unknown:
-            fail(
-                "Refusing automatic legacy migration because ownership metadata is missing, invalid, or unsafe. "
-                "Run --legacy-status or Doctor and resolve the preserved legacy files explicitly."
-            )
-        if legacy_state.legacy_only or legacy_state.mixed:
-            print("Legacy installation found. Safely migratable files will be updated; preserved files will remain untouched.")
-            legacy_backup, legacy_warnings = backup_legacy_files(codex_home)
-            for warning in legacy_warnings:
-                print(f"  WARNING: {warning}")
-        elif legacy_state.migration_complete:
-            print("Legacy migration is already complete.")
-        else:
-            print("No legacy installation found.")
 
     validate_sources()
     preflight_agents_dir(agents_dir, check_only=check_only)
     manifest = load_manifest(manifest_path)
-    pending_cleanup = None
-    if legacy_backup is not None:
-        pending_cleanup = {
-            Path(relative).name
-            for relative, can_remove in legacy_backup.removal_map.items()
-            if can_remove and relative.startswith("agents/")
-        }
     upgrades = preflight_profiles(
         agents_dir,
         check_only=check_only,
         managed_hashes=manifest_hashes(manifest),
-        pending_cleanup=pending_cleanup,
     )
 
     if check_only:
@@ -545,16 +452,6 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
         return
 
     previous_manifest = manifest_path.read_bytes() if manifest_path.is_file() else None
-    legacy_cleanup_committed = False
-
-    if legacy_backup is not None:
-        cleanup_messages, cleanup_warnings = commit_legacy_cleanup(codex_home, legacy_backup)
-        legacy_cleanup_committed = True
-        for message in cleanup_messages:
-            print(f"  {message}")
-        for warning in cleanup_warnings:
-            print(f"  WARNING: {warning}")
-
     profiles_exact = agents_dir.is_dir() and all(
         (agents_dir / filename).is_file()
         and not (agents_dir / filename).is_symlink()
@@ -572,15 +469,11 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
 
     try:
         apply_profile_changes(agents_dir, upgrades, created, backups)
-        # Pre-commit consistency check: publish ownership only for exact profiles.
         verify_profiles(agents_dir)
         write_manifest(manifest_path, desired_manifest())
-        # Post-commit consistency check: fail and roll back if profiles drift during manifest publication.
         verify_profiles(agents_dir)
     except BaseException as exc:
         rollback_errors = rollback(created, backups, manifest_path, previous_manifest)
-        if legacy_backup is not None and legacy_cleanup_committed:
-            rollback_errors.extend(rollback_legacy_cleanup(codex_home, legacy_backup))
         if rollback_errors:
             fail(
                 f"INSTALL FAILED: {exc}\nROLLBACK INCOMPLETE:\n- "
@@ -592,56 +485,21 @@ def install_locked(codex_home: Path, check_only: bool, migrate_legacy: bool = Fa
             backup.unlink(missing_ok=True)
 
     print(f"Managed Agent profiles installed under: {agents_dir}")
-    post_state = detect_legacy_state(codex_home)
-    if post_state.preserved_legacy:
-        print("WARNING: Modified legacy files were preserved. Review them before running migration again.")
     print("Restart required: Start a fresh Codex session before using Orchestrate.")
 
 
-def install(codex_home: Path, check_only: bool, migrate_legacy: bool = False) -> None:
+def install(codex_home: Path, check_only: bool) -> None:
     codex_home = codex_home.expanduser()
     if codex_home.is_symlink():
         fail(f"Refusing symlinked Codex home: {codex_home}")
     codex_home = codex_home.resolve()
-    with installation_locks(
-        codex_home,
-        check_only=check_only,
-        migrate_legacy=migrate_legacy,
-    ):
-        install_locked(codex_home, check_only, migrate_legacy)
-
-
-def show_legacy_status(codex_home: Path) -> None:
-    codex_home = codex_home.expanduser()
-    if codex_home.is_symlink():
-        fail(f"Refusing symlinked Codex home: {codex_home}")
-    codex_home = codex_home.resolve()
-    state = detect_legacy_state(codex_home)
-    print(f"Legacy migration status: {format_migration_state(state)}")
-    print(f"  Legacy only: {state.legacy_only}")
-    print(f"  Current only: {state.current_only}")
-    print(f"  Mixed: {state.mixed}")
-    print(f"  Legacy modified: {state.legacy_modified}")
-    print(f"  Ownership unknown: {state.ownership_unknown}")
-    print(f"  Preserved legacy: {state.preserved_legacy}")
-    print(f"  Migration complete: {state.migration_complete}")
-
-    if state.legacy_only or state.mixed:
-        path = codex_home / LEGACY_MANIFEST_NAME
-        manifest = load_legacy_manifest(path)
-        if manifest:
-            print(f"  Legacy manifest: {path}")
-            print(f"  Legacy schema version: {manifest.schema_version}")
-            print(f"  Legacy managed by: {manifest.managed_by}")
-            print(f"  Legacy profiles: {', '.join(manifest.profile_hashes.keys())}")
+    with managed_lock(codex_home, check_only=check_only):
+        install_locked(codex_home, check_only)
 
 
 def main() -> None:
     args = parse_args()
-    if args.legacy_status:
-        show_legacy_status(args.codex_home)
-    else:
-        install(args.codex_home, args.check, args.migrate_legacy)
+    install(args.codex_home, args.check)
 
 
 if __name__ == "__main__":

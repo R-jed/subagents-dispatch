@@ -75,7 +75,7 @@ def native_host_evidence(*, managed_child_containment: str = "verified") -> dict
     }
 
 
-def test_doctor_reports_product_health_layers_with_host_unknown(tmp_path: Path):
+def test_doctor_reports_current_product_health_layers_with_host_unknown(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--check")
@@ -86,7 +86,6 @@ def test_doctor_reports_product_health_layers_with_host_unknown(tmp_path: Path):
         "Managed Agents",
         "Host integration",
         "Orchestration state",
-        "Legacy compatibility",
     ]
     positions = [result.stdout.index(f"] {name}:") for name in order]
     assert positions == sorted(positions)
@@ -113,7 +112,6 @@ def test_doctor_json_has_only_current_layers_and_actions(tmp_path: Path):
         "Managed Agents",
         "Host integration",
         "Orchestration state",
-        "Legacy compatibility",
     ]
     assert payload["layers"][2]["status"] == "UNKNOWN"
 
@@ -198,6 +196,57 @@ def test_valid_v4_state_is_diagnosed_directly(tmp_path: Path):
     assert "[OK] Orchestration state: Current orchestration state is healthy" in result.stdout
 
 
+def test_unknown_execution_and_writer_lease_remain_unknown_in_doctor(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    state = load_module("doctor_unknown_state", "dispatch_state_v4.py")
+    graph = load_module("doctor_unknown_graph", "work_graph_v4.py")
+    lifecycle = load_module("doctor_unknown_lifecycle", "execution_lifecycle_v4.py")
+    state.write_state(state.new_state(thread_id=THREAD), temp_root=tmp_path)
+    unit = graph.make_work_unit(
+        unit_id="U1",
+        intent="implement",
+        goal="change owned source",
+        output="patch",
+        ownership_write=["src/a.py"],
+        authority_ceiling="bounded-source-write",
+        write_scope_ceiling=["src/a.py"],
+        done_when="tests pass",
+    )
+    graph.install_work_graph(THREAD, units=[unit], temp_root=tmp_path)
+    lifecycle.allocate_execution(
+        THREAD,
+        unit_id="U1",
+        execution_id="exec-1",
+        native_task_name="sd_u1_a1",
+        profile_id="worker",
+        granted_authority="bounded-source-write",
+        granted_write_scope=["src/a.py"],
+        writer_lease_id="lease-1",
+        temp_root=tmp_path,
+    )
+    lifecycle.mark_execution_unknown(
+        THREAD,
+        execution_id="exec-1",
+        temp_root=tmp_path,
+    )
+
+    result = run_doctor(home, tmp_path, "--check")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (
+        "[UNKNOWN] Orchestration state: Current orchestration state contains unresolved Host uncertainty"
+        in result.stdout
+    )
+
+    structured = run_doctor(home, tmp_path, "--json", "--check")
+    assert structured.returncode == 0, structured.stdout + structured.stderr
+    orchestration_layer = json.loads(structured.stdout)["layers"][3]
+    assert orchestration_layer["status"] == "UNKNOWN"
+    assert orchestration_layer["details"]["unknown_executions"] == ["exec-1"]
+    assert orchestration_layer["details"]["writer_state"] == "UNKNOWN"
+
+
 def test_missing_managed_profiles_are_warning_and_repairable(tmp_path: Path):
     home = tmp_path / "missing-codex-home"
     assert not home.exists()
@@ -221,7 +270,7 @@ def test_modified_owned_profile_blocks_doctor(tmp_path: Path):
     assert "[FAIL] Managed Agents: Managed Agent profiles cannot be changed safely" in result.stdout
 
 
-def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: Path):
+def test_explicit_blank_thread_identity_fails_closed(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = subprocess.run(
@@ -234,7 +283,7 @@ def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: P
             str(tmp_path),
             "--thread-id",
             "",
-            "--cleanup-stale",
+            "--check",
         ],
         cwd=ROOT,
         text=True,
@@ -247,19 +296,19 @@ def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: P
     assert "Traceback" not in result.stderr
 
 
-def test_legacy_flag_displays_current_migration_state_without_mutation(tmp_path: Path):
-    result = subprocess.run(
-        [sys.executable, str(DOCTOR), "--codex-home", str(tmp_path / "codex-home"), "--legacy"],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 0
-    assert "[" in result.stdout
-    assert "Legacy compatibility" in result.stdout
-    assert "Migration state:" in result.stdout
+def test_removed_pre_1_0_doctor_actions_fail_as_unknown_arguments(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    for option in ("--legacy", "--migrate-legacy", "--cleanup-stale"):
+        result = subprocess.run(
+            [sys.executable, str(DOCTOR), "--codex-home", str(home), option],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "unrecognized arguments" in result.stderr
 
 
 def test_doctor_can_explicitly_uninstall_only_owned_managed_profiles(tmp_path: Path):

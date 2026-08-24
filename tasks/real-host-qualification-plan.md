@@ -1,8 +1,8 @@
-# V4 Real Host Qualification Plan
+# Native Core V4 Real Host Qualification Plan
 
 Status: PLANNED. No real Host action is authorized by this document alone.
 
-This file is a human execution plan for the V4 real Codex Host campaign. `docs/v4/host-smoke.json` remains the machine authority for N0 through N8. `docs/release-checklist.md` remains the release-gate authority. Issue #91 remains the append-only authority for live Host preflight decisions and evidence. If this plan conflicts with either canonical contract, the canonical contract wins.
+This file is a human execution plan for the Native Core V4 real Codex Host campaign used to qualify the first public Plugin `1.0.0` release. `docs/v4/host-smoke.json` remains the machine authority for N0 through N8. `docs/release-checklist.md` remains the release-gate authority. Issue #91 remains the append-only authority for live Host preflight decisions and evidence. If this plan conflicts with either canonical contract, the canonical contract wins.
 
 Root `headoff.md` is development-session context only. It is not a Plugin contract, Host qualification input, release gate, or evidence authority. Update it only when durable project background, workflow, current phase, or next direction materially changes. Do not mutate repository source merely to record an individual Host result.
 
@@ -38,9 +38,9 @@ Purpose: establish a trustworthy starting environment without creating or contro
 
 Entry conditions:
 
-- release source is the current `v4/rc5-native-core` head;
-- release-source CI is green;
-- local checkout can be synchronized to that head;
+- release source is the exact first-public `1.0.0` candidate selected in GitHub;
+- release-source CI is green for that exact source;
+- local checkout can be synchronized to that exact commit;
 - Issue #91 preflight is recorded before any Host action.
 
 Actions:
@@ -257,8 +257,8 @@ Actions:
 3. Build and verify the external release evidence envelope.
 4. Verify installed-product Doctor and exact package/profile identity.
 5. Perform human two-Skill App observation.
-6. Keep PR #81 Draft and publication blocked if any gate is pending, unknown, not run, or failed.
-7. Only after every gate is PASS may PR #81 leave Draft and the version tag/publication sequence begin.
+6. Keep the current release candidate and publication blocked if any gate is pending, unknown, not run, or failed.
+7. Only after every gate is PASS may the release candidate enter the version-tag and publication sequence.
 
 Mandatory stop: `H10_RELEASE_DECISION_STOP`.
 

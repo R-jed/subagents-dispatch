@@ -50,7 +50,7 @@ def test_install_work_graph_accepts_one_to_four_units_without_teamplan(tmp_path:
         state.write_state(state.new_state(thread_id=thread_id), temp_root=tmp_path)
         units = [unit(graph, f"U{i}") for i in range(1, count + 1)]
         current = graph.install_work_graph(thread_id, units=units, temp_root=tmp_path)
-        assert current["team_plan_revision"] is None
+        assert "team_plan_revision" not in current
         assert [item["unit_id"] for item in current["work_units"]] == [
             f"U{i}" for i in range(1, count + 1)
         ]

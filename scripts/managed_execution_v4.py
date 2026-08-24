@@ -136,7 +136,6 @@ def assignment_packet(
             "unit_id": unit["unit_id"],
             "execution_id": execution["execution_id"],
             "attempt_no": execution["attempt_no"],
-            "team_plan_revision": execution.get("team_plan_revision"),
             "mutation_authority": execution["granted_authority"],
             "write_scope": list(execution["granted_write_scope"]),
         },

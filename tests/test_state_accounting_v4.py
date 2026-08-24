@@ -48,7 +48,6 @@ def populated_state(state) -> dict:
         {
             "execution_id": "exec-1",
             "unit_id": "U1",
-            "team_plan_revision": None,
             "attempt_no": 1,
             "profile_id": "reader",
             "agent_id": "agent-1",
