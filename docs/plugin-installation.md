@@ -50,7 +50,7 @@ The current product manages one canonical mutable workspace. At most one managed
 
 ## Host integration
 
-Native Core relies on Codex Native Subagent lifecycle primitives and current Host observations. Plugin Hooks are outside the V4.0.0 correctness path.
+Native Core relies on Codex Native Subagent lifecycle primitives and current Host observations. Plugin Hooks are outside the current correctness path.
 
 When execution readiness must be proven, Doctor can consume a caller-supplied current Host capability snapshot. Missing Host evidence remains `UNKNOWN`; configured files or model self-report do not become observed Host truth.
 
@@ -64,14 +64,13 @@ Normal Doctor diagnosis is deterministic, read-only, and offline:
 <python-3.11+> scripts/doctor.py --codex-home <active-codex-home> --check
 ```
 
-It reports five current product areas:
+It reports four current product areas:
 
 ```text
 Plugin package
 Managed Agents
 Host integration
 Orchestration state
-Legacy compatibility
 ```
 
 Doctor preserves `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]`. `--check` exits non-zero only for confirmed blocking failures; missing evidence remains visible rather than being rewritten as success.
@@ -80,12 +79,12 @@ Supported explicit maintenance actions are:
 
 ```text
 --repair
---migrate-legacy
---cleanup-stale
 --uninstall-managed
 ```
 
 Only one maintenance action may be selected at a time. Ownership and filesystem safety checks remain fail closed.
+
+The first public product line starts at `1.0.0`. Doctor does not migrate or clean pre-1.0 product state. Unsupported managed-profile manifests, conflicting ownership, and unrecognized state fail explicitly.
 
 ## Check for updates
 
@@ -105,7 +104,7 @@ Run the explicit updater only when the user intends to install an update:
 <python-3.11+> scripts/plugin_update.py --codex-home <active-codex-home>
 ```
 
-The updater verifies the canonical Marketplace and Plugin identity, refreshes the Marketplace, installs a newer stable release when available, verifies the installed package, reconciles only Plugin-owned managed profiles, and runs the newly installed Native Core Doctor contract as post-write validation.
+The updater verifies the canonical Marketplace-local Plugin identity, refreshes the Marketplace, installs a newer stable release when available, verifies the installed package, reconciles only Plugin-owned managed profiles, and runs the newly installed Doctor contract as post-write validation.
 
 A changed Plugin package requires a fresh Codex session before normal work resumes.
 
