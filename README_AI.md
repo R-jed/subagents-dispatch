@@ -4,6 +4,8 @@ Current product surface: `Orchestrate` and `Doctor`.
 
 Before changing the active release branch, read root `headoff.md`. It is the development-session context transfer entrypoint for project background, important workflow history, current progress and next direction. Read GitHub and Issue #91 directly for current candidate, CI and real-Host evidence. Historical development chronology is not an active contract.
 
+`headoff.md` is development-only context. It is not Plugin runtime, Host qualification input, release evidence, or a phase gate. Do not require a headoff edit or commit merely to record an individual Host result. Its eventual post-release removal is repository housekeeping and does not change an already-tagged Plugin artifact.
+
 ## Canonical truth
 
 Keep one owner per semantic fact:
@@ -17,7 +19,7 @@ Keep one owner per semantic fact:
 
 Do not add another tracked status JSON that copies current SHA, CI result or Host verdict. Do not create parallel machine projections of routing, scheduling, writer or Host semantics already owned by the canonical contracts.
 
-`docs/v4/` is reserved for version-specific machine or maintenance contracts. Development-session continuation context lives in root `headoff.md`.
+`docs/v4/` is reserved for version-specific machine or maintenance contracts. Development-session continuation context lives in root `headoff.md` while the project is under active development.
 
 ## Runtime ownership
 

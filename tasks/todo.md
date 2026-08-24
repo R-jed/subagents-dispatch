@@ -1,35 +1,39 @@
-# N1 Managed Delegation Depth Tasks
+# V4 Deep Review Remediation Tasks
 
-- [x] Specify the corrected product boundary
-  - Acceptance: Main is the sole managed coordinator; managed children cannot create or control another Agent layer; latent Host V2 recursion is documented separately.
-  - Verify: `tasks/SPEC-n1-managed-depth.md` matches current product contracts and official Codex source.
-  - Files: `tasks/SPEC-n1-managed-depth.md`, `tasks/plan.md`.
+This checklist tracks the repository fixes identified by the independent full-repository Deep Review. Live release candidate, CI, and Host verdicts remain in GitHub and Issue #91.
 
-- [x] Correct Host readiness semantics
-  - Acceptance: `managed_child_containment` is optional diagnostic compatibility data and does not decide ordinary `execution_ready`; malformed supplied values still fail closed.
-  - Verify: focused `tests/test_host_capabilities.py` plus downstream scheduler/Doctor tests.
-  - Files: `scripts/host_capabilities.py`, focused tests.
+- [x] Fix plan-only WorkUnit validation
+  - Acceptance: malformed intent, goal, dependency type, unknown dependency, and cyclic dependency fail closed through canonical WorkUnit/state validation.
+  - Verify: focused adversarial plan-only tests plus full pytest.
+  - Files: `scripts/orchestrate_v4.py`, focused tests, package-integrity manifest.
 
-- [x] Correct the N1 machine contract
-  - Acceptance: N1 evaluates canonical managed profiles, their delegation boundary, adversarial untrusted-input behavior, child-issued nested Agent actions, and descendant identities/spawn edges; a generic forced V2 grandchild probe is platform evidence only.
-  - Verify: `tests/test_host_contract_v4.py` assertions against `docs/v4/host-smoke.json` and architecture contract.
-  - Files: `docs/v4/host-smoke.json`, `docs/v4/architecture.json`, tests.
+- [x] Remove `headoff.md` from Host qualification authority
+  - Acceptance: phase hard stops and Issue #91 evidence remain mandatory; editing or committing `headoff.md` is never required to advance H0-H10.
+  - Verify: staged Host plan contains no headoff-driven revalidation loop and explicitly classifies headoff as development-only context.
+  - Files: `tasks/real-host-qualification-plan.md`, `README_AI.md`, relevant tests/docs.
 
-- [x] Align current-authority documentation
-  - Acceptance: architecture, release checklist, AI reference and current-state checkpoint consistently distinguish product depth policy from Host-hard isolation; N8 read-only Host evidence remains unchanged.
-  - Verify: repository contract tests and direct adversarial text review.
-  - Files: `docs/architecture.md`, `docs/release-checklist.md`, `README_AI.md`, `docs/v4/current-state.md`, relevant V4 evidence docs.
+- [x] Repair stale N1/task truth
+  - Acceptance: no current spec points to deleted `docs/v4/current-state.md`; live state is not duplicated into tracked task documents.
+  - Verify: direct spec review and truth-closure tests.
+  - Files: `tasks/SPEC-n1-managed-depth.md`, this checklist.
 
-- [x] Refresh shipped package integrity
-  - Acceptance: `.codex-plugin/package-integrity.json` contains the exact new SHA-256 for changed shipped runtime files and no unrelated payload drift.
-  - Verify: generated package-integrity check in CI.
+- [x] Make PR CI verify the exact head commit
+  - Acceptance: pull-request jobs checkout the PR head SHA explicitly and assert the checked-out Git HEAD matches the expected commit.
+  - Verify: GitHub Actions logs show the exact PR head identity before the test matrix runs.
+  - Files: `.github/workflows/ci.yml`.
 
-- [ ] Final exact-head candidate verification
-  - Acceptance: Ruff, full pytest, managed Agent lifecycle, package integrity, official Plugin validator where applicable, all four platform jobs and aggregate policy-tests pass after the final repository-content change.
-  - Verify: GitHub Actions workflow bound to the final PR head.
+- [x] Decouple source-only release-evidence tests from `headoff.md`
+  - Acceptance: release identity tests preserve generic non-runtime source-change semantics without using the development handoff file as a release concept.
+  - Verify: focused release-evidence tests.
+
+- [ ] Refresh generated package integrity
+  - Acceptance: `.codex-plugin/package-integrity.json` exactly matches the changed shipped runtime bytes.
+  - Verify: `python scripts/package_integrity.py --check-generated` PASS in CI.
+
+- [ ] Full exact-head repository verification
+  - Acceptance: Ruff, full pytest, package integrity, official Plugin validator, managed Agent lifecycle, Ubuntu 3.11/3.12, macOS 3.11, Windows 3.11, and aggregate `policy-tests` all PASS on the final remediation head.
 
 - [ ] Fresh adversarial review and merge decision
-  - Acceptance: no current contract authorizes managed nested delegation; no stale Host-hard N1 wording remains in current-authority surfaces; no unrelated safety invariant is weakened.
-  - Verify: compare final PR against `v4/rc5-native-core`, inspect exact-head CI evidence, then merge only if review is clean.
+  - Acceptance: no required review finding remains, no safety invariant is weakened, Host qualification invalidation is classified from the final three qualification digests, and the remediation can be merged without hidden release-state claims.
 
-Real Host revised N1 is a later release gate, not a repository-side implementation task. It remains NOT_RUN until the corrected contract is merged, the exact installed candidate is rebound, and the canonical managed-profile campaign executes.
+Real Host H1 must not resume until the final remediation candidate is repository-green and its Host qualification basis has been re-evaluated under Issue #91 rules.

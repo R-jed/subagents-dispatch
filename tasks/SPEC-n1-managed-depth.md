@@ -41,17 +41,22 @@ Windows Python 3.11 PASS
 aggregate policy-tests PASS
 ```
 
+The final repository matrix must checkout and verify the exact PR/release head commit, not rely only on a synthetic merge commit with an equivalent tree.
+
 ## Project structure
 
 ```text
-scripts/host_capabilities.py        Host capability normalization only
-docs/v4/host-smoke.json            N0-N8 real Host machine contract
-docs/v4/architecture.json          machine-readable product architecture
-docs/architecture.md               human-readable architecture
-docs/release-checklist.md          release sequence
-tests/                              deterministic repository contract tests
-docs/v4/current-state.md            active release checkpoint
+scripts/host_capabilities.py             Host capability normalization only
+docs/v4/host-smoke.json                 N0-N8 real Host machine contract
+docs/v4/architecture.json               machine-readable product architecture
+docs/architecture.md                    human-readable architecture
+docs/release-checklist.md               release sequence
+tasks/real-host-qualification-plan.md    human staged Host procedure
+tests/                                  deterministic repository contract tests
+Issue #91                               live Host evidence and preflight ledger
 ```
+
+`headoff.md` is development-session context only. It does not define N1, Host qualification, or release truth.
 
 ## Design
 
@@ -96,6 +101,7 @@ Keep all current managed-profile leaf requests and behavioral instructions. Keep
 ## Boundaries
 
 Always:
+
 - preserve Main as sole managed coordinator;
 - preserve delegation depth 1 as a product invariant;
 - preserve UNKNOWN fail-closed behavior where actual materialization/lifecycle/identity is ambiguous;
@@ -103,11 +109,13 @@ Always:
 - retain historical Host recursion evidence as platform evidence.
 
 Ask first:
+
 - changing fixed profile model/effort contracts;
 - reintroducing Hook/Guard or another lifecycle control plane;
 - changing the product to permit nested managed delegation.
 
 Never:
+
 - claim profile TOML disables V2 collaboration at the Host when it has not been observed;
 - claim Codex V2 itself is depth-limited by project `max_depth=1`;
 - mark N1 PASS from repository CI alone;
@@ -118,6 +126,6 @@ Never:
 - `host_capabilities.py` no longer makes hard Host descendant containment an ordinary execution-readiness prerequisite.
 - N1 machine contract tests the actual managed-child single-layer behavior described above.
 - Current architecture and release docs distinguish project delegation policy from latent Host V2 recursion.
-- No Orchestrate spawn, WorkGraph, WriterLease, recovery, fixed profile, or N8 semantics are changed.
-- Focused tests and the complete GitHub Actions matrix pass on the final exact head.
+- No Orchestrate spawn, WorkGraph, WriterLease, recovery, fixed profile, or N8 semantics are changed by the N1 correction itself.
+- Focused tests and the complete GitHub Actions matrix pass on the exact final head.
 - Fresh adversarial review finds no contract path that permits managed nested delegation.
