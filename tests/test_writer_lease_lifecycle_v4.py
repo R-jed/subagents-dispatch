@@ -52,9 +52,7 @@ def install_graph(state, graph, tmp_path: Path, *, two_writers: bool = False) ->
                 done_when="tests pass",
             )
         )
-    graph.install_work_graph(
-        "thread-p5", team_plan_revision=1, units=units, temp_root=tmp_path
-    )
+    graph.install_work_graph("thread-p5", units=units, temp_root=tmp_path)
 
 
 def allocate_writer(lifecycle, tmp_path: Path, *, unit_id: str = "U1", execution_id: str = "exec-1", lease_id: str = "lease-1"):
