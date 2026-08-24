@@ -286,14 +286,30 @@ def diagnose_orchestration_state(thread_id: str | None, temp_root: Path) -> dict
         for item in current["executions"]
         if item["lifecycle"] in {"SPAWN_PENDING", "RUNNING", "UNKNOWN"}
     ]
+    unknown_executions = [
+        item["execution_id"]
+        for item in current["executions"]
+        if item["lifecycle"] == "UNKNOWN"
+    ]
     lease = current.get("writer_lease")
+    writer_state = lease.get("state") if isinstance(lease, Mapping) else None
+    if unknown_executions or writer_state == "UNKNOWN":
+        return layer(
+            "Orchestration state",
+            "UNKNOWN",
+            "Current orchestration state contains unresolved Host uncertainty",
+            state_revision=current["state_revision"],
+            active_executions=active,
+            unknown_executions=unknown_executions,
+            writer_state=writer_state,
+        )
     return layer(
         "Orchestration state",
         "OK",
         "Current orchestration state is healthy",
         state_revision=current["state_revision"],
         active_executions=active,
-        writer_state=lease.get("state") if isinstance(lease, Mapping) else None,
+        writer_state=writer_state,
     )
 
 
