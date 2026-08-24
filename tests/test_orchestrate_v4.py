@@ -44,7 +44,7 @@ def install_spawn_pending_reader(tmp_path: Path):
         decision_boundary="Return only bounded evidence to Main.",
         stop_boundary="Stop and report any scope or safety blocker to Main.",
     )
-    graph.install_single_work_unit("thread-spawn", unit=unit, temp_root=tmp_path)
+    graph.install_work_graph("thread-spawn", units=[unit], temp_root=tmp_path)
     lifecycle.allocate_execution(
         "thread-spawn",
         unit_id="U1",
@@ -65,7 +65,7 @@ def install_running_reader(tmp_path: Path):
     unit = graph.make_work_unit(
         unit_id="U1", intent="inspect", goal="inspect one bounded target", output="evidence", done_when="Main can verify the evidence"
     )
-    graph.install_single_work_unit("thread-control", unit=unit, temp_root=tmp_path)
+    graph.install_work_graph("thread-control", units=[unit], temp_root=tmp_path)
     lifecycle.allocate_execution(
         "thread-control", unit_id="U1", execution_id="exec-1", native_task_name="sd_u1_a1", profile_id="reader", granted_authority="none", temp_root=tmp_path
     )
@@ -172,7 +172,7 @@ def test_unrelated_request_cannot_attach_to_active_orchestration(tmp_path: Path)
     unit = graph.make_work_unit(
         unit_id="U1", intent="inspect", goal="active work", output="evidence", done_when="accepted"
     )
-    graph.install_work_graph("thread-active", team_plan_revision=1, units=[unit], temp_root=tmp_path)
+    graph.install_work_graph("thread-active", units=[unit], temp_root=tmp_path)
     blocked = orchestrate.admission_decision(
         "thread-active", orchestration_id=None, new_task=True, temp_root=tmp_path
     )
@@ -192,7 +192,7 @@ def test_status_is_state_projection_not_a_launch_plan(tmp_path: Path):
         graph.make_work_unit(unit_id="U1", intent="inspect", goal="root", output="evidence", done_when="accepted"),
         graph.make_work_unit(unit_id="U2", intent="review", goal="dependent", output="verdict", depends_on=["U1"], done_when="accepted"),
     ]
-    graph.install_work_graph("thread-status", team_plan_revision=1, units=units, temp_root=tmp_path)
+    graph.install_work_graph("thread-status", units=units, temp_root=tmp_path)
     view = orchestrate.status_view(
         "thread-status", orchestration_id="thread-status", temp_root=tmp_path
     )
@@ -211,7 +211,7 @@ def test_reconcile_returns_constraints_without_selecting_work(tmp_path: Path):
     unit = graph.make_work_unit(
         unit_id="U1", intent="inspect", goal="read", output="evidence", done_when="accepted"
     )
-    graph.install_single_work_unit("thread-reconcile", unit=unit, temp_root=tmp_path)
+    graph.install_work_graph("thread-reconcile", units=[unit], temp_root=tmp_path)
     snapshot = host.normalize_host_capabilities({
         "surface": "multi_agent_v2",
         "tools": ["spawn_agent", "followup_task", "interrupt_agent", "list_agents", "wait_agent"],
@@ -257,7 +257,6 @@ def test_completed_correction_threads_explicit_recovery_basis(tmp_path: Path):
         temp_root=tmp_path,
     )
     orchestrate = load_module("orch_correction", "orchestrate_v4.py")
-
     prepared = orchestrate.prepare_correction(
         "thread-control",
         orchestration_id="thread-control",
