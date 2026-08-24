@@ -36,10 +36,9 @@ def test_v4_skill_metadata_keeps_explicit_human_invocation_boundary():
         assert payload["policy"]["allow_implicit_invocation"] is False
 
 
-def test_third_party_mit_notice_stays_with_license_and_derived_source():
+def test_third_party_mit_notice_remains_in_license_without_dead_source_dependency():
     assert not (ROOT / "THIRD_PARTY_NOTICES.md").exists()
     license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
-    derived = (ROOT / "scripts" / "validate_team_plan.py").read_text(encoding="utf-8")
     for phrase in (
         "Copyright (c) 2026 Zhijian AI / Dapeng",
         "Permission is hereby granted",
@@ -47,8 +46,7 @@ def test_third_party_mit_notice_stays_with_license_and_derived_source():
         "8b9abec4b353c70f04e8409302169309544bae95",
     ):
         assert phrase in license_text
-    assert "License notice is preserved in ../LICENSE." in derived
-    assert "THIRD_PARTY_NOTICES.md" not in derived
+    assert not (ROOT / "scripts" / "validate_team_plan.py").exists()
 
 
 def test_plugin_no_longer_tracks_repository_privacy_or_terms_files():
