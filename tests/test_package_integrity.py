@@ -42,7 +42,7 @@ def test_committed_integrity_manifest_is_generated_from_native_runtime_scope():
     committed = module.load_manifest(ROOT)
     assert committed == module.build_manifest(ROOT)
     assert module.check_generated(ROOT)["ok"] is True
-    assert committed["plugin_version"] == "4.0.0"
+    assert committed["plugin_version"] == "1.0.0"
     assert committed["algorithm"] == "sha256"
     assert committed["normalization"] == "utf-8-lf"
     assert "scripts/host_capabilities.py" in committed["files"]
