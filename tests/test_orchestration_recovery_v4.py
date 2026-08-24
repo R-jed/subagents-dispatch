@@ -213,7 +213,6 @@ def test_scheduler_uses_native_snapshot_only_and_has_no_persisted_capacity_token
     scheduler = load_module("recovery_scheduler_native", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-recovery")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [work_unit(), {**work_unit(), "unit_id": "U2"}]
     state.validate_state_payload(payload)
 
