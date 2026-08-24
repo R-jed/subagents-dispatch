@@ -7,7 +7,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
@@ -24,7 +23,6 @@ CANONICAL_GIT_URLS = {
     "https://github.com/R-jed/subagents-dispatch.git",
 }
 CANONICAL_MARKETPLACE_SOURCES = {CANONICAL_REPOSITORY, *CANONICAL_GIT_URLS}
-VERSION_REF = re.compile(r"^v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)$")
 
 
 class UpdateError(RuntimeError):
@@ -59,13 +57,6 @@ def package_version(root: Path = ROOT) -> str:
     if not isinstance(version, str) or not version.strip():
         raise UpdateError("packaged Plugin version is missing")
     return version.strip()
-
-
-def _version_from_ref(value: Any) -> str | None:
-    if not isinstance(value, str):
-        return None
-    match = VERSION_REF.fullmatch(value.strip())
-    return match.group("version") if match else None
 
 
 def _core_semver(value: str) -> tuple[int, int, int] | None:
@@ -104,7 +95,7 @@ def _canonical_marketplace_issue(row: Mapping[str, Any]) -> str | None:
 def _local_source_root(row: Mapping[str, Any]) -> Path:
     source = row.get("source")
     if not isinstance(source, Mapping) or source.get("source") != "local":
-        raise UpdateError("installed Plugin source is not a Marketplace-local source")
+        raise UpdateError("installed Plugin source must be the Marketplace-local source")
     raw_path = source.get("path")
     if not isinstance(raw_path, str) or not raw_path.strip():
         raise UpdateError("Marketplace-local Plugin source path is unavailable")
@@ -140,27 +131,13 @@ def _available_version_from_local_source(row: Mapping[str, Any]) -> str:
 
 
 def _source_mode(row: Mapping[str, Any]) -> str:
-    source = row.get("source")
-    if not isinstance(source, Mapping):
-        raise UpdateError("installed Plugin source metadata is unavailable")
-    source_type = source.get("source")
-    if source_type == "local":
-        _local_source_root(row)
-        return "marketplace-local"
-    if source_type == "git":
-        if source.get("url") not in CANONICAL_GIT_URLS:
-            raise UpdateError("installed Plugin Git source does not match R-jed/subagents-dispatch")
-        return "legacy-git"
-    raise UpdateError("installed Plugin source type is unsupported")
+    _local_source_root(row)
+    return "marketplace-local"
 
 
-def _available_version(row: Mapping[str, Any]) -> str | None:
-    mode = _source_mode(row)
-    source = row.get("source")
-    assert isinstance(source, Mapping)
-    if mode == "marketplace-local":
-        return _available_version_from_local_source(row)
-    return _version_from_ref(source.get("ref"))
+def _available_version(row: Mapping[str, Any]) -> str:
+    _source_mode(row)
+    return _available_version_from_local_source(row)
 
 
 def _canonical_source_issue(row: Mapping[str, Any]) -> str | None:
@@ -214,16 +191,14 @@ def installation_layer_from_payload(
     row = matches[0]
     source = row.get("source")
     marketplace_source = row.get("marketplaceSource")
-    source_ref = source.get("ref") if isinstance(source, Mapping) else None
     source_path = source.get("path") if isinstance(source, Mapping) else None
-    source_url = source.get("url") if isinstance(source, Mapping) else None
-    marketplace_origin = marketplace_source.get("source") if isinstance(marketplace_source, Mapping) else None
+    marketplace_origin = (
+        marketplace_source.get("source") if isinstance(marketplace_source, Mapping) else None
+    )
     base_details = {
         "matches": 1,
         "package_version": package_version,
-        "source_ref": source_ref,
         "source_path": source_path,
-        "source_url": source_url,
         "marketplace_source": marketplace_origin,
     }
     source_issue = _canonical_source_issue(row)
@@ -231,7 +206,7 @@ def installation_layer_from_payload(
         return _layer(
             "FAIL",
             "Installed Plugin source cannot be verified",
-            action="Restore the official R-jed/subagents-dispatch Marketplace source before updating.",
+            action="Reinstall from the official R-jed/subagents-dispatch Marketplace source.",
             source_issue=source_issue,
             **base_details,
         )
@@ -258,20 +233,21 @@ def installation_layer_from_payload(
         )
     installed_version = installed_version.strip()
     installed_core = _core_semver(installed_version)
-    available_core = _core_semver(available_version) if available_version else None
+    available_core = _core_semver(available_version)
     if installed_core is None:
         return _layer(
             "FAIL",
             "Installed Plugin version is invalid",
-            action="Review or reinstall the Plugin before updating.",
+            action="Reinstall the Plugin from the official Marketplace source.",
             installed_version=installed_version,
             available_version=available_version,
             source_mode=source_mode,
             **base_details,
         )
+    assert available_core is not None
 
-    update_available = bool(available_core is not None and available_core > installed_core)
-    source_older = bool(available_core is not None and available_core < installed_core)
+    update_available = available_core > installed_core
+    source_older = available_core < installed_core
     package_cache_skew = package_version != installed_version
     enabled = row.get("enabled")
     details = {
@@ -312,13 +288,6 @@ def installation_layer_from_payload(
             action="Start a fresh Codex session to load the installed Plugin version.",
             **details,
         )
-    if available_version is None:
-        return _layer(
-            "UNKNOWN",
-            "Available Plugin version could not be determined",
-            action="Refresh the Marketplace, then check again.",
-            **details,
-        )
     if available_version != installed_version:
         return _layer(
             "WARN",
@@ -326,11 +295,7 @@ def installation_layer_from_payload(
             action="Run the Plugin updater, then review the installed version.",
             **details,
         )
-    return _layer(
-        "OK",
-        "Installed Plugin is current",
-        **details,
-    )
+    return _layer("OK", "Installed Plugin is current", **details)
 
 
 def resolve_codex_binary(explicit: str | None = None) -> str | None:
@@ -362,7 +327,9 @@ def _run_json(
             env=env,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise UpdateError(f"Codex command could not complete: {args[0] if args else 'unknown'}") from exc
+        raise UpdateError(
+            f"Codex command could not complete: {args[0] if args else 'unknown'}"
+        ) from exc
     if result.returncode != 0:
         raise UpdateError(f"Codex command failed safely: {' '.join(args[:3])}")
     try:
@@ -383,7 +350,9 @@ def read_plugin_inventory(
     if binary is None:
         return None, "Codex CLI is unavailable"
     try:
-        return _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home), None
+        return _run_json(
+            binary, ["plugin", "list", "--json"], codex_home=codex_home
+        ), None
     except UpdateError as exc:
         return None, str(exc)
 
@@ -427,7 +396,9 @@ def _run_python(
             env=dict(env) if env is not None else None,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise UpdateError(f"bundled verification helper could not complete: {script.name}") from exc
+        raise UpdateError(
+            f"bundled verification helper could not complete: {script.name}"
+        ) from exc
 
 
 def _validate_add_result(payload: Mapping[str, Any]) -> tuple[str, Path]:
@@ -464,7 +435,9 @@ def _verify_installed_manifest(root: Path, expected_version: str) -> None:
     if not isinstance(payload, dict):
         raise UpdateError("updated installed Plugin manifest is invalid")
     if payload.get("name") != PLUGIN_NAME or payload.get("version") != expected_version:
-        raise UpdateError("updated installed Plugin manifest does not match Codex install result")
+        raise UpdateError(
+            "updated installed Plugin manifest does not match Codex install result"
+        )
 
 
 def _verify_new_package(
@@ -484,7 +457,9 @@ def _verify_new_package(
     integrity_result = _run_python(sys.executable, integrity, ["--root", str(root)])
     if integrity_result.returncode != 0:
         raise UpdateError("updated Plugin package integrity verification failed")
-    install_result = _run_python(sys.executable, installer, ["--codex-home", str(codex_home)])
+    install_result = _run_python(
+        sys.executable, installer, ["--codex-home", str(codex_home)]
+    )
     if install_result.returncode != 0:
         raise UpdateError("updated managed-Agent profile reconciliation failed")
     check_result = _run_python(
@@ -524,7 +499,9 @@ def _verify_new_package(
     if not isinstance(layers, list) or not isinstance(actions, list):
         raise UpdateError("updated Plugin health report is invalid")
     if actions:
-        raise UpdateError("post-update health check performed an unexpected maintenance action")
+        raise UpdateError(
+            "post-update health check performed an unexpected maintenance action"
+        )
 
     observed = {
         item.get("name"): item.get("status")
@@ -536,20 +513,23 @@ def _verify_new_package(
         "Managed Agents",
         "Host integration",
         "Orchestration state",
-        "Legacy compatibility",
     }
     if set(observed) != expected_layers:
         raise UpdateError("updated Plugin health report is unsupported")
     if observed["Plugin package"] != "OK":
         raise UpdateError("updated Plugin health check did not verify the Plugin package")
     if observed["Managed Agents"] != "OK":
-        raise UpdateError("updated Plugin health check did not verify managed Agent profiles")
+        raise UpdateError(
+            "updated Plugin health check did not verify managed Agent profiles"
+        )
     if observed["Host integration"] not in {"OK", "WARN", "UNKNOWN"}:
-        raise UpdateError("updated Plugin health check reported an unsafe Host integration state")
+        raise UpdateError(
+            "updated Plugin health check reported an unsafe Host integration state"
+        )
     if observed["Orchestration state"] != "OK":
-        raise UpdateError("updated Plugin health check reported an unsafe orchestration state")
-    if observed["Legacy compatibility"] not in {"OK", "WARN"}:
-        raise UpdateError("updated Plugin health check reported unsafe legacy compatibility")
+        raise UpdateError(
+            "updated Plugin health check reported an unsafe orchestration state"
+        )
     if package_version(root) != expected_version:
         raise UpdateError("updated package version changed during post-update verification")
 
@@ -563,11 +543,15 @@ def update_plugin(
     if binary is None:
         raise UpdateError("Codex CLI is unavailable; explicit Plugin update cannot run")
 
-    before_payload = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
+    before_payload = _run_json(
+        binary, ["plugin", "list", "--json"], codex_home=codex_home
+    )
     before_row = require_canonical_installed_source(before_payload)
     before_version = before_row.get("version")
     if not isinstance(before_version, str) or _core_semver(before_version.strip()) is None:
-        raise UpdateError("installed Plugin version is unavailable or not a stable semantic version before update")
+        raise UpdateError(
+            "installed Plugin version is unavailable or not a stable semantic version before update"
+        )
     before_version = before_version.strip()
 
     upgrade_result = _run_json(
@@ -580,11 +564,11 @@ def update_plugin(
     if not isinstance(errors, list) or errors:
         raise UpdateError("Marketplace upgrade did not complete cleanly")
 
-    refreshed_payload = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
+    refreshed_payload = _run_json(
+        binary, ["plugin", "list", "--json"], codex_home=codex_home
+    )
     refreshed_row = require_canonical_installed_source(refreshed_payload)
     target_version = _available_version(refreshed_row)
-    if target_version is None or _core_semver(target_version) is None:
-        raise UpdateError("refreshed Marketplace checkout does not expose a stable Plugin version")
 
     before_core = _core_semver(before_version)
     target_core = _core_semver(target_version)
@@ -601,8 +585,16 @@ def update_plugin(
             "marketplace_version": target_version,
             "restart_required": package_version() != before_version,
             "steps": [
-                {"name": "Marketplace", "status": "OK", "summary": "Marketplace is current"},
-                {"name": "Plugin", "status": "OK", "summary": "Installed Plugin is already current"},
+                {
+                    "name": "Marketplace",
+                    "status": "OK",
+                    "summary": "Marketplace is current",
+                },
+                {
+                    "name": "Plugin",
+                    "status": "OK",
+                    "summary": "Installed Plugin is already current",
+                },
             ],
         }
 
@@ -614,13 +606,21 @@ def update_plugin(
     )
     installed_version, installed_root = _validate_add_result(add_result)
     if installed_version != target_version:
-        raise UpdateError("Codex installed version does not match the refreshed Marketplace package")
+        raise UpdateError(
+            "Codex installed version does not match the refreshed Marketplace package"
+        )
     _verify_installed_manifest(installed_root, installed_version)
 
-    post_payload = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
-    post_layer = installation_layer_from_payload(post_payload, package_version=installed_version)
+    post_payload = _run_json(
+        binary, ["plugin", "list", "--json"], codex_home=codex_home
+    )
+    post_layer = installation_layer_from_payload(
+        post_payload, package_version=installed_version
+    )
     if post_layer.get("status") != "OK":
-        raise UpdateError("post-update Codex Plugin inventory did not converge to the canonical installed release")
+        raise UpdateError(
+            "post-update Codex Plugin inventory did not converge to the canonical installed release"
+        )
 
     _verify_new_package(
         installed_root,
@@ -638,9 +638,21 @@ def update_plugin(
         "installed_root": str(installed_root),
         "restart_required": True,
         "steps": [
-            {"name": "Marketplace", "status": "OK", "summary": f"Version {target_version} is available"},
-            {"name": "Plugin", "status": "OK", "summary": f"Installed {installed_version}"},
-            {"name": "Managed Agent profiles", "status": "OK", "summary": "Managed Agent profiles are current"},
+            {
+                "name": "Marketplace",
+                "status": "OK",
+                "summary": f"Version {target_version} is available",
+            },
+            {
+                "name": "Plugin",
+                "status": "OK",
+                "summary": f"Installed {installed_version}",
+            },
+            {
+                "name": "Managed Agent profiles",
+                "status": "OK",
+                "summary": "Managed Agent profiles are current",
+            },
             {"name": "Health check", "status": "OK", "summary": "Passed"},
         ],
     }
@@ -650,10 +662,16 @@ def render_update(report: Mapping[str, Any]) -> str:
     lines = ["Subagents Dispatch Update", ""]
     for item in report.get("steps", []):
         if isinstance(item, Mapping):
-            lines.append(f"[{item.get('status', 'UNKNOWN')}] {item.get('name', 'Unknown')}: {item.get('summary', '')}")
-    lines.extend(["", f"Version: {report.get('from_version')} -> {report.get('to_version')}"])
+            lines.append(
+                f"[{item.get('status', 'UNKNOWN')}] {item.get('name', 'Unknown')}: {item.get('summary', '')}"
+            )
+    lines.extend(
+        ["", f"Version: {report.get('from_version')} -> {report.get('to_version')}"]
+    )
     if report.get("restart_required") is True:
-        lines.append("[RESTART] Start a fresh Codex session to use the installed version.")
+        lines.append(
+            "[RESTART] Start a fresh Codex session to use the installed version."
+        )
     else:
         lines.append("[OK] Installed Plugin is already current.")
     lines.extend(["", "Overall: UPDATE COMPLETE"])
@@ -661,7 +679,9 @@ def render_update(report: Mapping[str, Any]) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Explicitly update the installed subagents-dispatch Plugin.")
+    parser = argparse.ArgumentParser(
+        description="Explicitly update the installed subagents-dispatch Plugin."
+    )
     parser.add_argument(
         "--codex-home",
         type=Path,
@@ -689,7 +709,11 @@ def main() -> None:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(1) from None
     if args.json:
-        print(json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+        print(
+            json.dumps(
+                report, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            )
+        )
     else:
         print(render_update(report))
 
