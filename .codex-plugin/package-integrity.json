@@ -40,7 +40,7 @@
     "scripts/runtime-evidence.py": "1bda857f2abb1adac7ae9d776d325d24ad7fd23947dd944003f86d3268d24597",
     "scripts/scheduler_v4.py": "dbcb36f40a8e29cff41078ca78a4d8c28e8e9cbf17324e93421a5feb6d508175",
     "scripts/state_storage.py": "f2346acbbc79499dee205594a298b873b2c3be8dafa43676bbe7401e2a8c8382",
-    "scripts/uninstall-agents.py": "d59f1c8c1448aa5b6cf74df1912909a2b03c0d47dd5f60263afb5ea4879531f6",
+    "scripts/uninstall-agents.py": "1e00b30766d3714e78ea12b5a4f198eac69dbef3e86b914715db705ba5204d97",
     "scripts/work_graph_v4.py": "0e922a2dc0cc06196a3f9924bac957e2ce21f5684ea551b55fdb86bfbbe68855",
     "scripts/writer_lease_v4.py": "827ed84c02c249cdab80872c33bcd7a546259cdd4605fd5edc32b991e9003555",
     "skills/doctor/SKILL.md": "ea95969d4ac52b325bcc840b216043f1807cf8f4fca2b296c941589d3e26d212",
