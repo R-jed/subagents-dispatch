@@ -12,6 +12,8 @@ This file is not Plugin runtime, a product contract, Host qualification input, r
 
 Live branch, PR, exact commit/tree, CI and review state belong in GitHub. Real Host actions, evidence, phase verdicts, and `REUSE | RERUN | NOT_RUN` decisions belong in Issue #91. Machine behavior belongs in the canonical contracts.
 
+If this file conflicts with a canonical contract, live GitHub state, or Issue #91 evidence, treat this file as stale development context. Resolve the live truth from the canonical owner first, then repair the handoff record. Never change a canonical contract merely to make it agree with an outdated handoff summary.
+
 Update this file when the development theme, durable project direction, major completed work, important decision, current phase, blocker, lesson, or next safe continuation point materially changes. Do not edit it merely to record an individual CI run, exact live SHA, one Host probe result, temporary diagnostic output, or another short-lived status value.
 
 ## Project in one minute
@@ -257,5 +259,7 @@ When updating it:
 6. make `Next safe sequence` match the real current phase;
 7. verify links and canonical ownership statements against the current repository;
 8. avoid copying volatile SHA, CI run numbers, transient Host session ids, terminal output, or individual probe verdicts into this file.
+
+Keep the file bounded. `Recently completed work` should retain only milestones still useful for understanding the current project direction. When a phase is closed and its detailed execution history is already durable in GitHub or Issue #91, compress it to the decision and outcome needed by future sessions instead of appending an unlimited chronology. Remove or rewrite lessons and open questions when they are superseded. Git history remains the archive for older handoff versions.
 
 Before ending a development session, ask one practical question: if another ChatGPT session opened only this file and then queried the linked live sources, would it know what was completed, why the project is in its current shape, what remains open, and exactly where to continue without repeating already-conclusive work?
