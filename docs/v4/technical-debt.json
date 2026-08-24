@@ -5,7 +5,7 @@
     {
       "id": "TD-V4-STATE-STORAGE-DECOUPLE",
       "status": "CLOSED_PRE_N0",
-      "resolution": "schema-neutral state_storage.py now owns path, lock, timestamp, private-file and atomic-write primitives; Native Core state no longer imports the V3 orchestration engine; stale terminal V3 cleanup is isolated in legacy_state_cleanup.py"
+      "resolution": "schema-neutral state_storage.py now owns path, lock, timestamp, private-file and atomic-write primitives; Native Core state no longer imports the retired V3 orchestration engine; the 1.0.0 clean break removes the retired stale-state cleanup implementation instead of carrying it as a compatibility path"
     }
   ],
   "items": [
