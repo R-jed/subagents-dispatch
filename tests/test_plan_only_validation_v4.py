@@ -43,6 +43,8 @@ def test_plan_only_rejects_non_array_responsibilities(responsibilities):
         {"intent": "inspect", "goal": None, "profile_id": "reader"},
         {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": None},
         {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": "U1"},
+        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": ("U1",)},
+        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": {"U1": 1}},
         {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": [1]},
         {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": ["U9"]},
     ],

@@ -67,17 +67,17 @@ def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -
             )
         profile = select_profile(profile_id=profile_id, intent=intent)
         unit_goal = responsibility.get("goal", intent)
-        try:
-            unit = work_graph.make_work_unit(
-                unit_id=f"U{index}",
-                intent=intent,
-                goal=unit_goal,
-                output="plan-only preview",
-                depends_on=responsibility.get("depends_on", []),
-                done_when="Main accepts this responsibility before execution.",
-            )
-        except TypeError as exc:
-            raise OrchestrateError("plan-only responsibility has invalid field types") from exc
+        dependencies = responsibility.get("depends_on", [])
+        if not isinstance(dependencies, list):
+            raise OrchestrateError("plan-only depends_on must be an array")
+        unit = work_graph.make_work_unit(
+            unit_id=f"U{index}",
+            intent=intent,
+            goal=unit_goal,
+            output="plan-only preview",
+            depends_on=dependencies,
+            done_when="Main accepts this responsibility before execution.",
+        )
         canonical_units.append(unit)
         units.append(
             {
