@@ -71,7 +71,6 @@ def make_execution(
     return {
         "execution_id": execution_id,
         "unit_id": unit_id,
-        "team_plan_revision": 1,
         "attempt_no": attempt_no,
         "profile_id": profile_id,
         "agent_id": None,
@@ -108,7 +107,6 @@ def test_reader_binding_cannot_prepare_worker_agent_type(tmp_path: Path):
     lifecycle = load_module("native_lifecycle_profile", "execution_lifecycle_v4.py")
 
     payload = state.new_state(thread_id="thread-profile")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit("U1", state_name="EXECUTING")]
     payload["executions"] = [make_execution("U1", execution_id="exec-1", profile_id="reader")]
     state.write_state(payload, temp_root=tmp_path)
@@ -133,7 +131,6 @@ def test_managed_spawn_requires_fork_turns_none_at_prepare_boundary(tmp_path: Pa
     lifecycle = load_module("native_lifecycle_fork", "execution_lifecycle_v4.py")
 
     payload = state.new_state(thread_id="thread-fork")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit("U1", state_name="EXECUTING")]
     payload["executions"] = [make_execution("U1", execution_id="exec-1", profile_id="reader")]
     state.write_state(payload, temp_root=tmp_path)
@@ -157,7 +154,6 @@ def test_corrupt_accepted_state_requires_completed_current_producer():
     state = load_module("native_state_accept", "dispatch_state_v4.py")
 
     payload = state.new_state(thread_id="thread-accept")
-    payload["team_plan_revision"] = 1
     unit = make_work_unit("U1", state_name="ACCEPTED")
     unit["accepted_result_ref"] = "result:sha256:abc"
     unit["accepted_execution_id"] = "exec-1"
@@ -176,7 +172,6 @@ def test_old_attempt_cannot_be_accepted_after_new_attempt_exists(tmp_path: Path)
     graph = load_module("native_graph_attempt", "work_graph_v4.py")
 
     payload = state.new_state(thread_id="thread-attempt")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit("U1", state_name="RESULT_READY")]
     payload["executions"] = [
         make_execution("U1", execution_id="exec-1", lifecycle="COMPLETED", attempt_no=1),
@@ -200,7 +195,6 @@ def test_constraint_snapshot_reports_remaining_slots_without_selecting_work():
     scheduler = load_module("native_scheduler_fanout", "scheduler_v4.py")
 
     payload = state.new_state(thread_id="thread-fanout")
-    payload["team_plan_revision"] = 1
     payload["work_units"] = [make_work_unit(f"U{i}") for i in range(1, 5)]
     payload["work_units"][0]["state"] = "EXECUTING"
     payload["executions"] = [
