@@ -17,6 +17,7 @@ import dispatch_state_v4 as state
 import execution_lifecycle_v4 as lifecycle
 import policy as policy_contract
 import scheduler_v4 as scheduler
+import work_graph_v4 as work_graph
 
 
 _PROFILE_SPECS = policy_contract.profile_contracts()
@@ -51,26 +52,50 @@ def select_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
     if not isinstance(goal, str) or not goal.strip():
         raise OrchestrateError("goal must be non-empty")
+    if not isinstance(responsibilities, list):
+        raise OrchestrateError("responsibilities must be an array")
     units: list[dict[str, Any]] = []
+    canonical_units: list[dict[str, Any]] = []
     for index, responsibility in enumerate(responsibilities, start=1):
         if not isinstance(responsibility, Mapping):
             raise OrchestrateError("responsibility must be an object")
-        intent = str(responsibility.get("intent", "inspect"))
+        intent = responsibility.get("intent", "inspect")
         profile_id = responsibility.get("profile_id")
         if not isinstance(profile_id, str) or not profile_id.strip():
             raise OrchestrateError(
                 "plan-only responsibility requires explicit profile_id from the main session"
             )
         profile = select_profile(profile_id=profile_id, intent=intent)
+        unit_goal = responsibility.get("goal", intent)
+        dependencies = responsibility.get("depends_on", [])
+        if not isinstance(dependencies, list):
+            raise OrchestrateError("plan-only depends_on must be an array")
+        unit = work_graph.make_work_unit(
+            unit_id=f"U{index}",
+            intent=intent,
+            goal=unit_goal,
+            output="plan-only preview",
+            depends_on=dependencies,
+            done_when="Main accepts this responsibility before execution.",
+        )
+        canonical_units.append(unit)
         units.append(
             {
-                "unit_id": f"U{index}",
-                "intent": intent,
-                "goal": str(responsibility.get("goal", intent)),
-                "depends_on": list(responsibility.get("depends_on", [])),
+                "unit_id": unit["unit_id"],
+                "intent": unit["intent"],
+                "goal": unit["goal"],
+                "depends_on": list(unit["depends_on"]),
                 "profile": profile,
             }
         )
+
+    validation_state = state.new_state(thread_id="plan-only-preview")
+    validation_state["work_units"] = canonical_units
+    try:
+        state.validate_state_payload(validation_state)
+    except state.StatePayloadError as exc:
+        raise OrchestrateError(f"invalid plan-only WorkUnit graph: {exc}") from exc
+
     return {
         "mode": "PLAN_ONLY",
         "goal": goal,

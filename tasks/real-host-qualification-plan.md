@@ -4,6 +4,8 @@ Status: PLANNED. No real Host action is authorized by this document alone.
 
 This file is a human execution plan for the V4 real Codex Host campaign. `docs/v4/host-smoke.json` remains the machine authority for N0 through N8. `docs/release-checklist.md` remains the release-gate authority. Issue #91 remains the append-only authority for live Host preflight decisions and evidence. If this plan conflicts with either canonical contract, the canonical contract wins.
 
+Root `headoff.md` is development-session context only. It is not a Plugin contract, Host qualification input, release gate, or evidence authority. Update it only when durable project background, workflow, current phase, or next direction materially changes. Do not mutate repository source merely to record an individual Host result.
+
 ## Operating rules
 
 1. Every real Host action starts with an Issue #91 lookup and an explicit `REUSE | RERUN | NOT_RUN` preflight decision.
@@ -13,17 +15,14 @@ This file is a human execution plan for the V4 real Codex Host campaign. `docs/v
 5. Historical V2 observations cannot satisfy a later turn. V1, disabled, unavailable, or conflicting capability leaves the affected step `NOT_RUN`, and no compatibility translation may synthesize a V2 result.
 6. `UNKNOWN` is fail closed. Ambiguous identity, lifecycle, materialization, permission, or descendant evidence stops the campaign.
 7. No phase auto-continues into the next phase. Every phase ends at a mandatory stop point.
-8. At every phase stop, update Issue #91 first. Then update root `headoff.md` with a concise durable phase checkpoint before the next phase starts.
-9. `headoff.md` is a handoff summary only. It records the phase identifier, terminal phase state, Issue #91 evidence reference, qualification-basis impact, and next permitted phase. Raw logs, detailed runtime evidence, and canonical PASS or FAIL truth remain in Issue #91.
-10. A `headoff.md` checkpoint is a source-only mutation when it changes no Host qualification input. After each checkpoint merge, compare the three Host qualification digests before reusing prior Host evidence.
-11. Any repository, package, profile, or Host-contract mutation outside the planned checkpoint must stop the campaign until invalidation is classified and repository qualification is restored.
-12. Publication remains blocked until N0 through N8, Final Review, external release evidence, installed-product checks, and human App observation all pass.
+8. Any repository, package, profile, installed-basis, or Host-contract mutation must stop the campaign until invalidation is classified and repository qualification is restored.
+9. Publication remains blocked until N0 through N8, Final Review, external release evidence, installed-product checks, and human App observation all pass.
 
 ## Stop states
 
 Every phase terminates in exactly one of these states.
 
-`PASS_STOP`: the phase acceptance criteria are satisfied. Record the phase, update `headoff.md`, and wait for explicit continuation before starting the next phase.
+`PASS_STOP`: the phase acceptance criteria are satisfied. Record the canonical evidence in Issue #91 and wait for explicit continuation before starting the next phase.
 
 `NOT_RUN_STOP`: a prerequisite is absent or the exact current turn cannot prove the required V2 capability. No covered Agent-control action occurs. Record the blocking basis and stop.
 
@@ -65,8 +64,6 @@ Mandatory stop: `H0_STOP`.
 
 Important: an H0 V2 observation is environment/capability context only. It cannot authorize a later N0 spawn because N0 must prove V2 again on the exact N0 Agent-control turn.
 
-Headoff checkpoint: record H0 terminal state, Issue #91 evidence label/comment, whether package/profile/Host-contract digests changed, and whether H1 is permitted.
-
 ## Phase H1: N0 Reader canary
 
 Purpose: prove the repaired exact-turn V2 precondition and one canonical managed spawn before expanding to all profiles.
@@ -91,8 +88,6 @@ Immediate stop conditions:
 
 Mandatory stop: `H1_STOP` even when Reader passes. Do not continue to Worker in the same phase.
 
-Headoff checkpoint: record Reader canary state and the next permitted phase only.
-
 ## Phase H2: complete N0 across the remaining fixed profiles
 
 Purpose: close N0 for Worker, Investigator, Solver, and Advisor after the Reader canary has passed.
@@ -116,8 +111,6 @@ Any non-PASS profile stops H2 immediately. N0 becomes conclusive PASS only when 
 
 Mandatory stop: `H2_STOP` after the N0 gate is evaluated.
 
-Headoff checkpoint: record the N0 gate state and whether H3 is permitted.
-
 ## Phase H3: N1 managed delegation-depth campaign
 
 Purpose: prove canonical managed children remain leaf under normal and adversarial instructions.
@@ -136,8 +129,6 @@ Micro-stop after every profile. A nested Agent-control attempt or descendant mat
 
 Mandatory stop: `H3_STOP` after all five profiles are evaluated. Do not start N2 automatically.
 
-Headoff checkpoint: record the N1 gate state and Issue #91 evidence range/reference.
-
 ## Phase H4: N2 native task-address and Host-thread identity binding
 
 Purpose: prove that a successful native spawn yields the canonical task address and that independent Host evidence binds the underlying child thread identity to that address.
@@ -152,8 +143,6 @@ Actions:
 6. Settle the child and verify no stale identity is used.
 
 Mandatory stop: `H4_STOP` after N2 verdict.
-
-Headoff checkpoint: record N2 state and whether the deliberate saturation phase H5 is permitted.
 
 ## Phase H5: N3 Host admission rejection and materialization safety
 
@@ -176,8 +165,6 @@ Any ambiguity about rejected-child materialization is `UNKNOWN_STOP`. Any setup 
 
 Mandatory stop: `H5_STOP` with zero intentionally running children left behind.
 
-Headoff checkpoint: record N3 state and cleanup/settlement completion.
-
 ## Phase H6: N4 same-child steering, correction, and continuation
 
 Purpose: prove RUNNING Steer and later correction/continuation remain bound to one ExecutionBinding and one Host child.
@@ -196,8 +183,6 @@ Actions:
 Tool-call acceptance alone is insufficient.
 
 Mandatory stop: `H6_STOP` after N4 verdict and safe child settlement.
-
-Headoff checkpoint: record N4 state and the same-child evidence reference.
 
 ## Phase H7: N5 and N6 interrupt, settlement, and writer takeover
 
@@ -228,8 +213,6 @@ N6 substep:
 
 Mandatory stop: `H7_STOP` after N5 and N6 are both evaluated.
 
-Headoff checkpoint: record N5/N6 state, settlement status, and writer ownership outcome reference.
-
 ## Phase H8: N7 rollout reconciliation and privacy
 
 Purpose: prove the allowlisted reconciliation path provides sufficient lifecycle/identity evidence without exposing assignment text or reasoning content.
@@ -244,8 +227,6 @@ Actions:
 N7 should avoid creating new Agents unless the canonical contract or missing evidence requires a separately preflighted action.
 
 Mandatory stop: `H8_STOP` after N7 verdict.
-
-Headoff checkpoint: record N7 state and privacy/reconciliation evidence reference.
 
 ## Phase H9: N8 Advisor review and effective sandbox truth
 
@@ -263,21 +244,15 @@ Actions:
 
 Mandatory stop: `H9_STOP` after N8 verdict.
 
-Headoff checkpoint and final rebind rule:
-
-- Record the H9 phase checkpoint in `headoff.md` as required.
-- That checkpoint changes release-source identity even when Host qualification digests remain unchanged.
-- Because N8 and the later Final Review bind the exact candidate artifact, the post-H9 checkpoint source must be frozen again.
-- Perform one justified N8 revalidation on the post-checkpoint exact head, then do not mutate `headoff.md` or other release source before Final Review and release closure.
-- The revalidation is part of H9 finalization, not a new phase, so it does not create an infinite headoff-update loop. The final exact N8 evidence remains canonical in Issue #91.
+After H9, keep the release source frozen through Final Review and release closure. If any source changes after N8, classify that mutation through the normal release invalidation rules and re-run only the evidence that the changed basis invalidates. There is no headoff-driven N8 revalidation loop.
 
 ## Phase H10: release closure
 
-Purpose: close non-Host release gates after the final post-H9 source freeze.
+Purpose: close non-Host release gates after the final source freeze.
 
 Actions:
 
-1. Verify final release-source CI and source/synthetic tree agreement.
+1. Verify final release-source CI and exact checked-out source identity.
 2. Run the fresh independent Final Review against the exact final source.
 3. Build and verify the external release evidence envelope.
 4. Verify installed-product Doctor and exact package/profile identity.
@@ -289,35 +264,8 @@ Mandatory stop: `H10_RELEASE_DECISION_STOP`.
 
 No release action auto-runs after this stop. Tagging, Marketplace verification, and publication require an explicit final release decision.
 
-H10 headoff record rule:
-
-- H10 must also be recorded in `headoff.md` to satisfy the phase-by-phase handoff requirement.
-- Do not mutate the frozen release candidate merely to write that record before the final release decision.
-- If H10 is blocked, the H10 checkpoint may be committed after the blocking decision; any later resumption must then refresh final-source gates as required.
-- If H10 reaches release approval, perform the tag/Marketplace/publication sequence first, then record the H10 completion checkpoint on the resulting post-release development line. This post-release administrative record does not alter the already-tagged release artifact.
-
-## Headoff checkpoint template
-
-At each H0 through H9 mandatory stop, and at H10 using its special post-decision rule, update root `headoff.md` with only this durable summary shape:
-
-```text
-Host phase: Hx <name>
-Phase state: PASS_STOP | NOT_RUN_STOP | UNKNOWN_STOP | FAIL_STOP | MUTATION_STOP
-Canonical evidence: Issue #91 <ledger label/comment reference>
-Qualification-basis impact: unchanged | changed <which canonical input>
-Durable conclusion: <one or two sentences>
-Next permitted phase: Hy | none
-```
-
-Do not paste raw rollout logs, transient task identifiers, full child transcripts, or detailed live Host verdicts into `headoff.md`.
-
-After every pre-release headoff checkpoint merge:
-
-1. verify repository CI for the new exact head;
-2. compare `.codex-plugin/package-integrity.json`, `contracts/policy.json`, and `docs/v4/host-smoke.json` qualification digests;
-3. record the resulting `REUSE | RERUN | NOT_RUN` decision in Issue #91 before another real Host action;
-4. sync the target local checkout before the next phase.
+After the release decision, `headoff.md` may be updated or removed on the post-release development line as project housekeeping. That action must not rewrite the already-tagged release artifact.
 
 ## Campaign completion rule
 
-The campaign is complete only when the machine contract N0 through N8 is conclusive PASS on valid evidence, all planned phase stops have been honored, the post-H9 exact source has been revalidated where required, release closure gates pass, and no unresolved `UNKNOWN`, `NOT_RUN`, or mutation invalidation remains.
+The campaign is complete only when the machine contract N0 through N8 is conclusive PASS on valid evidence, all planned phase stops have been honored, release closure gates pass, and no unresolved `UNKNOWN`, `NOT_RUN`, or mutation invalidation remains.

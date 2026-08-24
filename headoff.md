@@ -4,23 +4,15 @@ Updated: 2026-08-24.
 
 ## Purpose
 
-This file is the project context transfer entrypoint for a new development chat/session. A new development session should read this file first before planning, coding, reviewing, running Host probes, or changing the release source.
+This file is temporary development-session context for `subagents-dispatch` while V4.0.0 is still being developed and qualified. It exists so a new development session can recover the project background, current engineering direction, important completed work, and the next safe step without reconstructing old chats.
 
-Its job is to restore enough context to continue work without reconstructing the project from old conversations. It records:
+`headoff.md` is not Plugin runtime, a product contract, Host qualification input, release evidence, or a release gate. Live branch/SHA/CI state belongs to GitHub. Real Host evidence and `REUSE | RERUN | NOT_RUN` decisions belong to Issue #91. Machine behavior belongs to the canonical contracts listed below.
 
-- project background and product intent;
-- current architecture and ownership boundaries;
-- important workflow and design decisions already made;
-- completed development milestones and why they matter;
-- current release progress and blocking gate;
-- the next permitted development direction;
-- the repository and release workflow a new session must follow.
-
-This file is a human development handoff. It does not replace machine contracts or live GitHub evidence. Exact release-source SHA/tree, current CI run, synthetic merge identity, installed-product binding, Host qualification identity and real-Host verdict must be read from GitHub and Issue #91 because those facts can change after this file is written.
+Do not edit or commit this file merely to record an individual Host phase result. Update it only when durable development context materially changes. After V4.0.0 is released, this file is intended to be removed from the repository on the post-release development line.
 
 ## Project background
 
-`subagents-dispatch` is a Codex Plugin for bounded engineering orchestration over Codex Native Subagents. The project has moved away from the earlier Hook-centered lifecycle correctness path. V4 Native Core keeps Codex Host as the Agent runtime and concentrates project logic on responsibility, routing, acceptance, recovery, writer ownership, evidence, and release safety.
+`subagents-dispatch` is a Codex Plugin for bounded engineering orchestration over Codex Native Subagents. V4 Native Core leaves Agent lifecycle truth with Codex Host and keeps project-owned logic focused on responsibility, routing, acceptance, recovery, writer ownership, evidence, and release safety.
 
 The public Plugin surface is intentionally small:
 
@@ -29,7 +21,23 @@ Orchestrate
 Doctor
 ```
 
-`Orchestrate` is the normal engineering/orchestration surface. `Doctor` owns deterministic installed-product diagnosis and explicitly requested ownership-safe maintenance.
+`Orchestrate` is the engineering/orchestration surface. `Doctor` owns deterministic installed-product diagnosis and explicitly requested ownership-safe maintenance.
+
+## Canonical truth owners
+
+Use one owner per semantic fact:
+
+- `contracts/policy.json`: fixed product policy and managed profile values.
+- `docs/v4/architecture.json`: V4 machine architecture and runtime ownership.
+- `docs/v4/host-smoke.json`: N0-N8 real Host machine contract.
+- `docs/v4/technical-debt.json`: explicitly tracked V4 technical debt.
+- `docs/architecture.md`: human architecture overview.
+- `docs/release-checklist.md`: release gates and identity/invalidation rules.
+- `tasks/real-host-qualification-plan.md`: staged human procedure for real Host qualification. It never overrides the machine contract.
+- GitHub: current branch, PR, exact source SHA/tree, and CI state.
+- Issue #91: append-only real Host evidence and preflight decisions.
+
+Do not create tracked status files that duplicate live GitHub or Host truth.
 
 ## Durable product boundaries
 
@@ -39,37 +47,20 @@ Doctor
 - Investigator uses Terra High.
 - Solver and Advisor use Sol High.
 - Fresh managed children use `fork_turns=none`.
-- The managed-child ceiling is four.
-- WorkGraph and WorkUnit own responsibility, dependency and acceptance truth.
-- ExecutionBinding owns one concrete managed attempt and generation.
+- The managed-child product ceiling is four.
+- WorkGraph and WorkUnit own responsibility, dependency, and acceptance truth.
+- ExecutionBinding owns one concrete managed attempt/generation.
 - WriterLease owns canonical-workspace managed writer coordination.
 - Host `COMPLETED` produces candidate work only. Main acceptance is separate.
 - `UNKNOWN` remains fail closed.
-- Codex Host owns child materialization, lifecycle, actual capacity, native child identity, effective permission, effective sandbox state and effective collaboration capability.
-
-The historical generic V2 recursion probe proved Host recursive capability on the tested Host. It is platform-capability evidence only. Revised N1 judges actual canonical managed-profile behavior and authoritative descendant evidence. Latent recursive capability alone does not decide the managed N1 verdict.
-
-## Canonical truth owners
-
-Use one owner per kind of truth:
-
-- `contracts/policy.json`: fixed product policy and profile values.
-- `docs/v4/architecture.json`: current V4 machine architecture and runtime owners.
-- `docs/v4/host-smoke.json`: N0-N8 real-Host campaign contract.
-- `docs/v4/technical-debt.json`: explicitly tracked V4 technical debt.
-- `docs/architecture.md`: human architecture overview.
-- `docs/release-checklist.md`: release gate sequence and identity/invalidation rules.
-- `tasks/real-host-qualification-plan.md`: human staged execution procedure for the real Host campaign. It never overrides the machine contract or live ledger.
-- GitHub: current branch, PR, final release-source SHA/tree and CI state.
-- Issue #91: append-only real-Host evidence and `REUSE | RERUN | NOT_RUN` preflight decisions.
-
-Do not create another tracked status projection that mirrors live GitHub or Host verdicts. `docs/v4/` is reserved for version-specific machine or maintenance contracts.
+- Codex Host owns materialization, lifecycle, actual capacity, native child identity, effective permissions, effective sandbox state, and effective collaboration capability.
+- Product depth-one policy is distinct from latent Host V2 recursive capability. N1 evaluates actual canonical managed-child behavior and authoritative descendant evidence.
 
 ## Release identity model
 
 Keep two identity layers separate.
 
-Host qualification identity is the basis that determines whether an existing real-Host campaign may be reused:
+Host qualification identity is determined by:
 
 ```text
 runtime_manifest_sha256
@@ -77,88 +68,105 @@ profile_contract_sha256
 host_contract_sha256
 ```
 
-These correspond to:
+These derive from the current runtime package manifest, fixed profile contract, and real Host campaign contract. A changed qualification digest requires invalidation analysis before prior Host evidence can be reused.
+
+Release source identity is the exact final Git commit/tree. Repository qualification, Final Review, and the release envelope bind this exact source.
+
+A source-only documentation change may leave Host qualification identity unchanged, but it still changes release source identity and therefore requires the relevant exact-source repository/final-review checks to be refreshed.
+
+## Independent Deep Review and remediation
+
+The 2026-08-24 review was performed from the actual repository contents and current code/contracts/tests. `headoff.md` was intentionally treated only as a later cross-check. The review found several concrete issues and one important process drift.
+
+### 1. Plan-only validation
+
+The old `plan_only_preview()` path coerced malformed input with `str()` and `list()` and did not validate the provisional dependency graph through the canonical WorkUnit/state rules. That could make malformed plan input look valid.
+
+The remediation now:
+
+- requires the top-level responsibilities value to be an array;
+- requires each responsibility to be an object;
+- requires `depends_on` to be an array at the Orchestrate input boundary;
+- constructs canonical WorkUnits with `work_graph_v4.make_work_unit()`;
+- validates the in-memory WorkGraph with the existing V4 state validator;
+- rejects invalid intent/goal values, invalid dependency elements, unknown dependencies, and cycles;
+- creates no runtime state, WriterLease, or Host action in plan-only mode.
+
+Focused adversarial tests cover null/non-array containers, coercible dependency containers, invalid fields, unknown dependencies, cycles, and a valid dependency graph.
+
+### 2. `headoff.md` process drift
+
+The prior staged Host plan made every H0-H9 stop edit and commit `headoff.md`, then rerun repository checks and qualification-digest comparison before continuing. H9 also contained a special N8 revalidation loop caused solely by the mandatory handoff edit.
+
+That workflow made a development handoff file participate indirectly in release progression and repeatedly changed source identity for administrative recording.
+
+The remediation keeps the safety boundaries that matter:
+
+- Issue #91 preflight before real Host actions;
+- exact-turn V2 capability proof for covered Agent-control operations;
+- fail-closed `UNKNOWN` handling;
+- hard stop after each Host phase;
+- explicit user continuation before the next phase;
+- mutation invalidation and repository requalification;
+- N5/N6 writer settlement boundary;
+- N8 effective read-only evidence;
+- final source freeze, Final Review, release evidence, installed-product checks, and human App observation.
+
+Mandatory per-phase `headoff.md` commits and the headoff-driven N8 revalidation loop were removed. Issue #91 remains the operational evidence ledger.
+
+### 3. Exact-head CI evidence
+
+Pull-request CI previously ran from GitHub's synthetic merge commit while project language described the result as exact-head qualification. Tree equivalence can be useful, but it does not prove that the checked-out Git commit is the PR head.
+
+CI now explicitly checks out `${{ github.event.pull_request.head.sha || github.sha }}` and asserts `git rev-parse HEAD` equals that expected SHA before tests run. This behavior has been exercised on Ubuntu, macOS, and Windows runners.
+
+### 4. Stale task/spec truth
+
+`tasks/SPEC-n1-managed-depth.md` still pointed to deleted `docs/v4/current-state.md`, and the old task checklist had been overtaken by later implementation. The current task/spec surfaces now point to canonical contracts, Issue #91, and the staged Host procedure without duplicating live release state.
+
+### 5. Release-evidence test coupling
+
+Source-only release-evidence tests previously used `headoff.md` as the representative source-only mutation, which unnecessarily embedded the development handoff file into release semantics. Those tests now use generic non-runtime documentation/source changes while preserving the same release-identity and Host-qualification behavior.
+
+## Verification status for this remediation
+
+The implementation was developed on `fix/v4-deep-review-remediation` in PR #114 against `v4/rc5-native-core`.
+
+Before this final development-handoff update, exact-head PR CI on commit `a68420dd14768b6ba850af29e039c2369597581a` passed:
 
 ```text
-.codex-plugin/package-integrity.json
-contracts/policy.json
-docs/v4/host-smoke.json
+Ubuntu / Python 3.11    PASS
+Ubuntu / Python 3.12    PASS
+macOS / Python 3.11     PASS
+Windows / Python 3.11   PASS
+aggregate policy-tests  PASS
 ```
 
-If all three qualification digests remain unchanged, a source-only commit such as an update to `headoff.md`, ordinary documentation, or non-shipped release tooling does not invalidate already-conclusive Host evidence. Reuse must still be recorded in Issue #91 after comparing the digests.
+That run also passed generated package-integrity verification, Ruff, full pytest, the pinned official OpenAI Plugin validator where applicable, and the managed Agent install/check/Doctor/uninstall lifecycle.
 
-Release source identity is the exact final Git commit/tree. It is used by final repository qualification, the release envelope and Final Review. Source-only changes therefore refresh the final Git identity and Final Review, while leaving Host evidence reusable when the Host qualification identity is unchanged.
+This handoff update changes source identity only. Final merge readiness must use the live CI result for the final PR head after this update. Do not treat the SHA above as the final candidate SHA.
 
-Do not infer invalidation from the fact that HEAD changed. Decide it from the qualification basis for Host evidence and from the final source identity for release-source checks.
+## Host qualification impact
 
-Host environment identity and current-turn Host capability are separate facts. A valid root `session_id`/`thread_id` binding can remain true while a later turn exposes a different collaboration version. Any probe step that invokes Native Subagent V2 Agent-control tools must therefore bind capability to its exact `turn_id`; an earlier V2 turn in the same session cannot satisfy the current probe-turn capability precondition.
+This remediation changes shipped runtime code in `scripts/orchestrate_v4.py`, and `.codex-plugin/package-integrity.json` was regenerated accordingly. Therefore the runtime-manifest component of Host qualification identity changed relative to the earlier H0 campaign basis.
 
-## Important development trajectory
+`contracts/policy.json` and `docs/v4/host-smoke.json` were not changed by this remediation, but unchanged profile/Host-contract inputs do not cancel the runtime-manifest change.
 
-The current V4 line has already completed the major repository remediation and simplification work:
+Do not carry the earlier H0 exact-source/package basis forward as current qualification without a fresh Issue #91 invalidation/preflight decision. After the remediation is merged and post-merge repository CI is green:
 
-1. N1 semantics were corrected so the release gate evaluates canonical managed children and descendant evidence instead of requiring Host-hard removal of recursive capability.
-2. Duplicate machine truth projections for Host capability, orchestrate, scheduler, writer lifecycle and phase status were removed.
-3. Runtime compatibility residue and dead aliases were reduced while preserving active consumers and safety semantics.
-4. Package integrity remains generated and verified by repository tooling.
-5. Human documentation was pruned so architecture and release guidance point to canonical machine owners instead of duplicating them.
-6. Prose-mirror tests were replaced with structural, contract and behavior checks where wording itself was not an interface.
-7. Repository qualification has passed on the required CI matrix for the current release line. Always verify the current exact source head again from GitHub after a repository change.
-8. Real Host binding exposed an undefined generic `run_id` requirement. The Host campaign contract and release-evidence verifier were corrected to use Codex-native root `session_id` and `thread_id` identities with explicit authoritative evidence sources and fail-closed `UNKNOWN` handling.
-9. The corrected Host-binding workflow was exercised on a real fresh Codex root task. The evidence chain successfully correlated exact checkout, clean worktree, Host build, embedded Codex version, platform, architecture, `CODEX_THREAD_ID`, one exact root rollout, `session_meta.id`, `session_meta.session_id`, repository cwd and an observed Native Subagent V2 turn.
-10. The root environment identity binding reached PASS without spawning or controlling any Agent and without repository mutation during the binding step.
-11. The external release-evidence verifier was corrected to separate Host qualification identity from final Git commit/tree, so source-only handoff or release-tooling changes do not force needless Host reruns when runtime/profile/Host-contract digests are unchanged.
-12. Turn-timeline reconciliation then showed that the same root session later resumed into a second rollout segment whose N0 request turn and schema-inspection turn were authoritatively `multi_agent_version=v1`. The V1-like callable schema matched that exact turn, so there was no same-turn Host contradiction and no Agent was spawned. This exposed a qualification-protocol defect: a historical V2 turn had been treated too broadly as reusable current capability evidence.
-13. The Host campaign contract now separates stable environment identity from probe-turn capability. Current V2 capability must be established from Host-produced `turn_context.multi_agent_version` and the callable tool schema for the exact probe `turn_id`. Historical-turn V2 evidence cannot satisfy a later probe. V1, disabled, unobservable, or conflicting current-turn capability leaves the affected Agent-control step `NOT_RUN` and forbids the Agent-control action.
-14. The repaired Host contract and post-merge repository qualification are complete. The remaining work is staged real Host qualification, followed by final release closure gates.
+1. read the latest Issue #91 ledger state;
+2. compare the final three Host qualification digests;
+3. record the required `REUSE | RERUN | NOT_RUN` classification;
+4. synchronize the target local checkout to the final release head;
+5. verify package integrity and Doctor against the installed/local basis;
+6. refresh the affected H0/source-environment binding as required by the invalidation decision;
+7. only then prepare H1 Reader canary preflight.
 
-The active release work is real Codex Host qualification followed by the remaining release gates. New product feature development is out of scope unless a Host probe finds a real defect or the user changes direction.
+H1 still requires exact-turn Native Subagent V2 capability proof before any Agent-control action and explicit user authorization before the phase starts.
 
-## Current progress at this handoff
+## Real Host staged protocol
 
-The release branch is `v4/rc5-native-core` and the release PR is #81. PR #81 remains Draft until every required release gate passes. Verify its live head and CI state directly from GitHub before acting.
-
-The latest qualification work established these workflow facts:
-
-- the Plugin may be installed from the local repository checkout;
-- when the installed Plugin source resolves directly to that checkout, pulling the release branch updates the local Plugin source basis;
-- in that local-source case, do not run the stable Marketplace updater merely to refresh the exact source, because that can change the installation basis;
-- package verification uses `python3 scripts/package_integrity.py --check-generated` and `python3 scripts/package_integrity.py`;
-- `python3 scripts/doctor.py --codex-home "$HOME/.codex" --check` must report Plugin package and all five managed profiles healthy before Host probing;
-- `Host integration = UNKNOWN` is expected before current Host capability evidence is supplied;
-- `Orchestration state = UNKNOWN` is expected when no active task is selected;
-- static checkout, Plugin source and package/profile verification are separate from fresh Host identity binding;
-- Host environment binding requires the current root `session_id` and `thread_id` from the authoritative sources defined in `docs/v4/host-smoke.json`; generic `run_id` is not part of the release contract;
-- `thread_id` may be bound from current root tool-execution `CODEX_THREAD_ID` and must agree with the exact root rollout `session_meta.id` when both are used;
-- `session_id` may be bound from `session_meta.session_id`; equality between root `session_id` and `thread_id` is valid when that is what the Host reports;
-- the verified Host environment used macOS 27.0 build 26A5416b on arm64, ChatGPT/Codex Desktop bundle `com.openai.codex`, Host short version `26.818.41509`, bundle build `6962`, and embedded rollout Codex `0.149.0-alpha.4.1`;
-- that root environment identity was recorded as PASS in Issue #91 before N0 and remains useful as environment evidence;
-- an early turn in that root session exposed Native Subagent V2, but the exact later N0 request turn and schema-inspection turn were V1 with a matching V1-like spawn surface;
-- N0 therefore did not run, no `spawn_agent` call was issued, no child materialized, and the repository working tree remained clean;
-- a prior-turn V2 observation must now be treated as historical capability evidence only. It cannot authorize an Agent-control action in a later turn;
-- the Host campaign contract now requires exact-turn V2 capability before every covered Agent-control step and blocks V1 compatibility translation;
-- the staged H0 retry subsequently established a fresh authoritative Host environment binding against the corrected local source and qualification basis without any Agent-control action or repository mutation;
-- the real Host campaign must follow the staged procedure in `tasks/real-host-qualification-plan.md`.
-
-For exact IDs, source SHA/tree, ledger comment IDs and live PASS/UNKNOWN state, use Issue #91. Do not copy those volatile values from this document into a new decision without checking the ledger.
-
-## Latest Host phase checkpoint
-
-Host phase: H0 exact source, installed basis, and fresh Host environment
-
-Phase state: `PASS_STOP`
-
-Canonical evidence: Issue #91 `H0_EVIDENCE` comment `5393230855`; independent contract review recorded as `H0-REVIEW-001` comment `5393357753`.
-
-Qualification-basis impact: unchanged. The exact release source, package manifest, profile contract and Host contract matched the formal basis used by the H0 campaign. H0 itself produced no repository or installed-package mutation.
-
-Durable conclusion: H0 established an authoritative fresh Host environment binding with exact source and clean worktree, healthy package/profile basis, authoritative root session/thread identity, Host build, embedded Codex version, platform, architecture, cwd and rollout identity. Agent-control action count and child materialization count were both zero. The H0 turn observed Native Subagent V2, but that observation is environment context only and cannot authorize the H1 Reader spawn.
-
-Next permitted phase: H1 N0 Reader canary only after this checkpoint is merged, post-merge repository CI is green, all three Host qualification inputs are re-compared, the target local checkout is synchronized to the new release head, a fresh H1 Issue #91 preflight is recorded, and the user explicitly authorizes continuation. H1 must prove exact-turn V2 capability again before any Agent-control action.
-
-## Real Host staged execution protocol
-
-The campaign is divided into mandatory phases with hard stop points:
+The staged phase structure remains:
 
 ```text
 H0   exact source, installed basis, fresh Host environment
@@ -174,75 +182,33 @@ H9   N8 Advisor review and effective sandbox truth
 H10  release closure and explicit release decision stop
 ```
 
-No phase auto-continues. After every H0 through H9 phase:
+Every phase still has a hard stop. Canonical phase evidence is written to Issue #91. A phase does not auto-continue, and a new chat/session does not justify rerunning Host work by itself.
 
-1. write the canonical action/result evidence to Issue #91;
-2. stop all further Host work;
-3. update `headoff.md` with a concise durable checkpoint that references Issue #91, records qualification-basis impact, and identifies the next permitted phase;
-4. merge that checkpoint through the normal short-lived branch and CI workflow;
-5. compare all three Host qualification digests after the checkpoint merge;
-6. sync the target local checkout;
-7. perform a fresh Issue #91 preflight before any next-phase Host action;
-8. continue only after explicit user instruction.
+`headoff.md` may be updated later when the durable project direction materially changes. Such an update is normal development documentation and has no special qualification privilege or phase-gate status.
 
-H10 also receives a `headoff.md` record, using the special post-decision rule from `tasks/real-host-qualification-plan.md`. Do not mutate the frozen final candidate before the release decision merely to write that H10 record.
+## Development workflow
 
-The allowed phase terminal states are `PASS_STOP`, `NOT_RUN_STOP`, `UNKNOWN_STOP`, `FAIL_STOP`, and `MUTATION_STOP`. `UNKNOWN_STOP`, `FAIL_STOP`, and `MUTATION_STOP` always block later Host phases until their cause is resolved. `NOT_RUN_STOP` blocks later Host phases until the missing prerequisite or capability basis changes.
+For repository changes:
 
-Within H3, stop after each managed profile before advancing to the next profile. Within H7, stop internally after N5 settlement before attempting N6 takeover. H5 must finish with all deliberately created children settled or cleaned before the phase can close. H5 may not exceed the product managed-child ceiling to manufacture a Host rejection. If safe saturation cannot be staged within product policy, N3 stops as `NOT_RUN_STOP`.
+1. Read this development context, then verify the relevant canonical contracts and live GitHub/Issue #91 state.
+2. Check the request for wrong assumptions, missing requirements, and scope drift.
+3. Plan non-trivial work before implementation.
+4. Create a short-lived branch from the exact intended base.
+5. Keep behavior changes focused and reuse canonical helpers rather than creating parallel validators or truth stores.
+6. Preserve UNKNOWN handling, WriterLease settlement, Host identity/materialization evidence, managed-depth checks, and strict read-only evidence.
+7. Run focused tests first, then the complete required repository matrix.
+8. Review the final diff adversarially for correctness, simplicity, architecture, security, and performance.
+9. Merge only when the reviewed exact head is green.
+10. Verify post-merge exact-head CI before treating repository remediation as closed.
+11. Record real Host evidence and invalidation decisions in Issue #91.
+12. Update this file only when durable development context actually changes.
 
-The H9 checkpoint requires special handling. Recording H9 in `headoff.md` changes release-source identity. Because N8 and Final Review bind the exact candidate artifact, freeze the post-checkpoint source and perform one justified N8 revalidation on that exact head. Do not mutate `headoff.md` again after that revalidation before Final Review and release closure. The final N8 result stays canonical in Issue #91.
-
-`headoff.md` must never contain raw rollout logs, full child transcripts, or a duplicated live Host ledger. Its phase checkpoint is a durable navigation summary only.
+Never mark work complete before verification.
 
 ## Next development direction
 
-H0 is complete at `PASS_STOP`. H1 is the next stage, but it remains unauthorized until the H0 checkpoint closure steps finish and the user explicitly continues.
+Finish the Deep Review remediation merge first. After the final PR head and post-merge release head both pass repository qualification, rebind the Host qualification basis in Issue #91 because the runtime manifest changed.
 
-Before H1 begins:
+Do not start H1 directly from the old H0 checkpoint. Resume real Host qualification only after the new exact source/package basis is synchronized, health checks pass, the Issue #91 preflight allows the next action, and the user explicitly authorizes continuation.
 
-1. Merge and verify this H0 checkpoint through the normal repository workflow.
-2. Confirm the new release source and post-merge CI directly from GitHub.
-3. Compare all three Host qualification inputs and record whether H0 evidence remains reusable.
-4. Synchronize the target local checkout to the new release head and verify clean source plus package/profile health.
-5. Read the newest Issue #91 ledger entries and perform a dedicated H1/N0 Reader `REUSE | RERUN | NOT_RUN` preflight.
-6. In the actual Reader probe turn, establish the exact `turn_id`, prove Host-produced `multi_agent_version=v2`, and verify the callable V2 spawn schema requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`.
-7. Only after that same-turn capability precondition passes may the canonical Reader be spawned through Orchestrate with the fixed managed profile and `fork_turns=none`.
-8. Stop at `H1_STOP` after Reader evaluation even when it passes. Do not continue to Worker in the same phase.
-
-Do not infer H1 capability from the H0 V2 observation. Do not invoke any Agent-control tool before the H1 exact-turn capability precondition passes.
-
-Do not repeat the old generic recursion probe merely because a new chat/session starts.
-
-## Development workflow for a new session
-
-Follow this sequence for repository changes:
-
-1. Read `headoff.md` first, then inspect the relevant machine contracts and live GitHub/Issue #91 state.
-2. Check the user's request for missing assumptions or incorrect premises before planning.
-3. Write a concrete plan for non-trivial work and verify the plan against current owners and consumers.
-4. Create a short-lived branch from the exact intended base. Do not develop directly on the release branch.
-5. Keep each change minimal and coherent. Separate behavior changes, refactors and documentation cleanup where possible.
-6. Prove active consumers before deleting compatibility surfaces or paths.
-7. Preserve UNKNOWN handling, WriterLease settlement, Host identity/materialization evidence, managed-depth checks and strict read-only evidence.
-8. Run focused validation first, then the full required repository matrix before calling the work complete.
-9. Review the diff adversarially. Ask whether a senior engineer would approve the change and whether a simpler design exists.
-10. Merge only after validation is green and the reviewed head is fixed. Use an expected head SHA when merging where supported.
-11. Re-run or inspect post-merge exact-head CI and compare source/synthetic tree when relevant.
-12. Update Issue #91 for release evidence without using tracked repository files as the live Host ledger.
-13. Update `headoff.md` when project background, durable workflow, important development trajectory, current phase or next direction materially changes.
-14. During the real Host campaign, every H0 through H9 phase stop requires a `headoff.md` checkpoint before the next phase. H10 follows the post-decision checkpoint rule in the staged plan.
-
-Never mark repository work complete before verification.
-
-## Maintenance rules
-
-- One semantic fact gets one machine owner.
-- Human documentation explains or links canonical owners and should not become a parallel machine oracle.
-- Tests protect behavior, schema, ownership, public interfaces and safety invariants. Avoid prose synchronization tests unless wording itself is an interface.
-- A compatibility surface needs a real consumer and a removal condition.
-- Generate package-integrity data with repository tooling. Do not hand-copy hashes.
-- Host evidence invalidation is determined by the Host qualification identity, not by Git HEAD alone.
-- Final Review invalidation is determined by the exact final release source and review artifact identity.
-- Historical development chronology belongs in Git history or `docs/history/`. `headoff.md` keeps only the history needed for a new development session to understand why the current direction exists.
-- During staged Host qualification, Issue #91 remains canonical for live evidence. `headoff.md` only records durable phase checkpoints and next-direction context.
+No new product feature work is planned in this handoff. If a real Host probe later exposes a concrete product defect, fix that defect on a separate short-lived branch and repeat the required invalidation/verification process.

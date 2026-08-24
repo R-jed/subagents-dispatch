@@ -22,7 +22,6 @@ def current_authority_text_files() -> list[Path]:
         ROOT / "README_EN.md",
         ROOT / "README_AI.md",
         ROOT / "CHANGELOG.md",
-        ROOT / "headoff.md",
     }
     for folder, suffixes in (
         (ROOT / "contracts", {".md", ".json"}),
@@ -184,6 +183,10 @@ def test_current_authority_surfaces_do_not_reintroduce_retired_product_or_budget
     assert not failures, "retired current-authority logic found:\n" + "\n".join(failures)
 
 
+def test_development_handoff_is_outside_current_authority_scan():
+    assert ROOT / "headoff.md" not in current_authority_text_files()
+
+
 def test_history_documents_are_explicitly_non_authoritative():
     history = ROOT / "docs" / "history"
     readme = (history / "README.md").read_text(encoding="utf-8")
@@ -213,5 +216,4 @@ def test_candidate_status_has_no_self_stale_git_snapshot_or_duplicate_handoff():
     assert not (ROOT / "docs" / "v4" / "current-state.md").exists()
     assert not (ROOT / "docs" / "v4" / "development-handoff.md").exists()
     assert not (ROOT / "docs" / "current-state.md").exists()
-    assert (ROOT / "headoff.md").is_file()
     assert "phase-status.json" not in read_text("README_AI.md")

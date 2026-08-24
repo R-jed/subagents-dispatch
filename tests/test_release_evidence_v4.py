@@ -136,30 +136,30 @@ def test_exact_candidate_bound_release_evidence_passes(tmp_path: Path):
     assert result["candidate_tree"] == run(repo, "rev-parse", "HEAD^{tree}")
 
 
-def test_old_release_envelope_is_rejected_after_source_commit(tmp_path: Path):
+def test_old_release_envelope_is_rejected_after_non_runtime_source_commit(tmp_path: Path):
     module = load_module("native_release_source_drift", "release_evidence_v4.py")
     repo = make_candidate(tmp_path)
     evidence = build_valid_evidence(module, repo)
 
-    write(repo / "headoff.md", "updated handoff only\n")
+    write(repo / "development-note.md", "updated development context only\n")
     run(repo, "add", ".")
-    run(repo, "commit", "-m", "docs: update handoff")
+    run(repo, "commit", "-m", "docs: update development note")
 
     result = module.verify_release_evidence(repo, evidence)
     assert result["ok"] is False
     assert any("candidate_commit" in issue or "candidate_tree" in issue for issue in result["issues"])
 
 
-def test_host_campaign_is_reusable_after_handoff_only_commit(tmp_path: Path):
-    module = load_module("native_release_handoff_reuse", "release_evidence_v4.py")
+def test_host_campaign_is_reusable_after_non_runtime_source_commit(tmp_path: Path):
+    module = load_module("native_release_non_runtime_reuse", "release_evidence_v4.py")
     repo = make_candidate(tmp_path)
     original = build_valid_evidence(module, repo)
     campaign = copy.deepcopy(original["host_campaign"])
 
     qualification_before = module.host_qualification_identity(module.current_candidate_identity(repo))
-    write(repo / "headoff.md", "new development-session context\n")
+    write(repo / "development-note.md", "new development-session context\n")
     run(repo, "add", ".")
-    run(repo, "commit", "-m", "docs: refresh headoff")
+    run(repo, "commit", "-m", "docs: refresh development note")
     qualification_after = module.host_qualification_identity(module.current_candidate_identity(repo))
 
     assert qualification_after == qualification_before
