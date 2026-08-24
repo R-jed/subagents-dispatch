@@ -21,14 +21,10 @@ def test_public_installation_commands_match_current_cli_surface():
         check=False,
     )
     assert doctor_help.returncode == 0
-    for flag in (
-        "--check",
-        "--repair",
-        "--migrate-legacy",
-        "--cleanup-stale",
-        "--uninstall-managed",
-    ):
+    for flag in ("--check", "--repair", "--uninstall-managed"):
         assert flag in doctor_help.stdout
+    for removed_flag in ("--legacy", "--migrate-legacy", "--cleanup-stale"):
+        assert removed_flag not in doctor_help.stdout
 
     for script in ("plugin_update.py", "check-plugin-update.py"):
         result = subprocess.run(
