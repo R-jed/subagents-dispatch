@@ -31,10 +31,10 @@ def test_public_surface_is_exactly_two_explicit_skills():
         assert metadata["policy"]["allow_implicit_invocation"] is False
 
 
-def test_plugin_manifest_is_v4_two_skill_identity_and_validator_compatible():
+def test_plugin_manifest_is_v1_two_skill_identity_and_validator_compatible():
     payload = json.loads(PLUGIN.read_text(encoding="utf-8"))
     assert payload["name"] == "subagents-dispatch"
-    assert payload["version"] == "4.0.0"
+    assert payload["version"] == "1.0.0"
     assert payload["skills"] == "./skills/"
     for unsupported in ("mcpServers", "apps", "agents"):
         assert unsupported not in payload
