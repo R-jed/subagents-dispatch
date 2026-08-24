@@ -75,7 +75,7 @@ def native_host_evidence(*, managed_child_containment: str = "verified") -> dict
     }
 
 
-def test_doctor_reports_product_health_layers_with_host_unknown(tmp_path: Path):
+def test_doctor_reports_current_product_health_layers_with_host_unknown(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = run_doctor(home, tmp_path, "--check")
@@ -86,7 +86,6 @@ def test_doctor_reports_product_health_layers_with_host_unknown(tmp_path: Path):
         "Managed Agents",
         "Host integration",
         "Orchestration state",
-        "Legacy compatibility",
     ]
     positions = [result.stdout.index(f"] {name}:") for name in order]
     assert positions == sorted(positions)
@@ -113,7 +112,6 @@ def test_doctor_json_has_only_current_layers_and_actions(tmp_path: Path):
         "Managed Agents",
         "Host integration",
         "Orchestration state",
-        "Legacy compatibility",
     ]
     assert payload["layers"][2]["status"] == "UNKNOWN"
 
@@ -221,7 +219,7 @@ def test_modified_owned_profile_blocks_doctor(tmp_path: Path):
     assert "[FAIL] Managed Agents: Managed Agent profiles cannot be changed safely" in result.stdout
 
 
-def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: Path):
+def test_explicit_blank_thread_identity_fails_closed(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
     result = subprocess.run(
@@ -234,7 +232,7 @@ def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: P
             str(tmp_path),
             "--thread-id",
             "",
-            "--cleanup-stale",
+            "--check",
         ],
         cwd=ROOT,
         text=True,
@@ -247,19 +245,19 @@ def test_cleanup_stale_rejects_explicit_blank_thread_identity_safely(tmp_path: P
     assert "Traceback" not in result.stderr
 
 
-def test_legacy_flag_displays_current_migration_state_without_mutation(tmp_path: Path):
-    result = subprocess.run(
-        [sys.executable, str(DOCTOR), "--codex-home", str(tmp_path / "codex-home"), "--legacy"],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 0
-    assert "[" in result.stdout
-    assert "Legacy compatibility" in result.stdout
-    assert "Migration state:" in result.stdout
+def test_removed_pre_1_0_doctor_actions_fail_as_unknown_arguments(tmp_path: Path):
+    home = tmp_path / "codex-home"
+    install(home)
+    for option in ("--legacy", "--migrate-legacy", "--cleanup-stale"):
+        result = subprocess.run(
+            [sys.executable, str(DOCTOR), "--codex-home", str(home), option],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "unrecognized arguments" in result.stderr
 
 
 def test_doctor_can_explicitly_uninstall_only_owned_managed_profiles(tmp_path: Path):
