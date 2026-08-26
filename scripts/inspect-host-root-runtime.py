@@ -13,6 +13,7 @@ import argparse
 import importlib.util
 import json
 from pathlib import Path
+import sys
 from typing import Any, NoReturn
 
 
@@ -57,11 +58,11 @@ def nested_type(value: Any) -> str | None:
 
 
 def resolve_sessions_dir(runtime, args: argparse.Namespace) -> Path:
-    class RuntimeArgs:
-        sessions_dir = args.sessions_dir
-        codex_home = args.codex_home
-
-    return runtime.resolve_sessions_dir(RuntimeArgs())
+    runtime_args = argparse.Namespace(
+        sessions_dir=args.sessions_dir,
+        codex_home=args.codex_home,
+    )
+    return runtime.resolve_sessions_dir(runtime_args)
 
 
 def inspect_root(runtime, path: Path, *, thread_id: str) -> dict[str, str | None]:
@@ -139,6 +140,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import sys
-
     main()
