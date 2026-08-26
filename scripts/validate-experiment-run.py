@@ -831,22 +831,19 @@ def validate_calibration_arm(
     expected_sha256 = record.get("sha256")
     if route["expected_profile_path"] != str(expected_path) or route["expected_profile_sha256"] != expected_sha256:
         fail("calibration child profile origin does not match the materialization manifest")
-    observed_path = route["observed"]["agent_path"]
-    if observed_path is None:
-        expected_origin_verdict = "unknown"
+    expected_origin_verdict = "verified"
+    try:
+        current_sha256 = hashlib.sha256(expected_path.read_bytes()).hexdigest()
+    except OSError:
+        expected_origin_verdict = "failed"
     else:
-        observed = Path(observed_path)
-        expected_origin_verdict = "verified" if observed.is_absolute() and observed.resolve() == expected_path.resolve() else "failed"
-    if expected_origin_verdict == "verified":
-        try:
-            current_sha256 = hashlib.sha256(expected_path.read_bytes()).hexdigest()
-        except OSError:
+        if current_sha256 != expected_sha256:
             expected_origin_verdict = "failed"
-        else:
-            if current_sha256 != expected_sha256:
-                expected_origin_verdict = "failed"
     if route["profile_origin_verdict"] != expected_origin_verdict:
-        fail(f"profile origin verdict must be {expected_origin_verdict!r} for observed agent_path and frozen profile SHA256")
+        fail(
+            f"profile origin verdict must be {expected_origin_verdict!r} for the "
+            "campaign-owned profile path and frozen profile SHA256"
+        )
 
     observed_provider = route["observed"]["model_provider"]
     if observed_provider is None:

@@ -105,7 +105,9 @@ cwd
 runtime_version
 ```
 
-Formal `model_effort` calibration uses these Host-observed auxiliary fields as required controls. Public Host metadata and the exact rollout must agree where both expose them. `agent_path` must canonicalize to the exact committed campaign-owned profile path and that profile must still match its frozen SHA-256. `model_provider` must equal the provider frozen by the campaign. Missing evidence remains `UNKNOWN`; configured values and agent-type identity are never copied into Observed.
+Formal `model_effort` calibration uses these Host-observed auxiliary fields as required controls. Public Host metadata and the exact rollout must agree where both expose them. In Multi-Agent V2, `agent_path` is the Host-native canonical task path under `/root`, such as `/root/sd_n0_reader_a1`; it is task identity, not a profile-file path. When a gate uses it, it must match the expected canonical task path. Managed profile provenance is established separately from the exact `agent_type`, installed profile inventory, policy binding, and frozen profile bytes or digest. `model_provider` must equal the provider frozen by the campaign. Missing evidence remains `UNKNOWN`; configured values and agent-type identity are never copied into Observed.
+
+This V2 interpretation is aligned to OpenAI Codex upstream source pinned in `docs/codex-v2-source-alignment.md`. The exact installed Host build remains the runtime acceptance authority when upstream and installed behavior differ.
 
 The inspector does not emit prompts, assistant messages, tool payloads, hidden reasoning, source contents, or rollout paths. `cwd` is emitted only as an allowlisted runtime field and must be unique across all `turn_context` records.
 

@@ -370,8 +370,8 @@ def validate(tmp_path: Path, campaign: dict, run: dict) -> dict:
         profile.write_bytes(generated_item["profile_bytes"])
         route.setdefault("expected_profile_path", str(profile))
         route.setdefault("expected_profile_sha256", hashlib.sha256(profile.read_bytes()).hexdigest())
-        if "profile_origin_verdict" not in route:
-            route["observed"]["agent_path"] = str(profile)
+        if route["observed"].get("agent_path") is None:
+            route["observed"]["agent_path"] = f"/root/{route['materialized_agent_type']}"
         route.setdefault("profile_origin_verdict", "verified")
         sessions = codex_home / "sessions"
         sessions.mkdir(parents=True, exist_ok=True)
@@ -949,19 +949,10 @@ def test_calibration_profile_origin_requires_exact_owned_path_and_current_sha(tm
     campaign = calibration_campaign()
     run = calibration_run(campaign)
     route = run["child_routes"][0]
-    route["profile_origin_verdict"] = "failed"
-    route["observed"]["agent_path"] = str(tmp_path / "different.toml")
-    run["profile_origin_assurance"] = "failed"
-    with pytest.raises(SystemExit, match="runtime evidence|profile origin"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
-    route = run["child_routes"][0]
-    route["profile_origin_verdict"] = "unknown"
-    route["observed"]["agent_path"] = None
-    run["profile_origin_assurance"] = "unknown"
+    route["observed"]["agent_path"] = "/root/different_task"
     result = validate(tmp_path, campaign, run)
-    assert result["claim_eligible"] is False
+    assert result["profile_origin_assurance"] == "verified"
+    assert route["observed"]["agent_path"] == "/root/different_task"
 
     run = calibration_run(campaign)
     validate(tmp_path, campaign, run)
@@ -1021,7 +1012,7 @@ def test_calibration_rejects_forged_manifest_ownership_or_runtime_artifact(tmp_p
     validate(tmp_path, campaign, run)
     artifact_path = Path(run["child_routes"][0]["runtime_evidence_ref"])
     artifact = json.loads(artifact_path.read_text())
-    artifact["local"] = {**artifact["native"], "agent_path": str(tmp_path / "other.toml")}
+    artifact["local"] = {**artifact["native"], "agent_path": "/root/other_task"}
     artifact_path.write_text(json.dumps(artifact))
     run["child_routes"][0]["runtime_evidence_sha256"] = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
     with pytest.raises(SystemExit, match="conflict"):
