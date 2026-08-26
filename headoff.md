@@ -1,265 +1,172 @@
 # Headoff
 
-Updated: 2026-08-25.
+Updated: 2026-08-26.
 
 ## Purpose
 
-This file is the development-session handoff record for `subagents-dispatch`.
+This is the development-session handoff record for `subagents-dispatch`. It preserves durable project direction, major completed work, important decisions, lessons, current blockers, and the next safe continuation point.
 
-Its job is to help a new ChatGPT development session recover the project quickly without reconstructing old conversations. It should preserve durable development context: current direction, recent completed work, important decisions and their reasons, lessons already learned, current phase, open work, and the next safe continuation point.
+It is not Plugin runtime, a product contract, Host qualification input, release evidence, or a release gate. Live branch, PR, commit/tree, CI, and review state belong in GitHub. Real Host actions, evidence, phase verdicts, and `REUSE | RERUN | NOT_RUN` decisions belong in Issue #91. Machine behavior belongs in canonical contracts.
 
-This file is not Plugin runtime, a product contract, Host qualification input, release evidence, or a release gate. It must not become a second source of truth for facts already owned elsewhere.
-
-Live branch, PR, exact commit/tree, CI and review state belong in GitHub. Real Host actions, evidence, phase verdicts, and `REUSE | RERUN | NOT_RUN` decisions belong in Issue #91. Machine behavior belongs in the canonical contracts.
-
-If this file conflicts with a canonical contract, live GitHub state, or Issue #91 evidence, treat this file as stale development context. Resolve the live truth from the canonical owner first, then repair the handoff record. Never change a canonical contract merely to make it agree with an outdated handoff summary.
-
-Update this file when the development theme, durable project direction, major completed work, important decision, current phase, blocker, lesson, or next safe continuation point materially changes. Do not edit it merely to record an individual CI run, exact live SHA, one Host probe result, temporary diagnostic output, or another short-lived status value.
+If this file conflicts with GitHub, Issue #91, or a canonical contract, resolve live truth from the canonical owner first and then repair this record.
 
 ## Project in one minute
 
-`subagents-dispatch` is a bounded orchestration layer over Codex Native Subagents. It helps Main decide when delegation is useful, assign bounded responsibilities to fixed managed profiles, coordinate dependency and writer safety, inspect Host evidence conservatively, and keep final acceptance with Main.
+`subagents-dispatch` is a bounded orchestration layer over Codex Native Subagents. Main owns dispatch judgment, integration, irreversible side effects, and final acceptance. Managed children use fixed profiles, fresh context, bounded authority, WorkGraph/WorkUnit responsibility ownership, ExecutionBinding attempt identity, and WriterLease coordination.
 
-The first public Plugin line is `1.0.0`. Native Core V4 remains an internal architecture generation used by machine contracts and filenames. It is not the public release number.
+The first public Plugin line is `1.0.0`. Native Core V4 is the internal architecture generation and is not the public release number.
 
-The current development philosophy is deliberately strict:
-
-- unsupported pre-1.0 state has no compatibility entitlement;
-- retired TeamPlan surfaces remain removed;
-- retired migration and stale-state cleanup implementations do not ship;
-- unsupported state, ownership, installation source, or current schema fails explicitly;
-- ambiguous Host lifecycle, identity, materialization, permission, or writer evidence remains `UNKNOWN` and blocks unsafe progress;
-- old callers, tests, or documents do not justify restoring deleted APIs or compatibility paths.
+The project intentionally fails closed on unsupported state and ambiguous Host truth. Pre-1.0 compatibility surfaces, TeamPlan, migration wrappers, and stale-state fallback paths are not part of the first public contract.
 
 ## Current status
 
 Repository clean-break closure: **COMPLETE**.
 
-The first-public `1.0.0` clean-break work was merged through PR #115. The final PR head passed the required repository matrix and adversarial review, and the merged branch passed the post-merge repository qualification as well.
+Public `1.0.0` release: **BLOCKED on real Host qualification and later release closure**.
 
-Current active release workstream: **real Codex Host qualification re-entry on the post-clean-break basis**.
+The post-clean-break real Host campaign established valid H0 environment binding, H1 Reader N0 evidence, and H2 Worker N0 evidence on the then-current qualification basis. H2 Investigator then reached **FAIL_STOP** because the qualification control flow materialized two Investigator attempts for one single-use profile probe.
 
-Real Host qualification: **requires a fresh Issue #91 qualification-basis preflight before another Host action is treated as current release evidence**.
+The Investigator failure has been root-caused. The Host did not duplicate the child automatically. Main created attempt 1, observed it `COMPLETED`, explicitly rejected that completed WorkUnit result, and allocated attempt 2. The second execution basis contained only the existing Issue #91 qualification preflight reference and no new task-level execution evidence. The second dispatch therefore repaired qualification provenance by repeating the Host action after the one-probe authorization had already been consumed.
 
-Final Review: **blocked until the applicable N0-N8 Host campaign is conclusive for the current qualification basis**.
+A focused development fix is now in progress: maintainer-only `scripts/host_qualification_guard.py` requires H1/H2 single-probe allocations to bind the exact Issue #91 `RERUN` preflight on attempt 1, refuses default `initial:<execution_id>` qualification provenance at spawn preparation, and refuses any fresh qualification allocation when that WorkUnit already has retained or compacted execution history. The guard is intentionally excluded from the Plugin runtime package manifest, so generic product Recovery semantics remain unchanged.
 
-Public `1.0.0` release: **not complete**.
+`tasks/real-host-qualification-plan.md` now requires the guard for H1/H2 and explicitly forbids rejecting a completed qualification probe and fresh-retrying merely to repair provenance or bookkeeping.
 
-Feature development should not quietly restart while release qualification is being closed. Any source or package change must be classified against repository and Host invalidation rules before later release evidence is reused.
+Because repository source changed to repair the qualification process, the Host campaign must remain stopped until the change is merged, exact-head repository qualification is green, and Issue #91 classifies which prior Host evidence can be reused on the new release-source basis. Do not assume that every prior Host result is invalid: compare the canonical Host qualification digests and environment prerequisites first.
 
-## Recently completed work
+## Recently completed milestones
 
 ### First-public 1.0.0 clean break
 
-PR #115 completed the repository-side clean break for the first public release.
+The first-public clean break removed retired TeamPlan and pre-1 migration/compatibility surfaces, aligned the public version to Plugin `1.0.0`, preserved Native Core V4 only as an internal architecture identifier, strengthened package-integrity and regression coverage, and kept unresolved orchestration Host uncertainty visible as `UNKNOWN`.
 
-The durable outcomes are:
+The durable architecture remains:
 
-- WorkGraph and WorkUnit remain the current responsibility, dependency, readiness, and acceptance structure;
-- retired TeamPlan contract, validator, revision fields, and current compatibility callers were removed;
-- pre-1.0 migration and stale-state cleanup implementations were removed from the shipped product;
-- unsupported pre-1.0 state and unsupported current inputs fail explicitly instead of being translated forward;
-- public release identity was aligned to Plugin `1.0.0` while Native Core V4 stayed an internal architecture identifier;
-- release and architecture documents were aligned with the current runtime schema;
-- stale current-authority documentation references to deleted compatibility surfaces were removed;
-- Doctor now preserves unresolved orchestration Host uncertainty as `UNKNOWN` instead of describing that state as healthy;
-- package-integrity data was refreshed for changed shipped bytes;
-- repository regression coverage was strengthened so retired compatibility surfaces cannot quietly return to current authority documents and tests;
-- the exact reviewed PR head passed the required CI matrix and managed Agent lifecycle checks;
-- the merged branch passed the post-merge repository matrix.
-
-The clean-break repository plan in `tasks/plan.md` is now completed historical execution context. It is no longer the active development plan.
-
-### Earlier real Host work
-
-A staged Host qualification procedure and append-only evidence ledger were established before the final clean break. Earlier H0 work reached `PASS_STOP` on its then-current qualification basis.
-
-That earlier H0 result is useful historical evidence, but it must not be promoted automatically to the current post-clean-break basis. PR #115 changed shipped runtime/package bytes, so the next Host step begins with the normal Issue #91 qualification-basis comparison and invalidation decision.
-
-A new chat or maintainer session does not by itself invalidate Host evidence and does not justify repeating a Host action.
-
-## Key decisions and why
-
-### Clean break over speculative compatibility
-
-The first public line starts at `1.0.0`. Pre-1.0 development artifacts are not supported product data. Keeping migration wrappers, TeamPlan aliases, stale-state cleanup paths, or compatibility translations would increase branching and ambiguity before any public compatibility promise exists.
-
-When an old test or document depends on a deleted surface, fix the stale consumer or current contract. Do not restore the deleted surface solely to make historical assertions green.
-
-### Fail closed on unsupported or ambiguous evidence
-
-Host truth can be incomplete. `UNKNOWN` is therefore a real state, not a cosmetic warning to erase. Ambiguous materialization, lifecycle, identity, permission, or WriterLease evidence cannot authorize conflicting replacement, writer transfer, acceptance, or another unsafe action.
-
-Doctor may diagnose uncertainty, but it must not manufacture runtime authority or silently repair an ambiguous condition.
-
-### Keep release-source identity separate from Host qualification identity
-
-Two identity layers exist for different purposes.
-
-Release-source identity is the exact final Git commit/tree used for repository qualification, Final Review, release traceability, and the top-level release evidence envelope.
-
-Host qualification identity is the tuple of digests derived from:
-
-- `.codex-plugin/package-integrity.json`;
-- `contracts/policy.json`;
-- `docs/v4/host-smoke.json`.
-
-A source-only documentation change does not automatically invalidate conclusive Host evidence when all three Host qualification digests remain unchanged and no environment or prerequisite invalidation applies. Conversely, a matching public version string alone does not prove that the installed Plugin bytes still match the tested candidate.
-
-Every reuse decision still goes through Issue #91.
-
-### Keep Host evidence outside tracked product state
-
-`docs/v4/host-smoke.json` is the machine-readable N0-N8 contract and must remain `PENDING` with empty tracked results. Actual Host actions and preflight decisions go to Issue #91 so the frozen candidate does not mutate merely because qualification evidence is being collected.
-
-The final release evidence artifact also lives outside the candidate repository and is verified against the exact release source and Host qualification identity.
-
-### Headoff is development memory
-
-`headoff.md` records durable development context and session continuation. It should summarize important conclusions and point to the canonical owner instead of copying complete schemas, runtime state machines, CI snapshots, Host evidence, or release verdicts.
-
-The file should help a new ChatGPT session understand why the project is in its current shape and where to continue. It should not create new authority.
-
-## Canonical truth owners
-
-Use the smallest relevant owner and read live sources before acting:
-
-- `.codex-plugin/plugin.json`: public Plugin version and package identity.
-- `contracts/policy.json`: fixed product policy and managed profile values.
-- `contracts/state.md`: current state schema and clean-break boundary.
-- `docs/v4/architecture.json`: complete Native Core machine architecture and runtime ownership.
-- `docs/v4/host-smoke.json`: N0-N8 real Host machine contract.
-- `docs/release-checklist.md`: release gates, identity layers, and invalidation rules.
-- `tasks/plan.md`: completed 1.0.0 clean-break repository closure plan.
-- `tasks/real-host-qualification-plan.md`: current staged human Host execution procedure. It never overrides the machine contract.
-- `docs/runtime-attestation.md`: runtime observation and evidence boundaries.
-- GitHub: live branch, PR, exact source identity, CI, review, and merge state.
-- Issue #91: append-only real Host actions, evidence, preflight decisions, invalidation history, and reusable historical Host context.
-
-Do not create another tracked status file that duplicates GitHub or Issue #91.
-
-## Product context a new development session should retain
-
-Only the minimum durable architecture context belongs here:
-
-- Public Skills are `Orchestrate` and `Doctor`.
-- Main is the sole managed coordinator and owns final integration and acceptance.
+- WorkGraph and WorkUnit own responsibility, dependencies, readiness, and acceptance.
+- ExecutionBinding owns one concrete managed attempt/generation.
+- WriterLease owns canonical-workspace managed writer coordination.
+- Main is the sole managed coordinator and final acceptance owner.
 - Managed children do not create or control another managed Agent layer.
 - Reader and Worker use Luna Max; Investigator uses Terra High; Solver and Advisor use Sol High.
 - Fresh managed children use `fork_turns=none`.
-- The product managed-child ceiling is four.
-- WorkGraph and WorkUnit own responsibility, dependencies, readiness, and acceptance.
-- ExecutionBinding owns one concrete managed attempt/generation.
-- WriterLease owns managed write coordination for the canonical mutable workspace.
-- Host `COMPLETED` produces candidate work only; Main acceptance is separate.
+- Product managed-child ceiling is four.
+- Host `COMPLETED` means candidate lifecycle completion only.
 - Codex Host owns actual materialization, lifecycle, capacity, child identity, effective permission, effective sandbox, and effective collaboration capability.
-- Interrupt acknowledgement alone does not release WriterLease.
 
-For exact behavior, read the canonical contracts rather than expanding this section into a second architecture document.
+### Real Host qualification through the Investigator RCA
+
+The staged real Host procedure and append-only Issue #91 ledger remain the operational authority. The campaign uses mandatory phase stops and exact-turn V2 capability checks before covered Agent-control actions.
+
+Durable result of the Investigator incident:
+
+- the original Investigator attempt was a real successful Host spawn and reached `COMPLETED`;
+- Main then used the supported `reject_work_unit -> allocate_execution` path to create a second attempt;
+- there was no new task-level evidence, confirmed failure cause, corrected task input, or changed external condition justifying a product-style fresh retry;
+- the second basis existed only to attach qualification provenance after the first probe had already consumed the one-action authorization;
+- no direct `active.json` mutation or unsupported state bypass was found;
+- the defect was in qualification control flow and guardrails, not in Host automatic materialization or generic product retry automation.
+
+## Key decisions and why
+
+### Keep product Recovery general; narrow qualification separately
+
+`contracts/recovery.md` intentionally permits fresh retries when the prior execution is safely settled and a concrete changed execution basis exists. Tightening that contract globally to solve one qualification bookkeeping error would break legitimate product recovery.
+
+The fix therefore lives in maintainer-only qualification tooling. A single-use release preflight is a stricter concept than a normal unresolved product WorkUnit. H1/H2 qualification WorkUnits get exactly one fresh attempt per ledger authorization.
+
+### Qualification provenance must be bound before spawn
+
+For H1/H2, the exact Issue #91 `RERUN` preflight reference must be supplied as the first ExecutionBinding `execution_basis_ref`. A default `initial:<execution_id>` basis is insufficient for a release qualification probe.
+
+If this binding is missing or wrong, stop before Host spawn. If a child already materialized, the authorization is consumed. Do not reject the result and create another child to repair metadata after the fact.
+
+### Qualification guard stays outside shipped runtime
+
+`host_qualification_guard.py` is maintainer tooling and is intentionally absent from `.codex-plugin/package-integrity.json`. This keeps release-testing mechanics out of the user-facing Plugin runtime and avoids turning Issue #91 concepts into product state.
+
+### Fail closed on ambiguous or over-consumed authorization
+
+A new chat, new root, elapsed time, cleaner provenance string, or desire to improve evidence formatting does not create a rerun basis. A real Host action requires its own current Issue #91 authorization. Once a single-probe authorization is consumed, another materialization requires a separately justified preflight and, where applicable, a new qualification WorkUnit/campaign basis rather than a silent retry.
+
+## Canonical truth owners
+
+Read live sources before acting:
+
+- `.codex-plugin/plugin.json`: public Plugin version.
+- `.codex-plugin/package-integrity.json`: shipped runtime byte manifest.
+- `contracts/policy.json`: fixed product policy and managed profile values.
+- `contracts/state.md`: current state schema and clean-break boundary.
+- `contracts/recovery.md`: legitimate product retry and recovery semantics.
+- `docs/v4/architecture.json`: Native Core runtime ownership.
+- `docs/v4/host-smoke.json`: N0-N8 machine Host contract.
+- `docs/release-checklist.md`: release gates and invalidation rules.
+- `tasks/real-host-qualification-plan.md`: staged human Host qualification procedure.
+- `scripts/host_qualification_guard.py`: maintainer-only H1/H2 single-probe enforcement.
+- GitHub: live source, PR, CI, review, and merge state.
+- Issue #91: append-only Host action/preflight/evidence history and reuse decisions.
+
+Do not create another tracked status ledger that duplicates GitHub or Issue #91.
 
 ## Lessons already learned
 
-Keep these conclusions available to future sessions so the project does not repeat solved mistakes:
+1. A Host action that succeeds is not automatically sufficient evidence that the intended semantic effect occurred.
+2. `UNKNOWN` must remain visible and must not authorize conflicting replacement, writer transfer, or acceptance.
+3. New chats or sessions are not rerun reasons. Reuse and rerun follow evidence and invalidation rules.
+4. Host configuration expresses intent; actual Host observations decide materialization, route, lifecycle, sandbox, permissions, and descendant behavior.
+5. Shipped files covered by package integrity are package identity. Maintainer-only qualification tooling should stay outside that manifest unless it truly belongs in the product.
+6. `execution_basis_ref` is semantic recovery evidence. A different string is insufficient when the underlying task-level basis did not change.
+7. A single-use qualification preflight must be consumed by at most one materialized profile probe. Provenance repair after materialization is not a valid fresh-retry basis.
+8. Qualification metadata that must be authoritative later should be bound before Host action, then checked by deterministic code before the native call.
+9. When a qualification process defect is found, distinguish product behavior from operator/control-flow behavior before changing runtime contracts.
+10. Source changes during Host qualification require an explicit invalidation/reuse classification before the campaign resumes, even when shipped runtime digests remain unchanged.
 
-1. Deleting an old architecture surface requires searching current-authority tests and documents for stale consumers. A deleted implementation can remain conceptually alive through documentation drift.
-2. A stale test is not evidence that a deleted API should return. Determine which current contract owns the behavior first.
-3. `UNKNOWN` must stay visible through diagnostics. Converting unresolved Host uncertainty into a healthy status weakens fail-close behavior even when runtime gates still block unsafe work.
-4. Shipped documentation and scripts covered by package integrity are part of the package identity. Editing them requires the normal package-integrity update and repository qualification path.
-5. Git commit changes and Host qualification changes are related but not identical. Use the three qualification digests before deciding whether Host evidence must be repeated.
-6. Matching Plugin version text is insufficient proof of exact tested bytes. Exact installed package/profile basis must be verified when binding a Host campaign.
-7. Starting a new ChatGPT, Codex, or maintainer session is not a rerun reason. Reuse or rerun follows evidence and invalidation rules.
-8. Host configuration expresses intent. Real Host observations decide claims about actual model route, lifecycle, descendant materialization, sandbox, permissions, and control behavior.
-9. A Host action that returns successfully is not automatically sufficient evidence that the intended semantic effect occurred. N4 steering, settlement, writer transfer, and similar gates require the specific observations in the Host contract.
-10. Do not mutate tracked source merely to record a Host PASS. Milestone-level development context may be summarized here after the phase changes, while the evidence itself remains in Issue #91.
+## Open work
 
-## Active workstream: real Host qualification
+### Immediate repository work
 
-The repository clean-break work is closed. The next active release work is to determine the post-clean-break Host qualification basis and resume the staged campaign only from the point authorized by current evidence.
+- Finish review and exact-head CI for the qualification single-probe guard change.
+- Confirm `scripts/host_qualification_guard.py` remains excluded from the generated Plugin package manifest.
+- Review the final diff for accidental changes to generic Recovery, Orchestrate runtime behavior, package identity, and Host machine contract.
 
-Before any new real Host action:
+### Host qualification after the fix lands
 
-1. read the latest Issue #91 ledger;
-2. read `docs/v4/host-smoke.json`, `tasks/real-host-qualification-plan.md`, and the relevant release-checklist section;
-3. compare the current runtime-manifest, profile-contract, and Host-contract qualification digests with the basis of the evidence being considered for reuse;
-4. record an explicit `REUSE | RERUN | NOT_RUN` preflight decision in Issue #91;
-5. if a rerun is required, synchronize and verify the exact local checkout, Marketplace source, installed Plugin bytes, managed profile basis, package integrity, and Doctor before binding a fresh Host environment;
-6. do not perform an Agent-control action until the exact covered turn independently proves the required V2 Host capability and callable schema;
-7. stop at the mandatory phase stop defined by the Host qualification plan.
+- Record the source mutation and new qualification-process basis in Issue #91.
+- Compare the current package-integrity, policy, and host-smoke qualification digests with the prior accepted H0/H1/Worker evidence.
+- Reuse only evidence that survives the canonical invalidation rules.
+- Perform a fresh Investigator preflight under the corrected single-probe procedure.
+- Re-run Investigator only after that preflight explicitly authorizes the action.
+- Continue Solver and Advisor only after Investigator reaches conclusive PASS and the H2 stop discipline is satisfied.
+- Do not begin N1 while N0 is incomplete.
 
-No Host phase auto-continues merely because the previous phase passed.
+### Later release work
 
-## Open work and unresolved questions
-
-These are active engineering/release concerns. They should remain clearly separated from confirmed product requirements until adopted into a canonical contract.
-
-### Required release work
-
-- Re-evaluate the post-clean-break Host qualification basis in Issue #91.
-- Rebind H0/source-environment evidence when the invalidation decision requires it.
-- Complete the applicable H1 through H9 staged Host campaign with mandatory stop points.
-- Run H10 release closure only after the Host campaign is conclusive.
-- Complete the fresh final-source Final Review, external release evidence verification, installed-product gate, human App observation, and release/tag closure required by `docs/release-checklist.md`.
-
-### Engineering improvements to evaluate
-
-- Consider a read-only Host test-basis verifier that can compare the intended candidate with the installed Plugin and managed profile basis at phase entry. The goal would be earlier detection of test-basis drift and immediate `MUTATION_STOP`, without automatic update, repair, reinstall, or fallback.
-- Finalize the post-release retention policy for external Host/release evidence. Issue #91 already preserves the operational ledger, while long-term immutable storage for release evidence and required raw Host artifacts still needs an explicit release-time decision.
-
-Do not treat these two improvement ideas as implemented requirements until the project adopts them in the proper canonical owner.
+After N0-N8 are conclusive on a valid basis, complete Final Review, external release evidence verification, installed-product checks, human App observation, and the explicit tag/publication decision required by `docs/release-checklist.md`.
 
 ## Next safe sequence
 
-For the next development session working on release qualification:
+1. Query GitHub for the live fix PR/head and exact CI state.
+2. Require focused qualification-guard tests, the complete repository matrix, package-integrity generation check, and relevant lifecycle tests to pass on the exact final head.
+3. Review the final diff against the base release branch and confirm the fix does not modify generic product Recovery or shipped Plugin bytes.
+4. Merge only after final-head CI and review are green.
+5. After merge, stop the Host campaign and record the repository-source mutation/invalidation classification in Issue #91 before any new Host action.
+6. Compare the three Host qualification digests and environment prerequisites. Do not repeat H0/H1/Worker solely because the source SHA changed if canonical reuse rules allow them to survive.
+7. Create the next Investigator preflight on the corrected procedure.
+8. In the local Host root, use `allocate_single_probe_execution` with the exact preflight reference and `prepare_single_probe_spawn`; if either guard rejects, perform zero Host spawn and stop.
+9. After one Investigator materializes, treat that preflight as consumed. Record and independently accept the result before touching Solver.
+10. Continue later phases only through their own Issue #91 preflights and mandatory stops.
 
-1. Read this file for durable context.
-2. Query GitHub for the current live branch, exact source state, open PRs, and current repository qualification status. Do not trust a historical SHA copied from an old chat.
-3. Read the latest Issue #91 entries and identify the most recent applicable Host qualification basis and stop state.
-4. Compare the current three Host qualification digests with the evidence basis under consideration.
-5. Record the next `REUSE | RERUN | NOT_RUN` preflight in Issue #91 before a real Host action.
-6. Verify the target checkout and installed Plugin/profile basis when the preflight requires current binding.
-7. Rebind H0 if required by invalidation. Stop at `PASS_STOP`, `NOT_RUN_STOP`, `UNKNOWN_STOP`, `FAIL_STOP`, or `MUTATION_STOP` as applicable.
-8. Proceed to H1 Reader canary only after H0 is valid for the current basis and the user explicitly authorizes continuation.
-9. Continue later phases only through the staged Host plan and its mandatory stop points.
-10. After N0-N8 are conclusive for the current qualification identity, continue with Final Review and release closure under `docs/release-checklist.md`.
+## Verification discipline
 
-If repository or package source changes during Host qualification, stop and classify invalidation before reusing later evidence.
-
-## Verification discipline for future repository changes
-
-For any new repository mutation:
+For repository changes:
 
 1. read the smallest relevant canonical contracts and current source;
 2. state concrete acceptance conditions before editing;
-3. keep changes focused and avoid compatibility branches for unsupported pre-1.0 surfaces;
-4. run focused checks when available;
-5. run the complete exact-head repository matrix when the change requires repository qualification;
-6. review the final diff across correctness, simplicity, architecture, security, and performance;
-7. do not mark the work complete while a required check is red, skipped, or bound to an older source state;
-8. classify the effect of the source change on Host qualification evidence before resuming Host work.
+3. keep behavior changes focused and avoid compatibility or fallback branches;
+4. add regression coverage that reproduces the actual failure mode;
+5. run focused tests and the complete exact-head repository matrix;
+6. compare base versus final head and inspect the complete diff;
+7. verify generated/package integrity and confirm intended shipped-file scope;
+8. do not mark work complete while any required check is red, skipped, stale, or bound to an older head;
+9. classify Host qualification invalidation before resuming real Host actions.
 
-## Handoff maintenance protocol
-
-A development session should update this file before handoff when at least one of these durable facts changed:
-
-- the project or release theme changed;
-- a major implementation or cleanup milestone completed;
-- an important design decision changed or was newly settled;
-- the active phase or release gate changed;
-- a blocker or unresolved engineering question materially changed;
-- a reusable lesson was learned that should prevent future repeated work;
-- the next safe continuation point changed.
-
-When updating it:
-
-1. refresh `Current status` first;
-2. add or revise the durable entry under `Recently completed work`;
-3. record new decision reasoning under `Key decisions and why` only when it will matter to future sessions;
-4. move solved issues out of `Open work and unresolved questions`;
-5. add meaningful recurring lessons under `Lessons already learned`;
-6. make `Next safe sequence` match the real current phase;
-7. verify links and canonical ownership statements against the current repository;
-8. avoid copying volatile SHA, CI run numbers, transient Host session ids, terminal output, or individual probe verdicts into this file.
-
-Keep the file bounded. `Recently completed work` should retain only milestones still useful for understanding the current project direction. When a phase is closed and its detailed execution history is already durable in GitHub or Issue #91, compress it to the decision and outcome needed by future sessions instead of appending an unlimited chronology. Remove or rewrite lessons and open questions when they are superseded. Git history remains the archive for older handoff versions.
-
-Before ending a development session, ask one practical question: if another ChatGPT session opened only this file and then queried the linked live sources, would it know what was completed, why the project is in its current shape, what remains open, and exactly where to continue without repeating already-conclusive work?
+Before ending a development session, verify that a new session can read this file, query the linked live sources, understand the Investigator duplicate-dispatch RCA, know why the guard is maintainer-only, and identify the exact next safe continuation without repeating already-conclusive work.
