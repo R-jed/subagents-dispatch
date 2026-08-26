@@ -1,0 +1,205 @@
+name: fix-host-agent-layer-counts
+
+on:
+  push:
+    branches:
+      - fix/host-runtime-evidence-resolvers
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.11'
+      - name: Guard exact parent
+        run: |
+          test "$(git rev-parse HEAD^)" = "63abe9d2376e66e40d64b8d310e3f2ddd1f1b031"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/fix-host-agent-layer-counts.yml"
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Add regression test first
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/test_host_qualification_evidence.py")
+          text = path.read_text(encoding="utf-8")
+          marker = "\ndef test_aggregate_does_not_turn_missing_usage_or_tool_name_into_zero(tmp_path: Path):\n"
+          if text.count(marker) != 1:
+              raise SystemExit("aggregate test insertion marker mismatch")
+          test = r'''
+
+def test_aggregate_distinguishes_control_from_full_v2_agent_layer(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    names = [
+        "spawn_agent",
+        "send_message",
+        "followup_task",
+        "wait_agent",
+        "interrupt_agent",
+        "list_agents",
+    ]
+    extra = [
+        {
+            "timestamp": f"2026-08-26T00:00:{index + 2:02d}Z",
+            "type": "response_item",
+            "payload": {"type": "function_call", "name": name, "arguments": "DO_NOT_LEAK"},
+        }
+        for index, name in enumerate(names)
+    ]
+    write_rollout(
+        sessions,
+        thread_id=CHILD_THREAD,
+        timestamp="2026-08-26T00:00:00Z",
+        parent_thread_id=ROOT_THREAD,
+        agent_role=ROLE,
+        agent_path=TASK_PATH,
+        extra_records=extra,
+    )
+
+    result = run_tool(sessions, "aggregate", CHILD_THREAD)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["agent_control_call_count"] == 4
+    assert payload["agent_control_tools_seen"] == [
+        "followup_task",
+        "interrupt_agent",
+        "send_message",
+        "spawn_agent",
+    ]
+    assert payload["agent_layer_call_count"] == 6
+    assert payload["agent_layer_tools_seen"] == sorted(names)
+'''
+          path.write_text(text.replace(marker, test + marker), encoding="utf-8")
+          PY
+      - name: Prove regression test is red
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q tests/test_host_qualification_evidence.py -k distinguishes_control_from_full_v2_agent_layer > /tmp/red.txt 2>&1
+          status=$?
+          set -e
+          test "$status" -ne 0
+          grep -Eq "agent_control_call_count|agent_layer_call_count" /tmp/red.txt
+      - name: Implement full V2 Agent-layer accounting
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/host_qualification_evidence.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''AGENT_CONTROL_TOOLS = frozenset(
+    {"spawn_agent", "followup_task", "interrupt_agent", "list_agents"}
+)
+'''
+          new = '''AGENT_CONTROL_TOOLS = frozenset(
+    {"spawn_agent", "send_message", "followup_task", "interrupt_agent"}
+)
+AGENT_LAYER_TOOLS = frozenset(
+    {*AGENT_CONTROL_TOOLS, "wait_agent", "list_agents"}
+)
+'''
+          if text.count(old) != 1:
+              raise SystemExit("Agent tool set marker mismatch")
+          text = text.replace(old, new)
+
+          old = '''    tool_names_complete = True
+    control_tools: list[str] = []
+    compaction_count = 0
+'''
+          new = '''    tool_names_complete = True
+    control_tools: list[str] = []
+    agent_layer_tools: list[str] = []
+    compaction_count = 0
+'''
+          if text.count(old) != 1:
+              raise SystemExit("aggregate accumulator marker mismatch")
+          text = text.replace(old, new)
+
+          old = '''                if name is None:
+                    tool_names_complete = False
+                elif name in AGENT_CONTROL_TOOLS:
+                    control_tools.append(name)
+'''
+          new = '''                if name is None:
+                    tool_names_complete = False
+                elif name in AGENT_LAYER_TOOLS:
+                    agent_layer_tools.append(name)
+                    if name in AGENT_CONTROL_TOOLS:
+                        control_tools.append(name)
+'''
+          if text.count(old) != 1:
+              raise SystemExit("tool classification marker mismatch")
+          text = text.replace(old, new)
+
+          old = '''    agent_control_call_count = len(control_tools) if tool_names_complete else None
+
+    return {
+'''
+          new = '''    agent_control_call_count = len(control_tools) if tool_names_complete else None
+    agent_layer_call_count = len(agent_layer_tools) if tool_names_complete else None
+
+    return {
+'''
+          if text.count(old) != 1:
+              raise SystemExit("derived count marker mismatch")
+          text = text.replace(old, new)
+
+          old = '''        "agent_control_tools_seen": sorted(set(control_tools))
+        if tool_names_complete
+        else None,
+        "compaction_count": compaction_count,
+'''
+          new = '''        "agent_control_tools_seen": sorted(set(control_tools))
+        if tool_names_complete
+        else None,
+        "agent_layer_call_count": agent_layer_call_count,
+        "agent_layer_tools_seen": sorted(set(agent_layer_tools))
+        if tool_names_complete
+        else None,
+        "compaction_count": compaction_count,
+'''
+          if text.count(old) != 1:
+              raise SystemExit("aggregate output marker mismatch")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+
+          doc = Path("tasks/host-qualification-runtime-evidence.md")
+          text = doc.read_text(encoding="utf-8")
+          old = 'Recognized current Agent-control names are `spawn_agent`, `followup_task`, `interrupt_agent`, and `list_agents`. Namespaced forms are normalized to their final tool name.\n\nCurrent upstream Codex V2 can expose collaboration tools to a spawned child when that child\'s effective model metadata enables V2.'
+          new = 'Recognized current Agent-control names are `spawn_agent`, `send_message`, `followup_task`, and `interrupt_agent`. The full pinned V2 Agent-layer surface additionally includes `wait_agent` and `list_agents`; these are reported separately because waiting/listing does not by itself control another Agent. Namespaced forms are normalized to their final tool name.\n\nCurrent upstream Codex V2 can expose this collaboration surface to a spawned child when that child\'s effective model metadata enables V2.'
+          if text.count(old) != 1:
+              raise SystemExit("Agent-control documentation marker mismatch")
+          text = text.replace(old, new)
+          old = '- count and names of recognized Agent-control calls;\n'
+          new = '- count and names of recognized Agent-control calls;\n- count and names of all recognized current V2 Agent-layer calls;\n'
+          if text.count(old) != 1:
+              raise SystemExit("aggregate output documentation marker mismatch")
+          doc.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+      - name: Verify focused fix
+        run: |
+          python -m pytest -q tests/test_host_qualification_evidence.py tests/test_host_qualification_evidence_fail_closed.py tests/test_host_qualification_evidence_resolver_scope.py
+          python -m ruff check scripts tests --ignore E402
+      - name: Verify full repository
+        run: |
+          python scripts/package_integrity.py --check-generated
+          python scripts/package_integrity.py
+          python -m pytest -q
+          git diff --check
+      - name: Commit reviewed source
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/host_qualification_evidence.py tests/test_host_qualification_evidence.py tasks/host-qualification-runtime-evidence.md
+          git commit -m 'fix: classify full V2 Agent-layer evidence'
+          git push origin HEAD:fix/host-runtime-evidence-resolvers
