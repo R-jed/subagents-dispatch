@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
+QUALIFICATION_PLAN = ROOT / "tasks" / "real-host-qualification-plan.md"
 
 
 def payload() -> dict:
@@ -90,3 +91,13 @@ def test_managed_depth_rollout_privacy_and_sandbox_truth_have_separate_gates():
     assert "allowlisted inspection omits assignment text and reasoning content" in requirements(current["N7"])
     assert "effective advisor sandbox and permission state" in n8
     assert "requested profile sandbox" in n8
+
+
+def test_h1_h2_require_single_use_preflight_guard_and_forbid_provenance_retries():
+    plan = QUALIFICATION_PLAN.read_text(encoding="utf-8")
+
+    assert "scripts/host_qualification_guard.py" in plan
+    assert "allocate_single_probe_execution" in plan
+    assert "prepare_single_probe_spawn" in plan
+    assert "qualification provenance" in plan
+    assert "Do not reject a completed qualification probe and allocate a fresh retry" in plan

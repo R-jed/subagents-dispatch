@@ -17,6 +17,9 @@ Root `headoff.md` is development-session context only. It is not a Plugin contra
 7. No phase auto-continues into the next phase. Every phase ends at a mandatory stop point.
 8. Any repository, package, profile, installed-basis, or Host-contract mutation must stop the campaign until invalidation is classified and repository qualification is restored.
 9. Publication remains blocked until N0 through N8, Final Review, external release evidence, installed-product checks, and human App observation all pass.
+10. When one Issue #91 preflight authorizes exactly one fresh managed qualification probe, the authorization is single-use. For H1 and H2 use maintainer-only `scripts/host_qualification_guard.py`: allocate through `allocate_single_probe_execution` with the exact Issue #91 `RERUN` preflight reference as the first ExecutionBinding `execution_basis_ref`, then prepare through `prepare_single_probe_spawn`. Any prior retained or compacted attempt for that WorkUnit means the authorization has already been consumed. Do not reject a completed qualification probe and allocate a fresh retry to repair qualification provenance. A missing or incorrect qualification provenance binding is a stop condition, not a task-level changed basis for another Host action.
+
+The qualification guard is maintainer tooling and is intentionally excluded from the Plugin runtime package manifest. Product Recovery semantics remain unchanged: legitimate product fresh retry still follows `contracts/recovery.md`. The guard narrows only manual release qualification steps whose ledger preflight authorizes one fresh probe.
 
 ## Stop states
 
@@ -70,21 +73,27 @@ Purpose: prove the repaired exact-turn V2 precondition and one canonical managed
 
 Actions within the same N0 Reader probe turn:
 
-1. Record the dedicated N0 Reader preflight in Issue #91.
+1. Record the dedicated N0 Reader preflight in Issue #91 and preserve its exact `RERUN` reference.
 2. Bind the exact current `turn_id`.
 3. Prove `turn_context.multi_agent_version=v2` for that exact turn.
 4. Verify the callable V2 spawn schema for that same turn requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`.
-5. Only if steps 2 through 4 pass, spawn the canonical Reader with `subagents_dispatch_reader`, `gpt-5.6-luna`, `max`, and `fork_turns=none`.
-6. Bind the resulting Host evidence to the intended N0 Reader execution and verify route, model, effort, and fresh-context behavior.
-7. Settle or safely close the Reader before the phase ends.
+5. Only if steps 2 through 4 pass, create the Reader WorkUnit if needed and call `scripts/host_qualification_guard.py::allocate_single_probe_execution` so attempt 1 is explicitly bound to the exact Issue #91 preflight reference. A default `initial:<execution_id>` basis is invalid for this qualification probe.
+6. Call `scripts/host_qualification_guard.py::prepare_single_probe_spawn`, then pass the returned canonical Orchestrate `tool_input` to Host `spawn_agent` unchanged. The guard must prove this is attempt 1, there is no retained or compacted prior attempt for the WorkUnit, lifecycle is still `SPAWN_PENDING`, and the stored basis matches the preflight.
+7. Spawn the canonical Reader with `subagents_dispatch_reader`, `gpt-5.6-luna`, `max`, and `fork_turns=none`.
+8. Bind the resulting Host evidence to the intended N0 Reader execution and verify route, model, effort, and fresh-context behavior.
+9. Settle or safely close the Reader before the phase ends.
 
 Immediate stop conditions:
 
 - exact turn is V1, disabled, unavailable, or schema-conflicting;
 - spawn schema differs from the V2 contract;
+- qualification guard rejects allocation or spawn preparation;
+- the first ExecutionBinding does not carry the exact preflight reference;
 - wrong route, model, effort, or fork behavior;
 - ambiguous child identity or lifecycle;
 - unexpected repository mutation.
+
+If the Reader materializes, that preflight authorization is consumed. Do not reject a completed Reader and create a fresh attempt merely to repair evidence formatting, task naming, provenance, or bookkeeping. Record the discrepancy and stop for review.
 
 Mandatory stop: `H1_STOP` even when Reader passes. Do not continue to Worker in the same phase.
 
@@ -94,11 +103,13 @@ Purpose: close N0 for Worker, Investigator, Solver, and Advisor after the Reader
 
 For each remaining profile, sequentially:
 
-1. Perform a fresh Issue #91 preflight.
+1. Perform a fresh Issue #91 preflight and preserve its exact `RERUN` reference.
 2. Re-establish the exact-turn V2 capability precondition before the spawn.
-3. Spawn only the fixed canonical route with `fork_turns=none`.
-4. Verify authoritative route, model, effort, fresh-context, identity, and lifecycle evidence.
-5. Write the action/result ledger entry before touching the next profile.
+3. Create the profile WorkUnit if needed, then allocate attempt 1 only through `scripts/host_qualification_guard.py::allocate_single_probe_execution` with the exact preflight reference. If the WorkUnit already has retained or compacted execution history, stop the profile. Do not fresh-retry inside the same qualification probe.
+4. Prepare the Host call only through `scripts/host_qualification_guard.py::prepare_single_probe_spawn`, then pass the canonical payload to Host unchanged.
+5. Spawn only the fixed canonical route with `fork_turns=none`.
+6. Verify authoritative route, model, effort, fresh-context, identity, and lifecycle evidence.
+7. Write the action/result ledger entry before touching the next profile.
 
 Expected fixed routes:
 
@@ -106,6 +117,8 @@ Expected fixed routes:
 - Investigator: `subagents_dispatch_investigator`, `gpt-5.6-terra`, `high`.
 - Solver: `subagents_dispatch_solver`, `gpt-5.6-sol`, `high`.
 - Advisor: `subagents_dispatch_advisor`, `gpt-5.6-sol`, `high`.
+
+For H2, a ledger preflight is authorization for one current-basis profile probe. Once a child materializes, that authorization is consumed. Qualification provenance, bookkeeping repair, or a desire to attach the preflight reference after the fact is not a changed task-level basis. Do not reject a completed qualification probe and allocate a fresh retry for those reasons. Record the failure and stop H2.
 
 Any non-PASS profile stops H2 immediately. N0 becomes conclusive PASS only when all five fixed profiles, including the H1 Reader canary, satisfy the N0 oracle.
 
