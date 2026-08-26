@@ -23,6 +23,7 @@ from typing import Any, Iterable, NoReturn
 ROOT = Path(__file__).resolve().parent
 INSPECTOR_PATH = ROOT / "inspect-agent-runtime.py"
 AGENT_PATH = re.compile(r"^/root/[A-Za-z0-9_][A-Za-z0-9._-]*$")
+SESSION_META_LINE = re.compile(r'"type"\s*:\s*"session_meta"')
 AGENT_CONTROL_TOOLS = frozenset(
     {"spawn_agent", "followup_task", "interrupt_agent", "list_agents"}
 )
@@ -125,11 +126,28 @@ def observed_records(path: Path) -> list[dict[str, Any]]:
 
 
 def session_meta_records(path: Path) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Read only session_meta candidates while scanning unrelated rollouts.
+
+    The task-address resolver may inspect many historical rollout files. Unrelated
+    payload corruption must not block identity resolution, while malformed or
+    ambiguous session metadata remains a hard stop.
+    """
+
     matches: list[tuple[dict[str, Any], dict[str, Any]]] = []
-    for index, record in enumerate(json_records(path), start=1):
-        if record.get("type") != "session_meta":
+    for line_number, line in enumerate(
+        INSPECTOR.iter_stable_rollout_lines(path), start=1
+    ):
+        if not SESSION_META_LINE.search(line):
             continue
-        payload = INSPECTOR.payload_object(record, index)
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            fail(
+                f"invalid session_meta JSON in {path.name} at line {line_number}: {exc}"
+            )
+        if not isinstance(record, dict) or record.get("type") != "session_meta":
+            continue
+        payload = INSPECTOR.payload_object(record, line_number)
         matches.append((record, payload))
     return matches
 
