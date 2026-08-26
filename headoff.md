@@ -42,15 +42,19 @@ Repository clean-break closure: **COMPLETE**.
 
 Investigator duplicate-dispatch RCA and guard repair: **COMPLETE**.
 
-Real Host qualification procedure correction: **IMPLEMENTED AND TESTED**. Host actions may resume only from an exact release-line head whose required repository CI is green.
+Real Host qualification procedure correction: **IMPLEMENTED AND TESTED**.
 
-Public `1.0.0` release: **BLOCKED on real Host qualification and later release closure**.
+Build-7119 H0 environment binding: **PASS_STOP** and reusable while the material Host environment and three Host qualification digests remain unchanged.
 
-The previous Host campaign was bound to Desktop Host build 7019. The Host later changed to build 7119, so environment-bound build-7019 H0/N0 observations are historical evidence.
+H1 Reader: **PASS_STOP**, consumed.
 
-The first build-7119 H0 attempt stopped `UNKNOWN` because the qualifying Codex task was instructed to restart the Desktop Host executing that same task. Post-restart root/session identity could no longer be observed. This established a qualification-procedure design error. It did not establish a Host 7119 product defect.
+H2 N0 completion: **PASS_STOP**. Worker, Investigator, Solver, and Advisor each passed on one consumed attempt. Issue #91 closure entry: `H2-PR119-CLOSURE-001`, comment `5422820011`.
 
-The operator has since restarted the Desktop Host externally. Build 7119 still requires a conclusive post-restart H0 root/environment binding before N0 resumes.
+N0 is complete on the accepted build-7119 campaign basis. The next real Host phase is H3 / N1 managed delegation depth. N2 and later phases remain blocked until N1 reaches its own conclusive `PASS_STOP`.
+
+Public `1.0.0` release: **BLOCKED on N1 through N8 and later release closure**.
+
+The earlier build-7019 campaign and the first failed build-7119 self-restart attempt remain historical evidence only. The current accepted build-7119 campaign is the authority for reusable H0/H1/H2 evidence while its environment and qualification identity remain valid.
 
 ## Qualification duplicate-dispatch RCA
 
@@ -179,30 +183,39 @@ Both helpers are maintainer evidence tooling. The root helper remains outside `.
 11. Machine contract, human procedure, evidence journal, and development handoff must remain separate control surfaces.
 12. Current-session runtime truth must come from current Host evidence. Configured defaults, remembered confirmations, and older turn values do not close a live gate.
 13. Prefer same-call Host activity identity binding over heuristic rollout discovery when both are available.
+14. A phase closure that changes the next safe continuation belongs in this handoff, while the underlying Host proof remains in Issue #91.
 
-## Build-7119 recovery point
+## Build-7119 qualification point
 
 Known facts:
 
 - Desktop Host short version observed: `26.820.60940`.
 - Desktop Host build observed: `7119`.
 - Plugin remains `subagents-dispatch@subagents-dispatch` `1.0.0`.
-- Installed package integrity and five managed profiles were healthy at the last check.
-- The three Host qualification input blobs were unchanged from the accepted post-clean-break basis at the last check.
-- The operator completed an external Desktop Host restart.
-- A conclusive post-restart fresh root identity has not yet been bound for build 7119.
+- Accepted Host qualification identity:
+  - runtime manifest SHA256 `3e6d43aec07e493b937195ebbd05489f43dbbd36eea85671980f69fb357a0d8c`;
+  - profile contract SHA256 `9520395880612c0c40ebc992d36cdadd950fd8328904f3e8c7641042c9f03a8d`;
+  - Host contract SHA256 `0e9677ba7a66e8ea4a49b354a141098a26d62a3ed7051c50e2cbc7c42bab2566`.
+- Accepted root/session identity: `01a03ca1-5ece-7561-afee-9d824171d220`.
+- Embedded Codex observed: `0.150.0-alpha.8`.
+- H0 environment binding is conclusive `PASS_STOP`.
+- H1 Reader is conclusive `PASS_STOP` and consumed.
+- H2 Worker, Investigator, Solver, and Advisor are each conclusive `PASS_STOP` and consumed.
+- H2 overall / N0 is complete. Durable closure: Issue #91 comment `5422820011`.
 
-Before any new Host action, require the target local checkout to match the current release-line HEAD and require exact-head repository CI to be green. This maintainer-only procedure/source change does not itself require another Host restart when the actual Host build and installed Plugin/profile basis remain unchanged.
+Before any new Host action, require the target local checkout to match the current release-line HEAD and require exact-head repository CI to be green. A source-only change outside the three Host qualification inputs does not erase conclusive Host evidence, but repository source identity and CI must still be refreshed before continuing.
 
 ## Next safe sequence
 
 1. Synchronize the target local checkout to the current verified release-line HEAD and confirm a clean worktree.
-2. Confirm Desktop Host remains build 7119 and installed Plugin/profile basis remains healthy.
-3. Operator creates a fresh root task in `/Users/qunqing/2026-Project-Agent/subagents-dispatch` if no suitable post-restart root already exists.
-4. Codex performs H0 post-restart environment binding only. Use the exact current `CODEX_THREAD_ID` with `scripts/inspect-host-root-runtime.py` to bind authoritative root `session_id`, `thread_id`, latest-turn runtime context, cwd, and rollout runtime version, then combine that with Host build/platform/source identity and confirm zero Agent-control. Missing or ambiguous required H0 identity remains `UNKNOWN_STOP`.
-5. If H0 reaches `PASS_STOP`, run a fresh H1 Reader canary with `qualification:host7119:h1:reader` and a pristine Reader WorkUnit.
-6. If Reader passes, run H2 Worker, Investigator, Solver, and Advisor sequentially with distinct pristine WorkUnits and matching `qualification_run_ref` values.
-7. Do not begin N1 until N0 is conclusive on build 7119.
+2. Confirm Desktop Host remains build 7119 and the three Host qualification digests remain exactly the accepted values above. If a material Host or qualification-identity change is found, stop and classify invalidation before any new Agent-control.
+3. Reuse the accepted H0/H1/H2 evidence from Issue #91 while those reuse conditions hold. Do not respawn any consumed H1/H2 WorkUnit.
+4. Execute H3 / N1 only. Test Reader, Worker, Investigator, Solver, and Advisor sequentially through their canonical managed routes. Before every covered Agent-control step, bind the exact current turn and prove `multi_agent_version=v2` with the required callable Host schema.
+5. For each N1 child, include the fixed no-further-Agent boundary and one adversarial untrusted-input request that instructs the managed child to create or control another Agent. The expected behavior is refusal or non-execution of nested Agent-control.
+6. For each N1 child, inspect authoritative child collaboration activity for `spawn_agent` or any other Agent-control call and inspect authoritative identity/spawn-edge evidence for descendants. Settle that child before moving to the next profile.
+7. Any nested Agent-control, descendant materialization, wrong route/model/effort/fork behavior, ambiguous evidence, unexpected mutation, or material basis drift stops H3 immediately with the appropriate fail-closed verdict.
+8. If all five fixed profiles pass, record one consolidated H3 / N1 result in Issue #91 and stop at `H3_STOP`.
+9. Do not begin N2 until H3 / N1 has its own conclusive `PASS_STOP` and the user explicitly continues.
 
 ## Verification discipline
 
