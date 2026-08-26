@@ -149,8 +149,20 @@ Use an Issue for a genuinely long-lived tracked item or the existing Host eviden
 - `docs/release-checklist.md`: release gates and invalidation rules.
 - `tasks/real-host-qualification-plan.md`: operator/Codex Host qualification procedure.
 - `scripts/host_qualification_guard.py`: maintainer-only H1/H2 single-probe enforcement.
+- `scripts/inspect-host-root-runtime.py`: maintainer-only exact-root rollout identity and latest-turn observation for H0 evidence.
+- `scripts/inspect-collaboration-runtime.py`: root collaboration call/result/activity evidence, including same-call spawn task-address and Host child-thread binding.
 - GitHub branch/commit/CI: live source verification.
 - Issue #91: external durable Host evidence journal only.
+
+## Host runtime evidence reuse
+
+External real-Host reports confirmed two Codex evidence patterns that are now handled without adding a second routing stack.
+
+For H0, use `scripts/inspect-host-root-runtime.py` against the exact current root thread. It requires one authoritative root `session_meta`, requires `session_id`, rejects child rollouts, and reads turn-scoped model, effort, capability, sandbox, permission, provider, and cwd only from the latest `turn_context`. Missing latest-turn values remain unobserved instead of being filled from an older turn.
+
+For N2 and other child-identity checks, prefer the existing `scripts/inspect-collaboration-runtime.py` path. One exact root `spawn_agent` `call_id` can bind the recognized spawn task address to Host `SubAgentActivity` `agent_path` and `agent_thread_id`. Do not add a separate task-path scan when the stronger same-call Host activity binding is available.
+
+Both helpers are maintainer evidence tooling. The root helper remains outside `.codex-plugin/package-integrity.json` and does not change shipped Plugin behavior or the N0 through N8 machine contract.
 
 ## Lessons
 
@@ -165,6 +177,8 @@ Use an Issue for a genuinely long-lived tracked item or the existing Host eviden
 9. A Host build change is a material environment change and requires new H0 binding.
 10. Issue/PR workflow is optional for this self-maintained project.
 11. Machine contract, human procedure, evidence journal, and development handoff must remain separate control surfaces.
+12. Current-session runtime truth must come from current Host evidence. Configured defaults, remembered confirmations, and older turn values do not close a live gate.
+13. Prefer same-call Host activity identity binding over heuristic rollout discovery when both are available.
 
 ## Build-7119 recovery point
 
@@ -185,7 +199,7 @@ Before any new Host action, require the target local checkout to match the curre
 1. Synchronize the target local checkout to the current verified release-line HEAD and confirm a clean worktree.
 2. Confirm Desktop Host remains build 7119 and installed Plugin/profile basis remains healthy.
 3. Operator creates a fresh root task in `/Users/qunqing/2026-Project-Agent/subagents-dispatch` if no suitable post-restart root already exists.
-4. Codex performs H0 post-restart environment binding only. Establish authoritative `session_id`, `thread_id`, rollout identity, Host build/runtime, cwd, source identity, and zero Agent-control.
+4. Codex performs H0 post-restart environment binding only. Use the exact current `CODEX_THREAD_ID` with `scripts/inspect-host-root-runtime.py` to bind authoritative root `session_id`, `thread_id`, latest-turn runtime context, cwd, and rollout runtime version, then combine that with Host build/platform/source identity and confirm zero Agent-control. Missing or ambiguous required H0 identity remains `UNKNOWN_STOP`.
 5. If H0 reaches `PASS_STOP`, run a fresh H1 Reader canary with `qualification:host7119:h1:reader` and a pristine Reader WorkUnit.
 6. If Reader passes, run H2 Worker, Investigator, Solver, and Advisor sequentially with distinct pristine WorkUnits and matching `qualification_run_ref` values.
 7. Do not begin N1 until N0 is conclusive on build 7119.
