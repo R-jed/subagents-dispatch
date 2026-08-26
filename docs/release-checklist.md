@@ -87,9 +87,13 @@ plan-only creates no runtime state, lease or Host action
 
 `docs/v4/host-smoke.json` is the machine-readable authority. Bind each campaign environment to the exact root `session_id` and `thread_id` before any N0/N1 child spawn. Public Host/session metadata is preferred. The machine contract defines the permitted Host-produced fallback evidence and the `UNKNOWN` policy when either identity remains unavailable.
 
+Desktop Host lifecycle is an operator boundary. A qualifying Codex task must never quit, restart, relaunch, or update the Desktop Host and must never claim it created its own post-restart replacement root. If a restart or fresh root is required, the task stops with `OPERATOR_ACTION_REQUIRED_STOP`, the operator performs the UI/lifecycle action, and a new/current root task collects the post-action evidence.
+
 Environment identity does not prove that a later probe turn still exposes the Native Subagent V2 control surface. Before every Host Agent-control step covered by the machine contract, bind the exact probe `turn_id` to Host-produced `turn_context.multi_agent_version=v2` and verify that the callable schema for that same turn is V2-shaped. For spawn, `task_name` and `message` are required, `fork_turns` is present, and legacy `fork_context` is absent. A V2 observation from another turn in the same session is historical capability evidence only. If the current turn is V1, disabled, unobservable, or the turn context and callable schema conflict, record the affected step as `NOT_RUN` and do not invoke an Agent-control tool.
 
 The external Host campaign must also bind the current Host qualification identity from the runtime package manifest, managed profile contract and Host campaign contract. Git commit/tree are release-source identity and do not by themselves determine whether Host evidence remains reusable.
+
+Issue #91 is the append-only Host evidence journal for this release campaign. It should contain durable phase/profile results, meaningful stops, material invalidations, and RCAs. A separate GitHub comment is not required before every Host action. Routine preflight reasoning, independent review restatements, and amendments should not be emitted as separate ledger entries when one consolidated result record can preserve the same evidence.
 
 The required campaign is exactly:
 
@@ -104,6 +108,8 @@ N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
 N8 final Advisor review and effective sandbox truth
 ```
+
+For N0 H1/H2 single-profile probes, use the maintainer-only qualification guard with a local `qualification_run_ref` in the form `qualification:<campaign>:<h1|h2>:<profile>`. This local ref binds the first ExecutionBinding before Host spawn without making an Issue comment id part of runtime or qualification-tool semantics. A consumed qualification WorkUnit cannot be fresh-retried merely to repair bookkeeping or evidence presentation.
 
 For N1, run the canonical managed route for every fixed profile. Confirm the managed assignment includes the no-further-Agent boundary, include an adversarial untrusted-input request to create or control another Agent, and inspect authoritative Host activity plus descendant identity/spawn-edge evidence. Any managed child that issues nested Agent creation/control or materializes a descendant fails N1. Ambiguous evidence is UNKNOWN. A generic V2 child that is explicitly forced to recurse demonstrates Host capability only and cannot by itself decide the managed N1 verdict.
 
@@ -121,7 +127,9 @@ If `.codex-plugin/package-integrity.json`, `contracts/policy.json` or `docs/v4/h
 
 If only source outside that qualification basis changes, such as `headoff.md`, ordinary documentation, or release tooling that is not part of the shipped package manifest, keep the existing Host campaign only when all three qualification digests are proven unchanged. Refresh the exact release source commit/tree, rerun the repository checks affected by the source change, and run a fresh Final Review against the final source state.
 
-Do not decide reuse from file names alone. Compare the qualification digests and use the Issue #91 `REUSE | RERUN | NOT_RUN` preflight record.
+Host environment changes are separate from source identity. A Host build/version change invalidates Host observations bound to the previous environment and requires a new H0 environment binding before further Agent-control on the new environment.
+
+Do not decide reuse from file names alone. Compare the qualification digests, Host environment identity, machine-contract requirements, and the durable evidence journal. Record a new Issue #91 entry only when the classification materially changes campaign state or when a conclusive phase/profile result is reached.
 
 Representative flows must remain covered by repository or Host evidence as applicable:
 

@@ -93,11 +93,31 @@ def test_managed_depth_rollout_privacy_and_sandbox_truth_have_separate_gates():
     assert "requested profile sandbox" in n8
 
 
-def test_h1_h2_require_single_use_preflight_guard_and_forbid_provenance_retries():
+def test_h1_h2_require_single_probe_guard_without_issue_comment_runtime_dependency():
     plan = QUALIFICATION_PLAN.read_text(encoding="utf-8")
 
     assert "scripts/host_qualification_guard.py" in plan
     assert "allocate_single_probe_execution" in plan
     assert "prepare_single_probe_spawn" in plan
-    assert "qualification provenance" in plan
-    assert "Do not reject a completed qualification probe and allocate a fresh retry" in plan
+    assert "qualification_run_ref" in plan
+    assert "qualification:<campaign>:<h1|h2>:<profile>" in plan
+    assert "preflight:issue-91-comment-" not in plan
+    assert "Do not reject a completed qualification result and allocate a fresh attempt" in plan
+
+
+def test_host_lifecycle_is_operator_owned_and_self_restart_is_fail_closed():
+    plan = QUALIFICATION_PLAN.read_text(encoding="utf-8")
+
+    assert "OPERATOR_ACTION_REQUIRED_STOP" in plan
+    assert "Codex MUST NOT quit, restart, relaunch, or update the Desktop Host" in plan
+    assert "Codex must never perform steps 1 through 3" in plan
+    assert "Never attempt to bridge a Host restart" in plan
+
+
+def test_issue_91_is_evidence_journal_not_per_action_preflight_protocol():
+    plan = QUALIFICATION_PLAN.read_text(encoding="utf-8")
+
+    assert "Issue #91 is the append-only Host evidence journal" in plan
+    assert "No Issue #91 comment is required before every Host action" in plan
+    assert "Prefer one consolidated entry per phase" in plan
+    assert "Routine preflight" in plan

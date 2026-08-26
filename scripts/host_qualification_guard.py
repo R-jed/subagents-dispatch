@@ -2,14 +2,15 @@
 """Fail-close guard for maintainer real-Host qualification probes.
 
 This module is intentionally maintainer-only and excluded from the Plugin runtime
-package manifest. It prevents qualification bookkeeping mistakes from being
-repaired by silently creating a second managed attempt for the same probe.
+package manifest. It prevents one qualification run from materializing more than
+one managed attempt for the same single-probe WorkUnit.
 """
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 from typing import Any, Mapping, Sequence
 
 import dispatch_state_v4 as state
@@ -19,6 +20,14 @@ import orchestrate_v4 as orchestrate
 
 class QualificationGuardError(RuntimeError):
     """A real-Host qualification probe would violate single-use authorization."""
+
+
+_RUN_REF_RE = re.compile(
+    r"^qualification:"
+    r"(?P<campaign>[a-z0-9][a-z0-9._-]*):"
+    r"(?P<phase>h1|h2):"
+    r"(?P<probe>reader|worker|investigator|solver|advisor)$"
+)
 
 
 def _nonempty(value: Any) -> bool:
@@ -34,15 +43,22 @@ def _load_state(
     return current
 
 
-def _preflight_ref(value: str) -> str:
+def _qualification_run_ref(value: str) -> tuple[str, str, str]:
     if not _nonempty(value):
-        raise QualificationGuardError("qualification preflight ref must be non-empty")
+        raise QualificationGuardError("qualification_run_ref must be non-empty")
     normalized = value.strip()
-    if not normalized.startswith("preflight:issue-91-comment-") or not normalized.endswith(":RERUN"):
+    match = _RUN_REF_RE.fullmatch(normalized)
+    if match is None:
         raise QualificationGuardError(
-            "qualification preflight ref must identify one Issue #91 RERUN authorization"
+            "qualification_run_ref must use qualification:<campaign>:<h1|h2>:<profile>"
         )
-    return normalized
+    phase = match.group("phase")
+    probe = match.group("probe")
+    if phase == "h1" and probe != "reader":
+        raise QualificationGuardError("H1 qualification_run_ref is reserved for Reader")
+    if phase == "h2" and probe == "reader":
+        raise QualificationGuardError("H2 qualification_run_ref cannot target Reader")
+    return normalized, phase, probe
 
 
 def _unit(current: Mapping[str, Any], unit_id: str) -> Mapping[str, Any]:
@@ -79,7 +95,7 @@ def _require_pristine_probe_unit(current: Mapping[str, Any], unit_id: str) -> No
         raise QualificationGuardError("single qualification probe requires a READY WorkUnit")
     if _unit_executions(current, unit_id) or _has_execution_history(current, unit_id):
         raise QualificationGuardError(
-            "single qualification probe authorization is already consumed by prior execution history"
+            "single qualification probe is already consumed by prior execution history"
         )
 
 
@@ -91,13 +107,17 @@ def allocate_single_probe_execution(
     native_task_name: str,
     profile_id: str,
     granted_authority: str,
-    preflight_ref: str,
+    qualification_run_ref: str,
     granted_write_scope: Sequence[str] = (),
     writer_lease_id: str | None = None,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Allocate the only fresh attempt authorized for one qualification WorkUnit."""
-    basis_ref = _preflight_ref(preflight_ref)
+    """Allocate the only fresh attempt for one H1/H2 qualification WorkUnit."""
+    basis_ref, _, probe = _qualification_run_ref(qualification_run_ref)
+    if profile_id != probe:
+        raise QualificationGuardError(
+            "qualification_run_ref profile does not match the requested managed profile"
+        )
     current = _load_state(thread_id, temp_root)
     _require_pristine_probe_unit(current, unit_id)
 
@@ -131,11 +151,11 @@ def prepare_single_probe_spawn(
     orchestration_id: str,
     unit_id: str,
     execution_id: str,
-    preflight_ref: str,
+    qualification_run_ref: str,
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Prepare a Host spawn only while the one authorized attempt remains pristine."""
-    basis_ref = _preflight_ref(preflight_ref)
+    basis_ref, _, probe = _qualification_run_ref(qualification_run_ref)
     current = _load_state(thread_id, temp_root)
     unit = _unit(current, unit_id)
     executions = _unit_executions(current, unit_id)
@@ -147,11 +167,15 @@ def prepare_single_probe_spawn(
     execution = executions[0]
     if execution.get("execution_id") != execution_id:
         raise QualificationGuardError("qualification spawn execution_id does not match the probe")
+    if execution.get("profile_id") != probe:
+        raise QualificationGuardError(
+            "qualification_run_ref profile does not match the retained ExecutionBinding"
+        )
     if execution.get("attempt_no") != 1:
         raise QualificationGuardError("qualification spawn refuses a retry attempt")
     if execution.get("execution_basis_ref") != basis_ref:
         raise QualificationGuardError(
-            "qualification spawn execution basis does not match the Issue #91 preflight"
+            "qualification spawn execution basis does not match qualification_run_ref"
         )
     if execution.get("lifecycle") != "SPAWN_PENDING" or execution.get("agent_id") is not None:
         raise QualificationGuardError(

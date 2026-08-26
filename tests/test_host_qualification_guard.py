@@ -56,14 +56,11 @@ def install_unit(state, graph, thread_id: str, tmp_path: Path) -> None:
     )
 
 
-def valid_preflight(comment_id: int = 5418088990) -> str:
-    return (
-        f"preflight:issue-91-comment-{comment_id}:"
-        "H2-N0-INVESTIGATOR-PREFLIGHT-POST-CLEAN-BREAK-001:RERUN"
-    )
+def valid_run_ref(campaign: str = "host7119") -> str:
+    return f"qualification:{campaign}:h2:investigator"
 
 
-def test_first_probe_allocation_binds_issue_preflight_instead_of_default_initial_basis(tmp_path: Path):
+def test_first_probe_allocation_binds_qualification_run_instead_of_default_initial_basis(tmp_path: Path):
     state, graph, _, guard, _ = modules()
     thread_id = "qualification-first-probe"
     install_unit(state, graph, thread_id, tmp_path)
@@ -75,13 +72,13 @@ def test_first_probe_allocation_binds_issue_preflight_instead_of_default_initial
         native_task_name="sd_h2_n0_investigator_a1",
         profile_id="investigator",
         granted_authority="none",
-        preflight_ref=valid_preflight(),
+        qualification_run_ref=valid_run_ref(),
         temp_root=tmp_path,
     )
 
     execution = allocated["execution"]
     assert execution["attempt_no"] == 1
-    assert execution["execution_basis_ref"] == valid_preflight()
+    assert execution["execution_basis_ref"] == valid_run_ref()
     assert execution["execution_basis_ref"] != "initial:exec-1"
     assert execution["lifecycle"] == "SPAWN_PENDING"
 
@@ -107,14 +104,14 @@ def test_prepare_probe_spawn_rejects_first_attempt_with_default_initial_basis(tm
             orchestration_id=thread_id,
             unit_id="H2_N0_INVESTIGATOR",
             execution_id="exec-1",
-            preflight_ref=valid_preflight(),
+            qualification_run_ref=valid_run_ref(),
             temp_root=tmp_path,
         )
 
 
-def test_completed_probe_cannot_be_rejected_and_reallocated_to_repair_provenance(tmp_path: Path):
+def test_completed_probe_cannot_be_rejected_and_reallocated_to_repair_bookkeeping(tmp_path: Path):
     state, graph, lifecycle, guard, _ = modules()
-    thread_id = "qualification-no-provenance-retry"
+    thread_id = "qualification-no-bookkeeping-retry"
     install_unit(state, graph, thread_id, tmp_path)
 
     allocated = guard.allocate_single_probe_execution(
@@ -124,7 +121,7 @@ def test_completed_probe_cannot_be_rejected_and_reallocated_to_repair_provenance
         native_task_name="sd_h2_n0_investigator_a1",
         profile_id="investigator",
         granted_authority="none",
-        preflight_ref=valid_preflight(),
+        qualification_run_ref=valid_run_ref(),
         temp_root=tmp_path,
     )
     execution = allocated["execution"]
@@ -155,7 +152,7 @@ def test_completed_probe_cannot_be_rejected_and_reallocated_to_repair_provenance
             native_task_name="sd_h2_n0_investigator_a2",
             profile_id="investigator",
             granted_authority="none",
-            preflight_ref=valid_preflight(5419999999),
+            qualification_run_ref=valid_run_ref("host7119-retry"),
             temp_root=tmp_path,
         )
 
@@ -171,17 +168,20 @@ def test_completed_probe_cannot_be_rejected_and_reallocated_to_repair_provenance
     assert unit["state"] == "REJECTED"
 
 
-def test_preflight_ref_must_be_issue_91_rerun_authorization(tmp_path: Path):
+def test_qualification_run_ref_is_local_and_matches_phase_and_profile(tmp_path: Path):
     state, graph, _, guard, _ = modules()
-    thread_id = "qualification-preflight-shape"
+    thread_id = "qualification-run-ref-shape"
     install_unit(state, graph, thread_id, tmp_path)
 
-    for invalid in (
+    invalid_refs = (
         "initial:exec-1",
-        "preflight:issue-91-comment-5418088990:gate:REUSE",
-        "preflight:other-ledger-comment-5418088990:gate:RERUN",
-    ):
-        with pytest.raises(guard.QualificationGuardError, match="Issue #91 RERUN"):
+        "preflight:issue-91-comment-5418088990:gate:RERUN",
+        "qualification:host7119:h1:investigator",
+        "qualification:host7119:h2:reader",
+        "qualification:HOST7119:h2:investigator",
+    )
+    for invalid in invalid_refs:
+        with pytest.raises(guard.QualificationGuardError):
             guard.allocate_single_probe_execution(
                 thread_id,
                 unit_id="H2_N0_INVESTIGATOR",
@@ -189,9 +189,21 @@ def test_preflight_ref_must_be_issue_91_rerun_authorization(tmp_path: Path):
                 native_task_name="sd_h2_n0_investigator_a1",
                 profile_id="investigator",
                 granted_authority="none",
-                preflight_ref=invalid,
+                qualification_run_ref=invalid,
                 temp_root=tmp_path,
             )
+
+    with pytest.raises(guard.QualificationGuardError, match="does not match"):
+        guard.allocate_single_probe_execution(
+            thread_id,
+            unit_id="H2_N0_INVESTIGATOR",
+            execution_id="exec-1",
+            native_task_name="sd_h2_n0_investigator_a1",
+            profile_id="worker",
+            granted_authority="none",
+            qualification_run_ref=valid_run_ref(),
+            temp_root=tmp_path,
+        )
 
 
 def test_qualification_guard_is_maintainer_only_and_not_shipped_in_plugin_runtime():

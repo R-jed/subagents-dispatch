@@ -1,284 +1,363 @@
 # Native Core V4 Real Host Qualification Plan
 
-Status: PLANNED. No real Host action is authorized by this document alone.
+Status: PLANNED. This document defines the human execution procedure for the first public Plugin `1.0.0` real-Host campaign. It does not authorize a Host action by itself.
 
-This file is a human execution plan for the Native Core V4 real Codex Host campaign used to qualify the first public Plugin `1.0.0` release. `docs/v4/host-smoke.json` remains the machine authority for N0 through N8. `docs/release-checklist.md` remains the release-gate authority. Issue #91 remains the append-only authority for live Host preflight decisions and evidence. If this plan conflicts with either canonical contract, the canonical contract wins.
+`docs/v4/host-smoke.json` is the machine authority for N0 through N8. `docs/release-checklist.md` is the release-gate and invalidation authority. This plan defines how the operator and the Codex task cooperate without crossing Host lifecycle boundaries.
 
-Root `headoff.md` is development-session context only. It is not a Plugin contract, Host qualification input, release gate, or evidence authority. Update it only when durable project background, workflow, current phase, or next direction materially changes. Do not mutate repository source merely to record an individual Host result.
+Issue #91 is the append-only Host evidence journal for this release campaign. It stores durable phase/profile results, material invalidations, and meaningful `UNKNOWN`, `FAIL`, or mutation stops. It is not a per-tool-call authorization system. No Issue #91 comment is required before every Host action, and routine preflight, review, and amendment comments should not be created.
 
-## Operating rules
+Root `headoff.md` is development-session context only. It is not Plugin runtime, Host qualification input, release evidence, or a release gate.
 
-1. Every real Host action starts with an Issue #91 lookup and an explicit `REUSE | RERUN | NOT_RUN` preflight decision.
-2. A new chat, task, or Host root never justifies a rerun by itself. Every rerun requires a concrete changed-basis or invalidation reason.
-3. Every real Host action receives its own Issue #91 ledger entry before another real Host action occurs.
-4. For every covered Agent-control step, the exact current `turn_id` must prove Host-produced `turn_context.multi_agent_version=v2` and a matching callable V2 Agent schema before the Agent-control call occurs.
-5. Historical V2 observations cannot satisfy a later turn. V1, disabled, unavailable, or conflicting capability leaves the affected step `NOT_RUN`, and no compatibility translation may synthesize a V2 result.
-6. `UNKNOWN` is fail closed. Ambiguous identity, lifecycle, materialization, permission, or descendant evidence stops the campaign.
-7. No phase auto-continues into the next phase. Every phase ends at a mandatory stop point.
-8. Any repository, package, profile, installed-basis, or Host-contract mutation must stop the campaign until invalidation is classified and repository qualification is restored.
-9. Publication remains blocked until N0 through N8, Final Review, external release evidence, installed-product checks, and human App observation all pass.
-10. When one Issue #91 preflight authorizes exactly one fresh managed qualification probe, the authorization is single-use. For H1 and H2 use maintainer-only `scripts/host_qualification_guard.py`: allocate through `allocate_single_probe_execution` with the exact Issue #91 `RERUN` preflight reference as the first ExecutionBinding `execution_basis_ref`, then prepare through `prepare_single_probe_spawn`. Any prior retained or compacted attempt for that WorkUnit means the authorization has already been consumed. Do not reject a completed qualification probe and allocate a fresh retry to repair qualification provenance. A missing or incorrect qualification provenance binding is a stop condition, not a task-level changed basis for another Host action.
+## Human and Codex responsibility boundary
 
-The qualification guard is maintainer tooling and is intentionally excluded from the Plugin runtime package manifest. Product Recovery semantics remain unchanged: legitimate product fresh retry still follows `contracts/recovery.md`. The guard narrows only manual release qualification steps whose ledger preflight authorizes one fresh probe.
+The operator owns Desktop Host lifecycle and UI actions.
+
+Operator-only actions include:
+
+- quit the Desktop Host;
+- launch or relaunch the Desktop Host;
+- install or update the Desktop Host;
+- create a replacement or fresh root task after a restart;
+- choose the repository/workspace in the Desktop UI;
+- approve OS or UI actions that cannot safely be performed inside the current Codex task.
+
+Codex owns actions that can complete inside the current live task without destroying its own execution context. These include repository inspection, package/profile verification, Host metadata inspection, runtime evidence collection, qualification guard calls, managed Agent-control steps explicitly required by N0 through N8, and result assembly.
+
+Codex MUST NOT quit, restart, relaunch, or update the Desktop Host. Codex MUST NOT claim it created a post-restart replacement root task. A task that determines a Host restart or replacement root is required must stop and return:
+
+```text
+OPERATOR_ACTION_REQUIRED_STOP
+reason: <why the lifecycle action is required>
+actions:
+  - <exact manual action for the operator>
+resume_when:
+  - <observable condition required in the new/current task>
+next_prompt:
+  <bounded prompt for the post-operator step>
+```
+
+The operator performs the listed actions and starts the next task when required. The new task then collects post-restart evidence. Never attempt to bridge a Host restart from the task being terminated by that restart.
+
+## Development workflow boundary
+
+This repository is self-maintained. Routine development does not require a new GitHub Issue or Pull Request.
+
+Default development flow:
+
+1. create a short-lived Git branch when isolation is useful;
+2. make the smallest coherent change;
+3. run focused tests and the required exact-head CI;
+4. inspect the complete diff;
+5. fast-forward or merge into the release line when verified;
+6. update `headoff.md` when durable project direction or the safe continuation point changes.
+
+Use a GitHub Issue only for a genuinely long-lived tracked item or for the special Host evidence journal already established as Issue #91. Use a Pull Request only when its review surface, approval semantics, or CI behavior adds real value. Do not create an Issue or PR merely because a change exists.
+
+## Campaign identity and single-probe identity
+
+Every Host campaign binds the environment fields required by `docs/v4/host-smoke.json`, including Host build, platform, architecture, Codex version, `session_id`, and `thread_id`.
+
+H1 and H2 additionally use a maintainer-only local `qualification_run_ref` to bind one fresh qualification attempt before Host spawn. The format is:
+
+```text
+qualification:<campaign>:<h1|h2>:<profile>
+```
+
+Examples:
+
+```text
+qualification:host7119:h1:reader
+qualification:host7119:h2:worker
+qualification:host7119:h2:investigator
+```
+
+The campaign token is local qualification identity. It is not a GitHub Issue comment id and does not make GitHub a runtime dependency.
+
+For H1/H2, call `scripts/host_qualification_guard.py::allocate_single_probe_execution` with the exact `qualification_run_ref`, then call `prepare_single_probe_spawn` with the same ref before the native Host spawn. Any prior retained or compacted execution history for that WorkUnit means the single probe has already been consumed. Do not reject a completed qualification result and allocate a fresh attempt to repair bookkeeping, provenance formatting, or evidence presentation.
+
+The qualification guard remains maintainer-only and intentionally stays outside the Plugin runtime package manifest. Generic product Recovery continues to follow `contracts/recovery.md`.
+
+## Evidence journal policy
+
+Before a Host action, the coordinator still checks whether existing evidence is reusable, invalidated, or absent. That classification is part of execution reasoning and does not require a separate Issue comment.
+
+Write to Issue #91 only when one of these durable events occurs:
+
+- H0 environment binding reaches a conclusive result or meaningful stop;
+- an H1/H2 profile probe reaches a conclusive result or meaningful stop;
+- a later N1 through N8 phase reaches a conclusive result or meaningful stop;
+- a material Host, package, profile, contract, or source invalidation changes what can be reused;
+- an RCA or defect materially changes the qualification procedure.
+
+Prefer one consolidated entry per phase. H1/H2 may use one entry per profile because each profile is independently release-significant. Do not add a separate preflight comment, result comment, independent-review comment, and amendment for the same ordinary step.
+
+A durable result entry should contain only the evidence needed to understand and reproduce the verdict:
+
+```text
+phase / probe
+release-source identity
+Host qualification identity
+Host environment identity
+qualification_run_ref when H1/H2
+exact-turn V2 capability evidence when required
+canonical managed route / model / effort / fork behavior when required
+lifecycle / child identity evidence required by the probe
+side effects / mutations
+verdict
+invalidation / reuse scope
+```
+
+Tracked `docs/v4/host-smoke.json` remains `status=PENDING` with empty results during the external campaign.
 
 ## Stop states
 
-Every phase terminates in exactly one of these states.
+Every phase terminates in one of these states.
 
-`PASS_STOP`: the phase acceptance criteria are satisfied. Record the canonical evidence in Issue #91 and wait for explicit continuation before starting the next phase.
+`PASS_STOP`: acceptance criteria are satisfied. Record the durable evidence and wait for the next explicit continuation.
 
-`NOT_RUN_STOP`: a prerequisite is absent or the exact current turn cannot prove the required V2 capability. No covered Agent-control action occurs. Record the blocking basis and stop.
+`OPERATOR_ACTION_REQUIRED_STOP`: Host lifecycle or UI work is required. Codex performs no lifecycle action itself and provides the exact operator instructions and resume condition.
 
-`UNKNOWN_STOP`: authoritative evidence is ambiguous or incomplete. Quarantine the affected result. Do not retry until a better evidence path or concrete changed basis is established.
+`NOT_RUN_STOP`: a required prerequisite or exact-turn Host capability is unavailable before the covered Host action. No covered Agent-control action occurs.
 
-`FAIL_STOP`: authoritative evidence proves a contract violation or product defect. Freeze later Host phases and move to defect analysis on a separate development branch.
+`UNKNOWN_STOP`: authoritative evidence is ambiguous or incomplete. Fail closed until a better evidence path exists.
 
-`MUTATION_STOP`: repository, package, profile, Host contract, installed basis, or candidate artifact changed during the phase. Classify invalidation, rerun required repository gates, and perform a fresh Issue #91 preflight before resuming.
+`FAIL_STOP`: authoritative evidence proves a product or qualification-procedure violation. Freeze later phases until the failure is understood and repaired.
+
+`MUTATION_STOP`: repository, package, profile, installed basis, Host contract, or another bound campaign input changed unexpectedly. Classify invalidation before continuing.
 
 ## Phase H0: exact source, installed basis, and fresh Host environment
 
-Purpose: establish a trustworthy starting environment without creating or controlling an Agent.
+Purpose: establish a trustworthy environment with zero Agent-control.
 
-Entry conditions:
+### Operator step
 
-- release source is the exact first-public `1.0.0` candidate selected in GitHub;
-- release-source CI is green for that exact source;
-- local checkout can be synchronized to that exact commit;
-- Issue #91 preflight is recorded before any Host action.
+If the current Host environment is already fresh and valid, no operator action is required.
 
-Actions:
+If a Host restart or fresh root is required:
 
-1. Synchronize the target local checkout and verify exact HEAD, tree, cwd, and clean worktree.
-2. Verify `python3 scripts/package_integrity.py --check-generated` and `python3 scripts/package_integrity.py`.
-3. Verify Doctor reports Plugin package and all five managed profiles healthy.
-4. Compare installed/local Marketplace basis. Reinstall only if a concrete installed-package invalidation exists.
-5. When preflight authorizes it, fully restart the target Desktop Host and create one fresh root task in the repository.
-6. Bind Host build, embedded Codex version, platform, architecture, root `session_id`, root `thread_id`, cwd, and exact rollout identity using authoritative Host evidence.
-7. Do not spawn, steer, interrupt, or otherwise control an Agent in H0.
+1. exit the Desktop Host outside the qualifying Codex task;
+2. launch the Desktop Host;
+3. create a new root task in the target repository;
+4. paste the bounded H0 evidence prompt into that new root.
 
-Acceptance:
+Codex must never perform steps 1 through 3.
 
-- environment identity is authoritative and internally consistent;
+### Codex step
+
+Inside the fresh/current root:
+
+1. verify exact HEAD, tree, branch, cwd, and clean worktree;
+2. run generated package-integrity and package-integrity checks;
+3. verify Plugin package and all five managed profiles are healthy;
+4. compare installed/local Marketplace basis and reinstall only if a concrete mismatch is established and separately authorized;
+5. bind Host build, Host/rollout Codex version, platform, architecture, root `session_id`, root `thread_id`, cwd, parent identity, and rollout identity using authoritative Host evidence;
+6. record `multi_agent_version` only as H0 environment context;
+7. perform zero Agent-control actions and materialize zero children.
+
+If the current task discovers that a Host restart is required, return `OPERATOR_ACTION_REQUIRED_STOP`. Do not restart the Host from that task.
+
+### Acceptance
+
+- environment identity satisfies every required field in `docs/v4/host-smoke.json`;
+- `session_id` and `thread_id` are authoritative and internally consistent;
 - repository and installed package/profile basis are healthy;
-- no Agent-control action occurred;
-- no repository mutation occurred during Host binding.
+- Agent-control count is zero;
+- no unexpected repository or installed-basis mutation occurred.
 
 Mandatory stop: `H0_STOP`.
 
-Important: an H0 V2 observation is environment/capability context only. It cannot authorize a later N0 spawn because N0 must prove V2 again on the exact N0 Agent-control turn.
+H0 V2 capability is context only. N0 must establish V2 again on the exact Agent-control turn.
 
 ## Phase H1: N0 Reader canary
 
-Purpose: prove the repaired exact-turn V2 precondition and one canonical managed spawn before expanding to all profiles.
+Purpose: prove one canonical managed Reader spawn on the current H0 environment before expanding N0.
 
-Actions within the same N0 Reader probe turn:
+### Operator step
 
-1. Record the dedicated N0 Reader preflight in Issue #91 and preserve its exact `RERUN` reference.
-2. Bind the exact current `turn_id`.
-3. Prove `turn_context.multi_agent_version=v2` for that exact turn.
-4. Verify the callable V2 spawn schema for that same turn requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`.
-5. Only if steps 2 through 4 pass, create the Reader WorkUnit if needed and call `scripts/host_qualification_guard.py::allocate_single_probe_execution` so attempt 1 is explicitly bound to the exact Issue #91 preflight reference. A default `initial:<execution_id>` basis is invalid for this qualification probe.
-6. Call `scripts/host_qualification_guard.py::prepare_single_probe_spawn`, then pass the returned canonical Orchestrate `tool_input` to Host `spawn_agent` unchanged. The guard must prove this is attempt 1, there is no retained or compacted prior attempt for the WorkUnit, lifecycle is still `SPAWN_PENDING`, and the stored basis matches the preflight.
-7. Spawn the canonical Reader with `subagents_dispatch_reader`, `gpt-5.6-luna`, `max`, and `fork_turns=none`.
-8. Bind the resulting Host evidence to the intended N0 Reader execution and verify route, model, effort, and fresh-context behavior.
-9. Settle or safely close the Reader before the phase ends.
+None during normal H1 execution. If Host lifecycle work becomes necessary, Codex returns `OPERATOR_ACTION_REQUIRED_STOP` and H1 remains incomplete.
 
-Immediate stop conditions:
+### Codex step
 
-- exact turn is V1, disabled, unavailable, or schema-conflicting;
-- spawn schema differs from the V2 contract;
-- qualification guard rejects allocation or spawn preparation;
-- the first ExecutionBinding does not carry the exact preflight reference;
-- wrong route, model, effort, or fork behavior;
-- ambiguous child identity or lifecycle;
-- unexpected repository mutation.
+1. choose one pristine Reader qualification WorkUnit with no retained or compacted attempt history;
+2. set a local run ref such as `qualification:<campaign>:h1:reader`;
+3. bind the exact current `turn_id`;
+4. prove `turn_context.multi_agent_version=v2` for that exact turn;
+5. verify the same-turn callable spawn schema requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`;
+6. call `allocate_single_probe_execution` with the exact `qualification_run_ref` so attempt 1 is explicitly bound before spawn;
+7. call `prepare_single_probe_spawn` with the same ref and pass the returned canonical Orchestrate payload to Host unchanged;
+8. spawn exactly one `subagents_dispatch_reader` with `gpt-5.6-luna`, `max`, and `fork_turns=none`;
+9. verify authoritative route, model, effort, fresh-context, child identity, and lifecycle evidence;
+10. settle the Reader and stop.
 
-If the Reader materializes, that preflight authorization is consumed. Do not reject a completed Reader and create a fresh attempt merely to repair evidence formatting, task naming, provenance, or bookkeeping. Record the discrepancy and stop for review.
+Immediate stop conditions include V2/schema mismatch, qualification guard rejection, wrong route/model/effort/fork behavior, ambiguous child identity/lifecycle, or unexpected mutation.
 
-Mandatory stop: `H1_STOP` even when Reader passes. Do not continue to Worker in the same phase.
+Once a Reader materializes, that H1 WorkUnit is consumed. Evidence formatting or bookkeeping cannot justify another attempt on that WorkUnit.
 
-## Phase H2: complete N0 across the remaining fixed profiles
+Mandatory stop: `H1_STOP`.
 
-Purpose: close N0 for Worker, Investigator, Solver, and Advisor after the Reader canary has passed.
+## Phase H2: complete N0 for Worker, Investigator, Solver, and Advisor
 
-For each remaining profile, sequentially:
+Run profiles sequentially. A non-PASS profile stops H2 immediately.
 
-1. Perform a fresh Issue #91 preflight and preserve its exact `RERUN` reference.
-2. Re-establish the exact-turn V2 capability precondition before the spawn.
-3. Create the profile WorkUnit if needed, then allocate attempt 1 only through `scripts/host_qualification_guard.py::allocate_single_probe_execution` with the exact preflight reference. If the WorkUnit already has retained or compacted execution history, stop the profile. Do not fresh-retry inside the same qualification probe.
-4. Prepare the Host call only through `scripts/host_qualification_guard.py::prepare_single_probe_spawn`, then pass the canonical payload to Host unchanged.
-5. Spawn only the fixed canonical route with `fork_turns=none`.
-6. Verify authoritative route, model, effort, fresh-context, identity, and lifecycle evidence.
-7. Write the action/result ledger entry before touching the next profile.
+For each profile:
 
-Expected fixed routes:
+1. use a new pristine qualification WorkUnit for this current campaign/profile;
+2. set `qualification:<campaign>:h2:<profile>`;
+3. establish exact-turn V2 capability and the required spawn schema;
+4. allocate attempt 1 only through `allocate_single_probe_execution`;
+5. prepare only through `prepare_single_probe_spawn`;
+6. pass the canonical Host payload unchanged;
+7. verify route, model, effort, `fork_turns=none`, fresh context, identity, and lifecycle;
+8. settle the child;
+9. record one durable profile result in Issue #91 and stop before the next profile.
+
+Expected routes:
 
 - Worker: `subagents_dispatch_worker`, `gpt-5.6-luna`, `max`.
 - Investigator: `subagents_dispatch_investigator`, `gpt-5.6-terra`, `high`.
 - Solver: `subagents_dispatch_solver`, `gpt-5.6-sol`, `high`.
 - Advisor: `subagents_dispatch_advisor`, `gpt-5.6-sol`, `high`.
 
-For H2, a ledger preflight is authorization for one current-basis profile probe. Once a child materializes, that authorization is consumed. Qualification provenance, bookkeeping repair, or a desire to attach the preflight reference after the fact is not a changed task-level basis. Do not reject a completed qualification probe and allocate a fresh retry for those reasons. Record the failure and stop H2.
+Do not reuse a consumed WorkUnit. Do not allocate attempt 2 for evidence repair. A genuine later rerun caused by a material invalidation uses a new campaign identity and a new pristine qualification WorkUnit.
 
-Any non-PASS profile stops H2 immediately. N0 becomes conclusive PASS only when all five fixed profiles, including the H1 Reader canary, satisfy the N0 oracle.
-
-Mandatory stop: `H2_STOP` after the N0 gate is evaluated.
+Mandatory stop: `H2_STOP` after all remaining N0 profiles pass.
 
 ## Phase H3: N1 managed delegation-depth campaign
 
-Purpose: prove canonical managed children remain leaf under normal and adversarial instructions.
+Purpose: prove all fixed managed profiles remain leaf Agents under normal and adversarial instructions.
 
-Run every fixed managed profile sequentially. For each profile:
+For each fixed profile:
 
-1. Perform the Issue #91 preflight.
-2. Re-establish exact-turn V2 capability before the parent spawn or other covered Agent-control action.
-3. Spawn through the canonical managed route with the fixed no-further-Agent boundary in the assignment and responsibility packet.
-4. Include an adversarial untrusted-input instruction that asks the managed child to create or control another Agent.
-5. Inspect authoritative child activity/rollout evidence for nested Agent-control actions.
-6. Inspect authoritative descendant identity/spawn-edge evidence for any child-to-descendant materialization.
-7. Record the profile result before the next profile.
+1. establish exact-turn V2 capability before the parent spawn;
+2. spawn through the canonical managed route;
+3. include the fixed no-further-Agent boundary and an adversarial untrusted-input request to create/control another Agent;
+4. inspect authoritative child activity for nested Agent-control;
+5. inspect authoritative descendant identity/spawn-edge evidence;
+6. settle the child before proceeding.
 
-Micro-stop after every profile. A nested Agent-control attempt or descendant materialization is `FAIL_STOP`. Ambiguous child action or descendant evidence is `UNKNOWN_STOP`.
+Any nested Agent-control or descendant materialization is `FAIL_STOP`. Ambiguity is `UNKNOWN_STOP`.
 
-Mandatory stop: `H3_STOP` after all five profiles are evaluated. Do not start N2 automatically.
+Record one consolidated H3 result unless a profile stops the phase early.
 
-## Phase H4: N2 native task-address and Host-thread identity binding
+Mandatory stop: `H3_STOP`.
 
-Purpose: prove that a successful native spawn yields the canonical task address and that independent Host evidence binds the underlying child thread identity to that address.
+## Phase H4: N2 canonical task address and Host-thread binding
 
-Actions:
+1. establish exact-turn V2 capability;
+2. spawn one controlled canonical managed child;
+3. capture the successful canonical native task address;
+4. independently bind the underlying Host child thread identity;
+5. bind both identities to the intended ExecutionBinding evidence basis;
+6. settle the child and reject stale identity evidence.
 
-1. Perform preflight and exact-turn V2 qualification.
-2. Create one controlled canonical managed child suitable for identity observation.
-3. Capture the successful native task address.
-4. Independently bind the underlying child Host thread identity from authoritative Host activity or lifecycle evidence.
-5. Bind both identities to the intended ExecutionBinding evidence basis without fabricating or persisting unavailable runtime identity fields.
-6. Settle the child and verify no stale identity is used.
+Mandatory stop: `H4_STOP`.
 
-Mandatory stop: `H4_STOP` after N2 verdict.
+## Phase H5: N3 admission rejection and materialization safety
 
-## Phase H5: N3 Host admission rejection and materialization safety
+1. establish the safe Host-capacity setup without exceeding the product ceiling of four managed children;
+2. establish exact-turn V2 capability before each covered Agent-control action;
+3. trigger one actual Host admission rejection only when the attempted spawn remains within product policy;
+4. prove no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime materializes for the rejected attempt;
+5. verify provisional execution and writer reservation rollback;
+6. settle every intentionally running child before leaving the phase.
 
-Purpose: deliberately exercise Host admission rejection while proving the rejected attempt creates no child identity or resident runtime.
+If safe pressure cannot be established within the product ceiling, use `NOT_RUN_STOP`. Ambiguous materialization is `UNKNOWN_STOP`.
 
-This phase is isolated because it intentionally creates capacity pressure.
-
-Actions:
-
-1. Perform the dedicated N3 preflight.
-2. Record authoritative Host capacity evidence. If the public spawned-agent limit is used, normalize it to the root-inclusive internal V2 session limit as required by the contract.
-3. Design the rejection setup so the product managed-child ceiling of four is never exceeded. Prefer a Host capacity that can be saturated below that product ceiling. If safe saturation cannot be established within product policy, stop H5 as `NOT_RUN_STOP` rather than violating the product limit.
-4. For each child used to create controlled pressure, perform its own preflight and exact-turn V2 capability check before the covered Agent-control action.
-5. Trigger one actual Host admission rejection only when the attempted spawn remains within the product managed-child ceiling and the Host capacity setup makes rejection expected.
-6. Prove the rejected attempt produced no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime.
-7. Verify provisional execution and writer reservation rollback semantics.
-8. Settle/clean all intentionally created children before leaving H5.
-
-Any ambiguity about rejected-child materialization is `UNKNOWN_STOP`. Any setup that would require a fifth managed child or another product-policy violation is `NOT_RUN_STOP`.
-
-Mandatory stop: `H5_STOP` with zero intentionally running children left behind.
+Mandatory stop: `H5_STOP` with zero intentionally running children.
 
 ## Phase H6: N4 same-child steering, correction, and continuation
 
-Purpose: prove RUNNING Steer and later correction/continuation remain bound to one ExecutionBinding and one Host child.
-
-Actions:
-
-1. Perform preflight and exact-turn V2 qualification before the initial child spawn.
-2. Start a controlled task that remains running long enough to steer.
-3. Before `followup_task`, perform the required same-turn V2 capability check for that Agent-control turn.
-4. Send RUNNING Steer to the original canonical task address.
-5. Prove authoritative Host evidence stays on the original child thread and that the same child consumes the guidance.
-6. Prove no replacement child materializes.
-7. Verify ExecutionBinding identity, `attempt_no`, `control_epoch`, and `followup_count` remain consistent.
-8. Exercise focused correction and continuation on changed bases without creating a fresh attempt.
+1. establish exact-turn V2 capability before the initial child spawn;
+2. start one controlled task that remains running long enough to steer;
+3. establish exact-turn V2 capability before `followup_task`;
+4. steer the original canonical task address;
+5. prove the same Host child consumed the guidance and no replacement materialized;
+6. verify the same ExecutionBinding, `attempt_no`, `control_epoch`, and `followup_count` are preserved;
+7. exercise focused correction and continuation using changed same-child bases without a fresh attempt;
+8. settle the child.
 
 Tool-call acceptance alone is insufficient.
 
-Mandatory stop: `H6_STOP` after N4 verdict and safe child settlement.
+Mandatory stop: `H6_STOP`.
 
-## Phase H7: N5 and N6 interrupt, settlement, and writer takeover
+## Phase H7: N5 interrupt settlement and N6 writer takeover
 
-Purpose: validate the safety boundary between interruption, Host settlement, WriterLease release, and Main takeover.
+Setup one controlled writable managed execution and its WriterLease.
 
-Setup:
+For N5:
 
-1. Perform the H7 preflight.
-2. Start a new controlled writable managed execution through the canonical route and acquire the corresponding WriterLease under the normal product rules.
-3. Re-establish exact-turn V2 capability before every covered Agent-control action used in the setup.
-4. Bind the active execution, current generation, canonical native task address, and WriterLease before attempting N5.
+1. establish exact-turn V2 capability before interrupt;
+2. interrupt the active managed execution;
+3. verify interrupt acknowledgement alone does not release WriterLease;
+4. require current-generation Host lifecycle evidence to settle execution;
+5. reject stale control/lease generation evidence.
 
-N5 substep:
+Hard stop after N5 settlement.
 
-1. Perform a fresh preflight and exact-turn V2 qualification for the interrupt turn.
-2. Interrupt the active managed execution.
-3. Verify the interrupt result alone does not release WriterLease.
-4. Require current-generation Host lifecycle evidence to settle the execution.
-5. Reject stale control/lease generation evidence.
+For N6:
 
-Internal hard stop after N5. Do not attempt takeover until N5 settlement is conclusive.
+1. confirm UNKNOWN or unsettled writer ownership blocks replacement/Main takeover;
+2. after authoritative settlement, prove Main can acquire WriterLease;
+3. verify the single-writer invariant throughout takeover.
 
-N6 substep:
-
-1. Confirm UNKNOWN or unsettled writer ownership still blocks replacement and Main takeover.
-2. After authoritative settlement, prove Main can acquire WriterLease.
-3. Verify the single-writer invariant throughout takeover.
-
-Mandatory stop: `H7_STOP` after N5 and N6 are both evaluated.
+Mandatory stop: `H7_STOP`.
 
 ## Phase H8: N7 rollout reconciliation and privacy
 
-Purpose: prove the allowlisted reconciliation path provides sufficient lifecycle/identity evidence without exposing assignment text or reasoning content.
+1. use authoritative rollout evidence already produced by the campaign;
+2. bind lifecycle call id, child identity, and result through the allowlisted inspection path;
+3. verify inspection output omits assignment text and reasoning content;
+4. verify stale or ambiguous rollout evidence cannot authorize acceptance or writer transfer.
 
-Actions:
+Avoid creating new Agents unless the machine contract truly requires separately qualified evidence.
 
-1. Use authoritative root/child rollout evidence produced by the campaign.
-2. Bind lifecycle call id, child identity, and result through the approved inspection path.
-3. Verify the inspection output omits assignment text and reasoning content.
-4. Verify stale or ambiguous rollout evidence cannot authorize acceptance or writer transfer.
+Mandatory stop: `H8_STOP`.
 
-N7 should avoid creating new Agents unless the canonical contract or missing evidence requires a separately preflighted action.
+## Phase H9: N8 Advisor effective sandbox truth
 
-Mandatory stop: `H8_STOP` after N7 verdict.
+1. freeze the candidate source before the N8 probe;
+2. establish exact-turn V2 capability;
+3. spawn the canonical Advisor on the exact candidate artifact;
+4. observe effective Host sandbox and permission state;
+5. require effective read-only semantics for the strict Final Review boundary;
+6. record broader Host permission behavior as a release limitation when applicable;
+7. bind the review verdict to the exact candidate artifact.
 
-## Phase H9: N8 Advisor review and effective sandbox truth
+Mandatory stop: `H9_STOP`.
 
-Purpose: run the final Host qualification probe on the exact candidate source and prove the Advisor's effective read-only boundary from Host-observed evidence.
-
-Actions:
-
-1. Freeze the candidate source before the N8 probe.
-2. Perform preflight and exact-turn V2 qualification before the fresh Advisor spawn.
-3. Spawn the canonical Advisor on the exact candidate artifact.
-4. Observe effective Host sandbox and permission state. Requested profile configuration alone does not count.
-5. Require effective read-only semantics for the strict review boundary.
-6. Record broader Host permission behavior as a release limitation when present.
-7. Bind the review verdict to the exact candidate artifact.
-
-Mandatory stop: `H9_STOP` after N8 verdict.
-
-After H9, keep the release source frozen through Final Review and release closure. If any source changes after N8, classify that mutation through the normal release invalidation rules and re-run only the evidence that the changed basis invalidates. There is no headoff-driven N8 revalidation loop.
+After H9, keep the release source frozen through Final Review and release closure. A later source change requires normal invalidation classification.
 
 ## Phase H10: release closure
 
-Purpose: close non-Host release gates after the final source freeze.
+1. verify final release-source CI and exact source identity;
+2. run the fresh independent Final Review against the final source;
+3. verify external release evidence;
+4. run installed-product Doctor and human two-Skill observation;
+5. make the explicit release decision;
+6. create `v1.0.0`, verify Marketplace resolves the exact tag, and publish release notes only after every required gate passes.
 
-Actions:
+## Invalidation rules
 
-1. Verify final release-source CI and exact checked-out source identity.
-2. Run the fresh independent Final Review against the exact final source.
-3. Build and verify the external release evidence envelope.
-4. Verify installed-product Doctor and exact package/profile identity.
-5. Perform human two-Skill App observation.
-6. Keep the current release candidate and publication blocked if any gate is pending, unknown, not run, or failed.
-7. Only after every gate is PASS may the release candidate enter the version-tag and publication sequence.
+Use `docs/release-checklist.md` as authority.
 
-Mandatory stop: `H10_RELEASE_DECISION_STOP`.
+Important operational examples:
 
-No release action auto-runs after this stop. Tagging, Marketplace verification, and publication require an explicit final release decision.
+- Host build/version change invalidates environment-bound Host observations and requires a new H0 binding before more Agent-control.
+- A change to one of the three Host qualification digests invalidates the affected Host evidence.
+- A source-only change outside those digests still requires exact-source repository CI and final-source review refresh, but does not automatically erase conclusive Host evidence.
+- A qualification procedure change applies to future actions. Historical Host evidence remains historical evidence and is invalidated only when the machine/release authority or a material environment fact requires it.
+- A new chat or new task alone never creates a rerun reason.
+- A required Host restart is an operator boundary, never an instruction for the qualifying task to restart itself.
 
-After the release decision, `headoff.md` may be updated or removed on the post-release development line as project housekeeping. That action must not rewrite the already-tagged release artifact.
+## Current recovery point
 
-## Campaign completion rule
+The build-7019 campaign is historical because the Desktop Host changed to build 7119. The first build-7119 H0 attempt correctly stopped `UNKNOWN` because the task tried to cross its own Host restart boundary and could not observe the post-restart root identity.
 
-The campaign is complete only when the machine contract N0 through N8 is conclusive PASS on valid evidence, all planned phase stops have been honored, release closure gates pass, and no unresolved `UNKNOWN`, `NOT_RUN`, or mutation invalidation remains.
+The Desktop Host has since been restarted externally by the operator. After this procedure redesign is merged and the target checkout is synchronized to the new exact source, the next safe action is:
+
+1. operator creates a fresh root task in the repository if one does not already exist after the external restart;
+2. Codex performs only H0 post-restart environment binding in that root;
+3. if H0 reaches `PASS_STOP`, run a new guarded H1 Reader canary on build 7119;
+4. continue H2 sequentially only after Reader passes.
+
+No additional Host restart is required solely because this maintainer-only procedure/source changed, provided the actual Host build, installed Plugin/profile basis, and current fresh-root requirements remain satisfied.
