@@ -1,0 +1,158 @@
+name: fix-calibration-profile-origin
+on:
+  push:
+    branches: [fix/host-runtime-evidence-resolvers]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: {fetch-depth: 2}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with: {python-version: '3.11'}
+      - name: Guard exact parent
+        run: |
+          test "$(git rev-parse HEAD^)" = "8b224c2d191a2b86b5907960ce5d2daab949b82b"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/fix-calibration-profile-origin.yml"
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Confirm experiment regression is red before implementation
+        shell: bash
+        run: |
+          if python -m pytest -q tests/test_experiment_run.py tests/test_experiment_run_materialization_binding.py; then
+            echo 'expected calibration experiment regression to remain red before implementation' >&2
+            exit 1
+          fi
+      - name: Decouple task path from profile origin evidence
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path_text, old, new):
+              path = Path(path_text)
+              text = path.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path_text}: expected one match, found {text.count(old)}')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_exact(
+              'tests/test_experiment_run.py',
+              '''        route.setdefault("expected_profile_path", str(profile))
+        route.setdefault("expected_profile_sha256", hashlib.sha256(profile.read_bytes()).hexdigest())
+        if "profile_origin_verdict" not in route:
+            route["observed"]["agent_path"] = str(profile)
+        route.setdefault("profile_origin_verdict", "verified")
+''',
+              '''        route.setdefault("expected_profile_path", str(profile))
+        route.setdefault("expected_profile_sha256", hashlib.sha256(profile.read_bytes()).hexdigest())
+        if route["observed"].get("agent_path") is None:
+            route["observed"]["agent_path"] = f"/root/{route['materialized_agent_type']}"
+        route.setdefault("profile_origin_verdict", "verified")
+''',
+          )
+
+          replace_exact(
+              'scripts/validate-experiment-run.py',
+              '''    observed_path = route["observed"]["agent_path"]
+    if observed_path is None:
+        expected_origin_verdict = "unknown"
+    else:
+        observed = Path(observed_path)
+        expected_origin_verdict = "verified" if observed.is_absolute() and observed.resolve() == expected_path.resolve() else "failed"
+    if expected_origin_verdict == "verified":
+        try:
+            current_sha256 = hashlib.sha256(expected_path.read_bytes()).hexdigest()
+        except OSError:
+            expected_origin_verdict = "failed"
+        else:
+            if current_sha256 != expected_sha256:
+                expected_origin_verdict = "failed"
+    if route["profile_origin_verdict"] != expected_origin_verdict:
+        fail(f"profile origin verdict must be {expected_origin_verdict!r} for observed agent_path and frozen profile SHA256")
+''',
+              '''    expected_origin_verdict = "verified"
+    try:
+        current_sha256 = hashlib.sha256(expected_path.read_bytes()).hexdigest()
+    except OSError:
+        expected_origin_verdict = "failed"
+    else:
+        if current_sha256 != expected_sha256:
+            expected_origin_verdict = "failed"
+    if route["profile_origin_verdict"] != expected_origin_verdict:
+        fail(
+            f"profile origin verdict must be {expected_origin_verdict!r} for the "
+            "campaign-owned profile path and frozen profile SHA256"
+        )
+''',
+          )
+
+          old_test = '''def test_calibration_profile_origin_requires_exact_owned_path_and_current_sha(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["profile_origin_verdict"] = "failed"
+    route["observed"]["agent_path"] = str(tmp_path / "different.toml")
+    run["profile_origin_assurance"] = "failed"
+    with pytest.raises(SystemExit, match="runtime evidence|profile origin"):
+        validate(tmp_path, campaign, run)
+
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["profile_origin_verdict"] = "unknown"
+    route["observed"]["agent_path"] = None
+    run["profile_origin_assurance"] = "unknown"
+    result = validate(tmp_path, campaign, run)
+    assert result["claim_eligible"] is False
+
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    Path(run["child_routes"][0]["expected_profile_path"]).write_text("drifted\\n")
+    run["child_routes"][0]["profile_origin_verdict"] = "failed"
+    run["profile_origin_assurance"] = "failed"
+    result = VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+    assert result["claim_eligible"] is False
+'''
+          new_test = '''def test_calibration_profile_origin_requires_exact_owned_path_and_current_sha(tmp_path: Path):
+    campaign = calibration_campaign()
+    run = calibration_run(campaign)
+    route = run["child_routes"][0]
+    route["observed"]["agent_path"] = "/root/different_task"
+    result = validate(tmp_path, campaign, run)
+    assert result["profile_origin_assurance"] == "verified"
+    assert route["observed"]["agent_path"] == "/root/different_task"
+
+    run = calibration_run(campaign)
+    validate(tmp_path, campaign, run)
+    Path(run["child_routes"][0]["expected_profile_path"]).write_text("drifted\\n")
+    run["child_routes"][0]["profile_origin_verdict"] = "failed"
+    run["profile_origin_assurance"] = "failed"
+    result = VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+    assert result["claim_eligible"] is False
+'''
+          replace_exact('tests/test_experiment_run.py', old_test, new_test)
+
+          replace_exact(
+              'tests/test_experiment_run.py',
+              'artifact["local"] = {**artifact["native"], "agent_path": str(tmp_path / "other.toml")}\n',
+              'artifact["local"] = {**artifact["native"], "agent_path": "/root/other_task"}\n',
+          )
+      - name: Verify focused experiment semantics
+        run: |
+          python -m pytest -q tests/test_experiment_run.py tests/test_experiment_run_materialization_binding.py
+      - name: Verify full repository
+        run: |
+          python -m ruff check scripts tests --ignore E402
+          python scripts/package_integrity.py --check-generated
+          python scripts/package_integrity.py
+          python -m pytest -q
+          git diff --check
+      - name: Self-delete and commit
+        run: |
+          rm .github/workflows/fix-calibration-profile-origin.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix: separate calibration task path from profile origin'
+          git push origin HEAD:fix/host-runtime-evidence-resolvers
