@@ -54,15 +54,13 @@ H3 / N1 managed delegation depth: **PASS_STOP**. Reader, Worker, Investigator, S
 
 Current installation continuity baseline: **PASS_STOP**. The active local Marketplace Plugin reports `subagents-dispatch@subagents-dispatch` `1.0.0`; the current release manifest covers 46 shipped files with zero missing, unexpected, or hash-mismatched files; all five managed profiles match the candidate; Doctor package/profile checks are healthy; the baseline used zero Agent-control and produced no repository or installed-package mutation. This routine continuity check intentionally has no separate Issue #91 PASS comment.
 
-H4 / N2 is **UNKNOWN_STOP / INCOMPLETE**. The first WorkUnit `N2_READER_HOST7119` materialized successfully and produced a coherent identity chain in Issue #91 comment `5425895958`: one Reader ExecutionBinding maps to canonical task address `/root/sd_n2_reader_host7119_a1`, the same spawn call binds that address to Host child thread `01a03e37-a8db-7880-a8f5-6a542c1ccaab`, and the child rollout independently reports the same path/thread/session/parent/role. Independent review found that the required same-turn callable spawn schema observation was not preserved in the durable result. The zero-Agent-control supplement in Issue #91 comment `5426422092` confirmed the exact probe rollout does not retain callable schema records, so the missing proof cannot be reconstructed and correctly stopped `UNKNOWN_STOP`.
+H4 / N2 canonical task-address and Host-thread identity binding: **PASS_STOP, independently accepted**. The first WorkUnit `N2_READER_HOST7119` remains consumed historical `UNKNOWN` evidence because its exact-turn callable schema snapshot was not durably preserved. The corrected rerun used pristine WorkUnit `N2_READER_HOST7119_RERUN1`, attempt 1, preserved the contemporaneous exact-turn V2 spawn-schema snapshot before Agent-control, and closed the ExecutionBinding -> canonical task address -> same-call Host child thread -> authoritative child rollout chain. Durable rerun result: Issue #91 comment `5426789425`.
 
-The first H4 WorkUnit is consumed historical `UNKNOWN` evidence. Do not reuse `N2_READER_HOST7119` and do not allocate attempt 2 for it. The qualification procedure has been corrected so a justified H4 rerun can use a new pristine WorkUnit after the corrected source is exact-head CI green and synchronized to the Host checkout.
+H5 / N3 Host admission rejection materialization safety is the next Host phase. It has not executed. The phase must first bind current Host capacity, normalize public spawned-agent-only capacity to the root-inclusive internal V2 limit when that public setting is the source, and stage pressure without exceeding the product ceiling of four active managed children. If a real Host rejection cannot be induced inside that ceiling, H5 stops `NOT_RUN_STOP` rather than violating product policy.
 
-N3 and later phases remain blocked until a fresh H4 / N2 rerun reaches conclusive `PASS_STOP` and receives independent acceptance.
+Public `1.0.0` release: **BLOCKED on N3 through N8 and later release closure**.
 
-Public `1.0.0` release: **BLOCKED on H4 rerun closure, N3 through N8, and later release closure**.
-
-The earlier build-7019 campaign and the first failed build-7119 self-restart attempt remain historical evidence only. The current accepted build-7119 campaign is the authority for reusable H0 through H3 evidence while its environment and qualification identity remain valid.
+The earlier build-7019 campaign and the first failed build-7119 self-restart attempt remain historical evidence only. The current accepted build-7119 campaign is the authority for reusable H0 through H4 evidence while its environment and qualification identity remain valid.
 
 ## Qualification duplicate-dispatch RCA
 
@@ -91,7 +89,7 @@ The later read-only supplement proved:
 
 The root cause is qualification evidence capture, not a demonstrated product identity-binding failure. Future covered probes must preserve a contemporaneous privacy-safe capability snapshot before Agent-control. Later turns, actual call arguments, configured defaults, and model memory cannot repair a missing exact-turn schema snapshot.
 
-A genuine H4 rerun is justified only after this procedure correction is verified. It must use a new pristine WorkUnit with attempt 1. The old materialized H4 WorkUnit remains consumed.
+The corrected H4 rerun used a new pristine WorkUnit with attempt 1 and durably recorded the contemporaneous schema fields before spawn. The old materialized H4 WorkUnit remains consumed historical `UNKNOWN`; the rerun is independently accepted as `PASS_STOP`.
 
 ## Permanent Host lifecycle boundary
 
@@ -151,7 +149,7 @@ Do not create a separate comment before every Host action. Do not create routine
 
 This is a self-maintained project. Git is the default development/version-control mechanism.
 
-Routine development does not require a GitHub Issue or Pull Request.
+Routine development does not require a new GitHub Issue or Pull Request.
 
 Default flow:
 
@@ -213,6 +211,7 @@ Both helpers are maintainer evidence tooling. The root helper remains outside `.
 16. Host rollout retention cannot be assumed to preserve callable schema definitions. Capture required schema evidence contemporaneously before Agent-control.
 17. Actual call arguments can cross-check a schema observation but cannot prove required fields or prove that an unused legacy field was absent from the callable schema.
 18. A materialized qualification WorkUnit with an unrepairable evidence gap remains consumed. A justified rerun uses a new pristine WorkUnit after the procedure defect is corrected.
+19. Host admission capacity and product child ceiling are distinct gates. N3 may only pressure the Host with a projected active managed-child count at or below the product ceiling; inability to reach Host rejection safely is `NOT_RUN_STOP`.
 
 ## Build-7119 qualification point
 
@@ -234,22 +233,23 @@ Known facts:
 - H2 Worker, Investigator, Solver, and Advisor are each conclusive `PASS_STOP` and consumed.
 - H2 overall / N0 is complete. Durable closure: Issue #91 comment `5422820011`.
 - H3 / N1 is conclusive `PASS_STOP`. Durable result: Issue #91 comment `5425708582`.
-- First H4 / N2 execution: core identity evidence coherent, but final qualification status is `UNKNOWN_STOP` because required exact-turn callable schema evidence was not preserved. Original result: Issue #91 comment `5425895958`. Evidence-gap supplement: Issue #91 comment `5426422092`.
+- First H4 / N2 WorkUnit is consumed historical `UNKNOWN`; original result comment `5425895958`, evidence-gap supplement `5426422092`.
+- H4 / N2 rerun1 is conclusive `PASS_STOP` and independently accepted. Durable result: Issue #91 comment `5426789425`.
 
 Before any new Host action, require the target local checkout to match the current release-line HEAD and require exact-head repository CI to be green. A source-only change outside the three Host qualification inputs does not erase conclusive Host evidence, but repository source identity and CI must still be refreshed before continuing.
 
 ## Next safe sequence
 
-1. Verify the final release-line HEAD containing the qualification procedure correction and this handoff update reaches exact-head CI green.
-2. Confirm `.codex-plugin/package-integrity.json`, `contracts/policy.json`, and `docs/v4/host-smoke.json` remain unchanged from the accepted qualification basis.
-3. Synchronize the target Host checkout to that exact verified HEAD and require a clean worktree.
-4. Confirm Desktop Host remains build 7119, embedded Codex remains `0.150.0-alpha.8`, root/session identity remains `01a03ca1-5ece-7561-afee-9d824171d220`, and the installation continuity basis remains healthy. If any material fact changed, classify invalidation before Agent-control.
-5. Reuse accepted H0 through H3 evidence while their reuse conditions hold. Keep the first H4 WorkUnit `N2_READER_HOST7119` consumed as historical `UNKNOWN` evidence.
-6. Classify the next H4 action as `RERUN` with the concrete reason: the prior H4 attempt cannot satisfy the exact-turn schema evidence requirement because the previous qualification procedure failed to preserve a contemporaneous callable-schema snapshot and the Host rollout does not retain it.
-7. Allocate a new pristine H4 / N2 WorkUnit with attempt 1. Do not reuse the old WorkUnit and do not create attempt 2 for it.
-8. Before the new H4 spawn, bind the exact turn, prove `multi_agent_version=v2`, verify the callable spawn schema, and preserve the privacy-safe contemporaneous snapshot required by `tasks/real-host-qualification-plan.md`.
-9. Execute only H4 / N2, verify the same canonical task-address to Host-thread to child-rollout to ExecutionBinding chain, record one consolidated H4 result, and stop at `H4_STOP`.
-10. Keep N3 blocked until the fresh H4 result receives conclusive independent acceptance. Do not automatically execute N3.
+1. Verify this H4-acceptance handoff update reaches exact-head CI green and confirm the three Host qualification digests remain unchanged.
+2. Synchronize the target Host checkout to that exact verified release-line HEAD and require a clean worktree.
+3. Confirm Desktop Host remains build 7119, embedded Codex remains `0.150.0-alpha.8`, root/session identity remains `01a03ca1-5ece-7561-afee-9d824171d220`, and the installation continuity basis remains healthy. Classify any material drift before Agent-control.
+4. Reuse accepted H0 through H4 evidence while their reuse conditions hold.
+5. Read current N3 machine contract and H5 procedure before acting. Bind the authoritative Host capacity source; when `agents.max_concurrent_threads_per_session` is the source, normalize the public spawned-agent-only value to the root-inclusive internal V2 session limit.
+6. Stage only read-only pressure children and keep the projected active managed-child count at or below four. Before every covered spawn, bind exact-turn V2 and preserve the contemporaneous callable-schema snapshot.
+7. Use a bounded Worker as the explicit rejection candidate so a pre-materialization Host rejection also exercises provisional ExecutionBinding and RESERVED WriterLease rollback. The candidate must remain within the four-child product ceiling.
+8. PASS N3 only on an actual Host admission rejection plus authoritative proof that the rejected call produced no successful spawn result, Started activity, Host child identity, durable child identity, or resident child runtime; then roll back the provisional execution and writer reservation without consuming attempt 1.
+9. If the candidate materializes because safe pressure is insufficient, settle every intentionally running child and stop `NOT_RUN_STOP`. Do not attempt a fifth active managed child.
+10. Stop at `H5_STOP`; do not execute N4 automatically.
 
 ## Verification discipline
 
