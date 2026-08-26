@@ -25,7 +25,10 @@ INSPECTOR_PATH = ROOT / "inspect-agent-runtime.py"
 AGENT_PATH = re.compile(r"^/root/(?!root$)[a-z0-9_]+$")
 SESSION_META_LINE = re.compile(r'"type"\s*:\s*"session_meta"')
 AGENT_CONTROL_TOOLS = frozenset(
-    {"spawn_agent", "followup_task", "interrupt_agent", "list_agents"}
+    {"spawn_agent", "send_message", "followup_task", "interrupt_agent"}
+)
+AGENT_LAYER_TOOLS = frozenset(
+    {*AGENT_CONTROL_TOOLS, "wait_agent", "list_agents"}
 )
 OBSERVED_EVENT_TYPES = frozenset(
     {"session_meta", "turn_context", "event_msg", "response_item", "context_compacted"}
@@ -309,6 +312,7 @@ def inspect_aggregate(
     tool_call_count = 0
     tool_names_complete = True
     control_tools: list[str] = []
+    agent_layer_tools: list[str] = []
     compaction_count = 0
     observed_timestamps: list[datetime] = []
     timestamps_complete = True
@@ -343,8 +347,10 @@ def inspect_aggregate(
                 name = call_name(payload)
                 if name is None:
                     tool_names_complete = False
-                elif name in AGENT_CONTROL_TOOLS:
-                    control_tools.append(name)
+                elif name in AGENT_LAYER_TOOLS:
+                    agent_layer_tools.append(name)
+                    if name in AGENT_CONTROL_TOOLS:
+                        control_tools.append(name)
             continue
 
         if record_type == "context_compacted":
@@ -385,6 +391,7 @@ def inspect_aggregate(
         else None
     )
     agent_control_call_count = len(control_tools) if tool_names_complete else None
+    agent_layer_call_count = len(agent_layer_tools) if tool_names_complete else None
 
     return {
         "thread_id": route["thread_id"],
@@ -398,6 +405,10 @@ def inspect_aggregate(
         "tool_call_count": tool_call_count,
         "agent_control_call_count": agent_control_call_count,
         "agent_control_tools_seen": sorted(set(control_tools))
+        if tool_names_complete
+        else None,
+        "agent_layer_call_count": agent_layer_call_count,
+        "agent_layer_tools_seen": sorted(set(agent_layer_tools))
         if tool_names_complete
         else None,
         "compaction_count": compaction_count,

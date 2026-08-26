@@ -328,6 +328,49 @@ def test_aggregate_reports_privacy_safe_counts(tmp_path: Path):
     assert "DO_NOT_LEAK" not in result.stdout
 
 
+
+def test_aggregate_distinguishes_control_from_full_v2_agent_layer(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    names = [
+        "spawn_agent",
+        "send_message",
+        "followup_task",
+        "wait_agent",
+        "interrupt_agent",
+        "list_agents",
+    ]
+    extra = [
+        {
+            "timestamp": f"2026-08-26T00:00:{index + 2:02d}Z",
+            "type": "response_item",
+            "payload": {"type": "function_call", "name": name, "arguments": "DO_NOT_LEAK"},
+        }
+        for index, name in enumerate(names)
+    ]
+    write_rollout(
+        sessions,
+        thread_id=CHILD_THREAD,
+        timestamp="2026-08-26T00:00:00Z",
+        parent_thread_id=ROOT_THREAD,
+        agent_role=ROLE,
+        agent_path=TASK_PATH,
+        extra_records=extra,
+    )
+
+    result = run_tool(sessions, "aggregate", CHILD_THREAD)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["agent_control_call_count"] == 4
+    assert payload["agent_control_tools_seen"] == [
+        "followup_task",
+        "interrupt_agent",
+        "send_message",
+        "spawn_agent",
+    ]
+    assert payload["agent_layer_call_count"] == 6
+    assert payload["agent_layer_tools_seen"] == sorted(names)
+
 def test_aggregate_does_not_turn_missing_usage_or_tool_name_into_zero(tmp_path: Path):
     sessions = tmp_path / "sessions"
     extra = [

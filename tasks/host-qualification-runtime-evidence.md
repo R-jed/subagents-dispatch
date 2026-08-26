@@ -72,13 +72,14 @@ The output may contain:
 - turn count;
 - tool-call count;
 - count and names of recognized Agent-control calls;
+- count and names of all recognized current V2 Agent-layer calls;
 - context-compaction count;
 - cumulative raw-token count when every observed token-count record is complete;
 - latest event timestamp when all inspected event timestamps are complete.
 
-Recognized current Agent-control names are `spawn_agent`, `followup_task`, `interrupt_agent`, and `list_agents`. Namespaced forms are normalized to their final tool name.
+Recognized current Agent-control names are `spawn_agent`, `send_message`, `followup_task`, and `interrupt_agent`. The full pinned V2 Agent-layer surface additionally includes `wait_agent` and `list_agents`; these are reported separately because waiting/listing does not by itself control another Agent. Namespaced forms are normalized to their final tool name.
 
-Current upstream Codex V2 can expose collaboration tools to a spawned child when that child's effective model metadata enables V2. Therefore a zero recognized-call count is supporting evidence only. N1 still needs authoritative evidence that the managed child did not create or control descendants and that no descendant materialized.
+Current upstream Codex V2 can expose this collaboration surface to a spawned child when that child's effective model metadata enables V2. Therefore a zero recognized-call count is supporting evidence only. N1 still needs authoritative evidence that the managed child did not create or control descendants and that no descendant materialized.
 
 If a tool call is observable but its name is unavailable, `agent_control_call_count` is unavailable. Do not report zero. This aggregate count is supporting evidence for N1/N4/N7. It cannot by itself prove the absence of a future Host Agent-control primitive that is not in the current allowlist. N1 still requires authoritative Host activity or rollout evidence covering the actual callable Agent-control surface for the tested child.
 
