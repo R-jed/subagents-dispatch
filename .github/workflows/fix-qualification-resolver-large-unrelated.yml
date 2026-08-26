@@ -22,8 +22,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install test dependencies
-        run: python -m pip install -U pytest ruff
+      - name: Install pinned development dependencies
+        run: python -m pip install -r requirements-dev.txt
 
       - name: Add regression test
         shell: bash
@@ -178,7 +178,7 @@ jobs:
         run: |
           python -m pytest -q tests/test_host_qualification_resolver_large_rollout.py
           python -m pytest -q tests/test_host_qualification_evidence.py
-          python -m ruff check scripts/host_qualification_evidence.py tests/test_host_qualification_resolver_large_rollout.py
+          python -m ruff check scripts tests --ignore E402
           python scripts/package_integrity.py --check-generated
           python scripts/package_integrity.py
           python -m pytest -q
