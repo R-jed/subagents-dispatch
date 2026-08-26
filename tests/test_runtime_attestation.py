@@ -275,6 +275,39 @@ def test_runtime_evidence_fails_closed_on_public_rollout_task_path_or_provider_c
     assert f"source_conflict:{field}" in output["violations"]
 
 
+@pytest.mark.parametrize(
+    "task_path",
+    [
+        "/root/BadName",
+        "/root/bad-name",
+        "/root/bad.name",
+        "/root/root",
+        "/root/parent/root",
+    ],
+)
+def test_runtime_evidence_rejects_noncanonical_v2_agent_path_segments(task_path: str):
+    payload = {
+        "expected": {
+  "agent_role": ROLE,
+  "model": "gpt-5.6-luna",
+  "effort": "max",
+  "agent_path": task_path,
+        },
+        "local": {
+  "agent_role": ROLE,
+  "model": "gpt-5.6-luna",
+  "effort": "max",
+  "agent_path": task_path,
+        },
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "canonical V2 task path" in result.stderr
+
+
 def test_runtime_evidence_accepts_nested_canonical_v2_task_path():
     task_path = "/root/parent/child"
     payload = {

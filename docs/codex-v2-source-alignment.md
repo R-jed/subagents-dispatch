@@ -18,6 +18,8 @@ Primary sources:
 
 Implication for this repository: Host-produced `session_meta.agent_path` must be interpreted as the native task-path identity when it has the V2 canonical `/root/...` form. It must not be used as managed profile-file provenance.
 
+`AgentPath::validate_agent_name` further constrains every non-root segment to lowercase ASCII letters, digits, and underscores, rejects the reserved segment `root`, and rejects `.` / `..` or embedded `/`. Runtime validation in this repository mirrors those canonical segment rules.
+
 ## 2. V2 spawn schema and fork semantics
 
 The current V2 spawn arguments include `message`, `task_name`, optional `agent_type`, `model`, `reasoning_effort`, `service_tier`, `fork_turns`, and legacy `fork_context` only so the handler can reject it. `fork_context` is explicitly unsupported in V2. `fork_turns` accepts `none`, `all`, or a positive integer string and defaults to `all` when omitted.

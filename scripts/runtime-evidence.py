@@ -29,7 +29,7 @@ MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 AUXILIARY_OBSERVED_FIELDS = ("agent_path", "model_provider", "cwd")
-V2_AGENT_PATH = re.compile(r"^/root(?:/[A-Za-z0-9_][A-Za-z0-9._-]*)+$")
+V2_AGENT_PATH = re.compile(r"^/root(?:/(?!root(?:/|$))[a-z0-9_]+)+$")
 OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS, *AUXILIARY_OBSERVED_FIELDS)
 PERMISSION_PROVENANCE_FIELDS = (
     "source_kind",
