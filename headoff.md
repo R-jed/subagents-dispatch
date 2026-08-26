@@ -42,7 +42,7 @@ Repository clean-break closure: **COMPLETE**.
 
 Investigator duplicate-dispatch RCA and guard repair: **COMPLETE**.
 
-Real Host qualification procedure correction: **IMPLEMENTED AND TESTED**.
+Real Host qualification procedure: **UPDATED AFTER H4 EVIDENCE-CAPTURE RCA**. Future covered Agent-control probes must preserve a privacy-safe exact-turn capability/schema snapshot before the control call so later review does not depend on Host rollout retaining callable schema definitions.
 
 Build-7119 H0 environment binding: **PASS_STOP** and reusable while the material Host environment and three Host qualification digests remain unchanged.
 
@@ -54,11 +54,13 @@ H3 / N1 managed delegation depth: **PASS_STOP**. Reader, Worker, Investigator, S
 
 Current installation continuity baseline: **PASS_STOP**. The active local Marketplace Plugin reports `subagents-dispatch@subagents-dispatch` `1.0.0`; the current release manifest covers 46 shipped files with zero missing, unexpected, or hash-mismatched files; all five managed profiles match the candidate; Doctor package/profile checks are healthy; the baseline used zero Agent-control and produced no repository or installed-package mutation. This routine continuity check intentionally has no separate Issue #91 PASS comment.
 
-H4 / N2 canonical task-address and Host-thread identity probe: the qualifying Host produced **PASS_STOP** in Issue #91 comment `5425895958`. The core identity chain is coherent: one Reader ExecutionBinding maps to canonical task address `/root/sd_n2_reader_host7119_a1`, the same spawn call binds that address to Host child thread `01a03e37-a8db-7880-a8f5-6a542c1ccaab`, and the child rollout independently reports the same path/thread/session/parent/role. Independent review found one remaining evidence-presentation gap before accepting H4 as closed: the durable result records exact-turn `multi_agent_version=v2` for probe turn `01a03e36-732f-79d0-8f3c-a0813beccb43`, but does not record the same-turn callable spawn schema proof required by the machine contract. Do not respawn N2 or allocate attempt 2 to repair this evidence gap.
+H4 / N2 is **UNKNOWN_STOP / INCOMPLETE**. The first WorkUnit `N2_READER_HOST7119` materialized successfully and produced a coherent identity chain in Issue #91 comment `5425895958`: one Reader ExecutionBinding maps to canonical task address `/root/sd_n2_reader_host7119_a1`, the same spawn call binds that address to Host child thread `01a03e37-a8db-7880-a8f5-6a542c1ccaab`, and the child rollout independently reports the same path/thread/session/parent/role. Independent review found that the required same-turn callable spawn schema observation was not preserved in the durable result. The zero-Agent-control supplement in Issue #91 comment `5426422092` confirmed the exact probe rollout does not retain callable schema records, so the missing proof cannot be reconstructed and correctly stopped `UNKNOWN_STOP`.
 
-N3 and later phases remain blocked until H4 / N2 receives conclusive independent acceptance from zero-Agent-control evidence on the already-consumed N2 attempt.
+The first H4 WorkUnit is consumed historical `UNKNOWN` evidence. Do not reuse `N2_READER_HOST7119` and do not allocate attempt 2 for it. The qualification procedure has been corrected so a justified H4 rerun can use a new pristine WorkUnit after the corrected source is exact-head CI green and synchronized to the Host checkout.
 
-Public `1.0.0` release: **BLOCKED on H4 evidence closure, N3 through N8, and later release closure**.
+N3 and later phases remain blocked until a fresh H4 / N2 rerun reaches conclusive `PASS_STOP` and receives independent acceptance.
+
+Public `1.0.0` release: **BLOCKED on H4 rerun closure, N3 through N8, and later release closure**.
 
 The earlier build-7019 campaign and the first failed build-7119 self-restart attempt remain historical evidence only. The current accepted build-7119 campaign is the authority for reusable H0 through H3 evidence while its environment and qualification identity remain valid.
 
@@ -75,6 +77,21 @@ The H2 Investigator incident was caused by qualification control flow:
 - no direct state-file mutation or unsupported state bypass was found.
 
 `scripts/host_qualification_guard.py` is maintainer-only and prevents one H1/H2 qualification WorkUnit from materializing more than one attempt.
+
+## H4 schema-evidence RCA
+
+The first H4 / N2 execution satisfied the observable identity behavior but its qualification report omitted one required pre-spawn evidence field set: the exact-turn callable `spawn_agent` schema.
+
+The later read-only supplement proved:
+
+- the original spawn call is uniquely bound to probe turn `01a03e36-732f-79d0-8f3c-a0813beccb43`;
+- Host-produced `turn_context.multi_agent_version=v2` is retained for that turn;
+- the actual spawn call uses `task_name`, `message`, and `fork_turns=none` with no `fork_context`;
+- the exact-turn rollout does not retain callable schema definitions, so actual call arguments cannot prove which fields were required or whether the legacy field was absent from the callable schema.
+
+The root cause is qualification evidence capture, not a demonstrated product identity-binding failure. Future covered probes must preserve a contemporaneous privacy-safe capability snapshot before Agent-control. Later turns, actual call arguments, configured defaults, and model memory cannot repair a missing exact-turn schema snapshot.
+
+A genuine H4 rerun is justified only after this procedure correction is verified. It must use a new pristine WorkUnit with attempt 1. The old materialized H4 WorkUnit remains consumed.
 
 ## Permanent Host lifecycle boundary
 
@@ -157,7 +174,7 @@ Use an Issue for a genuinely long-lived tracked item or the existing Host eviden
 - `docs/v4/architecture.json`: Native Core ownership.
 - `docs/v4/host-smoke.json`: N0 through N8 machine Host contract.
 - `docs/release-checklist.md`: release gates and invalidation rules.
-- `tasks/real-host-qualification-plan.md`: operator/Codex Host qualification procedure.
+- `tasks/real-host-qualification-plan.md`: operator/Codex Host qualification procedure, including contemporaneous exact-turn capability snapshot requirements.
 - `scripts/host_qualification_guard.py`: maintainer-only H1/H2 single-probe enforcement.
 - `scripts/inspect-host-root-runtime.py`: maintainer-only exact-root rollout identity and latest-turn observation for H0 evidence.
 - `scripts/inspect-collaboration-runtime.py`: root collaboration call/result/activity evidence, including same-call spawn task-address and Host child-thread binding.
@@ -171,6 +188,8 @@ External real-Host reports confirmed two Codex evidence patterns that are now ha
 For H0, use `scripts/inspect-host-root-runtime.py` against the exact current root thread. It requires one authoritative root `session_meta`, requires `session_id`, rejects child rollouts, and reads turn-scoped model, effort, capability, sandbox, permission, provider, and cwd only from the latest `turn_context`. Missing latest-turn values remain unobserved instead of being filled from an older turn.
 
 For N2 and other child-identity checks, prefer the existing `scripts/inspect-collaboration-runtime.py` path. One exact root `spawn_agent` `call_id` can bind the recognized spawn task address to Host `SubAgentActivity` `agent_path` and `agent_thread_id`. Do not add a separate task-path scan when the stronger same-call Host activity binding is available.
+
+Callable Host schema is a different evidence class. Current rollout inspection can prove the exact turn and actual call, but the build-7119 rollout does not retain callable schema definitions. Therefore future exact-turn schema acceptance must preserve a contemporaneous privacy-safe snapshot before Agent-control and carry it into the consolidated durable result.
 
 Both helpers are maintainer evidence tooling. The root helper remains outside `.codex-plugin/package-integrity.json` and does not change shipped Plugin behavior or the N0 through N8 machine contract.
 
@@ -190,8 +209,10 @@ Both helpers are maintainer evidence tooling. The root helper remains outside `.
 12. Current-session runtime truth must come from current Host evidence. Configured defaults, remembered confirmations, and older turn values do not close a live gate.
 13. Prefer same-call Host activity identity binding over heuristic rollout discovery when both are available.
 14. A phase closure that changes the next safe continuation belongs in this handoff, while the underlying Host proof remains in Issue #91.
-15. Exact-turn Host capability acceptance requires both the bound `multi_agent_version=v2` observation and the same-turn callable schema required by the machine contract. Recording only one half leaves a qualification evidence gap even when the later Host behavior looks correct.
-16. Evidence-presentation gaps on a consumed qualification attempt should be repaired by read-only inspection of existing Host evidence when possible, never by respawning solely to make the report prettier.
+15. Exact-turn Host capability acceptance requires both the bound `multi_agent_version=v2` observation and the same-turn callable schema required by the machine contract.
+16. Host rollout retention cannot be assumed to preserve callable schema definitions. Capture required schema evidence contemporaneously before Agent-control.
+17. Actual call arguments can cross-check a schema observation but cannot prove required fields or prove that an unused legacy field was absent from the callable schema.
+18. A materialized qualification WorkUnit with an unrepairable evidence gap remains consumed. A justified rerun uses a new pristine WorkUnit after the procedure defect is corrected.
 
 ## Build-7119 qualification point
 
@@ -213,19 +234,22 @@ Known facts:
 - H2 Worker, Investigator, Solver, and Advisor are each conclusive `PASS_STOP` and consumed.
 - H2 overall / N0 is complete. Durable closure: Issue #91 comment `5422820011`.
 - H3 / N1 is conclusive `PASS_STOP`. Durable result: Issue #91 comment `5425708582`.
-- H4 / N2 Host execution produced `PASS_STOP`. Durable result: Issue #91 comment `5425895958`. Independent acceptance remains pending only the missing same-turn spawn schema evidence for probe turn `01a03e36-732f-79d0-8f3c-a0813beccb43`.
+- First H4 / N2 execution: core identity evidence coherent, but final qualification status is `UNKNOWN_STOP` because required exact-turn callable schema evidence was not preserved. Original result: Issue #91 comment `5425895958`. Evidence-gap supplement: Issue #91 comment `5426422092`.
 
 Before any new Host action, require the target local checkout to match the current release-line HEAD and require exact-head repository CI to be green. A source-only change outside the three Host qualification inputs does not erase conclusive Host evidence, but repository source identity and CI must still be refreshed before continuing.
 
 ## Next safe sequence
 
-1. Treat this handoff update as a source-only development change. Confirm the new release-line HEAD is exact-head CI green before any further Host action, and confirm the three Host qualification digests remain exactly unchanged.
-2. Keep the current build-7119 Host campaign and accepted H0 through H3 evidence reusable while Host/environment identity remains unchanged.
-3. Do not respawn `N2_READER_HOST7119`, do not allocate attempt 2, and do not perform any Agent-control merely to repair H4 evidence presentation.
-4. Using only existing Host-produced rollout/tool-schema evidence, bind exact probe turn `01a03e36-732f-79d0-8f3c-a0813beccb43` and prove the same-turn callable `spawn_agent` schema required by `docs/v4/host-smoke.json`: `task_name` and `message` required, `fork_turns` present, `fork_context` absent.
-5. If the exact-turn schema evidence is authoritative and matches the machine contract, accept the existing H4 / N2 result without another child. If the evidence is unavailable or conflicting, stop with the contract-defined fail-closed state. Do not manufacture missing schema evidence from later turns or configured defaults.
-6. Keep N3 blocked until H4 / N2 has conclusive independent acceptance.
-7. After H4 acceptance and explicit user continuation, read the current N3 machine contract and human qualification procedure again before designing H5. Do not automatically execute N3.
+1. Verify the final release-line HEAD containing the qualification procedure correction and this handoff update reaches exact-head CI green.
+2. Confirm `.codex-plugin/package-integrity.json`, `contracts/policy.json`, and `docs/v4/host-smoke.json` remain unchanged from the accepted qualification basis.
+3. Synchronize the target Host checkout to that exact verified HEAD and require a clean worktree.
+4. Confirm Desktop Host remains build 7119, embedded Codex remains `0.150.0-alpha.8`, root/session identity remains `01a03ca1-5ece-7561-afee-9d824171d220`, and the installation continuity basis remains healthy. If any material fact changed, classify invalidation before Agent-control.
+5. Reuse accepted H0 through H3 evidence while their reuse conditions hold. Keep the first H4 WorkUnit `N2_READER_HOST7119` consumed as historical `UNKNOWN` evidence.
+6. Classify the next H4 action as `RERUN` with the concrete reason: the prior H4 attempt cannot satisfy the exact-turn schema evidence requirement because the previous qualification procedure failed to preserve a contemporaneous callable-schema snapshot and the Host rollout does not retain it.
+7. Allocate a new pristine H4 / N2 WorkUnit with attempt 1. Do not reuse the old WorkUnit and do not create attempt 2 for it.
+8. Before the new H4 spawn, bind the exact turn, prove `multi_agent_version=v2`, verify the callable spawn schema, and preserve the privacy-safe contemporaneous snapshot required by `tasks/real-host-qualification-plan.md`.
+9. Execute only H4 / N2, verify the same canonical task-address to Host-thread to child-rollout to ExecutionBinding chain, record one consolidated H4 result, and stop at `H4_STOP`.
+10. Keep N3 blocked until the fresh H4 result receives conclusive independent acceptance. Do not automatically execute N3.
 
 ## Verification discipline
 
