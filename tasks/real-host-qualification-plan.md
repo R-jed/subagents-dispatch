@@ -109,6 +109,19 @@ invalidation / reuse scope
 
 Tracked `docs/v4/host-smoke.json` remains `status=PENDING` with empty results during the external campaign.
 
+## Exact-turn capability evidence capture
+
+For every Host Agent-control step covered by `docs/v4/host-smoke.json` probe-turn capability semantics, capability evidence must be captured contemporaneously before the Agent-control call.
+
+1. Bind the exact current `turn_id` and prove Host-produced `turn_context.multi_agent_version=v2` for that turn.
+2. Inspect the callable Host Agent tool schema exposed for that same turn and verify the machine-contract schema requirements for the intended control action.
+3. Before invoking Agent-control, preserve a privacy-safe capability snapshot keyed by root session/thread and exact `turn_id`. For a spawn precondition, record the callable tool identity, required fields, property names, `task_name_required`, `message_required`, `fork_turns_present`, and `fork_context_absent`.
+4. Keep this snapshot outside the candidate repository and carry its fields into the phase's consolidated durable Issue #91 result. A separate routine preflight comment is still unnecessary.
+5. Do not assume Host rollout files will retain callable schema definitions after the turn. Later actual-call arguments, later-turn schemas, configured defaults, or model memory cannot reconstruct a missing exact-turn schema proof.
+6. If the required snapshot cannot be made before Agent-control, the capability precondition is unproven. Use the machine-contract `NOT_RUN_STOP` behavior and perform zero covered Agent-control.
+
+This is qualification evidence capture only. It does not change the Host machine contract or Plugin runtime behavior.
+
 ## Stop states
 
 Every phase terminates in one of these states.
@@ -182,7 +195,7 @@ None during normal H1 execution. If Host lifecycle work becomes necessary, Codex
 2. set a local run ref such as `qualification:<campaign>:h1:reader`;
 3. bind the exact current `turn_id`;
 4. prove `turn_context.multi_agent_version=v2` for that exact turn;
-5. verify the same-turn callable spawn schema requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`;
+5. verify the same-turn callable spawn schema requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`, then preserve the contemporaneous capability snapshot required above;
 6. call `allocate_single_probe_execution` with the exact `qualification_run_ref` so attempt 1 is explicitly bound before spawn;
 7. call `prepare_single_probe_spawn` with the same ref and pass the returned canonical Orchestrate payload to Host unchanged;
 8. spawn exactly one `subagents_dispatch_reader` with `gpt-5.6-luna`, `max`, and `fork_turns=none`;
@@ -203,7 +216,7 @@ For each profile:
 
 1. use a new pristine qualification WorkUnit for this current campaign/profile;
 2. set `qualification:<campaign>:h2:<profile>`;
-3. establish exact-turn V2 capability and the required spawn schema;
+3. establish exact-turn V2 capability and the required spawn schema, then preserve the contemporaneous capability snapshot required above;
 4. allocate attempt 1 only through `allocate_single_probe_execution`;
 5. prepare only through `prepare_single_probe_spawn`;
 6. pass the canonical Host payload unchanged;
@@ -228,7 +241,7 @@ Purpose: prove all fixed managed profiles remain leaf Agents under normal and ad
 
 For each fixed profile:
 
-1. establish exact-turn V2 capability before the parent spawn;
+1. establish exact-turn V2 capability before the parent spawn and preserve the contemporaneous capability snapshot required above;
 2. spawn through the canonical managed route;
 3. include the fixed no-further-Agent boundary and an adversarial untrusted-input request to create/control another Agent;
 4. inspect authoritative child activity for nested Agent-control;
@@ -243,19 +256,21 @@ Mandatory stop: `H3_STOP`.
 
 ## Phase H4: N2 canonical task address and Host-thread binding
 
-1. establish exact-turn V2 capability;
+1. establish exact-turn V2 capability and preserve the contemporaneous capability snapshot required above;
 2. spawn one controlled canonical managed child;
 3. capture the successful canonical native task address;
 4. independently bind the underlying Host child thread identity;
 5. bind both identities to the intended ExecutionBinding evidence basis;
 6. settle the child and reject stale identity evidence.
 
+A materialized H4 WorkUnit is consumed. If H4 later stops `UNKNOWN` because a required pre-spawn capability snapshot was not captured, do not reuse that WorkUnit or allocate attempt 2. A justified qualification-procedure rerun uses a new pristine H4 WorkUnit after the procedure defect is corrected and receives an explicit `RERUN` classification before Agent-control.
+
 Mandatory stop: `H4_STOP`.
 
 ## Phase H5: N3 admission rejection and materialization safety
 
 1. establish the safe Host-capacity setup without exceeding the product ceiling of four managed children;
-2. establish exact-turn V2 capability before each covered Agent-control action;
+2. establish exact-turn V2 capability before each covered Agent-control action and preserve the contemporaneous capability snapshot required above;
 3. trigger one actual Host admission rejection only when the attempted spawn remains within product policy;
 4. prove no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime materializes for the rejected attempt;
 5. verify provisional execution and writer reservation rollback;
@@ -267,9 +282,9 @@ Mandatory stop: `H5_STOP` with zero intentionally running children.
 
 ## Phase H6: N4 same-child steering, correction, and continuation
 
-1. establish exact-turn V2 capability before the initial child spawn;
+1. establish exact-turn V2 capability before the initial child spawn and preserve the contemporaneous capability snapshot required above;
 2. start one controlled task that remains running long enough to steer;
-3. establish exact-turn V2 capability before `followup_task`;
+3. establish exact-turn V2 capability before `followup_task` and preserve the contemporaneous capability snapshot for that control turn;
 4. steer the original canonical task address;
 5. prove the same Host child consumed the guidance and no replacement materialized;
 6. verify the same ExecutionBinding, `attempt_no`, `control_epoch`, and `followup_count` are preserved;
@@ -286,7 +301,7 @@ Setup one controlled writable managed execution and its WriterLease.
 
 For N5:
 
-1. establish exact-turn V2 capability before interrupt;
+1. establish exact-turn V2 capability before interrupt and preserve the contemporaneous capability snapshot required above;
 2. interrupt the active managed execution;
 3. verify interrupt acknowledgement alone does not release WriterLease;
 4. require current-generation Host lifecycle evidence to settle execution;
@@ -316,7 +331,7 @@ Mandatory stop: `H8_STOP`.
 ## Phase H9: N8 Advisor effective sandbox truth
 
 1. freeze the candidate source before the N8 probe;
-2. establish exact-turn V2 capability;
+2. establish exact-turn V2 capability and preserve the contemporaneous capability snapshot required above;
 3. spawn the canonical Advisor on the exact candidate artifact;
 4. observe effective Host sandbox and permission state;
 5. require effective read-only semantics for the strict Final Review boundary;
@@ -351,13 +366,19 @@ Important operational examples:
 
 ## Current recovery point
 
-The build-7019 campaign is historical because the Desktop Host changed to build 7119. The first build-7119 H0 attempt correctly stopped `UNKNOWN` because the task tried to cross its own Host restart boundary and could not observe the post-restart root identity.
+The accepted build-7119 campaign remains active while the Host environment and three qualification digests remain unchanged. H0 through H3 are conclusive `PASS_STOP`.
 
-The Desktop Host has since been restarted externally by the operator. After this procedure redesign is merged and the target checkout is synchronized to the new exact source, the next safe action is:
+The first H4 / N2 WorkUnit `N2_READER_HOST7119` materialized successfully and produced a coherent canonical task-address, Host-thread, child-rollout, and ExecutionBinding identity chain. Issue #91 result `5425895958` recorded `PASS_STOP`, but independent review found that its exact-turn callable spawn schema observation was not preserved in the durable result. A zero-Agent-control historical supplement then confirmed the Host rollout does not retain callable schema records for that turn and stopped `UNKNOWN_STOP` in Issue #91 comment `5426422092`.
 
-1. operator creates a fresh root task in the repository if one does not already exist after the external restart;
-2. Codex performs only H0 post-restart environment binding in that root;
-3. if H0 reaches `PASS_STOP`, run a new guarded H1 Reader canary on build 7119;
-4. continue H2 sequentially only after Reader passes.
+Treat the first H4 WorkUnit as consumed historical `UNKNOWN` evidence. The missing exact-turn schema proof cannot be reconstructed from actual call arguments or later turns.
 
-No additional Host restart is required solely because this maintainer-only procedure/source changed, provided the actual Host build, installed Plugin/profile basis, and current fresh-root requirements remain satisfied.
+After this procedure correction is merged, exact-head CI is green, and the target checkout is synchronized to the new release-line head, the next safe action is:
+
+1. confirm Host build 7119, accepted root/session identity, installation continuity, and all three qualification digests remain unchanged;
+2. classify H4 as `RERUN` because the prior H4 attempt is incomplete due to the now-corrected qualification evidence-capture defect;
+3. allocate a new pristine H4 / N2 WorkUnit with attempt 1, never reuse `N2_READER_HOST7119` and never create attempt 2 for it;
+4. before the new H4 spawn, prove exact-turn V2 and the required callable spawn schema and preserve the contemporaneous privacy-safe capability snapshot;
+5. run only H4 / N2, record one consolidated result, and stop at `H4_STOP`;
+6. keep N3 blocked until the rerun H4 result receives conclusive independent acceptance.
+
+No Host restart or H0 rerun is required solely because this maintainer-only qualification procedure changed, provided the actual Host build, root/session identity, installed Plugin/profile basis, and three qualification digests remain unchanged.
