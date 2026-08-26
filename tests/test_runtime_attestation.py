@@ -211,15 +211,14 @@ def test_runtime_evidence_rejects_auxiliary_public_rollout_conflict(tmp_path: Pa
     assert "source_conflict:cwd" in output["violations"]
 
 
-def test_runtime_evidence_reports_exact_profile_origin_and_provider_control(tmp_path: Path):
-    profile = tmp_path / "owned.toml"
-    profile.write_text("owned\n")
+def test_runtime_evidence_reports_exact_task_path_and_provider_control(tmp_path: Path):
+    task_path = "/root/sd_runtime_worker"
     sessions = tmp_path / "sessions"
-    write_rollout(sessions, agent_path=str(profile))
+    write_rollout(sessions, agent_path=task_path)
     payload = {
         "expected": {
-            "agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max",
-            "agent_path": str(profile), "model_provider": "openai",
+  "agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max",
+  "agent_path": task_path, "model_provider": "openai",
         },
         "native": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
         "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
@@ -230,21 +229,38 @@ def test_runtime_evidence_reports_exact_profile_origin_and_provider_control(tmp_
     )
     assert result.returncode == 0, result.stderr
     output = json.loads(result.stdout)
-    assert output["profile_origin_observation"]["status"] == "verified"
+    assert output["task_path_observation"] == {
+        "status": "verified",
+        "observed_agent_path": task_path,
+    }
     assert output["provider_control_assurance"]["status"] == "verified"
-    assert output["truth_layers"]["observed_auxiliary"]["fields"]["agent_path"] == str(profile)
+    assert output["truth_layers"]["observed_auxiliary"]["fields"]["agent_path"] == task_path
+
+
+def test_runtime_evidence_rejects_filesystem_path_as_v2_agent_path(tmp_path: Path):
+    sessions = tmp_path / "sessions"
+    write_rollout(sessions, agent_path=str(tmp_path / "owned.toml"))
+    payload = {
+        "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
+        "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "canonical V2 task path" in result.stderr
 
 
 @pytest.mark.parametrize("field", ["agent_path", "model_provider"])
-def test_runtime_evidence_fails_closed_on_public_rollout_origin_or_provider_conflict(
+def test_runtime_evidence_fails_closed_on_public_rollout_task_path_or_provider_conflict(
     tmp_path: Path, field: str
 ):
-    profile = tmp_path / "owned.toml"
-    profile.write_text("owned\n")
+    task_path = "/root/sd_runtime_worker"
     sessions = tmp_path / "sessions"
-    write_rollout(sessions, agent_path=str(profile))
+    write_rollout(sessions, agent_path=task_path)
     native = {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"}
-    native[field] = str(tmp_path / "other.toml") if field == "agent_path" else "external"
+    native[field] = "/root/sd_other_worker" if field == "agent_path" else "external"
     payload = {
         "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
         "native": native,
@@ -257,6 +273,31 @@ def test_runtime_evidence_fails_closed_on_public_rollout_origin_or_provider_conf
     output = json.loads(result.stdout)
     assert output["decision"] == "quarantine"
     assert f"source_conflict:{field}" in output["violations"]
+
+
+def test_runtime_evidence_accepts_nested_canonical_v2_task_path():
+    task_path = "/root/parent/child"
+    payload = {
+        "expected": {
+  "agent_role": ROLE,
+  "model": "gpt-5.6-luna",
+  "effort": "max",
+  "agent_path": task_path,
+        },
+        "local": {
+  "agent_role": ROLE,
+  "model": "gpt-5.6-luna",
+  "effort": "max",
+  "agent_path": task_path,
+        },
+    }
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE)], cwd=ROOT, input=json.dumps(payload),
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["task_path_observation"]["status"] == "verified"
 
 
 def test_distinct_live_session_id_does_not_change_child_binding(tmp_path: Path):

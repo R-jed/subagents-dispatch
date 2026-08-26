@@ -18,6 +18,7 @@ import argparse
 import importlib.util
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any, NoReturn
 
@@ -28,6 +29,7 @@ MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 AUXILIARY_OBSERVED_FIELDS = ("agent_path", "model_provider", "cwd")
+V2_AGENT_PATH = re.compile(r"^/root(?:/[A-Za-z0-9_][A-Za-z0-9._-]*)+$")
 OBSERVED_FIELDS = (*CHILD_ROUTE_FIELDS, *IDENTITY_FIELDS, *PERMISSION_FIELDS, *AUXILIARY_OBSERVED_FIELDS)
 PERMISSION_PROVENANCE_FIELDS = (
     "source_kind",
@@ -180,6 +182,15 @@ def obj(value: Any, field: str) -> dict[str, Any] | None:
 
 def text(value: Any) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def canonical_v2_agent_path(value: Any, label: str) -> str | None:
+    path = text(value)
+    if path is None:
+        return None
+    if V2_AGENT_PATH.fullmatch(path) is None:
+        fail(f"{label} must be a canonical V2 task path under /root")
+    return path
 
 
 def normalize(value: dict[str, Any] | None) -> dict[str, str | None] | None:
@@ -538,6 +549,7 @@ def validate_expected(expected: dict[str, Any]) -> None:
         agent_role and agent_role.startswith("subagents_dispatch_calibration_")
     ):
         fail("expected.agent_role is not a managed policy role")
+    canonical_v2_agent_path(expected.get("agent_path"), "expected.agent_path")
 
 
 def compare_expected(
@@ -549,13 +561,7 @@ def compare_expected(
     violations: list[str] = []
     for field in fields:
         wanted, got = text(expected.get(field)), observation.get(field)
-        if field == "agent_path" and wanted is not None and got is not None:
-            try:
-                matches = Path(wanted).resolve(strict=True) == Path(got).resolve(strict=True)
-            except OSError:
-                matches = False
-        else:
-            matches = wanted == got
+        matches = wanted == got
         if wanted is not None and got is not None and not matches:
             violations.append(f"{label}:{field}_mismatch")
     return violations
@@ -699,6 +705,9 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
     accepted = normalize(obj(payload.get("accepted"), "accepted"))
     native = normalize(obj(payload.get("native"), "native"))
     local = normalize(obj(payload.get("local"), "local"))
+    for label, observation in (("accepted", accepted), ("native", native), ("local", local)):
+        if observation is not None:
+            canonical_v2_agent_path(observation.get("agent_path"), f"{label}.agent_path")
     native_permission_source = normalize_permission_source(
         obj(payload.get("native_permission_source"), "native_permission_source"),
         "native_permission_source",
@@ -913,7 +922,7 @@ def child_result(payload: dict[str, Any]) -> dict[str, Any]:
         "route_evidence": route,
         "ancestry_evidence": ancestry,
         "route_assurance": route_assurance,
-        "profile_origin_observation": {
+        "task_path_observation": {
             "status": (
                 "failed" if any("agent_path" in item for item in violations)
                 else "verified" if runtime_fields_complete(native, local, ("agent_path",), violations)

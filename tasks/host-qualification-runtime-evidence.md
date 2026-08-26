@@ -4,6 +4,8 @@ This note defines the maintainer-only rollout evidence path used by the real Hos
 
 Use `scripts/host_qualification_evidence.py` only when the required fact is observable from the local Host-produced Codex rollout. Public Host metadata remains authoritative when it exposes the same fact; conflicting public and local evidence fails closed.
 
+The V2 task-path interpretation used here is source-aligned in `docs/codex-v2-source-alignment.md`. `session_meta.agent_path` is a canonical Host task address. It must never be used as profile-file provenance.
+
 ## Evidence boundary
 
 The helper may emit only compact Host facts needed for qualification. It must not emit prompts, assignment text, assistant output, reasoning, environment values, source contents, developer instructions, or raw tool payloads.
@@ -73,6 +75,8 @@ The output may contain:
 - latest event timestamp when all inspected event timestamps are complete.
 
 Recognized current Agent-control names are `spawn_agent`, `followup_task`, `interrupt_agent`, and `list_agents`. Namespaced forms are normalized to their final tool name.
+
+Current upstream Codex V2 can expose collaboration tools to a spawned child when that child's effective model metadata enables V2. Therefore a zero recognized-call count is supporting evidence only. N1 still needs authoritative evidence that the managed child did not create or control descendants and that no descendant materialized.
 
 If a tool call is observable but its name is unavailable, `agent_control_call_count` is unavailable. Do not report zero. This aggregate count is supporting evidence for N1/N4/N7. It cannot by itself prove the absence of a future Host Agent-control primitive that is not in the current allowlist. N1 still requires authoritative Host activity or rollout evidence covering the actual callable Agent-control surface for the tested child.
 
