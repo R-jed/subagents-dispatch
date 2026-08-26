@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import sys
 from typing import Any, Iterable, NoReturn
 
@@ -128,6 +129,91 @@ def observed_records(path: Path) -> list[dict[str, Any]]:
     return [record for record in json_records(path) if record.get("type") in OBSERVED_EVENT_TYPES]
 
 
+def discovery_session_meta_record(
+    path: Path,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Read only the first Host session_meta record for candidate discovery.
+
+    Discovery must not apply the exact-rollout total-size limit to unrelated historical
+    transcripts. The Host rollout format places session_meta first; only that bounded
+    first record is needed to decide whether a file can match the requested task path.
+    Relevant matches are still re-read through the strict exact-rollout path below.
+    """
+
+    try:
+        expected = os.lstat(path)
+    except OSError as exc:
+        fail(f"rollout is unavailable during session_meta discovery: {exc}")
+    if not stat.S_ISREG(expected.st_mode):
+        fail("rollout candidate is not a regular file during session_meta discovery")
+
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        fail(f"could not open rollout during session_meta discovery: {exc}")
+
+    try:
+        opened = os.fstat(fd)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino)
+        ):
+            fail("rollout identity drifted during session_meta discovery")
+
+        pending = bytearray()
+        raw_line: bytes | None = None
+        read_size = max(
+            1,
+            min(INSPECTOR.READ_CHUNK_BYTES, INSPECTOR.MAX_ROLLOUT_LINE_BYTES + 1),
+        )
+        while len(pending) <= INSPECTOR.MAX_ROLLOUT_LINE_BYTES:
+            chunk = os.read(fd, read_size)
+            if not chunk:
+                break
+            pending.extend(chunk)
+            boundary = INSPECTOR.NEWLINE_BOUNDARY.search(pending)
+            if boundary is not None:
+                raw_line = bytes(pending[: boundary.end()])
+                break
+            if len(pending) > INSPECTOR.MAX_ROLLOUT_LINE_BYTES:
+                return None
+
+        if raw_line is None:
+            if not pending or len(pending) > INSPECTOR.MAX_ROLLOUT_LINE_BYTES:
+                return None
+            raw_line = bytes(pending)
+
+        try:
+            line = raw_line.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        if not SESSION_META_LINE.search(line):
+            return None
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(record, dict) or record.get("type") != "session_meta":
+            return None
+        payload = INSPECTOR.payload_object(record, 1)
+
+        closed = os.fstat(fd)
+        try:
+            current = os.lstat(path)
+        except OSError as exc:
+            fail(f"rollout changed during session_meta discovery: {exc}")
+        if (
+            not stat.S_ISREG(current.st_mode)
+            or (closed.st_dev, closed.st_ino) != (opened.st_dev, opened.st_ino)
+            or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+        ):
+            fail("rollout identity drifted during session_meta discovery")
+        return record, payload
+    finally:
+        os.close(fd)
+
+
 def session_meta_records(path: Path) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     """Read only session_meta candidates while scanning unrelated rollouts.
 
@@ -169,16 +255,19 @@ def resolve_child_by_agent_path(
 
     matches: list[dict[str, Any]] = []
     for rollout in rollout_files(sessions_dir):
-        sessions = session_meta_records(rollout)
-        if not sessions:
+        discovered = discovery_session_meta_record(rollout)
+        if discovered is None:
             continue
+        _, discovered_payload = discovered
+        if INSPECTOR.optional_text(discovered_payload.get("agent_path")) != path_value:
+            continue
+
+        sessions = session_meta_records(rollout)
         relevant = [
             (record, payload)
             for record, payload in sessions
             if INSPECTOR.optional_text(payload.get("agent_path")) == path_value
         ]
-        if not relevant:
-            continue
         if len(sessions) != 1 or len(relevant) != 1:
             fail("matching agent path appears in ambiguous session metadata")
         record, payload = relevant[0]
