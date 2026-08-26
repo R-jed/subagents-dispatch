@@ -46,6 +46,8 @@ python3 scripts/host_qualification_evidence.py \
 
 Only `session_meta.agent_path` is eligible for the match. Task-address text found in prompts, reasoning, messages, results, or other payloads is ignored.
 
+For managed qualification children, the resolver accepts exactly one direct `/root/<task>` segment using the same lowercase-letter/digit/underscore segment rules as upstream `AgentPath`, with `root` reserved. Nested paths remain valid upstream V2 identities in general, but are rejected here because this resolver is for product-managed leaf children.
+
 A matching rollout must be at or after the cutoff, have the expected parent and managed role when supplied, and resolve to exactly one child. Zero or multiple matches are `UNKNOWN`, never a "latest match" heuristic.
 
 The resolved child UUID plus the canonical Host task address supplies the external identity binding required by N2. It does not replace ExecutionBinding evidence or lifecycle settlement.

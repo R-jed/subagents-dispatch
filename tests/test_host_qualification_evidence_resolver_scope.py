@@ -80,3 +80,25 @@ def test_task_address_resolver_ignores_malformed_non_session_payload_in_unrelate
 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["thread_id"] == CHILD_THREAD
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "task_path",
+    ["/root/BadName", "/root/bad-name", "/root/bad.name", "/root/root", "/root/parent/child"],
+)
+def test_task_address_resolver_rejects_noncanonical_or_nonleaf_managed_path(
+    tmp_path: Path, task_path: str
+):
+    sessions = tmp_path / "sessions"
+    sessions.mkdir()
+    result = subprocess.run(
+        [sys.executable, str(EVIDENCE), "--sessions-dir", str(sessions),
+         "resolve-child", "--agent-path", task_path,
+         "--since", "2026-08-26T00:00:00Z"],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "canonical /root/<task>" in result.stderr

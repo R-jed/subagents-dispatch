@@ -22,7 +22,7 @@ from typing import Any, Iterable, NoReturn
 
 ROOT = Path(__file__).resolve().parent
 INSPECTOR_PATH = ROOT / "inspect-agent-runtime.py"
-AGENT_PATH = re.compile(r"^/root/[A-Za-z0-9_][A-Za-z0-9._-]*$")
+AGENT_PATH = re.compile(r"^/root/(?!root$)[a-z0-9_]+$")
 SESSION_META_LINE = re.compile(r'"type"\s*:\s*"session_meta"')
 AGENT_CONTROL_TOOLS = frozenset(
     {"spawn_agent", "followup_task", "interrupt_agent", "list_agents"}
