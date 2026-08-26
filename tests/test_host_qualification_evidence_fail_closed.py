@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "scripts" / "host_qualification_evidence.py"
 ROOT_THREAD = "11111111-1111-7111-8111-111111111111"
 CHILD_THREAD = "22222222-2222-7222-8222-222222222222"
+SESSION_ID = "aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa"
 ROLE = "subagents_dispatch_reader"
 
 
@@ -38,7 +39,7 @@ def test_aggregate_rejects_malformed_rollout_record_instead_of_undercounting(tmp
         "type": "session_meta",
         "payload": {
             "id": CHILD_THREAD,
-            "session_id": "session-tree-opaque",
+            "session_id": SESSION_ID,
             "parent_thread_id": ROOT_THREAD,
             "agent_role": ROLE,
             "agent_path": "/root/sd_canary_a1",
