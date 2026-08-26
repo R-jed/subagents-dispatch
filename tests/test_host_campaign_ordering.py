@@ -120,4 +120,4 @@ def test_issue_91_is_evidence_journal_not_per_action_preflight_protocol():
     assert "Issue #91 is the append-only Host evidence journal" in plan
     assert "No Issue #91 comment is required before every Host action" in plan
     assert "Prefer one consolidated entry per phase" in plan
-    assert "Routine preflight" in plan
+    assert "routine preflight, review, and amendment comments should not be created" in plan
