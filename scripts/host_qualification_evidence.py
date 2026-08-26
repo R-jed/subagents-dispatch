@@ -15,12 +15,14 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from typing import Any, Iterable, NoReturn
 
 
 ROOT = Path(__file__).resolve().parent
 INSPECTOR_PATH = ROOT / "inspect-agent-runtime.py"
+AGENT_PATH = re.compile(r"^/root/[A-Za-z0-9_][A-Za-z0-9._-]*$")
 AGENT_CONTROL_TOOLS = frozenset(
     {"spawn_agent", "followup_task", "interrupt_agent", "list_agents"}
 )
@@ -61,6 +63,10 @@ def parse_rfc3339(value: Any, label: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def utc_text(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def resolve_sessions_dir(path: Path) -> Path:
     if not path.is_absolute():
         fail("sessions directory must be absolute")
@@ -97,40 +103,33 @@ def rollout_files(sessions_dir: Path) -> Iterable[Path]:
             yield resolved
 
 
-def target_records(path: Path) -> list[dict[str, Any]]:
+def json_records(path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for line_number, line in enumerate(
         INSPECTOR.iter_stable_rollout_lines(path), start=1
     ):
-        if '"type"' not in line:
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(record, dict):
-            continue
-        if record.get("type") in OBSERVED_EVENT_TYPES:
-            records.append(record)
-    return records
-
-
-def session_meta_records(path: Path) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    matches: list[tuple[dict[str, Any], dict[str, Any]]] = []
-    for line_number, line in enumerate(
-        INSPECTOR.iter_stable_rollout_lines(path), start=1
-    ):
-        if '"session_meta"' not in line:
+        if not line.strip():
             continue
         try:
             record = json.loads(line)
         except json.JSONDecodeError as exc:
-            fail(
-                f"invalid session_meta JSON in {path.name} at line {line_number}: {exc}"
-            )
-        if not isinstance(record, dict) or record.get("type") != "session_meta":
+            fail(f"invalid rollout JSON in {path.name} at line {line_number}: {exc}")
+        if not isinstance(record, dict):
+            fail(f"rollout record in {path.name} at line {line_number} is not an object")
+        records.append(record)
+    return records
+
+
+def observed_records(path: Path) -> list[dict[str, Any]]:
+    return [record for record in json_records(path) if record.get("type") in OBSERVED_EVENT_TYPES]
+
+
+def session_meta_records(path: Path) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    matches: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for index, record in enumerate(json_records(path), start=1):
+        if record.get("type") != "session_meta":
             continue
-        payload = INSPECTOR.payload_object(record, line_number)
+        payload = INSPECTOR.payload_object(record, index)
         matches.append((record, payload))
     return matches
 
@@ -144,7 +143,7 @@ def resolve_child_by_agent_path(
     expected_agent_role: str | None,
 ) -> dict[str, Any]:
     path_value = agent_path.strip()
-    if not path_value.startswith("/root/") or path_value == "/root/":
+    if not AGENT_PATH.fullmatch(path_value):
         fail("agent path must be a canonical /root/<task> Host task address")
 
     matches: list[dict[str, Any]] = []
@@ -167,29 +166,31 @@ def resolve_child_by_agent_path(
         )
         if observed_at < since:
             continue
+
         thread = INSPECTOR.optional_text(payload.get("id"))
         if thread is None:
             fail("matching session_meta does not expose child thread id")
         thread = INSPECTOR.canonical_uuid(thread, "matching session_meta.id")
+
         parent = INSPECTOR.optional_text(payload.get("parent_thread_id"))
         if parent is not None:
             parent = INSPECTOR.canonical_uuid(
                 parent, "matching session_meta.parent_thread_id"
             )
         role = INSPECTOR.optional_text(payload.get("agent_role"))
+
         if expected_parent_thread_id is not None and parent != expected_parent_thread_id:
             fail("matching agent path has the wrong parent_thread_id")
         if expected_agent_role is not None and role != expected_agent_role:
             fail("matching agent path has the wrong agent_role")
+
         matches.append(
             {
                 "thread_id": thread,
                 "parent_thread_id": parent,
                 "agent_role": role,
                 "agent_path": path_value,
-                "session_observed_at": observed_at.isoformat().replace(
-                    "+00:00", "Z"
-                ),
+                "session_observed_at": utc_text(observed_at),
                 "runtime_version": INSPECTOR.optional_text(payload.get("cli_version")),
             }
         )
@@ -204,7 +205,7 @@ def resolve_child_by_agent_path(
 def inspect_primary(sessions_dir: Path, thread_id: str) -> dict[str, Any]:
     thread = INSPECTOR.canonical_uuid(thread_id, "thread_id")
     rollout = INSPECTOR.find_exact_rollout(sessions_dir, thread)
-    records = target_records(rollout)
+    records = observed_records(rollout)
     sessions = [record for record in records if record.get("type") == "session_meta"]
     turns = [record for record in records if record.get("type") == "turn_context"]
     if len(sessions) != 1:
@@ -212,7 +213,7 @@ def inspect_primary(sessions_dir: Path, thread_id: str) -> dict[str, Any]:
     if not turns:
         fail("primary rollout contains no turn_context records")
 
-    session = INSPECTOR.payload_object(sessions[0], 0)
+    session = INSPECTOR.payload_object(sessions[0], 1)
     observed_thread = INSPECTOR.optional_text(session.get("id"))
     if observed_thread is None:
         fail("primary session_meta does not expose thread id")
@@ -232,9 +233,6 @@ def inspect_primary(sessions_dir: Path, thread_id: str) -> dict[str, Any]:
     session_id = INSPECTOR.optional_text(session.get("session_id"))
     if session_id is None:
         fail("primary session_meta does not expose session_id")
-    session_id = INSPECTOR.canonical_uuid(
-        session_id, "primary session_meta.session_id"
-    )
 
     ordered_turns: list[tuple[datetime, dict[str, Any]]] = []
     for index, record in enumerate(turns, start=1):
@@ -260,7 +258,7 @@ def inspect_primary(sessions_dir: Path, thread_id: str) -> dict[str, Any]:
         "multi_agent_version": INSPECTOR.optional_text(
             latest.get("multi_agent_version")
         ),
-        "latest_turn_at": latest_at.isoformat().replace("+00:00", "Z"),
+        "latest_turn_at": utc_text(latest_at),
     }
 
 
@@ -287,7 +285,7 @@ def inspect_aggregate(
         expected_parent_thread_id=expected_parent_thread_id,
         expected_agent_role=expected_agent_role,
     )
-    records = target_records(rollout)
+    records = observed_records(rollout)
 
     turn_count = 0
     tool_call_count = 0
@@ -315,10 +313,12 @@ def inspect_aggregate(
 
         if record_type == "turn_context":
             turn_count += 1
-        elif record_type == "response_item":
-            payload = record.get("payload")
+            continue
+
+        payload = record.get("payload")
+        if record_type == "response_item":
             if not isinstance(payload, dict):
-                continue
+                fail("response_item payload must be an object")
             payload_type = INSPECTOR.optional_text(payload.get("type"))
             if payload_type and payload_type.endswith("_call"):
                 tool_call_count += 1
@@ -327,31 +327,35 @@ def inspect_aggregate(
                     tool_names_complete = False
                 elif name in AGENT_CONTROL_TOOLS:
                     control_tools.append(name)
-        elif record_type == "context_compacted":
+            continue
+
+        if record_type == "context_compacted":
             compaction_count += 1
-        elif record_type == "event_msg":
-            payload = record.get("payload")
-            if not isinstance(payload, dict):
-                continue
-            event_type = INSPECTOR.optional_text(payload.get("type"))
-            if event_type == "context_compacted":
-                compaction_count += 1
-            elif event_type == "token_count":
-                token_event_count += 1
-                info = payload.get("info")
-                total = (
-                    info.get("total_token_usage", {}).get("total_tokens")
-                    if isinstance(info, dict)
-                    and isinstance(info.get("total_token_usage"), dict)
-                    else None
-                )
-                if isinstance(total, bool) or not isinstance(total, int) or total < 0:
-                    token_usage_complete = False
-                else:
-                    token_values.append(total)
+            continue
+
+        if record_type != "event_msg":
+            continue
+        if not isinstance(payload, dict):
+            fail("event_msg payload must be an object")
+        event_type = INSPECTOR.optional_text(payload.get("type"))
+        if event_type == "context_compacted":
+            compaction_count += 1
+        elif event_type == "token_count":
+            token_event_count += 1
+            info = payload.get("info")
+            total = (
+                info.get("total_token_usage", {}).get("total_tokens")
+                if isinstance(info, dict)
+                and isinstance(info.get("total_token_usage"), dict)
+                else None
+            )
+            if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+                token_usage_complete = False
+            else:
+                token_values.append(total)
 
     latest_event_at = (
-        max(observed_timestamps).isoformat().replace("+00:00", "Z")
+        utc_text(max(observed_timestamps))
         if timestamps_complete and observed_timestamps
         else None
     )
@@ -384,7 +388,8 @@ def inspect_aggregate(
         "timestamp_observation_complete": timestamps_complete,
         "tool_name_observation_complete": tool_names_complete,
         "token_usage_observation_complete": token_event_count > 0
-        and token_usage_complete,
+        and token_usage_complete
+        and len(token_values) == token_event_count,
     }
 
 
@@ -420,6 +425,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     sessions = resolve_sessions_dir(args.sessions_dir)
+
     if args.command == "resolve-child":
         expected_parent = (
             INSPECTOR.canonical_uuid(
@@ -429,6 +435,8 @@ def main() -> None:
             else None
         )
         expected_role = INSPECTOR.optional_text(args.expected_agent_role)
+        if args.expected_agent_role is not None and expected_role is None:
+            fail("expected agent role must be a non-empty string")
         result = resolve_child_by_agent_path(
             sessions,
             agent_path=args.agent_path,
@@ -447,12 +455,15 @@ def main() -> None:
             else None
         )
         expected_role = INSPECTOR.optional_text(args.expected_agent_role)
+        if args.expected_agent_role is not None and expected_role is None:
+            fail("expected agent role must be a non-empty string")
         result = inspect_aggregate(
             sessions,
             args.thread_id,
             expected_parent_thread_id=expected_parent,
             expected_agent_role=expected_role,
         )
+
     json.dump(result, sys.stdout, sort_keys=True, separators=(",", ":"))
     sys.stdout.write("\n")
 
