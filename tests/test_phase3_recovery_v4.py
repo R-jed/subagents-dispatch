@@ -221,7 +221,7 @@ def test_same_child_followup_requires_new_basis_without_fixed_count_ceiling(tmp_
     first = lifecycle.prepare_same_child_followup(
         thread_id,
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1", "message": "correct the missing edge case"},
+        tool_input={"target": "/root/sd_u1_a1", "message": "correct the missing edge case"},
         correction_basis_ref="correction:edge-case",
         temp_root=tmp_path,
     )
@@ -237,7 +237,7 @@ def test_same_child_followup_requires_new_basis_without_fixed_count_ceiling(tmp_
         lifecycle.prepare_same_child_followup(
             thread_id,
             execution_id="exec-1",
-            tool_input={"target": "sd_u1_a1", "message": "repeat the same correction"},
+            tool_input={"target": "/root/sd_u1_a1", "message": "repeat the same correction"},
             correction_basis_ref="correction:edge-case",
             temp_root=tmp_path,
         )
@@ -245,7 +245,7 @@ def test_same_child_followup_requires_new_basis_without_fixed_count_ceiling(tmp_
     second = lifecycle.prepare_same_child_followup(
         thread_id,
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1", "message": "apply the newly verified constraint"},
+        tool_input={"target": "/root/sd_u1_a1", "message": "apply the newly verified constraint"},
         correction_basis_ref="correction:new-constraint",
         temp_root=tmp_path,
     )
