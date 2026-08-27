@@ -50,6 +50,26 @@ def test_release_checklist_uses_same_n0_n8_gate_as_machine_contract():
         assert f"{probe} " in checklist
 
 
+def test_real_host_procedure_cannot_invent_release_gates():
+    plan = (ROOT / "tasks" / "real-host-qualification-plan.md").read_text(encoding="utf-8")
+    checklist = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
+
+    assert "`docs/v4/host-smoke.json` is the machine-readable authority." in checklist
+    assert (
+        "Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N8 "
+        "product probe passes or fails."
+    ) in plan
+    assert (
+        "Procedure-only or diagnostic evidence may explain a verdict, but it cannot create a "
+        "new product PASS/FAIL gate."
+    ) in plan
+    assert (
+        "Compare payload equality only at the same transport boundary; do not compare a prepared "
+        "Host tool argument with Host-rendered child communication."
+    ) in plan
+    assert "## Current recovery point" not in plan
+
+
 def test_ai_and_runtime_docs_match_current_public_roles_and_child_ceiling():
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     runtime = (ROOT / "docs" / "native-subagent-runtime.md").read_text(encoding="utf-8")
