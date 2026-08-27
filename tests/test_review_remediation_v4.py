@@ -245,7 +245,7 @@ def test_many_same_child_followups_keep_generation_evidence_bounded(tmp_path: Pa
         prepared = lifecycle.prepare_same_child_followup(
             thread_id,
             execution_id="exec-1",
-            tool_input={"target": "sd_u1_a1", "message": f"correction {index}"},
+            tool_input={"target": "/root/sd_u1_a1", "message": f"correction {index}"},
             correction_basis_ref=f"correction:{index}",
             temp_root=tmp_path,
         )
