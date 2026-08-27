@@ -9,7 +9,7 @@ child ceiling, are enforced atomically by ``dispatch_state_v4.mutate_state``.
 from __future__ import annotations
 
 import os as _os
-from typing import Sequence as _Sequence
+from typing import Mapping as _Mapping, Sequence as _Sequence
 
 import dispatch_state_v4 as _state
 import execution_lifecycle_v4_core as _core
@@ -68,12 +68,108 @@ def allocate_execution(
         raise
 
 
+def _internal_same_child_tool_input(
+    thread_id: str,
+    *,
+    execution_id: str,
+    tool_input: _Mapping[str, object],
+    temp_root: str | _os.PathLike[str] | None,
+) -> dict:
+    """Bind the public Host task address to the retained bare task segment."""
+    current = _state.load_state(thread_id, temp_root=temp_root)
+    if current is None:
+        raise ExecutionLifecycleError("active V4 state is unavailable")
+    execution = _core._execution(current, execution_id)
+    canonical_target = f"/root/{execution['native_task_name']}"
+    if not isinstance(tool_input, _Mapping) or tool_input.get("target") != canonical_target:
+        raise ExecutionLifecycleError(
+            "native lifecycle target must match canonical Host task address"
+        )
+    internal = dict(tool_input)
+    internal["target"] = execution["native_task_name"]
+    return internal
+
+
+def _restore_host_tool_input(prepared: dict, tool_input: _Mapping[str, object]) -> dict:
+    prepared["tool_input"] = dict(tool_input)
+    return prepared
+
+
+def prepare_same_child_followup(
+    thread_id: str,
+    *,
+    execution_id: str,
+    tool_input: _Mapping[str, object],
+    correction_basis_ref: str,
+    writer_lease_id: str | None = None,
+    temp_root: str | _os.PathLike[str] | None = None,
+) -> dict:
+    internal = _internal_same_child_tool_input(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        temp_root=temp_root,
+    )
+    prepared = _core.prepare_same_child_followup(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=internal,
+        correction_basis_ref=correction_basis_ref,
+        writer_lease_id=writer_lease_id,
+        temp_root=temp_root,
+    )
+    return _restore_host_tool_input(prepared, tool_input)
+
+
+def prepare_same_child_continue(
+    thread_id: str,
+    *,
+    execution_id: str,
+    tool_input: _Mapping[str, object],
+    writer_lease_id: str | None = None,
+    temp_root: str | _os.PathLike[str] | None = None,
+) -> dict:
+    internal = _internal_same_child_tool_input(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        temp_root=temp_root,
+    )
+    prepared = _core.prepare_same_child_continue(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=internal,
+        writer_lease_id=writer_lease_id,
+        temp_root=temp_root,
+    )
+    return _restore_host_tool_input(prepared, tool_input)
+
+
+def prepare_interrupt(
+    thread_id: str,
+    *,
+    execution_id: str,
+    tool_input: _Mapping[str, object],
+    temp_root: str | _os.PathLike[str] | None = None,
+) -> dict:
+    internal = _internal_same_child_tool_input(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=tool_input,
+        temp_root=temp_root,
+    )
+    prepared = _core.prepare_interrupt(
+        thread_id,
+        execution_id=execution_id,
+        tool_input=internal,
+        temp_root=temp_root,
+    )
+    return _restore_host_tool_input(prepared, tool_input)
+
+
 build_managed_spawn_tool_input = _core.build_managed_spawn_tool_input
 prepare_spawn = _core.prepare_spawn
 rollback_pre_materialization_spawn = _core.rollback_pre_materialization_spawn
-prepare_same_child_followup = _core.prepare_same_child_followup
-prepare_same_child_continue = _core.prepare_same_child_continue
-prepare_interrupt = _core.prepare_interrupt
 mark_execution_unknown = _core.mark_execution_unknown
 fresh_observation_basis = _core.fresh_observation_basis
 persist_host_observation = _core.persist_host_observation

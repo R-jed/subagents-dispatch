@@ -128,7 +128,7 @@ def test_stale_host_observation_cannot_rewrite_newer_control_generation(tmp_path
     prepared = lifecycle.prepare_interrupt(
         "root-thread",
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1"},
+        tool_input={"target": "/root/sd_u1_a1"},
         temp_root=tmp_path,
     )
     stale = lifecycle.persist_host_observation(

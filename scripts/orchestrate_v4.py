@@ -303,7 +303,7 @@ def prepare_steer(
     if execution["lifecycle"] != "RUNNING":
         raise OrchestrateError("Steer requires a RUNNING execution")
     validated_input = _validate_message_control_input(
-        tool_input, target=str(execution["native_task_name"])
+        tool_input, target=f"/root/{execution['native_task_name']}"
     )
     return {
         "operation": "STEER",

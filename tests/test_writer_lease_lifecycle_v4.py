@@ -128,7 +128,7 @@ def test_interrupt_preparation_revokes_writer_and_tool_return_cannot_transfer_it
     prepared = lifecycle.prepare_interrupt(
         "thread-p5",
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1"},
+        tool_input={"target": "/root/sd_u1_a1"},
         temp_root=tmp_path,
     )
     current = state.load_state("thread-p5", temp_root=tmp_path)
@@ -166,7 +166,7 @@ def test_fresh_current_generation_interrupted_observation_allows_atomic_takeover
     prepared = lifecycle.prepare_interrupt(
         "thread-p5",
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1"},
+        tool_input={"target": "/root/sd_u1_a1"},
         temp_root=tmp_path,
     )
     settled = lifecycle.persist_host_observation(
