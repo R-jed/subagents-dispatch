@@ -4,6 +4,18 @@ Status: PLANNED. This document defines the human execution procedure for the fir
 
 `docs/v4/host-smoke.json` is the machine authority for N0 through N8. `docs/release-checklist.md` is the release-gate and invalidation authority. This plan defines how the operator and the Codex task cooperate without crossing Host lifecycle boundaries.
 
+## Qualification gate authority
+
+Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N8 product probe passes or fails.
+
+Procedure-only or diagnostic evidence may explain a verdict, but it cannot create a new product PASS/FAIL gate.
+
+Compare payload equality only at the same transport boundary; do not compare a prepared Host tool argument with Host-rendered child communication.
+
+The procedure may add fail-close preconditions needed to collect trustworthy evidence, such as the exact-turn V2/schema snapshot or the single-probe qualification guard. A procedure failure stops progression until the procedure is corrected, but it does not redefine the machine-contract product oracle. If a consumed WorkUnit already produced sufficient authoritative evidence for the machine contract, do not materialize another child merely to satisfy a later procedure-only diagnostic.
+
+For managed spawn, pass the payload returned by the canonical preparation helper to the Host tool without editing it. If payload equality is audited, compare that prepared payload with the root `spawn_agent` function-call arguments at the same pre-Host-processing boundary. Host-rendered child communication is downstream evidence and may legitimately differ in representation or length.
+
 Issue #91 is the append-only Host evidence journal for this release campaign. It stores durable phase/profile results, material invalidations, and meaningful `UNKNOWN`, `FAIL`, or mutation stops. It is not a per-tool-call authorization system. No Issue #91 comment is required before every Host action, and routine preflight, review, and amendment comments should not be created.
 
 Root `headoff.md` is development-session context only. It is not Plugin runtime, Host qualification input, release evidence, or a release gate.
@@ -134,7 +146,7 @@ Every phase terminates in one of these states.
 
 `UNKNOWN_STOP`: authoritative evidence is ambiguous or incomplete. Fail closed until a better evidence path exists.
 
-`FAIL_STOP`: authoritative evidence proves a product or qualification-procedure violation. Freeze later phases until the failure is understood and repaired.
+`FAIL_STOP`: authoritative evidence proves a machine-contract product violation, or the qualification procedure itself cannot safely continue. A procedure-only `FAIL_STOP` blocks later phases until the procedure is corrected, but does not by itself convert already-observed machine-contract product behavior into a product FAIL.
 
 `MUTATION_STOP`: repository, package, profile, installed basis, Host contract, or another bound campaign input changed unexpectedly. Classify invalidation before continuing.
 
@@ -197,10 +209,12 @@ None during normal H1 execution. If Host lifecycle work becomes necessary, Codex
 4. prove `turn_context.multi_agent_version=v2` for that exact turn;
 5. verify the same-turn callable spawn schema requires `task_name` and `message`, includes `fork_turns`, and excludes `fork_context`, then preserve the contemporaneous capability snapshot required above;
 6. call `allocate_single_probe_execution` with the exact `qualification_run_ref` so attempt 1 is explicitly bound before spawn;
-7. call `prepare_single_probe_spawn` with the same ref and pass the returned canonical Orchestrate payload to Host unchanged;
+7. call `prepare_single_probe_spawn` with the same ref, then pass its canonical payload to the root Host tool without editing it;
 8. spawn exactly one `subagents_dispatch_reader` with `gpt-5.6-luna`, `max`, and `fork_turns=none`;
 9. verify authoritative route, model, effort, fresh-context, child identity, and lifecycle evidence;
 10. settle the Reader and stop.
+
+If step 7 is audited, compare the prepared payload only with the root `spawn_agent` function-call arguments. Do not compare it with Host-rendered child communication.
 
 Immediate stop conditions include V2/schema mismatch, qualification guard rejection, wrong route/model/effort/fork behavior, ambiguous child identity/lifecycle, or unexpected mutation.
 
@@ -219,10 +233,12 @@ For each profile:
 3. establish exact-turn V2 capability and the required spawn schema, then preserve the contemporaneous capability snapshot required above;
 4. allocate attempt 1 only through `allocate_single_probe_execution`;
 5. prepare only through `prepare_single_probe_spawn`;
-6. pass the canonical Host payload unchanged;
+6. pass the canonical Host payload to the root Host tool without editing it;
 7. verify route, model, effort, `fork_turns=none`, fresh context, identity, and lifecycle;
 8. settle the child;
 9. record one durable profile result in Issue #91 and stop before the next profile.
+
+If step 6 is audited, compare the prepared payload only with the root `spawn_agent` function-call arguments at the same boundary. A transformed or rendered message observed inside the child is diagnostic evidence and cannot independently fail N0.
 
 Expected routes:
 
@@ -363,22 +379,3 @@ Important operational examples:
 - A qualification procedure change applies to future actions. Historical Host evidence remains historical evidence and is invalidated only when the machine/release authority or a material environment fact requires it.
 - A new chat or new task alone never creates a rerun reason.
 - A required Host restart is an operator boundary, never an instruction for the qualifying task to restart itself.
-
-## Current recovery point
-
-The accepted build-7119 campaign remains active while the Host environment and three qualification digests remain unchanged. H0 through H3 are conclusive `PASS_STOP`.
-
-The first H4 / N2 WorkUnit `N2_READER_HOST7119` materialized successfully and produced a coherent canonical task-address, Host-thread, child-rollout, and ExecutionBinding identity chain. Issue #91 result `5425895958` recorded `PASS_STOP`, but independent review found that its exact-turn callable spawn schema observation was not preserved in the durable result. A zero-Agent-control historical supplement then confirmed the Host rollout does not retain callable schema records for that turn and stopped `UNKNOWN_STOP` in Issue #91 comment `5426422092`.
-
-Treat the first H4 WorkUnit as consumed historical `UNKNOWN` evidence. The missing exact-turn schema proof cannot be reconstructed from actual call arguments or later turns.
-
-After this procedure correction is merged, exact-head CI is green, and the target checkout is synchronized to the new release-line head, the next safe action is:
-
-1. confirm Host build 7119, accepted root/session identity, installation continuity, and all three qualification digests remain unchanged;
-2. classify H4 as `RERUN` because the prior H4 attempt is incomplete due to the now-corrected qualification evidence-capture defect;
-3. allocate a new pristine H4 / N2 WorkUnit with attempt 1, never reuse `N2_READER_HOST7119` and never create attempt 2 for it;
-4. before the new H4 spawn, prove exact-turn V2 and the required callable spawn schema and preserve the contemporaneous privacy-safe capability snapshot;
-5. run only H4 / N2, record one consolidated result, and stop at `H4_STOP`;
-6. keep N3 blocked until the rerun H4 result receives conclusive independent acceptance.
-
-No Host restart or H0 rerun is required solely because this maintainer-only qualification procedure changed, provided the actual Host build, root/session identity, installed Plugin/profile basis, and three qualification digests remain unchanged.
