@@ -170,7 +170,7 @@ def test_interrupt_result_does_not_release_writer_until_current_host_settlement(
     prepared = lifecycle.prepare_interrupt(
         "thread-recovery",
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1"},
+        tool_input={"target": "/root/sd_u1_a1"},
         temp_root=tmp_path,
     )
     current = state.load_state("thread-recovery", temp_root=tmp_path)
