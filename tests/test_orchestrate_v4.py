@@ -236,10 +236,11 @@ def test_running_steer_is_transient(tmp_path: Path):
     before = state.load_state("thread-control", temp_root=tmp_path)
     prepared = orchestrate.prepare_steer(
         "thread-control", orchestration_id="thread-control", execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1", "message": "Focus on the pagination boundary."},
+        tool_input={"target": "/root/sd_u1_a1", "message": "Focus on the pagination boundary."},
         temp_root=tmp_path,
     )
     assert prepared["operation"] == "STEER"
+    assert prepared["tool_input"]["target"] == "/root/sd_u1_a1"
     assert state.load_state("thread-control", temp_root=tmp_path) == before
 
 
@@ -261,12 +262,13 @@ def test_completed_correction_threads_explicit_recovery_basis(tmp_path: Path):
         "thread-control",
         orchestration_id="thread-control",
         execution_id="exec-1",
-        tool_input={"target": "sd_u1_a1", "message": "Correct the verified edge case."},
+        tool_input={"target": "/root/sd_u1_a1", "message": "Correct the verified edge case."},
         correction_basis_ref="correction:verified-edge-case",
         temp_root=tmp_path,
     )
 
     assert prepared["operation"] == "FOLLOWUP"
+    assert prepared["tool_input"]["target"] == "/root/sd_u1_a1"
     current = state.load_state("thread-control", temp_root=tmp_path)
     assert current is not None
     execution = next(item for item in current["executions"] if item["execution_id"] == "exec-1")
