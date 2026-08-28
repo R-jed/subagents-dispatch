@@ -87,6 +87,8 @@ The campaign token is local qualification identity. It is not a GitHub Issue com
 
 For H1/H2, call `scripts/host_qualification_guard.py::allocate_single_probe_execution` with the exact `qualification_run_ref`, then call `prepare_single_probe_spawn` with the same ref before the native Host spawn. Any prior retained or compacted execution history for that WorkUnit means the single probe has already been consumed. Do not reject a completed qualification result and allocate a fresh attempt to repair bookkeeping, provenance formatting, or evidence presentation.
 
+Profile capability is an authority ceiling. N0 uses the minimum authority required by the qualification responsibility. The current N0 canaries require no canonical-workspace writes, so Worker and Solver N0 canaries use `granted_authority=none`, empty write scope and no WriterLease. A future probe grants write authority only when its machine-required responsibility actually needs canonical-workspace writes.
+
 The qualification guard remains maintainer-only and intentionally stays outside the Plugin runtime package manifest. Generic product Recovery continues to follow `contracts/recovery.md`.
 
 ## Evidence journal policy

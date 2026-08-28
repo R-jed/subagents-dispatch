@@ -70,6 +70,15 @@ def test_real_host_procedure_cannot_invent_release_gates():
     assert "## Current recovery point" not in plan
 
 
+def test_n0_qualification_uses_minimum_execution_authority():
+    plan = (ROOT / "tasks" / "real-host-qualification-plan.md").read_text(encoding="utf-8")
+
+    assert "Profile capability is an authority ceiling" in plan
+    assert "N0 uses the minimum authority required by the qualification responsibility" in plan
+    assert "Worker and Solver N0 canaries use `granted_authority=none`" in plan
+    assert "empty write scope and no WriterLease" in plan
+
+
 def test_ai_and_runtime_docs_match_current_public_roles_and_child_ceiling():
     ai = (ROOT / "README_AI.md").read_text(encoding="utf-8")
     runtime = (ROOT / "docs" / "native-subagent-runtime.md").read_text(encoding="utf-8")
