@@ -1,304 +1,245 @@
 # Headoff
 
-Updated: 2026-08-27.
+Updated: 2026-08-29.
 
 ## Purpose
 
-This is the durable development-session handoff for `subagents-dispatch`. Keep project direction, major completed work, current blockers, lessons, and the next safe continuation here.
+This is the durable development-session handoff for `subagents-dispatch`.
 
-It is not Plugin runtime, a product contract, Host qualification input, release evidence, or a release gate. Live source/CI truth belongs in GitHub. Real Host evidence belongs in the external evidence journal. Machine behavior belongs in canonical contracts.
+It is a project continuity record only. It is not Plugin runtime, a product contract, a Host qualification input, release evidence, or a release gate. Canonical product and qualification truth remains in the files named below and in Issue #91.
+
+Detailed current V4 Host campaign handoff:
+
+- `docs/v4/host-qualification-handoff.md`
+
+Use that file for the full N0-N6 evidence map and retained runtime identities. This root handoff keeps the current project direction, safe continuation point, and highest-value reusable facts concise.
 
 ## Project summary
 
-`subagents-dispatch` is a bounded orchestration layer over Codex Native Subagents. Main owns dispatch judgment, integration, irreversible side effects, and final acceptance.
+`subagents-dispatch` is a bounded orchestration layer over Codex Native Subagents.
 
-First public Plugin version: `1.0.0`.
-
-Public Skills: `Orchestrate`, `Doctor`.
+Main owns dispatch judgment, integration, irreversible effects, writer takeover, and final acceptance.
 
 Fixed managed profiles:
 
-- Reader: Luna Max, read-only.
-- Worker: Luna Max, bounded source write.
-- Investigator: Terra High, read-only.
-- Solver: Sol High, bounded source write.
-- Advisor: Sol High, read-only.
+- Reader: `subagents_dispatch_reader`, `gpt-5.6-luna`, `max`, read-only.
+- Worker: `subagents_dispatch_worker`, `gpt-5.6-luna`, `max`, bounded source write.
+- Investigator: `subagents_dispatch_investigator`, `gpt-5.6-terra`, `high`, read-only.
+- Solver: `subagents_dispatch_solver`, `gpt-5.6-sol`, `high`, bounded source write.
+- Advisor: `subagents_dispatch_advisor`, `gpt-5.6-sol`, `high`, read-only profile intent.
 
-Fresh managed children use `fork_turns=none`. Managed children are leaf Agents. Product managed-child ceiling is four.
+All managed children use `fork_turns=none`, are intended to remain leaf Agents, and are subject to the product managed-child ceiling of four.
 
 Core ownership:
 
 - WorkGraph / WorkUnit own responsibility, dependencies, readiness, and acceptance.
 - ExecutionBinding owns one concrete managed attempt/generation.
-- WriterLease owns canonical-workspace managed writer coordination.
-- Main is the sole managed coordinator and final acceptance owner.
-- Host `COMPLETED` means candidate lifecycle completion only.
+- WriterLease owns canonical-workspace writer coordination.
 - Codex Host owns actual materialization, lifecycle, capacity, child identity, effective permissions/sandbox, and collaboration capability.
+- Host `COMPLETED` is lifecycle evidence, not correctness acceptance.
 - Ambiguous Host truth fails closed.
 
-## Current status
+## Current V4 qualification status
 
-Repository clean-break closure: **COMPLETE**.
+Current campaign status:
 
-Investigator duplicate-dispatch RCA and guard repair: **COMPLETE**.
+- N0: PASS
+- N1: PASS
+- N2: PASS
+- N3: PASS
+- N4: PASS
+- N5: PASS
+- N6: PASS
+- H7: COMPLETE
+- H8 / N7: NEXT
+- H9 / N8: BLOCKED until N7 completes
+- H10 release closure: BLOCKED until Host campaign and final release gates complete
 
-Real Host qualification procedure: **UPDATED AFTER H4 EVIDENCE-CAPTURE RCA**. Covered Agent-control probes must preserve a privacy-safe exact-turn capability/schema snapshot before the control call so later review does not depend on Host rollout retaining callable schema definitions.
+Public `1.0.0` remains blocked on N7, N8, and release closure.
 
-Historical build-7119 campaign under runtime manifest `3e6d43aec07e493b937195ebbd05489f43dbbd36eea85671980f69fb357a0d8c`:
+No N7 or N8 qualification work has started at this handoff point.
 
-- H0 environment binding: `PASS_STOP`.
-- H1 Reader: `PASS_STOP`, consumed.
-- H2 / N0: `PASS_STOP`; durable closure Issue #91 comment `5422820011`.
-- H3 / N1 managed delegation depth: `PASS_STOP`; durable result `5425708582`.
-- H4 / N2 corrected rerun: `PASS_STOP`; durable result `5426789425`. The original H4 WorkUnit remains consumed historical `UNKNOWN`.
-- H5 / N3 admission rejection materialization safety RERUN2: `PASS_STOP`; durable result `5435381320`.
-- H6 / N4: `FAIL_STOP`; durable result `5435837898`. Running Steer succeeded on the original child, then product interrupt preparation rejected the authoritative canonical Host task address.
+## Qualification basis and environment
 
-H6 root cause repair: **MERGED AND REPOSITORY-VERIFIED**.
+Host qualification evidence through N6 was produced against shipped source:
 
-- PR #121 was squash-merged as `a3f15b22c1eabc4ae5801979c1800d021cba9979`.
-- Merge tree: `81ae71ddc70b3f65f8ce2b87d2e27f416d9390a2`.
-- Post-merge exact-head push CI `33054478128` / policy-tests `#4937` passed Ubuntu Python 3.11, Ubuntu Python 3.12, macOS Python 3.11, and Windows Python 3.11, including package-integrity, Ruff, full pytest, and managed profile lifecycle checks.
-- Supported same-child lifecycle controls now validate the canonical Host task address `/root/<native_task_name>` at the facade boundary and preserve that canonical payload for Host calls.
-- `prepare_steer` now validates the same canonical Host task address.
-- Bare task-name aliases are not retained as a compatibility path.
-- Regression coverage includes canonical Steer, Interrupt, Continue, Correction, explicit bare-target rejection, same-attempt continuation/correction, and unchanged generation on rejected interrupt preparation.
+- branch: `v4/rc5-native-core`
+- qualification source HEAD: `880578e62667596eb7e643a012ec457de38fb57e`
+- qualification source tree: `6ba888f39014240e41f430058acc9ea058eb9f32`
+- Host: `26.820.60940`
+- Host build: `7119`
+- embedded Codex: `0.150.0-alpha.8`
+- root session/thread: `01a048f3-5f69-7000-9325-093dd895ae4c`
 
-The shipped runtime change regenerated `.codex-plugin/package-integrity.json`. Current Host qualification identity is therefore different from the historical H0-H5 campaign:
+Qualification basis digests:
 
-- runtime manifest SHA256 `a6fd674675fd0b4c2184dab7b0c0a3b85dd8ec0467756876067ae9d2874432ab`;
-- profile contract SHA256 `9520395880612c0c40ebc992d36cdadd950fd8328904f3e8c7641042c9f03a8d`;
-- Host contract SHA256 `0e9677ba7a66e8ea4a49b354a141098a26d62a3ed7051c50e2cbc7c42bab2566`.
+- runtime manifest SHA256: `a6fd674675fd0b4c2184dab7b0c0a3b85dd8ec0467756876067ae9d2874432ab`
+- profile contract SHA256: `9520395880612c0c40ebc992d36cdadd950fd8328904f3e8c7641042c9f03a8d`
+- Host contract SHA256: `0e9677ba7a66e8ea4a49b354a141098a26d62a3ed7051c50e2cbc7c42bab2566`
 
-`contracts/policy.json` and `docs/v4/host-smoke.json` remain unchanged; only the runtime-manifest qualification digest changed. Material invalidation is recorded in Issue #91 comment `5436511681`.
+Documentation-only handoff commits after `880578e...` are outside the three Host qualification digest inputs. Under the current release invalidation rules they require exact-source repository CI and final-source review refresh, but do not automatically erase conclusive N0-N6 Host evidence. Always re-check the three digests before relying on that reuse rule.
 
-Consequences:
+## Durable evidence ledger
 
-- old H0 through H5 results remain durable historical evidence for the old qualification identity;
-- they are not formal PASS results for the new runtime-manifest identity;
-- Host build 7119, embedded Codex `0.150.0-alpha.8`, prior root/session identity, capacity evidence, and historical probe results are continuity/context evidence only until the new campaign establishes its own required bindings;
-- the new campaign must begin at H0 with zero Agent-control;
-- after H0, rerun H1/H2 N0, H3/N1, H4/N2, H5/N3, then rerun H6/N4 independently against the repaired product;
-- N5/N6 and later phases remain blocked until predecessor requirements pass on the new qualification identity.
+Issue #91 is the append-only Host evidence journal.
 
-Public `1.0.0` release: **BLOCKED on the new exact-qualification N0-N8 campaign and later release closure**.
+Current-root/current-campaign evidence:
 
-## Qualification duplicate-dispatch RCA
+- H0 current-root binding: `5454591201`
+- Solver active-state recovery: `5455135793`
+- Solver N0 attempt 1 PASS: `5455373847`
+- Advisor N0 attempt 1 PASS: `5458032103`
+- H3/N1 initial partial stop: `5458140539`
+- H3/N1 continuation PASS: `5458327377`
+- H4/N2 PASS: `5458510689`
+- H5/N3 PASS: `5458750261`
+- H6/N4 attempt 1 Host usage-limit environmental stop: `5459388996`
+- H6/N4 recovery attempt 2 PASS: `5459646454`
+- H7/N5 PASS: `5460760790`
+- H7/N6 PASS: `5460904293`
 
-The H2 Investigator incident was caused by qualification control flow:
+Earlier evidence explicitly reused by the current campaign:
 
-- attempt 1 materialized and reached Host `COMPLETED`;
-- Main explicitly rejected the completed WorkUnit;
-- Main allocated and spawned attempt 2;
-- attempt 2 had no new task-level execution evidence;
-- the changed basis existed only to repair qualification bookkeeping/provenance;
-- Host did not autonomously duplicate the child;
-- no direct state-file mutation or unsupported state bypass was found.
+- Reader N0 PASS: `5437155573`
+- Worker durable PASS/RCA: `5439807120`
+- Worker retained rerun evidence: `5438201247`
+- Investigator N0 PASS: `5454249634`
 
-`scripts/host_qualification_guard.py` is maintainer-only and prevents one H1/H2 qualification WorkUnit from materializing more than one attempt.
+Do not promote unrelated historical evidence merely because Host build/version match. Reuse must follow the current release invalidation rules and the durable campaign rationale.
 
-## H4 schema-evidence RCA
+## Highest-value reusable facts
 
-The first H4 / N2 execution satisfied the observable identity behavior but its qualification report omitted one required pre-spawn evidence field set: the exact-turn callable `spawn_agent` schema.
+### Exact-turn V2 rule
 
-The later read-only supplement proved:
+For every covered Host Agent-control step in N0/N1/N2/N3/N4/N5/N6/N8:
 
-- the original spawn call is uniquely bound to probe turn `01a03e36-732f-79d0-8f3c-a0813beccb43`;
-- Host-produced `turn_context.multi_agent_version=v2` is retained for that turn;
-- the actual spawn call uses `task_name`, `message`, and `fork_turns=none` with no `fork_context`;
-- the exact-turn rollout does not retain callable schema definitions, so actual call arguments cannot prove which fields were required or whether the legacy field was absent from the callable schema.
+- bind the exact current `turn_id`;
+- prove Host `multi_agent_version=v2` for that turn;
+- inspect the same-turn callable schema;
+- preserve a privacy-safe contemporaneous schema snapshot before Agent-control;
+- do not reconstruct a missing snapshot from later rollout evidence.
 
-The root cause is qualification evidence capture, not a demonstrated product identity-binding failure. Future covered probes must preserve a contemporaneous privacy-safe capability snapshot before Agent-control. Later turns, actual call arguments, configured defaults, and model memory cannot repair a missing exact-turn schema snapshot.
+The same numerical `turn_id` may remain current across multiple controls. What matters is a fresh contemporaneous snapshot before each covered control, not forcing a different turn id.
 
-The corrected H4 rerun used a new pristine WorkUnit with attempt 1 and durably recorded the contemporaneous schema fields before spawn. The old materialized H4 WorkUnit remains consumed historical `UNKNOWN`; the rerun is independently accepted as `PASS_STOP` for the historical qualification identity.
+### N2 identity
 
-## H6 canonical-target RCA and repair
+Representative accepted H4 Reader:
 
-The historical H6 child successfully consumed RUNNING Steer on its canonical Host address and stayed on the same Host child and ExecutionBinding. Product interrupt preparation then compared the canonical Host target with the stored bare `native_task_name` and failed before `interrupt_agent` could be called.
+- WorkUnit: `N2_READER_HOST7119_H4_001`
+- ExecutionBinding: `exec-n2-reader-host7119-h4-001`
+- canonical task: `/root/sd_n2_reader_host7119_h4_001_a1`
+- Host child thread: `01a04a7d-adfe-7782-8c9b-237641659503`
 
-The repair keeps the internal ExecutionBinding task segment unchanged while adapting the Host-facing control identity at the supported facade boundary:
+Canonical task address plus authoritative Host child-thread evidence establishes release-campaign native identity. Ordinary runtime state must not fabricate/persist a Host thread id that public V2 did not expose.
 
-- canonical Host input is required for Interrupt, Continue, and Correction;
-- the facade binds that canonical address to the retained internal task segment before invoking the existing core lifecycle logic;
-- the prepared Host payload is canonical again when returned to the caller;
-- RUNNING Steer uses the same canonical target convention;
-- no bare-target fallback or legacy alias ships.
+### N3 admission rejection
 
-This repair changes shipped runtime bytes, so repository correctness and Host qualification validity are separate. Repository CI is green; real Host N4 remains unqualified until the new qualification campaign reaches H6 again.
+The accepted N3 probe established:
 
-## Permanent Host lifecycle boundary
+- Host capacity source: root-inclusive active V2 session slots = 4;
+- product managed-child ceiling = 4;
+- root + three running pressure Readers filled Host active capacity;
+- the target remained within product managed-child projection and received actual Host rejection: `collab spawn failed: agent thread limit reached`;
+- rejected target had no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime;
+- provisional ExecutionBinding and RESERVED WriterLease rolled back;
+- attempt 1 was not consumed.
 
-The operator owns Desktop Host lifecycle and UI actions:
+Do not invent whether an undifferentiated Host thread-limit error is active-pressure or residency-pressure.
 
-- quit the Desktop Host;
-- launch/relaunch/update the Desktop Host;
-- create a fresh/replacement root task after restart;
-- choose the repository/workspace in the Desktop UI;
-- perform required OS/UI-only actions.
+### N4 same-child control
 
-A Codex task must never terminate or restart the Host process executing it. If lifecycle work is required, return `OPERATOR_ACTION_REQUIRED_STOP` with the exact manual action, resume condition, and bounded next prompt. The operator performs the action, then the new/current root task collects post-action evidence.
+H6 attempt 1 materialized and later failed because of Host account usage capacity. That is retained environmental failure evidence, not an N4 product defect.
 
-Do not write future qualification prompts that ask Codex Desktop to restart itself.
+Recovery attempt 2 passed N4:
 
-Inside a live root task, Codex may verify source/package/profile state, inspect Host/session/rollout metadata, establish exact-turn V2 capability, call qualification guards, perform the Agent-control steps required by N0 through N8, assemble evidence, and fail closed when evidence is unavailable or ambiguous.
+- ExecutionBinding: `exec-n4-reader-host7119-h6-002`
+- attempt: 2
+- canonical task: `/root/sd_n4_reader_host7119_h6_001_a2`
+- child thread: `01a04b34-fece-7363-9518-60d067c21be0`
+- RUNNING Steer used `followup_task`, preserved epoch/followup counters, and had post-guidance same-child consumption evidence;
+- focused correction advanced epoch `0 -> 1` and followup `0 -> 1`;
+- interrupt advanced epoch `1 -> 2` and authoritative lifecycle became `INTERRUPTED`;
+- continuation used `followup_task`, advanced epoch `2 -> 3`, retained followup count 1, and resumed the same child;
+- no replacement child and no attempt 3;
+- final accepted execution is attempt 2.
 
-## Qualification run identity
+### N5/N6 WriterLease chain
 
-H1/H2 use a local maintainer identity:
+N5 Worker:
 
-```text
-qualification:<campaign>:<h1|h2>:<profile>
-```
+- WorkUnit: `N5_WORKER_HOST7119_H7_001`
+- ExecutionBinding: `exec-n5-worker-host7119-h7-001`
+- canonical task: `/root/sd_n5_worker_host7119_h7_001_a1`
+- child thread: `01a04c25-e25e-7311-bb9d-71ca51962b06`
 
-Examples:
+N5 proved:
 
-```text
-qualification:host7119:h1:reader
-qualification:host7119:h2:worker
-qualification:host7119:h2:investigator
-```
+- allocation WriterLease `RESERVED`, epoch 1;
+- authoritative RUNNING moved it to `HELD`;
+- prepare interrupt moved control epoch `0 -> 1` and lease to `REVOKING`;
+- interrupt acknowledgement alone did not release writer ownership;
+- stale control-generation observation was rejected with no state mutation;
+- current proof was `host-observation:exec-n5-worker-host7119-h7-001:1:1:INTERRUPTED`;
+- stale lease epoch was rejected;
+- N5 stopped with execution `INTERRUPTED` and execution-owned `REVOKING` lease.
 
-`allocate_single_probe_execution` binds this value as the first ExecutionBinding `execution_basis_ref`. `prepare_single_probe_spawn` requires the same value before Host spawn. The WorkUnit must have no retained or compacted prior attempt.
+N6 then proved without new Host Agent-control:
 
-Issue comment ids are not part of qualification guard semantics.
+- replacement allocation was blocked by the existing WriterLease;
+- premature direct Main writer acquisition was blocked;
+- `execution_lifecycle_v4.takeover_to_main` atomically transferred the settled execution-owned epoch-1 lease to a Main-owned epoch-2 `HELD` lease;
+- no dual-writer state and no persistent writer gap were observed;
+- Main released its qualification lease through `writer_lease_v4.release_main_writer`;
+- final WriterLease is Main-owned `RELEASED`, epoch 2;
+- final blocking writer count is 0;
+- N5 qualification WorkUnit is `CANCELLED`;
+- retained N5 execution lifecycle remains `INTERRUPTED`;
+- N6 replacement probe WorkUnit is `CANCELLED`.
 
-A completed qualification WorkUnit cannot be rejected and retried to improve bookkeeping or evidence presentation. A genuine rerun after material invalidation uses a new campaign identity and a new pristine qualification WorkUnit.
+This is the runtime state to preserve when entering H8/N7.
 
-The guard stays outside `.codex-plugin/package-integrity.json`, so it is not shipped to Plugin users.
+## Permanent operating boundaries
 
-## Issue #91 role
+The operator owns Desktop Host lifecycle and UI actions. A Codex task must not terminate/restart the Host that is executing it.
 
-Issue #91 remains the external append-only Host evidence journal because real Host results should not mutate the candidate repository.
+If a Host restart or replacement root is required, stop with `OPERATOR_ACTION_REQUIRED_STOP`, state the exact manual operator action and resume condition, and let the operator perform it outside the qualifying task.
 
-Write durable entries for:
+Issue #91 remains release evidence. This handoff remains continuity documentation. Do not turn either into a second runtime database.
 
-- conclusive H0 results;
-- conclusive H1/H2 profile results;
-- consolidated N1 through N8 phase results;
-- meaningful `UNKNOWN`, `FAIL`, or mutation stops;
-- material invalidations and RCAs.
+A consumed qualification WorkUnit must not receive another child solely to repair diagnostics, evidence formatting, or report presentation.
 
-Do not create a separate comment before every Host action. Do not create routine preflight/result/review/amendment chains for one ordinary step. Prefer one consolidated entry per phase, or one per H1/H2 profile when profile-level evidence matters.
-
-## GitHub development workflow
-
-This is a self-maintained project. Git is the default development/version-control mechanism.
-
-Routine development does not require a new GitHub Issue or Pull Request.
-
-Default flow:
-
-1. use a short-lived branch when isolation helps;
-2. make the smallest coherent change;
-3. run focused tests and required exact-head CI;
-4. inspect the complete diff;
-5. fast-forward/merge into the release line when verified;
-6. update this handoff only when durable direction or the safe continuation point changes.
-
-Use an Issue for a genuinely long-lived tracked item or the existing Host evidence journal. Use a Pull Request only when its review, approval, or CI surface adds real value.
+Host tool acceptance alone does not prove semantic application. Use authoritative Host activity/lifecycle evidence for materialization, identity, guidance consumption, settlement, and effective permissions.
 
 ## Canonical truth owners
 
-- `.codex-plugin/plugin.json`: public Plugin version.
+- `.codex-plugin/plugin.json`: Plugin version.
 - `.codex-plugin/package-integrity.json`: shipped runtime byte manifest.
-- `contracts/policy.json`: fixed product policy/profile values.
-- `contracts/state.md`: state schema and clean-break boundary.
-- `contracts/recovery.md`: product retry/recovery semantics.
+- `contracts/policy.json`: fixed policy/profile values.
+- `contracts/state.md`: state model.
+- `contracts/recovery.md`: retry/recovery semantics.
+- `contracts/final-review.md`: final review boundary.
 - `docs/v4/architecture.json`: Native Core ownership.
-- `docs/v4/host-smoke.json`: N0 through N8 machine Host contract.
+- `docs/v4/host-smoke.json`: N0-N8 machine Host oracle.
 - `docs/release-checklist.md`: release gates and invalidation rules.
-- `tasks/real-host-qualification-plan.md`: operator/Codex Host qualification procedure, including contemporaneous exact-turn capability snapshot requirements.
-- `scripts/host_qualification_guard.py`: maintainer-only H1/H2 single-probe enforcement.
-- `scripts/inspect-host-root-runtime.py`: maintainer-only exact-root rollout identity and latest-turn observation for H0 evidence.
-- `scripts/inspect-collaboration-runtime.py`: root collaboration call/result/activity evidence, including same-call spawn task-address and Host child-thread binding.
-- GitHub branch/commit/CI: live source verification.
-- Issue #91: external durable Host evidence journal only.
+- `tasks/real-host-qualification-plan.md`: real Host procedure.
+- `docs/v4/host-qualification-handoff.md`: detailed current campaign handoff through N6.
+- GitHub branch/commit/CI: live source truth.
+- Issue #91: durable external Host evidence journal.
 
-## Host runtime evidence reuse
+## Next safe continuation
 
-External real-Host reports confirmed two Codex evidence patterns that are handled without adding a second routing stack.
+Next phase is `H8 / N7 rollout reconciliation and privacy`.
 
-For H0, use `scripts/inspect-host-root-runtime.py` against the exact current root thread. It requires one authoritative root `session_meta`, requires `session_id`, rejects child rollouts, and reads turn-scoped model, effort, capability, sandbox, permission, provider, and cwd only from the latest `turn_context`. Missing latest-turn values remain unobserved instead of being filled from an older turn.
+Before doing N7:
 
-For N2 and other child-identity checks, prefer the existing `scripts/inspect-collaboration-runtime.py` path. One exact root `spawn_agent` `call_id` can bind the recognized spawn task address to Host `SubAgentActivity` `agent_path` and `agent_thread_id`. Do not add a separate task-path scan when the stronger same-call Host activity binding is available.
+1. read the current exact `docs/v4/host-smoke.json`, `tasks/real-host-qualification-plan.md`, release invalidation rules, and rollout inspection tooling;
+2. bind the live branch HEAD/tree and verify the three Host qualification digests remain unchanged after documentation-only handoff commits;
+3. refresh exact-source repository CI requirements caused by the documentation-only HEAD change, without re-running N0-N6 solely because the handoff docs changed;
+4. reuse authoritative rollout evidence already generated by the campaign where it satisfies N7;
+5. avoid creating a new Agent unless the N7 machine oracle truly requires evidence absent from the existing campaign;
+6. prove allowlisted inspection binds lifecycle call id, child identity, and result while omitting assignment text and reasoning content;
+7. prove stale or ambiguous rollout evidence cannot authorize acceptance or writer transfer;
+8. record one consolidated H8/N7 result in Issue #91;
+9. hard stop after H8/N7 and await explicit H9/N8 instruction.
 
-Callable Host schema is a different evidence class. Current rollout inspection can prove the exact turn and actual call, but the build-7119 rollout does not retain callable schema definitions. Future exact-turn schema acceptance therefore preserves a contemporaneous privacy-safe snapshot before Agent-control and carries it into the consolidated durable result.
-
-Both helpers are maintainer evidence tooling. The root helper remains outside `.codex-plugin/package-integrity.json` and does not change shipped Plugin behavior or the N0 through N8 machine contract.
-
-## Lessons
-
-1. Successful Host tool acceptance does not by itself prove the intended semantic effect.
-2. `UNKNOWN` cannot authorize acceptance, replacement, or writer transfer.
-3. Host configuration expresses intent; Host observations decide runtime truth.
-4. `execution_basis_ref` represents semantic basis. Changing a string does not create new task evidence.
-5. One qualification WorkUnit may materialize at most once under one single-probe run identity.
-6. Qualification mechanics should remain outside shipped runtime unless they are user-facing behavior.
-7. Host lifecycle transitions are operator boundaries because a task cannot reliably observe the environment after terminating its own Host.
-8. A new chat/task alone is not a rerun reason.
-9. A Host build change is a material environment change and requires new H0 binding.
-10. Issue/PR workflow is optional for this self-maintained project.
-11. Machine contract, human procedure, evidence journal, and development handoff must remain separate control surfaces.
-12. Current-session runtime truth must come from current Host evidence. Configured defaults, remembered confirmations, and older turn values do not close a live gate.
-13. Prefer same-call Host activity identity binding over heuristic rollout discovery when both are available.
-14. A phase closure that changes the next safe continuation belongs in this handoff, while the underlying Host proof remains in Issue #91.
-15. Exact-turn Host capability acceptance requires both the bound `multi_agent_version=v2` observation and the same-turn callable schema required by the machine contract.
-16. Host rollout retention cannot be assumed to preserve callable schema definitions. Capture required schema evidence contemporaneously before Agent-control.
-17. Actual call arguments can cross-check a schema observation but cannot prove required fields or prove that an unused legacy field was absent from the callable schema.
-18. A materialized qualification WorkUnit with an unrepairable evidence gap remains consumed. A justified rerun uses a new pristine WorkUnit after the procedure defect is corrected.
-19. Host admission capacity and product child ceiling are distinct gates. N3 may only pressure the Host with a projected active managed-child count at or below the product ceiling; inability to reach Host rejection safely is `NOT_RUN_STOP`.
-20. A shipped runtime-manifest digest change is a qualification-basis change. Historical probe PASS results remain useful evidence, but they cannot be promoted across the changed identity without the rerun/reuse decision required by the release contract.
-21. Canonical Host task addresses belong at the supported Host-facing lifecycle boundary while internal ExecutionBinding identity can retain its deterministic task segment.
-
-## Current qualification point
-
-Repository source immediately before this handoff-only update:
-
-- release branch: `v4/rc5-native-core`;
-- verified repair commit: `a3f15b22c1eabc4ae5801979c1800d021cba9979`;
-- tree: `81ae71ddc70b3f65f8ce2b87d2e27f416d9390a2`;
-- exact-head push CI `33054478128` / `#4937`: `PASS`.
-
-Current Host qualification identity:
-
-- runtime manifest SHA256 `a6fd674675fd0b4c2184dab7b0c0a3b85dd8ec0467756876067ae9d2874432ab`;
-- profile contract SHA256 `9520395880612c0c40ebc992d36cdadd950fd8328904f3e8c7641042c9f03a8d`;
-- Host contract SHA256 `0e9677ba7a66e8ea4a49b354a141098a26d62a3ed7051c50e2cbc7c42bab2566`.
-
-Historical environment observations, pending new H0 confirmation:
-
-- Desktop Host short version `26.820.60940`;
-- Desktop Host build `7119`;
-- accepted historical root/session identity `01a03ca1-5ece-7561-afee-9d824171d220`;
-- embedded Codex `0.150.0-alpha.8`.
-
-These environment values must be re-observed or otherwise accepted by the current H0 procedure before they are used as current campaign truth.
-
-Material invalidation: Issue #91 comment `5436511681`.
-
-Before any new Host Agent-control, require the target local checkout to match the final handoff-updated release-line HEAD, require exact-head repository CI green, and establish H0 for the new qualification identity.
-
-## Next safe sequence
-
-1. Finish this handoff-only source update and require exact-head repository CI green. Confirm the three Host qualification digests remain unchanged from `a6fd674... / 952039... / 0e9677...`.
-2. Synchronize the target Host checkout to that exact verified release-line HEAD and require a clean worktree.
-3. Execute H0 only. Perform zero Agent-control. Verify exact source/tree, generated package integrity, installed package/profile continuity, Host build/version/platform/architecture, authoritative root `session_id` and `thread_id`, and current environment binding.
-4. If Host lifecycle work is actually required, return `OPERATOR_ACTION_REQUIRED_STOP`. Codex must not restart, relaunch, or replace its own Desktop Host/root task.
-5. Record one conclusive H0 result or meaningful stop in Issue #91 under the new runtime-manifest identity.
-6. After explicit continuation and accepted H0, use a new campaign identity and pristine WorkUnits as required to rerun H1/H2 N0, H3/N1, H4/N2, and H5/N3 sequentially with mandatory phase stops.
-7. Only after H5 is independently accepted on the new identity, rerun H6/N4 against the canonical-target repair. Require same-child Steer consumption, canonical Interrupt, Continue, Correction, generation invariants, and no fresh attempt.
-8. Keep N5/N6 and later phases blocked until the new H6/N4 predecessor state is accepted.
-
-## Verification discipline
-
-For repository changes:
-
-1. read the smallest relevant canonical contracts/current source;
-2. state acceptance conditions before editing;
-3. keep changes focused and avoid compatibility/fallback branches;
-4. add regression coverage for the actual failure mode;
-5. run focused tests and the complete exact-head repository matrix;
-6. compare base/final head and inspect the complete diff;
-7. verify package integrity and intended shipped-file scope;
-8. do not mark complete while required checks are red, stale, or bound to an older head;
-9. classify Host qualification invalidation before resuming real Host actions.
+Do not enter N8 early. N8 requires a fresh Advisor review bound to the final exact candidate and authoritative effective Host sandbox/permission truth.
