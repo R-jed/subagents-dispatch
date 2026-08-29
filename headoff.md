@@ -6,13 +6,13 @@ Updated: 2026-08-29.
 
 This is the durable development-session handoff for `subagents-dispatch`.
 
-It is a project continuity record only. It is not Plugin runtime, a product contract, a Host qualification input, release evidence, or a release gate. Canonical product and qualification truth remains in the files named below and in Issue #91.
+It is a continuity document only. It is not Plugin runtime, a product contract, Host qualification input, release evidence, or a release gate. Canonical product and qualification truth remains in the files named below and in Issue #91.
 
-Detailed current V4 Host campaign handoff:
+Detailed historical Host evidence through N6 remains in:
 
 - `docs/v4/host-qualification-handoff.md`
 
-Use that file for the full N0-N6 evidence map and retained runtime identities. This root handoff keeps the current project direction, safe continuation point, and highest-value reusable facts concise.
+Issue #91 is the current append-only operational ledger and is authoritative for later N7/N8 Host observations and permission RCA.
 
 ## Project summary
 
@@ -22,11 +22,11 @@ Main owns dispatch judgment, integration, irreversible effects, writer takeover,
 
 Fixed managed profiles:
 
-- Reader: `subagents_dispatch_reader`, `gpt-5.6-luna`, `max`, read-only.
+- Reader: `subagents_dispatch_reader`, `gpt-5.6-luna`, `max`, read-only intent.
 - Worker: `subagents_dispatch_worker`, `gpt-5.6-luna`, `max`, bounded source write.
-- Investigator: `subagents_dispatch_investigator`, `gpt-5.6-terra`, `high`, read-only.
+- Investigator: `subagents_dispatch_investigator`, `gpt-5.6-terra`, `high`, read-only intent.
 - Solver: `subagents_dispatch_solver`, `gpt-5.6-sol`, `high`, bounded source write.
-- Advisor: `subagents_dispatch_advisor`, `gpt-5.6-sol`, `high`, read-only profile intent.
+- Advisor: `subagents_dispatch_advisor`, `gpt-5.6-sol`, `high`, read-only intent.
 
 All managed children use `fork_turns=none`, are intended to remain leaf Agents, and are subject to the product managed-child ceiling of four.
 
@@ -37,6 +37,7 @@ Core ownership:
 - WriterLease owns canonical-workspace writer coordination.
 - Codex Host owns actual materialization, lifecycle, capacity, child identity, effective permissions/sandbox, and collaboration capability.
 - Host `COMPLETED` is lifecycle evidence, not correctness acceptance.
+- Requested profile values are configuration intent, not authoritative Host permission proof.
 - Ambiguous Host truth fails closed.
 
 ## Current V4 qualification status
@@ -50,26 +51,24 @@ Current campaign status:
 - N4: PASS
 - N5: PASS
 - N6: PASS
-- H7: COMPLETE
-- H8 / N7: NEXT
-- H9 / N8: BLOCKED until N7 completes
-- H10 release closure: BLOCKED until Host campaign and final release gates complete
+- N7: PASS
+- H8: COMPLETE
+- N8: FAIL on effective Host read-only enforcement
+- H9: INCOMPLETE / BLOCKED on Host permission remediation and RCA
+- H10 release closure: NOT STARTED / BLOCKED
 
-Public `1.0.0` remains blocked on N7, N8, and release closure.
+Public `1.0.0` remains blocked.
 
-No N7 or N8 qualification work has started at this handoff point.
+N8 must not be retried until a changed Host permission basis is proven. H10 must not start before N8 is recovered and the final release gates are explicitly entered.
 
-## Qualification basis and environment
+## Qualification basis and source chronology
 
-Host qualification evidence through N6 was produced against shipped source:
+Host/build environment used by the current campaign:
 
-- branch: `v4/rc5-native-core`
-- qualification source HEAD: `880578e62667596eb7e643a012ec457de38fb57e`
-- qualification source tree: `6ba888f39014240e41f430058acc9ea058eb9f32`
 - Host: `26.820.60940`
 - Host build: `7119`
 - embedded Codex: `0.150.0-alpha.8`
-- root session/thread: `01a048f3-5f69-7000-9325-093dd895ae4c`
+- platform: Darwin arm64
 
 Qualification basis digests:
 
@@ -77,39 +76,165 @@ Qualification basis digests:
 - profile contract SHA256: `9520395880612c0c40ebc992d36cdadd950fd8328904f3e8c7641042c9f03a8d`
 - Host contract SHA256: `0e9677ba7a66e8ea4a49b354a141098a26d62a3ed7051c50e2cbc7c42bab2566`
 
-Documentation-only handoff commits after `880578e...` are outside the three Host qualification digest inputs. Under the current release invalidation rules they require exact-source repository CI and final-source review refresh, but do not automatically erase conclusive N0-N6 Host evidence. Always re-check the three digests before relying on that reuse rule.
+Source chronology:
 
-## Durable evidence ledger
+- N0-N6 were originally qualified against HEAD `880578e62667596eb7e643a012ec457de38fb57e`, tree `6ba888f39014240e41f430058acc9ea058eb9f32`.
+- Documentation-only handoff commits advanced the branch to HEAD `36952e16aa4b1502ae7397cb7c40351371b54763`, tree `49a3041af4e4f3e67c2d7fbb0121746df41960a0`.
+- The three qualification digests remained unchanged, so conclusive N0-N6 evidence was retained under the release invalidation rules.
+- N7 was completed against the `36952e...` candidate.
+- N8 attempt 1 and subsequent permission diagnostics were also bound to `36952e...`.
+- This `headoff.md` refresh is intentionally documentation-only and will create a new branch tip. Before any further Host qualification action, re-bind the exact new HEAD/tree and verify the same three qualification digests remain unchanged. Exact-source CI and final-source review will still need refresh on the eventual final source.
 
-Issue #91 is the append-only Host evidence journal.
+## Current roots and Host permission state
 
-Current-root/current-campaign evidence:
+Original qualification root:
 
-- H0 current-root binding: `5454591201`
-- Solver active-state recovery: `5455135793`
-- Solver N0 attempt 1 PASS: `5455373847`
-- Advisor N0 attempt 1 PASS: `5458032103`
-- H3/N1 initial partial stop: `5458140539`
-- H3/N1 continuation PASS: `5458327377`
-- H4/N2 PASS: `5458510689`
-- H5/N3 PASS: `5458750261`
-- H6/N4 attempt 1 Host usage-limit environmental stop: `5459388996`
-- H6/N4 recovery attempt 2 PASS: `5459646454`
-- H7/N5 PASS: `5460760790`
-- H7/N6 PASS: `5460904293`
+- session/thread: `01a048f3-5f69-7000-9325-093dd895ae4c`
 
-Earlier evidence explicitly reused by the current campaign:
+Fresh permission-remediation root:
 
-- Reader N0 PASS: `5437155573`
-- Worker durable PASS/RCA: `5439807120`
-- Worker retained rerun evidence: `5438201247`
-- Investigator N0 PASS: `5454249634`
+- session/thread: `01a04caf-1a3a-7b11-b820-b28f98d4ba4c`
 
-Do not promote unrelated historical evidence merely because Host build/version match. Reuse must follow the current release invalidation rules and the durable campaign rationale.
+The fresh root identity is authoritative and distinct from the original root, but its effective Host permission still resolves to:
 
-## Highest-value reusable facts
+- sandbox: `danger-full-access`
+- active permission profile: `:danger-full-access`
+- permission profile type: `disabled`
+- approval policy: `never`
 
-### Exact-turn V2 rule
+A later verification turn on the same fresh root, `01a04dc6-0350-7bd0-b41a-60598f448f85`, still observed the same effective permission tuple after an operator attempted to select Read Only.
+
+Therefore:
+
+- `permission_state_assurance = verified` means the effective state is reliably observed;
+- it does not mean the state satisfies N8;
+- `effective_root_read_only_verified = false`;
+- `n8_retry_eligible = false`.
+
+Permission provenance remains unknown because the Host evidence currently exposes the effective turn state but not an authoritative source/selection chain.
+
+## N7 accepted result
+
+N7 rollout reconciliation and privacy passed.
+
+Representative accepted rollout chain reused the real N5 interrupt:
+
+- WorkUnit: `N5_WORKER_HOST7119_H7_001`
+- ExecutionBinding: `exec-n5-worker-host7119-h7-001`
+- canonical task: `/root/sd_n5_worker_host7119_h7_001_a1`
+- child thread: `01a04c25-e25e-7311-bb9d-71ca51962b06`
+- interrupt call id: `call_c2HIB8juREnJTFw5k2GOj9XX`
+- current settlement proof: `host-observation:exec-n5-worker-host7119-h7-001:1:1:INTERRUPTED`
+
+N7 proved:
+
+- lifecycle call id, exact target, child identity/path, recognized interrupt result, and current-generation Host settlement can be bound without exposing raw prompt/reasoning data;
+- allowlisted inspection omits assignment text, prompts, assistant output, reasoning, message body, raw arguments/output, source contents, and environment values;
+- stale acceptance evidence is rejected;
+- ambiguous acceptance evidence is rejected;
+- stale writer settlement evidence is rejected;
+- ambiguous WriterLease truth fails closed.
+
+Durable result: Issue #91 comment `5461073938`.
+
+## N8 failure and permission RCA
+
+N8 requires a fresh Advisor review bound to the exact candidate plus authoritative Host-observed strict read-only effective permission.
+
+N8 attempt 1 materialized the correct Advisor route:
+
+- WorkUnit: `N8_ADVISOR_HOST7119_H9_001`
+- ExecutionBinding: `exec-n8-advisor-host7119-h9-001`
+- canonical task: `/root/sd_n8_advisor_host7119_h9_001_a1`
+- child thread: `01a04c85-5e68-7f51-8a1a-eae667ef4e8e`
+- agent type: `subagents_dispatch_advisor`
+- model: `gpt-5.6-sol`
+- effort: `high`
+- `fork_turns=none`
+
+Artifact binding and mutation invalidation passed, and the Advisor caused no repository mutation or nested Agent creation.
+
+The decisive failure was effective permission:
+
+- configured Advisor intent: `sandbox_mode=read-only`, `mutation_authority=none`;
+- Host-observed Advisor sandbox: `danger-full-access`;
+- Host-observed permission profile type: `disabled`;
+- `permission_state_assurance=failed` under the strict N8 read-only requirement;
+- Advisor verdict: `rethink`.
+
+Durable N8 result: Issue #91 comment `5461194287`.
+
+Source-level RCA established:
+
+1. The V2 managed spawn payload does not contain a per-child sandbox/permission field.
+2. Codex applies the Agent role/profile, but spawned children retain the parent turn permission snapshot.
+3. Agent role TOML sandbox values therefore express intent and cannot independently override the parent effective permission on this Host path.
+4. A Full Access parent/root naturally yields a Full Access Advisor child.
+
+Durable RCA: Issue #91 comment `5461253159`.
+
+## Desktop permission-selection RCA
+
+The remediation focus moved from `subagents-dispatch` source to Codex Desktop permission selection and persistence.
+
+Exact embedded Codex source binding:
+
+- tag/runtime: `rust-v0.150.0-alpha.8`
+- upstream commit: `fcbdb57851be70192fd0c21faa9e529146e93ff1`
+
+Relevant source facts:
+
+- `thread/start` accepts a named `permissions` field and can override config-file permission defaults for a fresh root.
+- `thread/settings/update.permissions` is a supported field for subsequent turns.
+- built-in `Read Only` maps to `:read-only` / `PermissionProfile::read_only()` / approval `on-request`.
+- built-in `Full Access` maps to `:danger-full-access` / `PermissionProfile::Disabled` / approval `never`.
+- current Host observations exactly match the built-in Full Access tuple.
+
+A fresh root was successfully created, eliminating old-root reuse as the explanation, but it still resolved to Full Access. A later task-level Read Only selection followed by a new verification turn also remained Full Access.
+
+Current fault boundary is therefore narrower than config parsing alone, but exact provenance is still unproven.
+
+Public OpenAI Codex issues provide corroborating evidence that Desktop permission UI, persisted per-thread state, and live effective thread state can diverge. They are supporting context only and do not replace this campaign's local Host evidence.
+
+Durable RCA / diagnostics:
+
+- source rebind before N7: `5461017966`
+- N7 PASS: `5461073938`
+- N8 FAIL: `5461194287`
+- initial Host permission RCA: `5461253159`
+- old-root remediation failed: `5461285040`
+- fresh root created but still Full Access: `5462769724`
+- Desktop permission-selection RCA: `5462833308`
+- task-level Read Only rebind still Full Access: `5462897305`
+- external/source corroboration RCA: `5462928458`
+
+## N5/N6 retained WriterLease state
+
+The retained runtime state remains important for any future campaign continuation:
+
+N5 Worker:
+
+- WorkUnit: `N5_WORKER_HOST7119_H7_001`
+- ExecutionBinding: `exec-n5-worker-host7119-h7-001`
+- canonical task: `/root/sd_n5_worker_host7119_h7_001_a1`
+- child thread: `01a04c25-e25e-7311-bb9d-71ca51962b06`
+- retained execution lifecycle: `INTERRUPTED`
+- WorkUnit: `CANCELLED`
+
+N6 proved:
+
+- replacement allocation was blocked while the execution-owned WriterLease remained blocking;
+- premature Main writer acquisition was blocked;
+- settled execution ownership was atomically taken over by Main using `execution_lifecycle_v4.takeover_to_main`;
+- the new Main lease reached epoch 2 `HELD` without dual writer ownership or a persistent writer gap;
+- Main released through `writer_lease_v4.release_main_writer`;
+- final WriterLease is Main-owned `RELEASED`, epoch 2;
+- final blocking writer count is 0;
+- N6 replacement probe WorkUnit is `CANCELLED`.
+
+Do not alter or repair these historical qualification states merely to improve diagnostics.
+
+## Exact-turn V2 rule
 
 For every covered Host Agent-control step in N0/N1/N2/N3/N4/N5/N6/N8:
 
@@ -119,96 +244,19 @@ For every covered Host Agent-control step in N0/N1/N2/N3/N4/N5/N6/N8:
 - preserve a privacy-safe contemporaneous schema snapshot before Agent-control;
 - do not reconstruct a missing snapshot from later rollout evidence.
 
-The same numerical `turn_id` may remain current across multiple controls. What matters is a fresh contemporaneous snapshot before each covered control, not forcing a different turn id.
-
-### N2 identity
-
-Representative accepted H4 Reader:
-
-- WorkUnit: `N2_READER_HOST7119_H4_001`
-- ExecutionBinding: `exec-n2-reader-host7119-h4-001`
-- canonical task: `/root/sd_n2_reader_host7119_h4_001_a1`
-- Host child thread: `01a04a7d-adfe-7782-8c9b-237641659503`
-
-Canonical task address plus authoritative Host child-thread evidence establishes release-campaign native identity. Ordinary runtime state must not fabricate/persist a Host thread id that public V2 did not expose.
-
-### N3 admission rejection
-
-The accepted N3 probe established:
-
-- Host capacity source: root-inclusive active V2 session slots = 4;
-- product managed-child ceiling = 4;
-- root + three running pressure Readers filled Host active capacity;
-- the target remained within product managed-child projection and received actual Host rejection: `collab spawn failed: agent thread limit reached`;
-- rejected target had no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime;
-- provisional ExecutionBinding and RESERVED WriterLease rolled back;
-- attempt 1 was not consumed.
-
-Do not invent whether an undifferentiated Host thread-limit error is active-pressure or residency-pressure.
-
-### N4 same-child control
-
-H6 attempt 1 materialized and later failed because of Host account usage capacity. That is retained environmental failure evidence, not an N4 product defect.
-
-Recovery attempt 2 passed N4:
-
-- ExecutionBinding: `exec-n4-reader-host7119-h6-002`
-- attempt: 2
-- canonical task: `/root/sd_n4_reader_host7119_h6_001_a2`
-- child thread: `01a04b34-fece-7363-9518-60d067c21be0`
-- RUNNING Steer used `followup_task`, preserved epoch/followup counters, and had post-guidance same-child consumption evidence;
-- focused correction advanced epoch `0 -> 1` and followup `0 -> 1`;
-- interrupt advanced epoch `1 -> 2` and authoritative lifecycle became `INTERRUPTED`;
-- continuation used `followup_task`, advanced epoch `2 -> 3`, retained followup count 1, and resumed the same child;
-- no replacement child and no attempt 3;
-- final accepted execution is attempt 2.
-
-### N5/N6 WriterLease chain
-
-N5 Worker:
-
-- WorkUnit: `N5_WORKER_HOST7119_H7_001`
-- ExecutionBinding: `exec-n5-worker-host7119-h7-001`
-- canonical task: `/root/sd_n5_worker_host7119_h7_001_a1`
-- child thread: `01a04c25-e25e-7311-bb9d-71ca51962b06`
-
-N5 proved:
-
-- allocation WriterLease `RESERVED`, epoch 1;
-- authoritative RUNNING moved it to `HELD`;
-- prepare interrupt moved control epoch `0 -> 1` and lease to `REVOKING`;
-- interrupt acknowledgement alone did not release writer ownership;
-- stale control-generation observation was rejected with no state mutation;
-- current proof was `host-observation:exec-n5-worker-host7119-h7-001:1:1:INTERRUPTED`;
-- stale lease epoch was rejected;
-- N5 stopped with execution `INTERRUPTED` and execution-owned `REVOKING` lease.
-
-N6 then proved without new Host Agent-control:
-
-- replacement allocation was blocked by the existing WriterLease;
-- premature direct Main writer acquisition was blocked;
-- `execution_lifecycle_v4.takeover_to_main` atomically transferred the settled execution-owned epoch-1 lease to a Main-owned epoch-2 `HELD` lease;
-- no dual-writer state and no persistent writer gap were observed;
-- Main released its qualification lease through `writer_lease_v4.release_main_writer`;
-- final WriterLease is Main-owned `RELEASED`, epoch 2;
-- final blocking writer count is 0;
-- N5 qualification WorkUnit is `CANCELLED`;
-- retained N5 execution lifecycle remains `INTERRUPTED`;
-- N6 replacement probe WorkUnit is `CANCELLED`.
-
-This is the runtime state to preserve when entering H8/N7.
+N8 recovery, if it becomes eligible, requires a fresh Advisor attempt and a fresh exact-turn V2 capability proof before spawn.
 
 ## Permanent operating boundaries
 
-The operator owns Desktop Host lifecycle and UI actions. A Codex task must not terminate/restart the Host that is executing it.
-
-If a Host restart or replacement root is required, stop with `OPERATOR_ACTION_REQUIRED_STOP`, state the exact manual operator action and resume condition, and let the operator perform it outside the qualifying task.
+The operator owns Desktop Host lifecycle and UI actions. A Codex task must not terminate, restart, or update the Host that is executing it.
 
 Issue #91 remains release evidence. This handoff remains continuity documentation. Do not turn either into a second runtime database.
 
 A consumed qualification WorkUnit must not receive another child solely to repair diagnostics, evidence formatting, or report presentation.
 
 Host tool acceptance alone does not prove semantic application. Use authoritative Host activity/lifecycle evidence for materialization, identity, guidance consumption, settlement, and effective permissions.
+
+Requested/configured permission values must never substitute for Host-observed effective permission truth.
 
 ## Canonical truth owners
 
@@ -222,24 +270,33 @@ Host tool acceptance alone does not prove semantic application. Use authoritativ
 - `docs/v4/host-smoke.json`: N0-N8 machine Host oracle.
 - `docs/release-checklist.md`: release gates and invalidation rules.
 - `tasks/real-host-qualification-plan.md`: real Host procedure.
-- `docs/v4/host-qualification-handoff.md`: detailed current campaign handoff through N6.
+- `docs/v4/host-qualification-handoff.md`: detailed historical/current Host handoff through N6.
 - GitHub branch/commit/CI: live source truth.
 - Issue #91: durable external Host evidence journal.
 
 ## Next safe continuation
 
-Next phase is `H8 / N7 rollout reconciliation and privacy`.
+The next phase is permission RCA, not another N8 attempt.
 
-Before doing N7:
+Because this handoff update changes the branch HEAD, first perform a docs-only source rebind:
 
-1. read the current exact `docs/v4/host-smoke.json`, `tasks/real-host-qualification-plan.md`, release invalidation rules, and rollout inspection tooling;
-2. bind the live branch HEAD/tree and verify the three Host qualification digests remain unchanged after documentation-only handoff commits;
-3. refresh exact-source repository CI requirements caused by the documentation-only HEAD change, without re-running N0-N6 solely because the handoff docs changed;
-4. reuse authoritative rollout evidence already generated by the campaign where it satisfies N7;
-5. avoid creating a new Agent unless the N7 machine oracle truly requires evidence absent from the existing campaign;
-6. prove allowlisted inspection binds lifecycle call id, child identity, and result while omitting assignment text and reasoning content;
-7. prove stale or ambiguous rollout evidence cannot authorize acceptance or writer transfer;
-8. record one consolidated H8/N7 result in Issue #91;
-9. hard stop after H8/N7 and await explicit H9/N8 instruction.
+1. bind the new exact branch HEAD/tree after this commit;
+2. verify the commit changed only `headoff.md`;
+3. verify `.codex-plugin/package-integrity.json`, `contracts/policy.json`, and `docs/v4/host-smoke.json` remain unchanged, preserving the three qualification digests;
+4. preserve N0-N7 conclusive evidence under the existing invalidation rules;
+5. keep N8 blocked and H10 not started.
 
-Do not enter N8 early. N8 requires a fresh Advisor review bound to the final exact candidate and authoritative effective Host sandbox/permission truth.
+Then run only the privacy-safe Desktop permission persistence / prompt-time writeback diagnostic against fresh root `01a04caf-1a3a-7b11-b820-b28f98d4ba4c`:
+
+1. zero Agent-control and zero repository mutation;
+2. read only permission-related entries for the exact thread from Desktop persisted state, including the thread heartbeat permission tuple and relevant host-scoped permission-selection / agent-mode keys when present;
+3. inspect only allowlisted Desktop/app-server log metadata for `thread/settings/update`, prompt-time settings writeback, `turn/start`, and resulting active permission profile;
+4. do not emit prompts, messages, reasoning, environment values, raw complete payloads, or unrelated persisted state;
+5. determine whether Read Only was never applied, was applied then overwritten at prompt submission, was acknowledged but ineffective, or persisted correctly but diverged from runtime;
+6. classify the fault boundary as `UI_SELECTION_NOT_APPLIED`, `PROMPT_TIME_OVERWRITE`, `THREAD_SETTINGS_UPDATE_NOT_EFFECTIVE`, `PERSISTED_RUNTIME_DIVERGENCE`, or `UNKNOWN`;
+7. record the conclusive diagnostic in Issue #91;
+8. keep `n8_retry_eligible=false` until authoritative Host evidence proves a changed effective permission basis.
+
+Do not create another Advisor merely to diagnose permission state. Do not enter H10.
+
+When N8 eventually becomes eligible and passes, release closure still requires exact-source CI on the final source plus the required fresh final-source review before any `1.0.0` release/tag decision.
