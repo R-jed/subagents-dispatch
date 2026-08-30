@@ -88,14 +88,13 @@ def test_machine_contract_keeps_current_phase3_semantics_without_parallel_projec
     assert architecture["invariants"]["I08"].startswith("Main is the sole managed coordinator")
 
 
-def test_n8_requires_effective_advisor_read_only_truth():
+def test_final_review_owns_advisor_permission_assurance_outside_host_campaign():
     contract = read_json(HOST_SMOKE)
-    n8 = next(probe for probe in contract["required_probes"] if probe["id"] == "N8")
-    joined = " ".join(n8["requires"])
-
-    assert "effective Advisor sandbox and permission state" in joined
-    assert "requested profile sandbox" in joined
+    assert [probe["id"] for probe in contract["required_probes"]] == [f"N{index}" for index in range(8)]
+    assert all(probe["id"] != "N8" for probe in contract["required_probes"])
 
     final_review = (ROOT / "contracts" / "final-review.md").read_text(encoding="utf-8")
-    assert "effective sandbox and permission state satisfy the read-only boundary" in final_review
+    assert "enforced_read_only" in final_review
+    assert "artifact_immutability_fallback" in final_review
+    assert "hard_isolation_required" in final_review
     assert "INSUFFICIENT_EVIDENCE" in final_review

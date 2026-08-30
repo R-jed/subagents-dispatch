@@ -90,6 +90,8 @@ The ceiling is not a target. Main chooses which ready responsibility to delegate
 
 Zero children is valid when delegation does not add enough value.
 
+Use the minimum useful fanout. One child is the ordinary delegated shape when exactly one distinct responsibility benefits from delegation. Multiple children may start together only when their responsibilities are independently ready, non-duplicative, safe to overlap, and materially benefit from concurrency. Do not impose one-child-first when doing so would unnecessarily serialize genuinely independent useful work.
+
 Do not spawn a child when:
 
 - another active owner already covers the same responsibility;
@@ -97,6 +99,8 @@ Do not spawn a child when:
 - the work is speculative and likely to be invalidated by an unresolved dependency;
 - delegation mainly adds handoff or integration cost;
 - the role is being selected because a slot is free rather than because its capability is needed.
+
+Once a child owns a responsibility, Main does not perform the same investigation or implementation in parallel. Main may inspect enough evidence to verify, integrate, or detect a concrete gap, but duplicate execution is not a confidence mechanism.
 
 ## 7. Consent is for material expansion
 
@@ -202,7 +206,9 @@ Ordinary Orchestrate does not scan Codex sessions for every child.
 
 Configured read-only is least-privilege intent. It does not prove Host-enforced isolation.
 
-When hard read-only isolation is required, proceed only when actual Host evidence proves an enforced boundary. If effective read-only is unknown, do not combine that child with a concurrent canonical-workspace writer under an assumption of isolation. A strict read-only Final Review remains unavailable until the Advisor's effective Host permission state is proven suitable.
+When hard read-only isolation is required, proceed only when actual Host evidence proves an enforced boundary. Hard isolation is required only when the user, product contract, or acceptance condition explicitly requires Host-enforced containment rather than behavioral non-mutation plus artifact verification. If effective read-only is unknown, do not combine that child with a concurrent canonical-workspace writer under an assumption of isolation.
+
+Final Review has its own assurance modes in `final-review.md`. A broader Host permission state never grants semantic mutation authority and may satisfy ordinary Final Review only through the exact-artifact immutability fallback defined there. It never satisfies a hard-isolation requirement.
 
 Broader Host capability never grants semantic write ownership, settles `UNKNOWN`, or bypasses WriterLease.
 

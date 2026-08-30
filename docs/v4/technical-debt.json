@@ -14,7 +14,7 @@
       "priority": "P2",
       "status": "OPEN_POST_N0_OBSERVATION",
       "current_condition": "Doctor can validate caller-supplied Native Host capability evidence, but ordinary users do not yet have a simple product-owned capture flow",
-      "target": "Use N0-N8 Host observations to decide whether a smaller evidence-capture UX is justified without introducing another runtime control plane"
+      "target": "Use N0-N7 Host observations to decide whether a smaller evidence-capture UX is justified without introducing another runtime control plane"
     },
     {
       "id": "TD-V4-EXPERIMENT-PLANE-CONSOLIDATION",
@@ -31,5 +31,5 @@
       "target": "If the supported threat model expands to hostile same-user namespace mutation, evaluate descriptor-relative POSIX operations such as dir_fd/openat with O_NOFOLLOW and fstat plus platform-specific Windows handling and dedicated race tests; do not add this complexity to release-critical Native Core without evidence that the stronger containment boundary is required"
     }
   ],
-  "release_policy": "Open P2 experiment/diagnostic usability debt and P3 storage hardening debt do not replace or relax the exact-candidate N0-N8 Host release gate. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final; P3 hardening remains nonblocking unless the supported threat model is expanded to require hostile same-user namespace containment."
+  "release_policy": "Open P2 experiment/diagnostic usability debt and P3 storage hardening debt do not replace or relax the N0-N7 Host qualification gate or the separate exact-source Final Review. Any debt that changes Native Core runtime semantics must be resolved before candidate-bound Host evidence is considered final; P3 hardening remains nonblocking unless the supported threat model is expanded to require hostile same-user namespace containment."
 }

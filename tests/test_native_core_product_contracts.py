@@ -38,11 +38,11 @@ def test_public_installation_commands_match_current_cli_surface():
         assert "--codex-home" in result.stdout
 
 
-def test_release_checklist_uses_same_n0_n8_gate_as_machine_contract():
+def test_release_checklist_uses_same_n0_n7_gate_as_machine_contract():
     smoke = json.loads(
         (ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8")
     )
-    expected = [f"N{index}" for index in range(9)]
+    expected = [f"N{index}" for index in range(8)]
     assert [item["id"] for item in smoke["required_probes"]] == expected
 
     checklist = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
@@ -56,7 +56,7 @@ def test_real_host_procedure_cannot_invent_release_gates():
 
     assert "`docs/v4/host-smoke.json` is the machine-readable authority." in checklist
     assert (
-        "Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N8 "
+        "Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N7 "
         "product probe passes or fails."
     ) in plan
     assert (

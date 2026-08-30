@@ -20,4 +20,4 @@ The current exact PR head must pass the complete platform matrix and aggregate `
 
 After the exact head is green, perform a fresh adversarial review across correctness, simplicity, architecture, security, and performance. Any required finding changes the candidate and therefore requires another exact-head verification run.
 
-Real Host N0-N8 remains a separate release gate. It resumes only after the final merged runtime basis is frozen, qualification identity is re-evaluated in Issue #91, and the next Host action receives an explicit `REUSE | RERUN | NOT_RUN` preflight decision.
+Real Host N0-N7 remains a separate qualification gate. It resumes only after the final merged runtime basis is frozen, qualification identity is re-evaluated in Issue #91, and the next Host action receives an explicit `REUSE | RERUN | NOT_RUN` preflight decision. The exact-source Final Review runs separately after Host qualification.

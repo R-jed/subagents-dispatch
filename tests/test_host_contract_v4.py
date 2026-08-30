@@ -172,17 +172,17 @@ def test_release_identity_binds_native_host_contract_digest():
     release = load_module("native_release_contract", "release_evidence_v4.py")
     identity = release.current_candidate_identity(ROOT)
 
-    assert release.HOST_CAMPAIGN_CONTRACT_VERSION == "4.0.0-native-host-smoke-1"
-    assert release.REQUIRED_HOST_PROBES == tuple(f"N{index}" for index in range(9))
+    assert release.HOST_CAMPAIGN_CONTRACT_VERSION == "4.0.0-native-host-smoke-2"
+    assert release.REQUIRED_HOST_PROBES == tuple(f"N{index}" for index in range(8))
     assert "host_contract_sha256" in identity
     assert len(identity["host_contract_sha256"]) == 64
 
 
-def test_machine_host_contract_is_native_core_n0_n8():
+def test_machine_host_contract_is_native_core_n0_n7():
     contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
 
-    assert contract["gate_id"] == "v4-real-host-n0-n8"
-    assert [probe["id"] for probe in contract["required_probes"]] == [f"N{index}" for index in range(9)]
+    assert contract["gate_id"] == "v4-real-host-n0-n7"
+    assert [probe["id"] for probe in contract["required_probes"]] == [f"N{index}" for index in range(8)]
     assert "activation_manifest" not in contract
     assert "production_manifest" not in contract
 

@@ -106,7 +106,6 @@ N4 RUNNING Steer via followup_task plus same-child correction and continue
 N5 interrupt and settlement observation
 N6 writer takeover blocked until settlement
 N7 rollout reconciliation and privacy allowlist
-N8 final Advisor review and effective sandbox truth
 ```
 
 For N0 H1/H2 single-profile probes, use the maintainer-only qualification guard with a local `qualification_run_ref` in the form `qualification:<campaign>:<h1|h2>:<profile>`. This local ref binds the first ExecutionBinding before Host spawn without making an Issue comment id part of runtime or qualification-tool semantics. A consumed qualification WorkUnit cannot be fresh-retried merely to repair bookkeeping or evidence presentation.
@@ -117,13 +116,13 @@ For N4, successful `followup_task` tool-call acceptance is not sufficient by its
 
 Offline CI, source inspection, profile configuration, model self-report or evidence from another Host qualification basis cannot substitute for required real Host observations. Profile configuration and project `max_depth=1` establish product intent but do not prove Host-hard descendant isolation.
 
-Configured read-only profiles do not by themselves prove Host-enforced read-only. N8 must establish the Advisor's actual effective permission state before strict read-only Final Review can pass.
+Final Review is not a Host-campaign probe. The fresh final-source Advisor review runs after N0-N7 and records the Advisor's actual permission observation. When the Host enforces read-only, use the `enforced_read_only` assurance path. When the Host positively reports broader write capability, the review may use `artifact_immutability_fallback` only when hard isolation is not required, Advisor semantic mutation authority remains `none`, the review prompt explicitly forbids edits and external side effects, the exact review artifact is unchanged before/after, and the broader permission state is disclosed as residual risk. Unobservable permission, hard-isolation mismatch, or artifact mutation is `INSUFFICIENT_EVIDENCE`/failure, not PASS.
 
 ## 5. Stability and invalidation
 
 Classify every post-evidence change before deciding whether Host work must be repeated.
 
-If `.codex-plugin/package-integrity.json`, `contracts/policy.json` or `docs/v4/host-smoke.json` changes in a way that changes its qualification digest, the Host qualification basis changed. Refresh the qualification identity and repeat every affected Host probe.
+If `.codex-plugin/package-integrity.json`, `contracts/policy.json` or `docs/v4/host-smoke.json` changes in a way that changes its qualification digest, the Host qualification basis changed. The release verifier must also regenerate the runtime-file projection and reject a stale package manifest that omits a newly added runtime file. Refresh the qualification identity and repeat every affected Host probe.
 
 If only source outside that qualification basis changes, such as `headoff.md`, ordinary documentation, or release tooling that is not part of the shipped package manifest, keep the existing Host campaign only when all three qualification digests are proven unchanged. Refresh the exact release source commit/tree, rerun the repository checks affected by the source change, and run a fresh Final Review against the final source state.
 
@@ -153,7 +152,25 @@ unsupported pre-1.0 state rejection
 
 ## 6. Final Review and release evidence
 
-After deterministic checks and N0-N8 pass for the current Host qualification identity, run a fresh independent Final Review against the exact final release source under `contracts/final-review.md`.
+After deterministic checks and N0-N7 pass for the current Host qualification identity, bind a Main-owned pre-review request and then run one fresh independent Final Review against the exact final release source under `contracts/final-review.md`.
+
+The pre-review request is created before Advisor launch and must bind the exact final commit/tree, current `review_artifact_id`, `hard_isolation_required`, the required no-edit/no-external-side-effect instruction, exact Advisor agent type, `fork_turns=none`, fresh context, and an external evidence reference. The Final Review result must reference the canonical SHA-256 of that request. The verifier checks static request/result/current-source consistency; it does not independently prove temporal ordering. The trusted release/CI operator must preserve external evidence showing the request existed before Advisor launch and the review result came afterward. Missing chronology evidence keeps the release incomplete.
+
+The Final Review evidence must bind the exact final commit/tree and current `review_artifact_id`, and record at minimum:
+
+```text
+verdict = ship
+review_request_sha256
+permission_observation
+assurance_mode
+artifact_unchanged = true
+hard_isolation_required
+no_edit_instruction = true
+residual_risk
+evidence_ref
+```
+
+`artifact_immutability_fallback` is an exact-candidate safeguard, not a claim of Host-enforced isolation. `review-artifact.py` intentionally excludes ignored build/cache artifacts and cannot prove absence of external side effects.
 
 Then verify the external release evidence with:
 
@@ -161,7 +178,7 @@ Then verify the external release evidence with:
 <python-3.11+> scripts/release_evidence_v4.py --repo <candidate-root> --evidence <external-release-evidence>
 ```
 
-The release envelope must bind the final Git commit/tree and current qualification digests. Its nested Host campaign binds only the Host qualification identity, environments and N0-N8 results. The verifier must remain non-zero for absent, stale, incomplete or differently bound evidence.
+The release envelope must bind the final Git commit/tree and current qualification digests. Its nested Host campaign binds only the Host qualification identity, environments and N0-N7 results. The separate Final Review object binds the exact release source and its assurance evidence. The verifier must remain non-zero for absent, stale, incomplete, permission-ambiguous, mutated, hard-isolation-incompatible, or differently bound evidence.
 
 ## 7. Installed-product gate
 
@@ -172,14 +189,14 @@ Also exercise explicit update/check documentation against the shipped CLI surfac
 ## 8. Final sequence
 
 ```text
-final release-source repository matrix PASS
+merge approved source into the release line and freeze the exact release commit
+final release-source repository matrix PASS on that frozen commit
 product-surface consistency PASS
-real Host N0-N8 PASS on current Host qualification identity
+real Host N0-N7 PASS on current Host qualification identity
 fresh final-source Advisor Final Review PASS
 external release evidence verifies
 installed Doctor has no blocking failure
 human two-Skill App observation PASS
-merge approved source
 create v1.0.0 versioned semantic-version tag
 verify Marketplace resolves the exact tagged source
 publish release notes

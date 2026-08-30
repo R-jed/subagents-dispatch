@@ -21,14 +21,14 @@ def requirements(probe: dict) -> str:
     return " ".join(probe["requires"]).lower()
 
 
-def test_native_campaign_is_exactly_n0_through_n8_and_stays_pending_in_repo():
+def test_native_campaign_is_exactly_n0_through_n7_and_stays_pending_in_repo():
     current = payload()
 
-    assert current["schema_version"] == "4.0.0-native-host-smoke-1"
-    assert current["gate_id"] == "v4-real-host-n0-n8"
+    assert current["schema_version"] == "4.0.0-native-host-smoke-2"
+    assert current["gate_id"] == "v4-real-host-n0-n7"
     assert current["status"] == "PENDING"
     assert current["results"] == {}
-    assert [item["id"] for item in current["required_probes"]] == [f"N{index}" for index in range(9)]
+    assert [item["id"] for item in current["required_probes"]] == [f"N{index}" for index in range(8)]
 
 
 def test_environment_binding_uses_native_session_and_thread_identity():
@@ -76,10 +76,9 @@ def test_same_child_interrupt_and_writer_settlement_are_explicitly_sequenced():
     assert "single-writer invariant" in requirements(current["N6"])
 
 
-def test_managed_depth_rollout_privacy_and_sandbox_truth_have_separate_gates():
+def test_managed_depth_and_rollout_privacy_have_separate_gates():
     current = probes()
     n1 = requirements(current["N1"])
-    n8 = requirements(current["N8"])
 
     assert current["N1"]["operation"] == "managed delegation depth"
     assert "canonical managed spawn route" in n1
@@ -89,8 +88,7 @@ def test_managed_depth_rollout_privacy_and_sandbox_truth_have_separate_gates():
     assert "is fail" in n1
     assert "generic v2 recursive-capability probes" in n1
     assert "allowlisted inspection omits assignment text and reasoning content" in requirements(current["N7"])
-    assert "effective advisor sandbox and permission state" in n8
-    assert "requested profile sandbox" in n8
+    assert "N8" not in current
 
 
 def test_h1_h2_require_single_probe_guard_without_issue_comment_runtime_dependency():

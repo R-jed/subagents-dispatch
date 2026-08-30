@@ -7,11 +7,13 @@ description: Coordinate complex coding tasks with Codex Native Subagents when de
 
 Use this Skill as the single explicit orchestration entrypoint. `Doctor` is the only other public Skill.
 
-First decide whether delegation helps the requested task. Small, tightly coupled, or already well-understood work may stay entirely in Main. Do not create children merely because capacity exists.
+First decide whether delegation helps the requested task. Small, tightly coupled, or already well-understood work may stay entirely in Main. Main-only is preferred when delegation adds no value. Do not create children merely because capacity exists.
 
 For plan-only requests, read `../../contracts/policy.json` and `../../contracts/routing.md`, then return a provisional WorkUnit and dependency shape without creating orchestration state, provisioning Agent profiles, acquiring WriterLease, or invoking Host lifecycle tools.
 
 When delegation adds value, read `../../contracts/policy.json` and `../../contracts/routing.md`. Main creates one or more WorkUnits and selects one fixed managed profile explicitly for each delegated responsibility. Runtime code validates that selection. Do not dynamically change child model or reasoning effort and do not apply an automatic Luna, Terra, Sol escalation ladder.
+
+Use the minimum useful fanout. One child is the common shape when exactly one distinct responsibility benefits from delegation. Multiple children may launch immediately only for independently ready, non-duplicative responsibilities that are safe to overlap and materially benefit from concurrency. Do not hard-code one-child-first and do not serialize valuable independent work merely to minimize the child count.
 
 The exact managed Host selectors are part of the product contract:
 
@@ -31,7 +33,9 @@ Main owns dispatch judgment. Deterministic helpers may report the ready frontier
 
 The canonical mutable workspace has one active managed WriterLease. Independent read-only work may overlap with other work only when effective read-only behavior and responsibility isolation are verified. If that evidence is missing, use the conservative serial path. Multiple writers require Host-verifiable isolated workspaces and clear integration boundaries; file-list separation alone is insufficient.
 
-Main always owns the user goal, scope, integration, WorkUnit acceptance, irreversible external side effects, and final response. Host completion proves candidate lifecycle completion only. Accept results after checking relevant evidence and the actual artifact. Do not duplicate an already-owned responsibility.
+Main always owns the user goal, scope, integration, WorkUnit acceptance, irreversible external side effects, and final response. Host completion proves candidate lifecycle completion only. Accept results after checking relevant evidence and the actual artifact. Delegated work substitutes for Main doing that responsibility; verify and integrate it without redoing the same investigation or implementation unless a concrete evidence gap requires renewed work.
+
+When useful to the user, state one brief route rationale before execution, such as `Main-only: delegation adds no value` or `Main + 2 Readers: two independent read-only evidence tracks can overlap`. This is presentation only; do not persist a `solo`, `delegate`, `audit`, `full`, or other route-mode field in runtime state.
 
 Before the first child spawn, require the exact selected managed profile and never substitute a generic Agent type. When a required profile is cleanly absent, use the bounded plugin-owned provisioning path and return `RESTART_REQUIRED` for that task. A fresh task must expose the exact managed `agent_type`; if the Host cannot expose or honor it, report the Host limitation and stop.
 

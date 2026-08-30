@@ -89,6 +89,6 @@ Human documents describe how to use or reason about those owners. They should no
 
 ## Release boundary
 
-Repository tests establish deterministic implementation behavior. Real Host N0-N8 establishes the Host behavior the release depends on. Final Review, installed-product verification and external evidence bind to the exact candidate after those earlier gates are satisfied.
+Repository tests establish deterministic implementation behavior. Real Host N0-N7 establishes the Host behavior the release depends on. One separate Final Review then binds independent assurance to the exact final release source; installed-product verification and external evidence close the remaining release gates.
 
 The release sequence is maintained in `docs/release-checklist.md`. New development sessions should read root `headoff.md` first for project background, important workflow history, current progress and next direction. Historical design records belong in Git history and `docs/history/`.

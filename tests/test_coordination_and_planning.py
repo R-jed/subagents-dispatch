@@ -11,6 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 POLICY = ROOT / "contracts" / "policy.json"
 ROUTING_CASES = ROOT / "evals" / "routing-cases.json"
+ROUTING = ROOT / "contracts" / "routing.md"
+GUARDRAILS = ROOT / "contracts" / "guardrails.md"
+ORCHESTRATE_SKILL = ROOT / "skills" / "orchestrate" / "SKILL.md"
+ARCHITECTURE = ROOT / "docs" / "v4" / "architecture.json"
 
 
 def load_module(name: str, filename: str):
@@ -80,6 +84,35 @@ def test_plan_only_keeps_zero_child_as_a_valid_nonexecuting_outcome():
     assert plan["writer_lease_acquired"] is False
     assert plan["host_actions"] == []
     assert plan["work_units"] == []
+
+
+def test_minimum_useful_fanout_contract_preserves_zero_one_and_parallel_shapes():
+    cases = {case["id"]: case for case in json.loads(ROUTING_CASES.read_text(encoding="utf-8"))["cases"]}
+    assert cases["single-file-clear-fix"]["expected"]["nodes"] == []
+    assert len(cases["bounded-read-uses-reader"]["expected"]["nodes"]) == 1
+    assert len(cases["three-independent-readers-can-fanout"]["expected"]["nodes"]) == 3
+
+    routing = ROUTING.read_text(encoding="utf-8")
+    guardrails = GUARDRAILS.read_text(encoding="utf-8")
+    skill = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
+    for text in (routing, guardrails, skill):
+        assert "minimum useful fanout" in text
+    assert "Delegated work substitutes for Main doing that same responsibility" in routing
+    assert "Do not impose one-child-first" in guardrails
+    assert "Do not hard-code one-child-first" in skill
+
+
+def test_route_rationale_is_presentation_only_not_runtime_state():
+    routing = ROUTING.read_text(encoding="utf-8")
+    skill = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
+    architecture = json.loads(ARCHITECTURE.read_text(encoding="utf-8"))
+
+    assert "one brief route rationale" in routing
+    assert "one brief route rationale" in skill
+    assert "presentation only" in routing
+    assert "presentation only" in skill
+    assert "route_mode" not in architecture["routing"]
+    assert architecture["routing"]["route_rationale_persisted"] is False
 
 
 def test_v4_runtime_separates_workunit_execution_and_writer_truth():

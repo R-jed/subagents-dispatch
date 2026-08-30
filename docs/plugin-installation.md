@@ -54,7 +54,7 @@ Native Core relies on Codex Native Subagent lifecycle primitives and current Hos
 
 When execution readiness must be proven, Doctor can consume a caller-supplied current Host capability snapshot. Missing Host evidence remains `UNKNOWN`; configured files or model self-report do not become observed Host truth.
 
-Release qualification uses the candidate-bound N0-N8 campaign in `docs/v4/host-smoke.json`.
+Release qualification uses the candidate-bound N0-N7 Host campaign in `docs/v4/host-smoke.json`, followed by the separate exact-release-source Final Review in `contracts/final-review.md`.
 
 ## Doctor
 

@@ -47,7 +47,7 @@ The final repository matrix must checkout and verify the exact PR/release head c
 
 ```text
 scripts/host_capabilities.py             Host capability normalization only
-docs/v4/host-smoke.json                 N0-N8 real Host machine contract
+docs/v4/host-smoke.json                 N0-N7 real Host machine contract
 docs/v4/architecture.json               machine-readable product architecture
 docs/architecture.md                    human-readable architecture
 docs/release-checklist.md               release sequence
@@ -95,7 +95,7 @@ Keep all current managed-profile leaf requests and behavioral instructions. Keep
 - Focused tests prove `managed_child_containment=failed|unknown|omitted` no longer blocks Host execution readiness when all ordinary native capabilities are valid.
 - Invalid containment values still fail closed when the optional diagnostic field is supplied.
 - Contract tests prove N1 requires actual managed-profile no-descendant behavior and rejects a generic forced-spawn oracle as sufficient product evidence.
-- Existing lifecycle, writer, identity, UNKNOWN, and N8 strict read-only behavior remain unchanged.
+- Existing lifecycle, writer, identity, and UNKNOWN behavior remain unchanged. Final Review permission assurance is owned separately by `contracts/final-review.md`.
 - Full cross-platform CI must pass on the exact final head.
 
 ## Boundaries
@@ -105,7 +105,7 @@ Always:
 - preserve Main as sole managed coordinator;
 - preserve delegation depth 1 as a product invariant;
 - preserve UNKNOWN fail-closed behavior where actual materialization/lifecycle/identity is ambiguous;
-- preserve N8 effective read-only Host evidence requirements;
+- preserve Final Review fail-closed permission evidence requirements;
 - retain historical Host recursion evidence as platform evidence.
 
 Ask first:
@@ -126,6 +126,6 @@ Never:
 - `host_capabilities.py` no longer makes hard Host descendant containment an ordinary execution-readiness prerequisite.
 - N1 machine contract tests the actual managed-child single-layer behavior described above.
 - Current architecture and release docs distinguish project delegation policy from latent Host V2 recursion.
-- No Orchestrate spawn, WorkGraph, WriterLease, recovery, fixed profile, or N8 semantics are changed by the N1 correction itself.
+- No Orchestrate spawn, WorkGraph, WriterLease, recovery, fixed profile, or Final Review semantics are changed by the N1 correction itself.
 - Focused tests and the complete GitHub Actions matrix pass on the exact final head.
 - Fresh adversarial review finds no contract path that permits managed nested delegation.

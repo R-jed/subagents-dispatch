@@ -73,9 +73,9 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
     architecture = json.loads(ARCHITECTURE.read_text(encoding="utf-8"))
 
     assert smoke["status"] == "PENDING"
-    assert smoke["gate_id"] == "v4-real-host-n0-n8"
+    assert smoke["gate_id"] == "v4-real-host-n0-n7"
     assert smoke["results"] == {}
-    assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{number}" for number in range(9)]
+    assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{number}" for number in range(8)]
     assert architecture["release"]["host_campaign"] == [
         "N0_route_model_effort_fork_turns",
         "N1_managed_delegation_depth",
@@ -85,12 +85,34 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
         "N5_interrupt_settlement",
         "N6_writer_takeover_settlement",
         "N7_rollout_reconciliation_privacy",
-        "N8_final_review_and_effective_sandbox_truth",
     ]
+    assert architecture["release"]["final_review_gate"] == "fresh_exact_release_source_review_after_host_qualification"
+    assert architecture["review"]["assurance_modes"] == [
+        "enforced_read_only",
+        "artifact_immutability_fallback",
+    ]
+    assert architecture["review"]["hard_isolation_allows_fallback"] is False
+    request_binding = architecture["review"]["pre_review_request_binding"]
+    assert request_binding["owner"] == "main"
+    assert request_binding["created_before_reviewer_spawn"] is True
+    assert request_binding["review_result_requires_request_digest"] is True
+    assert request_binding["chronology_owner"] == "trusted_release_ci_operator"
+    assert request_binding["verifier_proves_pre_spawn_time"] is False
     assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
     assert architecture["host_truth"]["capacity_owner"] == "codex_host"
     assert architecture["host_truth"]["managed_child_collaboration_surface_owner"] == "codex_host"
     assert architecture["host_truth"]["effective_permission_owner"] == "codex_host"
+
+
+def test_release_sequence_freezes_source_before_exact_source_gates():
+    text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
+    freeze = text.index("merge approved source into the release line and freeze the exact release commit")
+    matrix = text.index("final release-source repository matrix PASS on that frozen commit")
+    host = text.index("real Host N0-N7 PASS on current Host qualification identity")
+    review = text.index("fresh final-source Advisor Final Review PASS")
+    evidence = text.index("external release evidence verifies")
+
+    assert freeze < matrix < host < review < evidence
 
 
 def test_machine_host_contract_owns_managed_depth_and_running_steer_requirements():

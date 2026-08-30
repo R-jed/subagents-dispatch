@@ -47,4 +47,4 @@ Do not:
 
 ## Verification
 
-Repository completion requires the live GitHub exact-head matrix to pass. Tests are necessary but the final review must also check correctness, simplicity, architecture, security, and performance. Host N0-N8, Final Review, installed-product verification, and human App observation remain later release gates under `docs/release-checklist.md`.
+Repository completion requires the live GitHub exact-head matrix to pass. Tests are necessary but the final review must also check correctness, simplicity, architecture, security, and performance. Host N0-N7, the separate exact-source Final Review, installed-product verification, and human App observation remain later release gates under `docs/release-checklist.md`.

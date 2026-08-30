@@ -14,7 +14,7 @@ Keep one owner per semantic fact:
 - `contracts/policy.json`: fixed profile and product policy values.
 - `contracts/state.md`: current state schema and clean-break boundary.
 - `docs/v4/architecture.json`: complete Native Core V4 machine architecture and runtime owner map.
-- `docs/v4/host-smoke.json`: candidate-bound N0-N8 real-Host release oracle.
+- `docs/v4/host-smoke.json`: candidate-bound N0-N7 real-Host qualification oracle.
 - `docs/v4/technical-debt.json`: explicit Native Core V4 technical debt.
 - GitHub: current branch, PR, candidate and CI state.
 - Issue #91: real-Host evidence and `REUSE | RERUN | NOT_RUN` preflight decisions.
@@ -79,7 +79,7 @@ Use the smallest relevant owner:
 - `contracts/state.md`: current Native Core state schema.
 - `contracts/final-review.md`: exact-candidate independent review.
 
-Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N8 Host evidence, Final Review and benchmark/calibration workflows stay outside ordinary Doctor authority.
+Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N7 Host evidence, the separate exact-source Final Review, and benchmark/calibration workflows stay outside ordinary Doctor authority.
 
 ## Change discipline
 

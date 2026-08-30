@@ -2,11 +2,11 @@
 
 Status: PLANNED. This document defines the human execution procedure for the first public Plugin `1.0.0` real-Host campaign. It does not authorize a Host action by itself.
 
-`docs/v4/host-smoke.json` is the machine authority for N0 through N8. `docs/release-checklist.md` is the release-gate and invalidation authority. This plan defines how the operator and the Codex task cooperate without crossing Host lifecycle boundaries.
+`docs/v4/host-smoke.json` is the machine authority for N0 through N7. `docs/release-checklist.md` is the release-gate and invalidation authority. This plan defines how the operator and the Codex task cooperate without crossing Host lifecycle boundaries.
 
 ## Qualification gate authority
 
-Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N8 product probe passes or fails.
+Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N7 product probe passes or fails.
 
 Procedure-only or diagnostic evidence may explain a verdict, but it cannot create a new product PASS/FAIL gate.
 
@@ -33,7 +33,7 @@ Operator-only actions include:
 - choose the repository/workspace in the Desktop UI;
 - approve OS or UI actions that cannot safely be performed inside the current Codex task.
 
-Codex owns actions that can complete inside the current live task without destroying its own execution context. These include repository inspection, package/profile verification, Host metadata inspection, runtime evidence collection, qualification guard calls, managed Agent-control steps explicitly required by N0 through N8, and result assembly.
+Codex owns actions that can complete inside the current live task without destroying its own execution context. These include repository inspection, package/profile verification, Host metadata inspection, runtime evidence collection, qualification guard calls, managed Agent-control steps explicitly required by N0 through N7, and result assembly.
 
 Codex MUST NOT quit, restart, relaunch, or update the Desktop Host. Codex MUST NOT claim it created a post-restart replacement root task. A task that determines a Host restart or replacement root is required must stop and return:
 
@@ -99,7 +99,7 @@ Write to Issue #91 only when one of these durable events occurs:
 
 - H0 environment binding reaches a conclusive result or meaningful stop;
 - an H1/H2 profile probe reaches a conclusive result or meaningful stop;
-- a later N1 through N8 phase reaches a conclusive result or meaningful stop;
+- a later N1 through N7 phase reaches a conclusive result or meaningful stop;
 - a material Host, package, profile, contract, or source invalidation changes what can be reused;
 - an RCA or defect materially changes the qualification procedure.
 
@@ -346,28 +346,20 @@ Avoid creating new Agents unless the machine contract truly requires separately 
 
 Mandatory stop: `H8_STOP`.
 
-## Phase H9: N8 Advisor effective sandbox truth
+After H8, the Host qualification campaign is complete. Keep the Host qualification identity frozen unless an invalidation rule requires a rerun. Final Review is not an N-probe and may be refreshed independently after a source-only change that leaves the qualification identity unchanged.
 
-1. freeze the candidate source before the N8 probe;
-2. establish exact-turn V2 capability and preserve the contemporaneous capability snapshot required above;
-3. spawn the canonical Advisor on the exact candidate artifact;
-4. observe effective Host sandbox and permission state;
-5. require effective read-only semantics for the strict Final Review boundary;
-6. record broader Host permission behavior as a release limitation when applicable;
-7. bind the review verdict to the exact candidate artifact.
-
-Mandatory stop: `H9_STOP`.
-
-After H9, keep the release source frozen through Final Review and release closure. A later source change requires normal invalidation classification.
-
-## Phase H10: release closure
+## Phase H9: Final Review and release closure
 
 1. verify final release-source CI and exact source identity;
-2. run the fresh independent Final Review against the final source;
-3. verify external release evidence;
-4. run installed-product Doctor and human two-Skill observation;
-5. make the explicit release decision;
-6. create `v1.0.0`, verify Marketplace resolves the exact tag, and publish release notes only after every required gate passes.
+2. capture the exact review artifact id and determine whether hard isolation is explicitly required;
+3. before Advisor spawn, persist the Main-owned pre-review request required by `contracts/final-review.md`, binding the exact source/artifact, `hard_isolation_required`, explicit no-edit/no-external-side-effect instruction, `subagents_dispatch_advisor`, `fork_turns=none`, fresh context, and a pre-launch external evidence reference whose chronology is preserved by the trusted release/CI operator;
+4. run one fresh independent Advisor Final Review against that exact bound request and require the result to reference the canonical request SHA-256;
+5. record the actual permission observation and use `enforced_read_only` when the Host proves read-only, or `artifact_immutability_fallback` only when broader permission is observed, the bound pre-review request says hard isolation is false, and the exact artifact remains unchanged;
+6. treat missing trusted chronology evidence, request/result mismatch, unobservable permission, hard-isolation mismatch, reviewer mutation, or changed artifact as `INSUFFICIENT_EVIDENCE`/stop;
+7. verify external release evidence;
+8. run installed-product Doctor and human two-Skill observation;
+9. make the explicit release decision;
+10. create `v1.0.0`, verify Marketplace resolves the exact tag, and publish release notes only after every required gate passes.
 
 ## Invalidation rules
 

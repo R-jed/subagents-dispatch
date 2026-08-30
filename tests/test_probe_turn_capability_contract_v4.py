@@ -44,7 +44,6 @@ def test_probe_turn_capability_precondition_covers_native_agent_control_probes()
         "N4",
         "N5",
         "N6",
-        "N8",
     ]
 
     probes = {probe["id"]: probe for probe in contract["required_probes"]}

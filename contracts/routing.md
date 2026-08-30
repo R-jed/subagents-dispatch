@@ -6,9 +6,13 @@ This is the current V4 routing contract. The main session owns the user goal, de
 
 ## Delegation value
 
-Keep work in the main session when a child would mostly duplicate context, add handoff cost, or provide no useful isolation, parallelism, capability uplift, read-heavy investigation, or independent judgment. Zero children is a normal outcome.
+Keep work in the main session when a child would mostly duplicate context, add handoff cost, or provide no useful isolation, parallelism, capability uplift, read-heavy investigation, or independent judgment. Main-only is preferred when delegation adds no value. Zero children is a normal outcome.
 
 Task size, file count, expense, or a description such as complex does not by itself justify delegation. The main session creates only responsibilities that can make useful progress and may add more WorkUnits later when new independent work becomes clear.
+
+Use the minimum useful fanout, not the fewest children as an end in itself. When one distinct responsibility benefits from delegation, one child is the common shape. Multiple children may launch immediately only when multiple responsibilities are independently ready, non-duplicative, safe to overlap under the current permission and writer boundaries, and the concurrency materially improves the task path, evidence coverage, or latency. Do not serialize genuinely valuable independent work merely to satisfy a one-child-first habit.
+
+Delegated work substitutes for Main doing that same responsibility. Main verifies returned evidence, integrates across responsibility boundaries, and owns acceptance; it does not redo the child's investigation or implementation merely to recreate confidence. Re-investigate only when verification finds a concrete gap, stale evidence, conflict, or invalid result.
 
 WorkGraph is the structural source of truth for one or many WorkUnits.
 
@@ -71,6 +75,8 @@ The ceiling is a safety limit, not a target. Codex V2 session concurrency includ
 Deterministic code may report the ready frontier, current active project-child count, Host readiness, known Host session capacity, WriterLease state, and a conservative available-slot projection. It does not rank the frontier, choose a WorkUnit, create critical-path priority, apply a fixed acceptance-backlog threshold, or emit automatic launch actions. The main session owns those decisions.
 
 Spare capacity never justifies decorative work. If unprocessed results make further delegation counterproductive, integrate and accept the useful results first.
+
+Before execution, give the user one brief route rationale when it materially helps them understand the plan, for example `Main-only: delegation adds no value` or `Main + 2 Readers: two independent read-only evidence tracks can overlap`. This explanation is presentation only. It does not create a persistent routing mode, scheduler state, WorkGraph field, or release-evidence field.
 
 ## Concurrency and writer ownership
 

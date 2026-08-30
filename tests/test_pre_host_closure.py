@@ -151,7 +151,8 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
         "effective_permission_owner": "codex_host",
     }
     assert architecture["routing"]["profile_selection_owner"] == "main"
-    assert architecture["routing"]["principle"] == "explicit_main_selection_from_fixed_profiles"
+    assert architecture["routing"]["principle"] == "minimum_useful_fanout_from_fixed_profiles"
+    assert architecture["routing"]["route_rationale_persisted"] is False
     assert architecture["reconciliation"]["mode"] == "main_driven_native_host_reconciliation"
     assert architecture["invariants"]["I08"].startswith("Main is the sole managed coordinator")
 

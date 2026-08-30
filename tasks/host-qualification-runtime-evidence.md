@@ -1,6 +1,6 @@
 # Real Host runtime evidence helpers
 
-This note defines the maintainer-only rollout evidence path used by the real Host qualification campaign. The machine acceptance authority remains `docs/v4/host-smoke.json`. This helper does not add a new N0 through N8 requirement and is intentionally absent from `.codex-plugin/package-integrity.json`.
+This note defines the maintainer-only rollout evidence path used by the real Host qualification campaign. The machine acceptance authority remains `docs/v4/host-smoke.json`. This helper does not add a new N0 through N7 requirement and is intentionally absent from `.codex-plugin/package-integrity.json`.
 
 Use `scripts/host_qualification_evidence.py` only when the required fact is observable from the local Host-produced Codex rollout. Public Host metadata remains authoritative when it exposes the same fact; conflicting public and local evidence fails closed.
 
@@ -85,7 +85,7 @@ If a tool call is observable but its name is unavailable, `agent_control_call_co
 
 If a `token_count` event exists but its cumulative total is absent or malformed, `raw_tokens` is unavailable. Do not report zero. Token usage is diagnostic only and is not a release gate unless a future machine contract explicitly makes it one.
 
-Missing sandbox or permission evidence remains unavailable. A missing sandbox must never be interpreted as writable. N8 continues to apply its stricter effective read-only requirement through the canonical machine contract and runtime-evidence permission logic.
+Missing sandbox or permission evidence remains unavailable. A missing sandbox must never be interpreted as writable. Final Review permission assurance is evaluated separately under `contracts/final-review.md`; this Host qualification helper does not turn absent permission evidence into review PASS.
 
 ## Stale and ambiguous evidence
 

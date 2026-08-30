@@ -121,12 +121,12 @@ def test_fixed_profiles_follow_policy_and_request_leaf_containment():
         assert profile["features"]["multi_agent_v2"] is False, role
 
 
-def test_native_core_release_is_blocked_until_external_n0_n8_campaign_passes():
+def test_native_core_release_is_blocked_until_external_n0_n7_campaign_passes():
     smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
     assert smoke["status"] == "PENDING"
     assert smoke["results"] == {}
-    assert smoke["gate_id"] == "v4-real-host-n0-n8"
-    assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{index}" for index in range(9)]
+    assert smoke["gate_id"] == "v4-real-host-n0-n7"
+    assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{index}" for index in range(8)]
 
 
 def test_installation_document_keeps_supported_commands():

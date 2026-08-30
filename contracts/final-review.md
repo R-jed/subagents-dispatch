@@ -84,9 +84,38 @@ fork_turns: none
 
 Fresh context is required even when the main session is already Sol, Sol Solver implemented part of the work, or Sol Advisor previously answered a planning question. Those uses provide capability, not independent acceptance of the final integrated candidate.
 
-Strict Final Review also requires current Host evidence that the Advisor's effective sandbox and permission state satisfy the read-only boundary. `sandbox_mode = read-only`, mutation authority `none`, profile feature flags, and developer instructions are configured or behavioral intent. They do not prove the effective Host boundary.
+Final Review separates semantic mutation authority from Host-enforced isolation. Advisor always has semantic mutation authority `none`; a broader Host capability never changes that authority. `sandbox_mode = read-only`, profile feature flags, and developer instructions remain configured or behavioral intent rather than proof of the effective Host boundary.
 
-If the required Advisor permission evidence is unavailable, return `INSUFFICIENT_EVIDENCE` and keep review pending. If the Host positively shows a broader write-capable permission state, strict Final Review is unavailable for that Host/candidate and no `ship` verdict may satisfy this gate.
+Before launch, Main records a pre-review request that is separate from the reviewer's result. The request binds the exact candidate commit/tree and `review_artifact_id`, whether hard isolation is required, the explicit no-edit/no-external-side-effect instruction, `subagents_dispatch_advisor`, `fork_turns=none`, fresh context, and an external evidence reference. The release evidence verifier digests the supplied Main-owned request and requires the Final Review result to reference the exact digest, so the reviewer result alone cannot silently downgrade the supplied request.
+
+The verifier is a static release-evidence checker, not a trusted timestamp service or cryptographic Host attestation. It cannot independently prove that a request object was first created before Advisor launch if the trusted release/CI operator rewrites both request and result afterward. The release/CI operator therefore owns chronology: the request `evidence_ref` must point to a pre-launch external record, and the final review `evidence_ref` must point to the later review result. If that chronology cannot be established by the trusted operator, keep release evidence incomplete rather than claiming the verifier proved it.
+
+Set `hard_isolation_required = true` only when the user, product contract, or acceptance condition specifically requires Host-enforced read-only containment. Ordinary independent review does not become hard-isolation-required merely because Advisor is behaviorally read-only.
+
+Use exactly one of these assurance paths:
+
+```text
+A. enforced_read_only
+   Host-observed effective sandbox/permission state is read-only.
+
+B. artifact_immutability_fallback
+   Host positively reports broader write-capable permission;
+   hard_isolation_required is false;
+   Advisor semantic mutation authority remains none under the bound profile contract;
+   the review prompt explicitly forbids file mutation and external side effects;
+   the exact review artifact identity captured immediately before review is identical immediately after review;
+   the broader permission state is recorded as residual risk.
+
+C. insufficient evidence / fail closed
+   effective permission is unavailable or ambiguous;
+   hard_isolation_required is true without Host-enforced read-only;
+   the candidate artifact changes during review;
+   or any observed reviewer mutation/external side effect violates the review boundary.
+```
+
+Path B proves only exact candidate immutability at the artifact boundary covered by `review-artifact.py` or the declared non-Git digest. It is not equivalent to Host-enforced isolation. `review-artifact.py` intentionally excludes ignored build/cache artifacts and cannot prove absence of external side effects, so Path B must never be represented as hard-isolation proof.
+
+If Path C applies, return `INSUFFICIENT_EVIDENCE` and keep review pending. Do not convert missing permission evidence into the fallback and do not claim `enforced_read_only` when the Host reports broader capability.
 
 Give the reviewer compressed facts, the actual candidate, acceptance conditions, verification results, and known residual risks. A Handoff Capsule may contribute main-session-accepted facts/evidence, but the final reviewer still receives the exact current candidate and must not rely on stale capsule state. Do not pass raw child transcripts, dead-end narration, or tell the reviewer that another actor already believes the candidate is correct.
 
@@ -95,9 +124,16 @@ Return:
 ```text
 VERDICT: ship | fix-first | rethink
 REVIEWED_ARTIFACT_ID
+REVIEW_REQUEST_SHA256
+PERMISSION_OBSERVATION
+ASSURANCE_MODE
+ARTIFACT_UNCHANGED
+HARD_ISOLATION_REQUIRED
+NO_EDIT_INSTRUCTION
 DECISIVE_EVIDENCE
 FINDINGS
 RESIDUAL_RISK
+EVIDENCE_REF
 ```
 
 If evidence needed for a justified verdict is missing, return `INSUFFICIENT_EVIDENCE` with the exact missing dependency.
@@ -112,7 +148,9 @@ Completion requires:
 - required deterministic/reproducible verification still passes;
 - artifact verification still matches after review;
 - the main session still finds the user acceptance conditions satisfied;
-- effective Advisor read-only evidence remains valid for strict Final Review.
+- the recorded permission observation and assurance mode still satisfy Path A or Path B above;
+- `artifact_unchanged` is true;
+- Path B is not used when `hard_isolation_required` is true.
 
 ### fix-first
 

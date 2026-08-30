@@ -6,7 +6,7 @@ verifier keeps two identity layers separate:
 
 - release source identity binds the final Git commit/tree and Final Review;
 - Host qualification identity binds the shipped runtime manifest, managed profile
-  contract, and Host campaign contract used by the N0-N8 real-Host campaign.
+  contract, and Host campaign contract used by the N0-N7 real-Host campaign.
 
 A source-only change that leaves the Host qualification identity unchanged may reuse
 an already-conclusive Host campaign. The final release envelope and Final Review must
@@ -32,11 +32,12 @@ import package_integrity
 
 
 EXPECTED_REPOSITORY = "R-jed/subagents-dispatch"
-RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-4"
-HOST_CAMPAIGN_SCHEMA = "4.0.0-native-host-campaign-2"
-FINAL_REVIEW_SCHEMA = "4.0.0-final-review-1"
-HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-native-host-smoke-1"
-REQUIRED_HOST_PROBES = tuple(f"N{index}" for index in range(9))
+RELEASE_EVIDENCE_SCHEMA = "4.0.0-release-evidence-6"
+HOST_CAMPAIGN_SCHEMA = "4.0.0-native-host-campaign-3"
+FINAL_REVIEW_REQUEST_SCHEMA = "4.0.0-final-review-request-1"
+FINAL_REVIEW_SCHEMA = "4.0.0-final-review-3"
+HOST_CAMPAIGN_CONTRACT_VERSION = "4.0.0-native-host-smoke-2"
+REQUIRED_HOST_PROBES = tuple(f"N{index}" for index in range(8))
 HEX = frozenset("0123456789abcdef")
 
 RUNTIME_MANIFEST = Path(".codex-plugin/package-integrity.json")
@@ -59,6 +60,7 @@ TOP_LEVEL_FIELDS = {
     *RELEASE_IDENTITY_FIELDS,
     "host_campaign_sha256",
     "host_campaign",
+    "final_review_request",
     "final_review",
 }
 HOST_CAMPAIGN_FIELDS = {
@@ -79,15 +81,43 @@ HOST_ENVIRONMENT_FIELDS = {
     "thread_id",
 }
 HOST_RESULT_FIELDS = {"status", "evidence_ref", "environment_id"}
+FINAL_REVIEW_REQUEST_FIELDS = {
+    "schema_version",
+    "candidate_commit",
+    "candidate_tree",
+    "review_artifact_id",
+    "hard_isolation_required",
+    "no_edit_instruction",
+    "reviewer_agent_type",
+    "fork_turns",
+    "fresh_context",
+    "evidence_ref",
+}
 FINAL_REVIEW_FIELDS = {
     "schema_version",
     "candidate_commit",
     "candidate_tree",
     "review_artifact_id",
     "verdict",
+    "permission_observation",
+    "assurance_mode",
+    "artifact_unchanged",
+    "hard_isolation_required",
+    "no_edit_instruction",
+    "review_request_sha256",
+    "residual_risk",
     "evidence_ref",
 }
 SUPPORTED_PLATFORMS = {"linux", "macos", "windows"}
+PERMISSION_OBSERVATIONS = {
+    "effective_read_only",
+    "broader_write_capable",
+    "unobservable",
+}
+FINAL_REVIEW_ASSURANCE_MODES = {
+    "enforced_read_only",
+    "artifact_immutability_fallback",
+}
 
 
 class ReleaseEvidenceError(RuntimeError):
@@ -159,7 +189,7 @@ def _load_host_contract(repo: Path) -> Mapping[str, Any]:
         raise ReleaseEvidenceError("Host campaign contract must be an object")
     if payload.get("schema_version") != HOST_CAMPAIGN_CONTRACT_VERSION:
         raise ReleaseEvidenceError("Host campaign contract schema_version is unsupported")
-    if payload.get("gate_id") != "v4-real-host-n0-n8":
+    if payload.get("gate_id") != "v4-real-host-n0-n7":
         raise ReleaseEvidenceError("Host campaign contract gate_id is unsupported")
     if payload.get("status") != "PENDING" or payload.get("results") != {}:
         raise ReleaseEvidenceError("tracked Host campaign contract must remain PENDING with empty results")
@@ -168,12 +198,30 @@ def _load_host_contract(repo: Path) -> Mapping[str, Any]:
         raise ReleaseEvidenceError("Host campaign contract required_probes must be an array")
     ids = [item.get("id") for item in required if isinstance(item, Mapping)]
     if len(ids) != len(required) or tuple(ids) != REQUIRED_HOST_PROBES:
-        raise ReleaseEvidenceError("Host campaign contract probes must be exactly ordered N0-N8")
+        raise ReleaseEvidenceError("Host campaign contract probes must be exactly ordered N0-N7")
     if payload.get("required_environment_fields") != sorted(HOST_ENVIRONMENT_FIELDS):
         raise ReleaseEvidenceError("Host campaign contract environment field set is unsupported")
     if payload.get("required_result_fields") != sorted(HOST_RESULT_FIELDS):
         raise ReleaseEvidenceError("Host campaign contract result field set is unsupported")
     return payload
+
+
+def _advisor_mutation_authority(repo: Path) -> str | None:
+    path = repo / PROFILE_CONTRACT
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    roles = payload.get("roles")
+    if not isinstance(roles, Mapping):
+        return None
+    advisor = roles.get("advisor")
+    if not isinstance(advisor, Mapping):
+        return None
+    value = advisor.get("mutation_authority")
+    return value if isinstance(value, str) else None
 
 
 def current_candidate_identity(repo: Path) -> dict[str, str]:
@@ -395,6 +443,7 @@ def _validate_final_review(
     *,
     identity: Mapping[str, str],
     review_artifact_id: str,
+    review_request: Mapping[str, Any] | None,
     issues: list[str],
 ) -> None:
     value = _exact_fields(review, FINAL_REVIEW_FIELDS, label="final review", issues=issues)
@@ -407,10 +456,101 @@ def _validate_final_review(
             issues.append(f"final review.{field} does not match the exact release source")
     if value.get("review_artifact_id") != review_artifact_id:
         issues.append("final review.review_artifact_id does not match the current candidate")
+    if review_request is not None:
+        request_digest = canonical_json_sha256(review_request)
+        supplied_request_digest = value.get("review_request_sha256")
+        if supplied_request_digest != request_digest:
+            issues.append("final review.review_request_sha256 does not match the bound pre-review request")
+        if value.get("hard_isolation_required") != review_request.get("hard_isolation_required"):
+            issues.append("final review hard_isolation_required does not match the bound pre-review request")
+        if value.get("no_edit_instruction") != review_request.get("no_edit_instruction"):
+            issues.append("final review no_edit_instruction does not match the bound pre-review request")
     if value.get("verdict") != "ship":
         issues.append("final review verdict must be ship")
+    permission = value.get("permission_observation")
+    if permission not in PERMISSION_OBSERVATIONS:
+        issues.append("final review permission_observation is unsupported")
+    assurance = value.get("assurance_mode")
+    if assurance not in FINAL_REVIEW_ASSURANCE_MODES:
+        issues.append("final review assurance_mode is unsupported")
+    if value.get("artifact_unchanged") is not True:
+        issues.append("final review requires artifact_unchanged=true")
+    hard_isolation = value.get("hard_isolation_required")
+    if not isinstance(hard_isolation, bool):
+        issues.append("final review hard_isolation_required must be boolean")
+    if value.get("no_edit_instruction") is not True:
+        issues.append("final review requires no_edit_instruction=true")
+    if not isinstance(value.get("residual_risk"), str):
+        issues.append("final review residual_risk must be a string")
+
+    if permission == "effective_read_only":
+        if assurance != "enforced_read_only":
+            issues.append(
+                "final review effective_read_only permission requires enforced_read_only assurance"
+            )
+    elif permission == "broader_write_capable":
+        if assurance != "artifact_immutability_fallback":
+            issues.append(
+                "final review broader_write_capable permission requires artifact_immutability_fallback assurance"
+            )
+        if hard_isolation is not False:
+            issues.append(
+                "final review artifact immutability fallback cannot satisfy hard isolation"
+            )
+        if not _nonempty(value.get("residual_risk")):
+            issues.append(
+                "final review broader permission fallback requires residual_risk disclosure"
+            )
+    elif permission == "unobservable":
+        issues.append("final review permission observation is unavailable")
+
+    if assurance == "artifact_immutability_fallback" and permission != "broader_write_capable":
+        issues.append(
+            "final review artifact_immutability_fallback requires broader_write_capable observation"
+        )
+    if assurance == "enforced_read_only" and permission != "effective_read_only":
+        issues.append(
+            "final review enforced_read_only assurance requires effective_read_only observation"
+        )
     if not _nonempty(value.get("evidence_ref")):
         issues.append("final review ship verdict requires evidence_ref")
+
+
+def _validate_final_review_request(
+    request: Any,
+    *,
+    identity: Mapping[str, str],
+    review_artifact_id: str,
+    issues: list[str],
+) -> Mapping[str, Any] | None:
+    value = _exact_fields(
+        request,
+        FINAL_REVIEW_REQUEST_FIELDS,
+        label="final review request",
+        issues=issues,
+    )
+    if value is None:
+        return None
+    if value.get("schema_version") != FINAL_REVIEW_REQUEST_SCHEMA:
+        issues.append("final review request.schema_version is unsupported")
+    for field in SOURCE_IDENTITY_FIELDS:
+        if value.get(field) != identity[field]:
+            issues.append(f"final review request.{field} does not match the exact release source")
+    if value.get("review_artifact_id") != review_artifact_id:
+        issues.append("final review request.review_artifact_id does not match the current candidate")
+    if not isinstance(value.get("hard_isolation_required"), bool):
+        issues.append("final review request hard_isolation_required must be boolean")
+    if value.get("no_edit_instruction") is not True:
+        issues.append("final review request requires no_edit_instruction=true before reviewer launch")
+    if value.get("reviewer_agent_type") != "subagents_dispatch_advisor":
+        issues.append("final review request must select subagents_dispatch_advisor")
+    if value.get("fork_turns") != "none":
+        issues.append("final review request must require fork_turns=none")
+    if value.get("fresh_context") is not True:
+        issues.append("final review request must require fresh_context=true")
+    if not _nonempty(value.get("evidence_ref")):
+        issues.append("final review request requires evidence_ref")
+    return value
 
 
 def verify_release_evidence(
@@ -444,6 +584,11 @@ def verify_release_evidence(
     package_result = package_integrity.verify_package(candidate)
     if package_result.get("ok") is not True:
         issues.append("candidate package integrity verification failed")
+    generated_result = package_integrity.check_generated(candidate)
+    if generated_result.get("ok") is not True:
+        issues.append("candidate package integrity manifest does not match the current runtime file set")
+    if _advisor_mutation_authority(candidate) != "none":
+        issues.append("bound Advisor profile must retain semantic mutation_authority=none")
 
     top = _exact_fields(payload, TOP_LEVEL_FIELDS, label="release evidence", issues=issues)
     if top is not None:
@@ -472,10 +617,17 @@ def verify_release_evidence(
             qualification_identity=qualification_identity,
             issues=issues,
         )
+        review_request = _validate_final_review_request(
+            top.get("final_review_request"),
+            identity=identity,
+            review_artifact_id=review_artifact_id,
+            issues=issues,
+        )
         _validate_final_review(
             top.get("final_review"),
             identity=identity,
             review_artifact_id=review_artifact_id,
+            review_request=review_request,
             issues=issues,
         )
 

@@ -179,7 +179,7 @@
     "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
     "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement.",
     "I14": "The product admits at most four concurrently active managed child executions.",
-    "I15": "Read-only overlap or strict read-only review requires effective Host evidence; configured read-only intent alone is insufficient."
+    "I15": "Read-only overlap with a canonical-workspace writer requires effective Host isolation evidence. Final Review separately allows exact-artifact immutability fallback for broader Host permission only when hard isolation is not required."
   },
   "migration": {
     "silent_live_state_migration": false,
@@ -243,21 +243,54 @@
       "N4_followup_continue_same_child",
       "N5_interrupt_settlement",
       "N6_writer_takeover_settlement",
-      "N7_rollout_reconciliation_privacy",
-      "N8_final_review_and_effective_sandbox_truth"
-    ]
+      "N7_rollout_reconciliation_privacy"
+    ],
+    "final_review_gate": "fresh_exact_release_source_review_after_host_qualification"
   },
   "review": {
     "artifact_mutation_invalidates_verdict": true,
+    "assurance_modes": [
+      "enforced_read_only",
+      "artifact_immutability_fallback"
+    ],
+    "artifact_immutability_fallback_requires": [
+      "permission_observation=broader_write_capable",
+      "hard_isolation_required=false",
+      "advisor_mutation_authority=none",
+      "no_edit_instruction=true",
+      "artifact_unchanged=true",
+      "residual_risk_disclosed"
+    ],
     "exact_artifact_binding": true,
     "fresh_reviewer": true,
+    "hard_isolation_allows_fallback": false,
+    "pre_review_request_binding": {
+      "chronology_owner": "trusted_release_ci_operator",
+      "created_before_reviewer_spawn": true,
+      "owner": "main",
+      "review_result_requires_request_digest": true,
+      "verifier_proves_pre_spawn_time": false,
+      "binds": [
+        "candidate_commit",
+        "candidate_tree",
+        "review_artifact_id",
+        "hard_isolation_required",
+        "no_edit_instruction",
+        "reviewer_agent_type",
+        "fork_turns",
+        "fresh_context",
+        "evidence_ref"
+      ]
+    },
+    "permission_unobservable_verdict": "insufficient_evidence",
     "reviewer_profile": "advisor"
   },
   "routing": {
     "dynamic_reasoning_effort": false,
     "peer_messaging_on_correctness_path": false,
     "profile_selection_owner": "main",
-    "principle": "explicit_main_selection_from_fixed_profiles"
+    "principle": "minimum_useful_fanout_from_fixed_profiles",
+    "route_rationale_persisted": false
   },
   "runtime_owners": {
     "orchestration": "scripts/orchestrate_v4.py",
@@ -289,7 +322,7 @@
     "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-6",
+  "schema_version": "4.0.0-native-core-candidate-7",
   "semantic_roles": [
     "main",
     "work",

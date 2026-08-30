@@ -102,9 +102,11 @@ There is no need to remember a row of separate control Skills.
 Multi-agent systems can turn parallel work into coordination overhead very quickly. This project keeps a few deliberately boring rules:
 
 - small tasks may use zero subagents
-- use concurrency when it adds value, with at most 4 managed subagents; 4 is a safety ceiling, not a target
+- use the minimum useful fanout: one separable responsibility commonly means one child; launch several together only for independent work that is safe and materially useful to overlap
+- at most 4 managed subagents; 4 is a safety ceiling, not a target, and a free slot is never a reason to spawn
 - only one managed writer may mutate the same workspace at a time
 - each subagent gets only the context needed for its responsibility
+- once a child carries a responsibility, Main verifies and integrates it instead of redoing the same work merely for confidence
 - investigation results need evidence before Main accepts them
 - unclear state stops progress instead of becoming permission by guesswork
 - Main remains responsible for the final result

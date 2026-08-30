@@ -1,7 +1,7 @@
 {
-  "schema_version": "4.0.0-native-host-smoke-1",
+  "schema_version": "4.0.0-native-host-smoke-2",
   "contract_kind": "machine-readable-native-host-campaign-contract",
-  "gate_id": "v4-real-host-n0-n8",
+  "gate_id": "v4-real-host-n0-n7",
   "status": "PENDING",
   "required_environment_fields": [
     "architecture",
@@ -37,8 +37,7 @@
       "N3",
       "N4",
       "N5",
-      "N6",
-      "N8"
+      "N6"
     ],
     "turn_binding_field": "turn_id",
     "required_multi_agent_version": "v2",
@@ -166,20 +165,8 @@
         "allowlisted inspection omits assignment text and reasoning content",
         "ambiguous or stale rollout evidence cannot authorize acceptance or writer transfer"
       ]
-    },
-    {
-      "id": "N8",
-      "operation": "final review and effective sandbox truth",
-      "platform": "any",
-      "requires": [
-        "fresh Advisor review is bound to the exact candidate artifact",
-        "artifact mutation invalidates the prior review verdict",
-        "effective Advisor sandbox and permission state are Host-observed and satisfy the strict read-only Final Review boundary",
-        "requested profile sandbox and behavioral mutation authority are not promoted to effective Host proof",
-        "known broader Host permission behavior is disclosed as a release limitation when present"
-      ]
     }
   ],
   "results": {},
-  "pass_policy": "All N0-N8 probes must PASS in an external exact-candidate campaign whose environment identities, required same-turn Host capabilities, and this contract digest are bound by release evidence. Repository CI and this Host campaign are separate release gates."
+  "pass_policy": "All N0-N7 probes must PASS in an external campaign whose Host qualification identity, environment identities, required same-turn Host capabilities, and this contract digest are bound by release evidence. Final Review is a separate exact-release-source gate and is not part of the Host campaign. Repository CI, Host qualification, and Final Review are separate release gates."
 }
