@@ -5,7 +5,7 @@ description: Diagnose the installed subagents-dispatch Plugin and perform only e
 
 # Doctor
 
-Use `../../scripts/doctor.py --check` as the deterministic diagnostic owner and display its user-facing output verbatim. Preserve `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` exactly.
+Use a resolved Python 3.11+ interpreter to run `../../scripts/doctor.py --check` as the deterministic diagnostic owner and display its user-facing output verbatim. Preserve `[OK]`, `[WARN]`, `[FAIL]`, and `[UNKNOWN]` exactly.
 
 Normal diagnosis is read-only and offline. It must not refresh the Marketplace, install or remove profiles, mutate orchestration state, spawn children, or modify unrelated Codex configuration.
 
