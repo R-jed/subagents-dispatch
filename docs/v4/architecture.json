@@ -245,6 +245,24 @@
       "N6_writer_takeover_settlement",
       "N7_rollout_reconciliation_privacy"
     ],
+    "host_evidence_reuse": {
+      "classification": "per_probe_qualification_basis",
+      "package_digest_drift_is_blanket_invalidation": false,
+      "fresh_or_verified_carry_forward_required": true,
+      "historical_git_basis_recomputed": true,
+      "compare_ref_is_reuse_authority": false,
+      "carry_forward_requires_exact_source_campaign_artifact": true,
+      "carried_evidence_ref_preserved": true,
+      "carried_source_environment_preserved_exactly": true,
+      "stable_environment_fields": [
+        "codex_version",
+        "host_build",
+        "platform",
+        "architecture"
+      ],
+      "new_session_or_thread_alone_invalidates": false,
+      "unclassified_runtime_file_action": "fail_closed"
+    },
     "final_review_gate": "fresh_exact_release_source_review_after_host_qualification"
   },
   "review": {

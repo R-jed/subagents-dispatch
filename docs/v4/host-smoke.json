@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0.0-native-host-smoke-2",
+  "schema_version": "4.0.0-native-host-smoke-3",
   "contract_kind": "machine-readable-native-host-campaign-contract",
   "gate_id": "v4-real-host-n0-n7",
   "status": "PENDING",
@@ -64,6 +64,8 @@
   "required_result_fields": [
     "environment_id",
     "evidence_ref",
+    "probe_basis_sha256",
+    "provenance",
     "status"
   ],
   "required_probes": [
@@ -77,7 +79,49 @@
         "Investigator uses gpt-5.6-terra high",
         "Solver and Advisor use gpt-5.6-sol high",
         "managed spawn uses fork_turns none"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/policy.json",
+          "contracts/responsibility-packet.md",
+          "contracts/routing.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/inspect-agent-runtime.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/runtime-evidence.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N1",
@@ -94,7 +138,50 @@
         "unobservable or ambiguous managed-child action or descendant evidence is UNKNOWN",
         "generic V2 recursive-capability probes are platform evidence only and cannot by themselves PASS or FAIL managed N1",
         "profile configuration and project max_depth remain product intent and do not prove Host-hard descendant isolation"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/policy.json",
+          "contracts/responsibility-packet.md",
+          "contracts/routing.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/inspect-agent-runtime.py",
+          "scripts/inspect-collaboration-runtime.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/runtime-evidence.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N2",
@@ -107,7 +194,51 @@
         "the external release campaign binds the canonical native task address and Host thread identity to the intended ExecutionBinding evidence basis without requiring ordinary runtime state to persist agent_id",
         "ordinary runtime reconciliation may continue using the canonical native task address when the public V2 control surface omits agent_id; the release campaign must not fabricate or persist a thread identity that the runtime did not expose",
         "native task address and selected managed profile match the assignment"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/policy.json",
+          "contracts/recovery.md",
+          "contracts/responsibility-packet.md",
+          "contracts/routing.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/inspect-agent-runtime.py",
+          "scripts/inspect-collaboration-runtime.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/runtime-evidence.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N3",
@@ -119,7 +250,51 @@
         "for the tested explicit rejection path no child identity or resident child materializes; specifically, no successful spawn result, Started activity, Host thread identity, durable child identity, or resident child runtime materializes in the authoritative Host surfaces available to the campaign",
         "pre-materialization rejection rolls back provisional execution and reserved writer without consuming a fresh attempt",
         "any ambiguity about child materialization is quarantined as UNKNOWN"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/policy.json",
+          "contracts/recovery.md",
+          "contracts/responsibility-packet.md",
+          "contracts/routing.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/inspect-agent-runtime.py",
+          "scripts/inspect-collaboration-runtime.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/runtime-evidence.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N4",
@@ -134,7 +309,52 @@
         "focused correction targets the original native child identity and uses a changed correction basis rather than a fixed correction-count budget",
         "continuation after interruption preserves the same ExecutionBinding identity",
         "same-child correction and continuation do not create a fresh attempt"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/interaction.md",
+          "contracts/policy.json",
+          "contracts/recovery.md",
+          "contracts/responsibility-packet.md",
+          "contracts/routing.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/inspect-agent-runtime.py",
+          "scripts/inspect-collaboration-runtime.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/runtime-evidence.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N5",
@@ -144,7 +364,47 @@
         "interrupt result alone does not release WriterLease",
         "current-generation Host lifecycle evidence settles the execution",
         "stale control or lease generation evidence cannot settle the writer"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/interaction.md",
+          "contracts/policy.json",
+          "contracts/recovery.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N6",
@@ -154,7 +414,47 @@
         "UNKNOWN or unsettled writer ownership blocks replacement and Main takeover",
         "Main can acquire WriterLease only after current-generation Host settlement",
         "single-writer invariant holds throughout takeover"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "agent-profiles/subagents-dispatch-advisor.toml",
+          "agent-profiles/subagents-dispatch-investigator.toml",
+          "agent-profiles/subagents-dispatch-reader.toml",
+          "agent-profiles/subagents-dispatch-solver.toml",
+          "agent-profiles/subagents-dispatch-worker.toml",
+          "contracts/composition.md",
+          "contracts/guardrails.md",
+          "contracts/interaction.md",
+          "contracts/policy.json",
+          "contracts/recovery.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/host_capabilities.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/orchestrate_v4.py",
+          "scripts/policy.py",
+          "scripts/scheduler_v4.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics",
+          "probe_turn_capability_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     },
     {
       "id": "N7",
@@ -164,9 +464,57 @@
         "root rollout evidence binds lifecycle call id child identity and result",
         "allowlisted inspection omits assignment text and reasoning content",
         "ambiguous or stale rollout evidence cannot authorize acceptance or writer transfer"
-      ]
+      ],
+      "qualification_basis": {
+        "runtime_files": [
+          ".codex-plugin/plugin.json",
+          "contracts/composition.md",
+          "contracts/evidence-artifact.md",
+          "contracts/guardrails.md",
+          "contracts/policy.json",
+          "contracts/recovery.md",
+          "contracts/state.md",
+          "scripts/dispatch_state_v4.py",
+          "scripts/dispatch_state_v4_core.py",
+          "scripts/execution_lifecycle_v4.py",
+          "scripts/execution_lifecycle_v4_core.py",
+          "scripts/inspect-collaboration-runtime.py",
+          "scripts/managed_execution_v4.py",
+          "scripts/policy.py",
+          "scripts/state_storage.py",
+          "scripts/work_graph_v4.py",
+          "scripts/writer_lease_v4.py",
+          "skills/orchestrate/SKILL.md",
+          "skills/orchestrate/agents/openai.yaml"
+        ],
+        "shared_contract_fields": [
+          "environment_identity_semantics"
+        ],
+        "runtime_json_fields": {
+          ".codex-plugin/plugin.json": [
+            "interface.capabilities",
+            "skills"
+          ]
+        }
+      }
     }
   ],
   "results": {},
-  "pass_policy": "All N0-N7 probes must PASS in an external campaign whose Host qualification identity, environment identities, required same-turn Host capabilities, and this contract digest are bound by release evidence. Final Review is a separate exact-release-source gate and is not part of the Host campaign. Repository CI, Host qualification, and Final Review are separate release gates."
+  "pass_policy": "All N0-N7 probes must PASS in an external campaign. Each result is bound to its own deterministic probe qualification basis, an authoritative Host environment, required same-turn Host capabilities when applicable, and explicit fresh/carry-forward provenance. A changed package-wide digest alone does not invalidate an unchanged probe basis. Final Review is a separate exact-release-source gate and is not part of the Host campaign. Repository CI, Host qualification, and Final Review are separate release gates.",
+  "qualification_non_probe_runtime_files": [
+    ".agents/plugins/marketplace.json",
+    "contracts/final-review.md",
+    "contracts/handoff.md",
+    "contracts/receipt.md",
+    "docs/python-runtime.md",
+    "scripts/check-plugin-update.py",
+    "scripts/doctor.py",
+    "scripts/install-agents.py",
+    "scripts/package_integrity.py",
+    "scripts/plugin_update.py",
+    "scripts/review-artifact.py",
+    "scripts/uninstall-agents.py",
+    "skills/doctor/SKILL.md",
+    "skills/doctor/agents/openai.yaml"
+  ]
 }

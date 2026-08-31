@@ -24,7 +24,7 @@ def requirements(probe: dict) -> str:
 def test_native_campaign_is_exactly_n0_through_n7_and_stays_pending_in_repo():
     current = payload()
 
-    assert current["schema_version"] == "4.0.0-native-host-smoke-2"
+    assert current["schema_version"] == "4.0.0-native-host-smoke-3"
     assert current["gate_id"] == "v4-real-host-n0-n7"
     assert current["status"] == "PENDING"
     assert current["results"] == {}

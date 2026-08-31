@@ -87,6 +87,13 @@ def test_host_release_gate_matches_native_core_architecture_campaign():
         "N7_rollout_reconciliation_privacy",
     ]
     assert architecture["release"]["final_review_gate"] == "fresh_exact_release_source_review_after_host_qualification"
+    reuse = architecture["release"]["host_evidence_reuse"]
+    assert reuse["classification"] == "per_probe_qualification_basis"
+    assert reuse["package_digest_drift_is_blanket_invalidation"] is False
+    assert reuse["fresh_or_verified_carry_forward_required"] is True
+    assert reuse["historical_git_basis_recomputed"] is True
+    assert reuse["new_session_or_thread_alone_invalidates"] is False
+    assert reuse["unclassified_runtime_file_action"] == "fail_closed"
     assert architecture["review"]["assurance_modes"] == [
         "enforced_read_only",
         "artifact_immutability_fallback",
@@ -108,7 +115,7 @@ def test_release_sequence_freezes_source_before_exact_source_gates():
     text = RELEASE_CHECKLIST.read_text(encoding="utf-8")
     freeze = text.index("merge approved source into the release line and freeze the exact release commit")
     matrix = text.index("final release-source repository matrix PASS on that frozen commit")
-    host = text.index("real Host N0-N7 PASS on current Host qualification identity")
+    host = text.index("real Host N0-N7 complete on current per-probe qualification bases")
     review = text.index("fresh final-source Advisor Final Review PASS")
     evidence = text.index("external release evidence verifies")
 

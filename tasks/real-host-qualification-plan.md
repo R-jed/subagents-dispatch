@@ -93,7 +93,13 @@ The qualification guard remains maintainer-only and intentionally stays outside 
 
 ## Evidence journal policy
 
-Before a Host action, the coordinator still checks whether existing evidence is reusable, invalidated, or absent. That classification is part of execution reasoning and does not require a separate Issue comment.
+Before a Host action, the coordinator checks whether existing evidence is reusable, invalidated, or absent. When a prior qualified Git source exists, first run the deterministic delta classifier from the candidate checkout:
+
+```text
+<python-3.11+> scripts/release_evidence_v4.py --repo <candidate-root> --compare-ref <prior-qualified-commit> --json
+```
+
+The classifier reports `affected_host_probes` and `basis_compatible_host_probes` from machine-declared per-probe runtime dependencies and Host-contract semantics. This is not reuse authority: its output sets `reuse_authorized=false` because source campaign/result/environment evidence is not supplied to `--compare-ref`. Rerun every affected probe. A basis-compatible probe may skip a Host rerun only after full release-evidence verification binds an exact predecessor campaign artifact, preserves its original PASS evidence and six-field source environment, and proves stable Host build/version/platform/architecture compatibility. This classification is part of execution reasoning and does not require a separate Issue comment unless it materially changes campaign state.
 
 Write to Issue #91 only when one of these durable events occurs:
 
@@ -113,6 +119,9 @@ release-source identity
 Host qualification identity
 Host environment identity
 qualification_run_ref when H1/H2
+probe_basis_sha256
+provenance kind = fresh | carry_forward
+source campaign artifact digest plus source environment/evidence and impact-analysis refs when carried forward
 exact-turn V2 capability evidence when required
 canonical managed route / model / effort / fork behavior when required
 lifecycle / child identity evidence required by the probe
@@ -193,11 +202,11 @@ If the current task discovers that a Host restart is required, return `OPERATOR_
 
 Mandatory stop: `H0_STOP`.
 
-H0 V2 capability is context only. N0 must establish V2 again on the exact Agent-control turn.
+H0 V2 capability is context only. Any N0 profile that actually requires a fresh Host observation must establish V2 again on the exact Agent-control turn. A verifier-validated carry-forward N0 result retains the exact-turn capability evidence from its source observation and does not create a new Agent-control turn merely to refresh capability metadata.
 
 ## Phase H1: N0 Reader canary
 
-Purpose: prove one canonical managed Reader spawn on the current H0 environment before expanding N0.
+Purpose: prove one canonical managed Reader spawn on the current H0 environment before expanding N0 when Reader N0 is classified affected or has no conclusive reusable evidence. If Reader N0 is verifier-classified reusable, record its carry-forward provenance in the current campaign and do not materialize a replacement Reader solely for qualification.
 
 ### Operator step
 
@@ -226,7 +235,7 @@ Mandatory stop: `H1_STOP`.
 
 ## Phase H2: complete N0 for Worker, Investigator, Solver, and Advisor
 
-Run profiles sequentially. A non-PASS profile stops H2 immediately.
+Run only N0 profiles that are classified affected or lack conclusive reusable evidence, sequentially. Rebind unchanged profiles through explicit carry-forward provenance. A non-PASS fresh profile stops H2 immediately.
 
 For each profile:
 
@@ -346,7 +355,7 @@ Avoid creating new Agents unless the machine contract truly requires separately 
 
 Mandatory stop: `H8_STOP`.
 
-After H8, the Host qualification campaign is complete. Keep the Host qualification identity frozen unless an invalidation rule requires a rerun. Final Review is not an N-probe and may be refreshed independently after a source-only change that leaves the qualification identity unchanged.
+After H8, the Host qualification campaign is complete when every N0-N7 result is either a fresh PASS on its current per-probe basis or a verifier-validated carry-forward whose historical and current bases match. Final Review is not an N-probe and is refreshed independently for the exact final release source.
 
 ## Phase H9: Final Review and release closure
 
@@ -367,9 +376,11 @@ Use `docs/release-checklist.md` as authority.
 
 Important operational examples:
 
-- Host build/version change invalidates environment-bound Host observations and requires a new H0 binding before more Agent-control.
-- A change to one of the three Host qualification digests invalidates the affected Host evidence.
-- A source-only change outside those digests still requires exact-source repository CI and final-source review refresh, but does not automatically erase conclusive Host evidence.
+- Host build/version/platform/architecture change invalidates carry-forward from observations bound to the previous stable Host environment and requires a new H0 binding before fresh affected Agent-control.
+- A change to one of the three package-wide Host qualification digests triggers delta classification; it does not automatically invalidate N0-N7. Only a changed per-probe basis requires that probe to be rerun.
+- A source-only or shipped non-probe change, including Doctor/update/install/Final-Review-only surfaces, may leave every N0-N7 basis unchanged. In that case carry forward all conclusive Host results, refresh the exact-source repository/installed-product checks affected by the change, and refresh Final Review.
+- Every shipped runtime file must remain machine-classified as a dependency of one or more N probes or as a qualification non-probe file. An unclassified new runtime file is a fail-closed classification stop, not permission to reuse evidence.
+- Carry-forward provenance must bind the historical Git commit/tree, historical package/profile/Host-contract digests, original environment/evidence, source probe basis, and an impact-analysis reference. The verifier recomputes the historical values from Git before accepting reuse.
 - A qualification procedure change applies to future actions. Historical Host evidence remains historical evidence and is invalidated only when the machine/release authority or a material environment fact requires it.
-- A new chat or new task alone never creates a rerun reason.
+- A new chat, new task, or new root session/thread alone never creates a rerun reason when the stable Host environment and probe basis remain compatible. Preserve the original source environment identity on carried observations.
 - A required Host restart is an operator boundary, never an instruction for the qualifying task to restart itself.

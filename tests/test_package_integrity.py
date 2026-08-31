@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 from pathlib import Path
 import shutil
@@ -49,6 +50,37 @@ def test_committed_integrity_manifest_is_generated_from_native_runtime_scope():
     assert "scripts/release_evidence_v4.py" not in committed["files"]
     assert all(not path.startswith("hooks/") for path in committed["files"])
     assert "docs/v4/hooks.json" not in committed["files"]
+
+
+def test_manifested_runtime_scripts_include_every_repository_local_import():
+    module = load_integrity()
+    scripts_dir = ROOT / "scripts"
+    local_modules = {
+        path.stem: path
+        for path in scripts_dir.glob("*.py")
+        if path.stem.isidentifier()
+    }
+    manifested = {relative.as_posix() for relative in module.RUNTIME_SCRIPT_FILES}
+
+    missing: set[str] = set()
+    for relative in module.RUNTIME_SCRIPT_FILES:
+        path = ROOT / relative
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".", 1)[0])
+        for name in imported.intersection(local_modules):
+            target = f"scripts/{local_modules[name].name}"
+            if target not in manifested:
+                missing.add(target)
+
+    assert missing == set(), (
+        "repository-local runtime imports must be integrity-manifested: "
+        + ", ".join(sorted(missing))
+    )
 
 
 def test_native_runtime_file_is_integrity_protected(tmp_path: Path):

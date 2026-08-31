@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -172,7 +173,7 @@ def test_release_identity_binds_native_host_contract_digest():
     release = load_module("native_release_contract", "release_evidence_v4.py")
     identity = release.current_candidate_identity(ROOT)
 
-    assert release.HOST_CAMPAIGN_CONTRACT_VERSION == "4.0.0-native-host-smoke-2"
+    assert release.HOST_CAMPAIGN_CONTRACT_VERSION == "4.0.0-native-host-smoke-3"
     assert release.REQUIRED_HOST_PROBES == tuple(f"N{index}" for index in range(8))
     assert "host_contract_sha256" in identity
     assert len(identity["host_contract_sha256"]) == 64
@@ -185,6 +186,65 @@ def test_machine_host_contract_is_native_core_n0_n7():
     assert [probe["id"] for probe in contract["required_probes"]] == [f"N{index}" for index in range(8)]
     assert "activation_manifest" not in contract
     assert "production_manifest" not in contract
+    for probe in contract["required_probes"]:
+        basis = probe["qualification_basis"]
+        assert basis["runtime_files"] == sorted(set(basis["runtime_files"]))
+        assert basis["shared_contract_fields"] == sorted(set(basis["shared_contract_fields"]))
+        assert "environment_identity_semantics" in basis["shared_contract_fields"]
+
+
+def test_host_probe_dependency_map_classifies_every_shipped_runtime_file():
+    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT / ".codex-plugin" / "package-integrity.json").read_text(encoding="utf-8"))
+    probe_paths = {
+        path
+        for probe in contract["required_probes"]
+        for path in probe["qualification_basis"]["runtime_files"]
+    }
+    non_probe = set(contract["qualification_non_probe_runtime_files"])
+
+    assert not probe_paths.intersection(non_probe)
+    assert probe_paths.union(non_probe) == set(manifest["files"])
+    assert "skills/doctor/SKILL.md" in non_probe
+    assert "scripts/doctor.py" in non_probe
+    assert "scripts/writer_lease_v4.py" in probe_paths
+
+    by_id = {probe["id"]: set(probe["qualification_basis"]["runtime_files"]) for probe in contract["required_probes"]}
+    assert all("scripts/writer_lease_v4.py" in by_id[probe_id] for probe_id in by_id)
+
+
+def test_each_probe_runtime_script_map_covers_repository_local_import_closure():
+    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
+    local_modules = {
+        path.stem: path.name
+        for path in SCRIPTS.glob("*.py")
+        if path.stem.isidentifier()
+    }
+    dynamic_edges = {
+        "scripts/runtime-evidence.py": {"scripts/inspect-agent-runtime.py"},
+    }
+
+    for probe in contract["required_probes"]:
+        declared = set(probe["qualification_basis"]["runtime_files"])
+        script_paths = {path for path in declared if path.startswith("scripts/") and path.endswith(".py")}
+        missing: set[str] = set()
+        for relative in script_paths:
+            path = ROOT / relative
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            imported: set[str] = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imported.update(alias.name.split(".", 1)[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    imported.add(node.module.split(".", 1)[0])
+            for name in imported.intersection(local_modules):
+                target = f"scripts/{local_modules[name]}"
+                if target not in declared:
+                    missing.add(target)
+            for target in dynamic_edges.get(relative, set()):
+                if target not in declared:
+                    missing.add(target)
+        assert missing == set(), f"{probe['id']} misses runtime import closure: {sorted(missing)}"
 
 
 def test_n1_oracle_targets_actual_managed_delegation_depth():
