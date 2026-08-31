@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import copy
 import os
-from pathlib import Path
 from typing import Any, Mapping
 
 import dispatch_state_v4 as state
@@ -61,112 +60,6 @@ def _next_lease_epoch(current: Mapping[str, Any]) -> int:
     if not isinstance(epoch, int) or isinstance(epoch, bool) or epoch < 1:
         raise WriterLeaseError("writer_lease has invalid lease_epoch")
     return epoch + 1
-
-
-def ensure_execution_writer_reserved(
-    thread_id: str,
-    *,
-    execution_id: str,
-    lease_id: str,
-    temp_root: str | os.PathLike[str] | None = None,
-) -> dict[str, Any]:
-    """Reserve write ownership before a writable native activation."""
-    if not isinstance(lease_id, str) or not lease_id.strip():
-        raise WriterLeaseError("lease_id must be non-empty")
-    reserved: dict[str, Any] = {}
-
-    def mutate(current: dict[str, Any]) -> None:
-        execution = _execution(current, execution_id)
-        if execution["granted_authority"] == "none":
-            raise WriterLeaseError("read-only ExecutionBinding cannot reserve WriterLease")
-        existing = current.get("writer_lease")
-        if isinstance(existing, dict) and existing.get("state") in state.WRITER_BLOCKING_STATES:
-            if existing.get("owner_kind") != "execution" or existing.get("owner_id") != execution_id:
-                raise WriterLeaseError("canonical workspace already has another managed writer")
-            if existing.get("state") not in {"RESERVED", "HELD"}:
-                raise WriterLeaseError("existing writer lease cannot be reused for activation")
-            reserved.update(copy.deepcopy(existing))
-            return
-        lease = {
-            "lease_id": lease_id,
-            "lease_epoch": _next_lease_epoch(current),
-            "workspace_id": state.CANONICAL_WORKSPACE_ID,
-            "unit_id": execution["unit_id"],
-            "owner_kind": "execution",
-            "owner_id": execution_id,
-            "state": "RESERVED",
-        }
-        current["writer_lease"] = lease
-        reserved.update(copy.deepcopy(lease))
-
-    state.mutate_state(thread_id, mutate, temp_root=temp_root)
-    return reserved
-
-
-def begin_revoke_execution_writer(
-    thread_id: str,
-    *,
-    execution_id: str,
-    lease_id: str,
-    lease_epoch: int,
-    temp_root: str | os.PathLike[str] | None = None,
-) -> dict[str, Any]:
-    """Enter REVOKING before Main requests native interrupt."""
-    revoked: dict[str, Any] = {}
-
-    def mutate(current: dict[str, Any]) -> None:
-        execution = _execution(current, execution_id)
-        if execution["lifecycle"] != "RUNNING":
-            raise WriterLeaseError("writer revoke requires RUNNING execution")
-        lease = current.get("writer_lease")
-        if not isinstance(lease, dict):
-            raise WriterLeaseError("writer revoke requires WriterLease")
-        if (
-            lease.get("lease_id") != lease_id
-            or lease.get("lease_epoch") != lease_epoch
-            or lease.get("owner_kind") != "execution"
-            or lease.get("owner_id") != execution_id
-        ):
-            raise WriterLeaseError("writer revoke uses stale lease identity")
-        if lease["state"] not in {"RESERVED", "HELD", "REVOKING"}:
-            raise WriterLeaseError("writer revoke requires RESERVED, HELD, or REVOKING lease")
-        lease["state"] = "REVOKING"
-        revoked.update(copy.deepcopy(lease))
-
-    state.mutate_state(thread_id, mutate, temp_root=temp_root)
-    return revoked
-
-
-def mark_execution_writer_unknown(
-    thread_id: str,
-    *,
-    execution_id: str,
-    lease_id: str,
-    lease_epoch: int,
-    temp_root: str | os.PathLike[str] | None = None,
-) -> dict[str, Any]:
-    """Keep write ownership blocking while Host lifecycle truth is ambiguous."""
-    quarantined: dict[str, Any] = {}
-
-    def mutate(current: dict[str, Any]) -> None:
-        _execution(current, execution_id)
-        lease = current.get("writer_lease")
-        if not isinstance(lease, dict):
-            raise WriterLeaseError("writer quarantine requires WriterLease")
-        if (
-            lease.get("lease_id") != lease_id
-            or lease.get("lease_epoch") != lease_epoch
-            or lease.get("owner_kind") != "execution"
-            or lease.get("owner_id") != execution_id
-        ):
-            raise WriterLeaseError("writer quarantine uses stale lease identity")
-        if lease["state"] == "RELEASED":
-            raise WriterLeaseError("released lease cannot become UNKNOWN")
-        lease["state"] = "UNKNOWN"
-        quarantined.update(copy.deepcopy(lease))
-
-    state.mutate_state(thread_id, mutate, temp_root=temp_root)
-    return quarantined
 
 
 def _normalized_host_lifecycle(host_state: str) -> str:
@@ -386,7 +279,6 @@ def release_settled_execution_writer(
     state.mutate_state(thread_id, mutate, temp_root=temp_root)
     return released
 
-
 def transfer_settled_execution_writer_to_main(
     thread_id: str,
     *,
@@ -480,10 +372,3 @@ def release_main_writer(
 
     state.mutate_state(thread_id, mutate, temp_root=temp_root)
     return released
-
-
-def runtime_temp_root() -> Path | None:
-    raw = os.environ.get("SUBAGENTS_DISPATCH_TEMP_ROOT")
-    if raw is None or not raw.strip():
-        return None
-    return Path(raw)

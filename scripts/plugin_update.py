@@ -341,43 +341,6 @@ def _run_json(
     return payload
 
 
-def read_plugin_inventory(
-    *,
-    codex_home: Path,
-    codex_bin: str | None = None,
-) -> tuple[dict[str, Any] | None, str | None]:
-    binary = resolve_codex_binary(codex_bin)
-    if binary is None:
-        return None, "Codex CLI is unavailable"
-    try:
-        return _run_json(
-            binary, ["plugin", "list", "--json"], codex_home=codex_home
-        ), None
-    except UpdateError as exc:
-        return None, str(exc)
-
-
-def diagnose_installation(
-    *,
-    codex_home: Path,
-    package_version_value: str,
-    codex_bin: str | None = None,
-) -> dict[str, Any]:
-    payload, error = read_plugin_inventory(codex_home=codex_home, codex_bin=codex_bin)
-    if payload is None:
-        return _layer(
-            "UNKNOWN",
-            "Installed Plugin status could not be checked",
-            action="Run Doctor in a Codex environment with the Codex CLI available.",
-            package_version=package_version_value,
-            observed=False,
-            limitation=error,
-        )
-    result = installation_layer_from_payload(payload, package_version=package_version_value)
-    result["details"]["observed"] = True
-    return result
-
-
 def _run_python(
     python: str,
     script: Path,

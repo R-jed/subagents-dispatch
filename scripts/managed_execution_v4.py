@@ -27,8 +27,6 @@ RESPONSIBILITY_CONTEXT_FIELDS = {
     "do_not_redo",
     "stop_boundary",
 }
-SPAWN_CONTROL_FIELDS = ("task_name", "agent_type", "fork_turns")
-SPAWN_INPUT_FIELDS = set(SPAWN_CONTROL_FIELDS) | {"message"}
 
 
 class ManagedExecutionContractError(RuntimeError):
@@ -43,17 +41,6 @@ def _execution_by_id(current: Mapping[str, Any], execution_id: str) -> Mapping[s
     ]
     if len(matches) != 1:
         raise ManagedExecutionContractError("execution_id does not resolve exactly once")
-    return matches[0]
-
-
-def _execution_by_task_name(current: Mapping[str, Any], task_name: str) -> Mapping[str, Any]:
-    matches = [
-        item
-        for item in current.get("executions", [])
-        if isinstance(item, Mapping) and item.get("native_task_name") == task_name
-    ]
-    if len(matches) != 1:
-        raise ManagedExecutionContractError("task_name does not resolve exactly once")
     return matches[0]
 
 
@@ -177,36 +164,3 @@ def expected_spawn_input_for_execution(
         "agent_type": agent_type,
         "fork_turns": MANAGED_FORK_TURNS,
     }
-
-
-def expected_spawn_input_for_task(
-    current: Mapping[str, Any], *, task_name: str
-) -> dict[str, Any]:
-    execution = _execution_by_task_name(current, task_name)
-    return expected_spawn_input_for_execution(
-        current, execution_id=str(execution["execution_id"])
-    )
-
-
-def validate_actual_spawn_input(
-    current: Mapping[str, Any], *, tool_input: Mapping[str, Any]
-) -> dict[str, Any]:
-    """Validate one managed native spawn request before Main sends it to the Host."""
-    if not isinstance(tool_input, Mapping):
-        raise ManagedExecutionContractError("managed spawn tool_input must be an object")
-    task_name = tool_input.get("task_name")
-    if not isinstance(task_name, str) or not task_name.strip():
-        raise ManagedExecutionContractError("managed spawn requires native task_name")
-    expected = expected_spawn_input_for_task(current, task_name=task_name)
-    actual = dict(tool_input)
-    if set(actual) != SPAWN_INPUT_FIELDS or not _nonempty(actual.get("message")):
-        raise ManagedExecutionContractError(
-            "managed spawn input does not match profile, fresh-context, or transport shape contract"
-        )
-    if any(actual.get(field) != expected.get(field) for field in SPAWN_CONTROL_FIELDS):
-        raise ManagedExecutionContractError(
-            "managed spawn input does not match profile, fresh-context, or control contract"
-        )
-    if actual.get("message") != expected.get("message"):
-        raise ManagedExecutionContractError("managed spawn assignment message drifted from WorkUnit truth")
-    return expected

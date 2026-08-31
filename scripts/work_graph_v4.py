@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import copy
 import os
-from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import dispatch_state_v4 as state
@@ -187,7 +186,6 @@ def install_work_graph(
         current["work_units"] = refreshed["work_units"]
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
-
 
 def append_work_units(
     thread_id: str,
@@ -378,10 +376,3 @@ def cancel_work_unit(
         unit["state"] = "CANCELLED"
 
     return state.mutate_state(thread_id, mutate, temp_root=temp_root)
-
-
-def runtime_temp_root() -> Path | None:
-    raw = os.environ.get("SUBAGENTS_DISPATCH_TEMP_ROOT")
-    if raw is None or not raw.strip():
-        return None
-    return Path(raw)

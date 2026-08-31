@@ -90,8 +90,3 @@ def profile_contract_tuples(
         role: (spec["model"], spec["effort"], spec["mutation_authority"])
         for role, spec in profile_contracts(path).items()
     }
-
-
-def profile_agent_types(path: Path = POLICY_CONTRACT_PATH) -> dict[str, str]:
-    """Project the exact managed Host agent_type selector for each role."""
-    return {role: spec["agent_type"] for role, spec in profile_contracts(path).items()}

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import copy
 import os
-from pathlib import Path
 from typing import Any, Mapping
 
 import dispatch_state_v4 as state
@@ -365,10 +364,3 @@ def prepare_takeover_interrupt(
         tool_input=tool_input,
         temp_root=temp_root,
     )
-
-
-def runtime_temp_root() -> Path | None:
-    raw = os.environ.get("SUBAGENTS_DISPATCH_TEMP_ROOT")
-    if raw is None or not raw.strip():
-        return None
-    return Path(raw)
