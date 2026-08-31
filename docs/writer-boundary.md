@@ -50,4 +50,4 @@ Filesystem isolation alone is insufficient. Two isolated branches can still make
 
 ## Current decision
 
-V4.0.0 keeps the canonical workspace single-writer contract. The product language should describe this as a workspace-scoped safety boundary, leaving room for a future isolated-workspace mode when Codex exposes the required Host controls and real workload evidence supports it.
+Native Core V4 keeps the canonical workspace single-writer contract. The product language should describe this as a workspace-scoped safety boundary, leaving room for a future isolated-workspace mode when Codex exposes the required Host controls and real workload evidence supports it.

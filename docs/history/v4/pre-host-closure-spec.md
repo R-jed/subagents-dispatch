@@ -135,7 +135,7 @@ H14 does not inspect managed-child `send_message` content because required behav
 
 ## Active Hook candidate
 
-`hooks/hooks.json` is the authoritative installed lifecycle Hook definition under test. It is also the artifact that would ship if every V4.0.0 release gate passes. The Plugin uses the default Hook path, which keeps the candidate compatible with the pinned official OpenAI Plugin validator.
+`hooks/hooks.json` is the authoritative installed lifecycle Hook definition under test. It is also the artifact that would ship if every Native Core V4 release gate passes. The Plugin uses the default Hook path, which keeps the candidate compatible with the pinned official OpenAI Plugin validator.
 
 `docs/v4/hooks.json` is a non-runtime campaign reference. Tests require its `hooks` object to remain exactly equivalent to `hooks/hooks.json`, so it cannot become an independent safety authority. Package integrity covers both files during this campaign window.
 

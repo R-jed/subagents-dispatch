@@ -417,7 +417,7 @@ def _validate_executions(
         if granted == "none" and granted_scope:
             raise StatePayloadError(f"execution {execution_id} authority none requires empty write scope")
         if execution["workspace_id"] != CANONICAL_WORKSPACE_ID:
-            raise StatePayloadError(f"execution {execution_id} must use canonical workspace in V4.0.0")
+            raise StatePayloadError(f"execution {execution_id} must use canonical workspace in Native Core V4")
         if not _strict_int(execution["control_epoch"]):
             raise StatePayloadError(f"execution {execution_id} has invalid control_epoch")
         if not _strict_int(execution["followup_count"]):
@@ -482,7 +482,7 @@ def _validate_writer_lease(
     if not _strict_int(lease["lease_epoch"], minimum=1):
         raise StatePayloadError("writer_lease requires positive lease_epoch")
     if lease["workspace_id"] != CANONICAL_WORKSPACE_ID:
-        raise StatePayloadError("writer_lease must use canonical workspace in V4.0.0")
+        raise StatePayloadError("writer_lease must use canonical workspace in Native Core V4")
     if lease["unit_id"] not in work_units:
         raise StatePayloadError("writer_lease must reference an existing WorkUnit")
     if lease["owner_kind"] not in WRITER_OWNER_KINDS:

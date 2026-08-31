@@ -4,7 +4,7 @@ Current product surface: `Orchestrate` and `Doctor`.
 
 Before changing the active release branch, read root `headoff.md`. It is the development-session context transfer entrypoint for project background, important workflow history, current progress and next direction. Read GitHub and Issue #91 directly for current candidate, CI and real-Host evidence. Historical development chronology is not an active contract.
 
-`headoff.md` is development-only context. It is not Plugin runtime, Host qualification input, release evidence, or a phase gate. Do not require a headoff edit or commit merely to record an individual Host result. Its eventual post-release removal is repository housekeeping and does not change an already-tagged Plugin artifact.
+`headoff.md` is development-only context. It is not Plugin runtime, Host qualification input, release evidence, or a phase gate. Do not require a headoff edit or commit merely to record an individual Host result. Its eventual removal is repository housekeeping and does not change Plugin runtime behavior or release authority.
 
 ## Canonical truth
 

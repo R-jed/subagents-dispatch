@@ -1,6 +1,6 @@
 > Historical archive. This document records a superseded design/review state. It is not a current V4 contract, implementation guide, release gate, or source of runtime authority. Use current `contracts/`, current non-history `docs/`, and `docs/v4/` for present behavior.
 
-# V4.0.0 RC3 Integrity Closure
+# Native Core V4 RC3 Integrity Closure
 
 This contract freezes the remediation scope for `v4/rc3-integrity-closure`.
 
@@ -68,7 +68,7 @@ Unknown or unsupported Host capability surfaces remain fail-closed.
 
 There is one authoritative release predicate.
 
-A V4.0.0 candidate is release-ready only when all required repository health, package integrity, production Hook identity, profile-contract identity, Host campaign evidence, candidate identity, and required Final Review conditions are simultaneously satisfied.
+A Native Core V4 candidate is release-ready only when all required repository health, package integrity, production Hook identity, profile-contract identity, Host campaign evidence, candidate identity, and required Final Review conditions are simultaneously satisfied.
 
 Host-smoke results and Final Review receipts bind an exact candidate identity. They SHOULD remain external release evidence when committing them would mutate the candidate they are intended to prove.
 

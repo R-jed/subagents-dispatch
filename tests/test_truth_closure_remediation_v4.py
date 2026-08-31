@@ -222,8 +222,7 @@ def test_history_documents_are_explicitly_non_authoritative():
         assert payload.get("historical_archive") is True, path.relative_to(ROOT).as_posix()
         assert payload.get("current_runtime_authority") is False, path.relative_to(ROOT).as_posix()
 
-    assert not (ROOT / "docs" / "v3.0.0-post-release-final-audit.md").exists()
-    assert (history / "v3.0.0-post-release-final-audit.md").is_file()
+    assert not list(history.glob("*post-release-final-audit.md"))
 
 
 def test_candidate_status_has_no_self_stale_git_snapshot_or_duplicate_handoff():

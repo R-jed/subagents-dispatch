@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify external release evidence for V4.0.0 Native Core.
+"""Verify external release evidence for Native Core V4.
 
 The release evidence artifact must live outside the candidate repository. This
 verifier keeps two identity layers separate:
@@ -641,7 +641,7 @@ def verify_release_evidence(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Verify external V4.0.0 Native Core release evidence.")
+    parser = argparse.ArgumentParser(description="Verify external Native Core V4 release evidence.")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
