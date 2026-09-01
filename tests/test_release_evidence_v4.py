@@ -226,6 +226,11 @@ def rekey_source_campaign_artifact(module, campaign: dict, mutate) -> str:
     return new_sha
 
 
+def source_campaign_digest(campaign: dict) -> str:
+    _, artifact = next(iter(campaign["source_campaign_artifacts"].items()))
+    return artifact["host_campaign_sha256"]
+
+
 def test_exact_candidate_bound_release_evidence_passes(tmp_path: Path):
     module = load_module("native_release_valid", "release_evidence_v4.py")
     repo = make_candidate(tmp_path)
@@ -269,7 +274,11 @@ def test_host_campaign_is_reusable_after_non_runtime_source_commit(tmp_path: Pat
         module, repo, original, campaign_id="campaign-source-only-rebound"
     )
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
     assert result["ok"] is True
     assert result["issues"] == []
 
@@ -288,7 +297,11 @@ def test_host_campaign_is_rejected_after_runtime_qualification_drift(tmp_path: P
         module, repo, original, campaign_id="campaign-runtime-rebound"
     )
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
     assert result["ok"] is False
     assert any("carry-forward basis changed" in issue for issue in result["issues"])
 
@@ -310,10 +323,67 @@ def test_doctor_only_runtime_change_carries_forward_all_host_probes(tmp_path: Pa
         module, repo, original, campaign_id="campaign-doctor-only-rebound"
     )
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
 
     assert result["ok"] is True
     assert result["issues"] == []
+
+
+def test_carry_forward_requires_independently_trusted_predecessor_campaign_digest(
+    tmp_path: Path,
+):
+    module = load_module("native_release_missing_predecessor_anchor", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    original = build_valid_evidence(module, repo)
+    write(repo / "development-note.md", "source-only update\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "docs: source-only update")
+
+    campaign = carry_forward_campaign(
+        module, repo, original, campaign_id="campaign-missing-predecessor-anchor"
+    )
+    rebound = build_release_envelope(module, repo, campaign)
+    result = module.verify_release_evidence(repo, rebound)
+
+    assert result["ok"] is False
+    assert any("independently trusted predecessor campaign digests" in issue for issue in result["issues"])
+
+
+def test_rehashed_predecessor_campaign_cannot_self_authorize_carry_forward(tmp_path: Path):
+    module = load_module("native_release_rehashed_predecessor", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    original = build_valid_evidence(module, repo)
+    write(repo / "development-note.md", "source-only update\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "docs: source-only update")
+
+    campaign = carry_forward_campaign(
+        module, repo, original, campaign_id="campaign-rehashed-predecessor"
+    )
+
+    def mutate(artifact: dict) -> None:
+        source_campaign = artifact["host_campaign"]
+        source_campaign["results"]["N0"]["evidence_ref"] = "host:forged-N0"
+        source_campaign["environments"]["env-main"]["session_id"] = "forged-source-session"
+        source_campaign["environments"]["env-main"]["thread_id"] = "forged-source-thread"
+
+    rekey_source_campaign_artifact(module, campaign, mutate)
+    campaign["results"]["N0"]["evidence_ref"] = "host:forged-N0"
+    campaign["environments"]["env-main"]["session_id"] = "forged-source-session"
+    campaign["environments"]["env-main"]["thread_id"] = "forged-source-thread"
+    rebound = build_release_envelope(module, repo, campaign)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
+
+    assert result["ok"] is False
+    assert any("independently trusted predecessor campaign digests" in issue for issue in result["issues"])
 
 
 def test_compare_ref_classifies_doctor_only_change_as_all_reusable(tmp_path: Path):
@@ -538,7 +608,11 @@ def test_carry_forward_rejects_forged_source_campaign_artifact(tmp_path: Path):
     artifact_sha = campaign["results"]["N0"]["provenance"]["source_campaign_artifact_sha256"]
     campaign["source_campaign_artifacts"][artifact_sha]["host_campaign"]["runtime_manifest_sha256"] = "0" * 64
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
 
     assert result["ok"] is False
     assert any("source campaign artifact" in issue for issue in result["issues"])
@@ -569,7 +643,11 @@ def test_carry_forward_rejects_source_campaign_with_invalid_qualification_enviro
 
     rekey_source_campaign_artifact(module, campaign, mutate)
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={source_campaign_digest(campaign)},
+    )
 
     assert result["ok"] is False
     assert any("differs from its qualification environment" in issue for issue in result["issues"])
@@ -602,7 +680,11 @@ def test_carry_forward_rejects_source_campaign_with_unsupported_probe(tmp_path: 
 
     rekey_source_campaign_artifact(module, campaign, mutate)
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={source_campaign_digest(campaign)},
+    )
 
     assert result["ok"] is False
     assert any("unsupported probes: NX" in issue for issue in result["issues"])
@@ -625,7 +707,11 @@ def test_carry_forward_rejects_source_campaign_without_campaign_identity(tmp_pat
         lambda artifact: artifact["host_campaign"].__setitem__("campaign_id", ""),
     )
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={source_campaign_digest(campaign)},
+    )
 
     assert result["ok"] is False
     assert any("campaign_id must be non-empty" in issue for issue in result["issues"])
@@ -651,7 +737,11 @@ def test_carry_forward_requires_source_commit_to_be_current_ancestor(tmp_path: P
         module, repo, original, campaign_id="campaign-unrelated-source"
     )
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
 
     assert result["ok"] is False
     assert any("ancestor of the current release source" in issue for issue in result["issues"])
@@ -670,7 +760,11 @@ def test_carry_forward_preserves_original_evidence_and_exact_source_environment(
     )
     campaign["results"]["N0"]["evidence_ref"] = "host:forged-N0"
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
     assert result["ok"] is False
     assert any("original source evidence_ref" in issue for issue in result["issues"])
 
@@ -679,7 +773,11 @@ def test_carry_forward_preserves_original_evidence_and_exact_source_environment(
     )
     campaign["environments"]["env-main"]["session_id"] = "forged-session"
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
     assert result["ok"] is False
     assert any("exact six-field source environment" in issue for issue in result["issues"])
 
@@ -702,7 +800,11 @@ def test_carry_forward_rejects_stable_host_environment_drift(tmp_path: Path):
     campaign["environments"]["env-current"] = current_env
     campaign["qualification_environment_id"] = "env-current"
     rebound = build_release_envelope(module, repo, campaign)
-    result = module.verify_release_evidence(repo, rebound)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={original["host_campaign_sha256"]},
+    )
 
     assert result["ok"] is False
     assert any("Host build/version/platform/architecture differs" in issue for issue in result["issues"])
@@ -743,6 +845,95 @@ def test_legacy_dependency_map_narrowing_cannot_hide_runtime_change(tmp_path: Pa
 
     assert result["ok"] is False
     assert any("qualification scope changed" in issue for issue in result["issues"])
+
+
+def test_legacy_host_campaign_cannot_authorize_carry_forward_even_when_digest_is_trusted(
+    tmp_path: Path,
+):
+    module = load_module("native_release_legacy_origin_rejected", "release_evidence_v4.py")
+    repo = make_candidate(tmp_path)
+    host_path = repo / "docs" / "v4" / "host-smoke.json"
+    current_host = json.loads(host_path.read_text(encoding="utf-8"))
+    legacy_host = copy.deepcopy(current_host)
+    legacy_host["schema_version"] = module.LEGACY_HOST_CAMPAIGN_CONTRACT_VERSION
+    legacy_host["required_result_fields"] = ["environment_id", "evidence_ref", "status"]
+    legacy_host.pop("qualification_non_probe_runtime_files")
+    for probe in legacy_host["required_probes"]:
+        probe.pop("qualification_basis")
+    write(host_path, json.dumps(legacy_host, indent=2) + "\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "test: legacy Host qualification source")
+
+    source_commit = run(repo, "rev-parse", "HEAD")
+    source_identity = {
+        "candidate_commit": source_commit,
+        "candidate_tree": run(repo, "rev-parse", "HEAD^{tree}"),
+        **module.host_qualification_identity_at_ref(repo, source_commit),
+    }
+    source_environment = {
+        "codex_version": "test-current",
+        "host_build": "build-main",
+        "platform": "linux",
+        "architecture": "x86_64",
+        "session_id": "session-main",
+        "thread_id": "thread-main",
+    }
+    legacy_campaign = {
+        "schema_version": module.LEGACY_HOST_CAMPAIGN_SCHEMA,
+        "repository": module.EXPECTED_REPOSITORY,
+        **module.host_qualification_identity(source_identity),
+        "contract_version": module.LEGACY_HOST_CAMPAIGN_CONTRACT_VERSION,
+        "campaign_id": "legacy-source-campaign",
+        "environments": {"env-main": copy.deepcopy(source_environment)},
+        "results": {
+            probe_id: {
+                "status": "PASS",
+                "evidence_ref": f"legacy:{probe_id}",
+                "environment_id": "env-main",
+            }
+            for probe_id in module.REQUIRED_HOST_PROBES
+        },
+    }
+    legacy_campaign_sha = module.canonical_json_sha256(legacy_campaign)
+    source_artifact = {
+        "source_commit": source_identity["candidate_commit"],
+        "source_tree": source_identity["candidate_tree"],
+        "host_campaign_sha256": legacy_campaign_sha,
+        "host_campaign": copy.deepcopy(legacy_campaign),
+    }
+    source_artifact_sha = module.canonical_json_sha256(source_artifact)
+
+    write(host_path, json.dumps(current_host, indent=2) + "\n")
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "test: current Host qualification schema")
+
+    current_evidence = build_valid_evidence(module, repo)
+    current_campaign = current_evidence["host_campaign"]
+    current_campaign["source_campaign_artifacts"] = {source_artifact_sha: source_artifact}
+    current_campaign["environments"] = {"env-main": copy.deepcopy(source_environment)}
+    current_campaign["qualification_environment_id"] = "env-main"
+    current_bases = module.current_probe_qualification_bases(repo)
+    for probe_id in module.REQUIRED_HOST_PROBES:
+        current_campaign["results"][probe_id] = {
+            "status": "PASS",
+            "evidence_ref": legacy_campaign["results"][probe_id]["evidence_ref"],
+            "environment_id": "env-main",
+            "probe_basis_sha256": current_bases[probe_id],
+            "provenance": {
+                "kind": "carry_forward",
+                "source_campaign_artifact_sha256": source_artifact_sha,
+                "impact_analysis_ref": f"legacy-impact:{probe_id}",
+            },
+        }
+    rebound = build_release_envelope(module, repo, current_campaign)
+    result = module.verify_release_evidence(
+        repo,
+        rebound,
+        trusted_predecessor_campaign_sha256s={legacy_campaign_sha},
+    )
+
+    assert result["ok"] is False
+    assert any("legacy Host campaign cannot authorize carry-forward" in issue for issue in result["issues"])
 
 
 def test_host_campaign_reuse_rejects_unmanifested_new_runtime_file(tmp_path: Path):

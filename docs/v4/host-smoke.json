@@ -500,7 +500,7 @@
     }
   ],
   "results": {},
-  "pass_policy": "All N0-N7 probes must PASS in an external campaign. Each result is bound to its own deterministic probe qualification basis, an authoritative Host environment, required same-turn Host capabilities when applicable, and explicit fresh/carry-forward provenance. A changed package-wide digest alone does not invalidate an unchanged probe basis. Final Review is a separate exact-release-source gate and is not part of the Host campaign. Repository CI, Host qualification, and Final Review are separate release gates.",
+  "pass_policy": "All N0-N7 probes must PASS in an external campaign. Each result is bound to its own deterministic probe qualification basis, an authoritative Host environment, required same-turn Host capabilities when applicable, and explicit fresh/carry-forward provenance. Carry-forward additionally requires the exact current-schema predecessor Host campaign to match a canonical SHA-256 independently preserved by the trusted release/CI operator; an embedded campaign self-hash alone has no reuse authority, and legacy Host campaign schemas may be used for delta classification only, not carry-forward authorization. A changed package-wide digest alone does not invalidate an unchanged probe basis. Final Review is a separate exact-release-source gate and is not part of the Host campaign. Repository CI, Host qualification, and Final Review are separate release gates.",
   "qualification_non_probe_runtime_files": [
     ".agents/plugins/marketplace.json",
     "contracts/final-review.md",

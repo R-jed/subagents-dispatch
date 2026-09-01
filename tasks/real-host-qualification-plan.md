@@ -99,7 +99,7 @@ Before a Host action, the coordinator checks whether existing evidence is reusab
 <python-3.11+> scripts/release_evidence_v4.py --repo <candidate-root> --compare-ref <prior-qualified-commit> --json
 ```
 
-The classifier reports `affected_host_probes` and `basis_compatible_host_probes` from machine-declared per-probe runtime dependencies and Host-contract semantics. This is not reuse authority: its output sets `reuse_authorized=false` because source campaign/result/environment evidence is not supplied to `--compare-ref`. Rerun every affected probe. A basis-compatible probe may skip a Host rerun only after full release-evidence verification binds an exact predecessor campaign artifact, preserves its original PASS evidence and six-field source environment, and proves stable Host build/version/platform/architecture compatibility. This classification is part of execution reasoning and does not require a separate Issue comment unless it materially changes campaign state.
+The classifier reports `affected_host_probes` and `basis_compatible_host_probes` from machine-declared per-probe runtime dependencies and Host-contract semantics. This is not reuse authority: its output sets `reuse_authorized=false` because source campaign/result/environment evidence and an independently preserved predecessor campaign digest are not supplied to `--compare-ref`. Rerun every affected probe. A basis-compatible probe may skip a Host rerun only after full release-evidence verification binds an exact current-schema predecessor campaign artifact, matches that campaign to an independently trusted SHA-256 supplied outside the release envelope, preserves its original PASS evidence and six-field source environment, and proves stable Host build/version/platform/architecture compatibility. Legacy Host campaign schemas are classification-only and cannot authorize carry-forward. This classification is part of execution reasoning and does not require a separate Issue comment unless it materially changes campaign state.
 
 Write to Issue #91 only when one of these durable events occurs:
 
@@ -121,7 +121,7 @@ Host environment identity
 qualification_run_ref when H1/H2
 probe_basis_sha256
 provenance kind = fresh | carry_forward
-source campaign artifact digest plus source environment/evidence and impact-analysis refs when carried forward
+source campaign artifact digest, independently preserved trusted predecessor campaign SHA-256, plus source environment/evidence and impact-analysis refs when carried forward
 exact-turn V2 capability evidence when required
 canonical managed route / model / effort / fork behavior when required
 lifecycle / child identity evidence required by the probe
@@ -206,7 +206,7 @@ H0 V2 capability is context only. Any N0 profile that actually requires a fresh 
 
 ## Phase H1: N0 Reader canary
 
-Purpose: prove one canonical managed Reader spawn on the current H0 environment before expanding N0 when Reader N0 is classified affected or has no conclusive reusable evidence. If Reader N0 is verifier-classified reusable, record its carry-forward provenance in the current campaign and do not materialize a replacement Reader solely for qualification.
+Purpose: prove one canonical managed Reader spawn on the current H0 environment before expanding N0 when Reader N0 is classified affected or lacks evidence that can later satisfy full verifier-authorized carry-forward. If Reader N0 is basis-compatible and a current-schema predecessor PASS plus independently preserved predecessor campaign digest are available for later full verification, record its carry-forward provenance in the current campaign and do not materialize a replacement Reader solely for qualification.
 
 ### Operator step
 
@@ -235,7 +235,7 @@ Mandatory stop: `H1_STOP`.
 
 ## Phase H2: complete N0 for Worker, Investigator, Solver, and Advisor
 
-Run only N0 profiles that are classified affected or lack conclusive reusable evidence, sequentially. Rebind unchanged profiles through explicit carry-forward provenance. A non-PASS fresh profile stops H2 immediately.
+Run only N0 profiles that are classified affected or lack evidence eligible for later full verifier-authorized carry-forward, sequentially. Rebind unchanged profiles through explicit carry-forward provenance only when a current-schema predecessor PASS and independently preserved predecessor campaign digest are available. A non-PASS fresh profile stops H2 immediately.
 
 For each profile:
 
@@ -355,7 +355,7 @@ Avoid creating new Agents unless the machine contract truly requires separately 
 
 Mandatory stop: `H8_STOP`.
 
-After H8, the Host qualification campaign is complete when every N0-N7 result is either a fresh PASS on its current per-probe basis or a verifier-validated carry-forward whose historical and current bases match. Final Review is not an N-probe and is refreshed independently for the exact final release source.
+After H8, the Host qualification campaign is complete when every N0-N7 result is either a fresh PASS on its current per-probe basis or a verifier-validated carry-forward whose historical/current bases match and whose current-schema predecessor campaign matches an independently preserved trusted campaign digest. Legacy Host campaign schemas cannot satisfy this carry-forward path. Final Review is not an N-probe and is refreshed independently for the exact final release source.
 
 ## Phase H9: Final Review and release closure
 
@@ -378,9 +378,9 @@ Important operational examples:
 
 - Host build/version/platform/architecture change invalidates carry-forward from observations bound to the previous stable Host environment and requires a new H0 binding before fresh affected Agent-control.
 - A change to one of the three package-wide Host qualification digests triggers delta classification; it does not automatically invalidate N0-N7. Only a changed per-probe basis requires that probe to be rerun.
-- A source-only or shipped non-probe change, including Doctor/update/install/Final-Review-only surfaces, may leave every N0-N7 basis unchanged. In that case carry forward all conclusive Host results, refresh the exact-source repository/installed-product checks affected by the change, and refresh Final Review.
+- A source-only or shipped non-probe change, including Doctor/update/install/Final-Review-only surfaces, may leave every N0-N7 basis unchanged. In that case current-schema conclusive Host results may be carried forward only with their independently preserved predecessor campaign digest; refresh the exact-source repository/installed-product checks affected by the change and refresh Final Review.
 - Every shipped runtime file must remain machine-classified as a dependency of one or more N probes or as a qualification non-probe file. An unclassified new runtime file is a fail-closed classification stop, not permission to reuse evidence.
-- Carry-forward provenance must bind the historical Git commit/tree, historical package/profile/Host-contract digests, original environment/evidence, source probe basis, and an impact-analysis reference. The verifier recomputes the historical values from Git before accepting reuse.
+- Carry-forward provenance must bind the historical Git commit/tree, historical package/profile/Host-contract digests, original environment/evidence, source probe basis, and an impact-analysis reference. The verifier recomputes the historical values from Git and additionally requires the exact predecessor campaign to match a campaign SHA-256 independently preserved by the trusted release/CI operator. An embedded self-hash cannot create provenance authority. Legacy Host campaign schemas remain delta-classification inputs only and cannot authorize carry-forward.
 - A qualification procedure change applies to future actions. Historical Host evidence remains historical evidence and is invalidated only when the machine/release authority or a material environment fact requires it.
 - A new chat, new task, or new root session/thread alone never creates a rerun reason when the stable Host environment and probe basis remain compatible. Preserve the original source environment identity on carried observations.
 - A required Host restart is an operator boundary, never an instruction for the qualifying task to restart itself.

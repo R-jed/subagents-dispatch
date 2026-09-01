@@ -11,9 +11,13 @@ verifier keeps two identity layers separate:
   unchanged Host evidence can be carried forward across unrelated package changes.
 
 Carry-forward is permitted only when the current verifier can recompute the original
-probe basis from Git history, prove that it equals the current probe basis, and prove
-that the stable Host environment identity is unchanged. The final release envelope
-and Final Review must still bind the exact final Git source state.
+probe basis from Git history, prove that it equals the current probe basis, prove
+that the stable Host environment identity is unchanged, and match the exact
+current-schema predecessor campaign to a SHA-256 independently preserved by the
+trusted release/CI operator. An embedded campaign self-hash is not provenance
+authority. Legacy Host campaign schemas remain delta-classification inputs only.
+The final release envelope and Final Review must still bind the exact final Git
+source state.
 
 This is release-process evidence, not cryptographic Host attestation. The trusted
 boundary remains the release/CI operator supplying the external evidence artifact.
@@ -155,15 +159,6 @@ HOST_CAMPAIGN_FIELDS = {
     "results",
     "source_campaign_artifacts",
 }
-LEGACY_HOST_CAMPAIGN_FIELDS = {
-    "schema_version",
-    "repository",
-    *HOST_QUALIFICATION_FIELDS,
-    "contract_version",
-    "campaign_id",
-    "environments",
-    "results",
-}
 HOST_ENVIRONMENT_FIELDS = {
     "codex_version",
     "host_build",
@@ -185,7 +180,6 @@ HOST_RESULT_FIELDS = {
     "probe_basis_sha256",
     "provenance",
 }
-LEGACY_HOST_RESULT_FIELDS = {"status", "evidence_ref", "environment_id"}
 FRESH_PROVENANCE_FIELDS = {"kind", "source_commit", "source_tree"}
 CARRY_FORWARD_PROVENANCE_FIELDS = {
     "kind",
@@ -876,6 +870,7 @@ def _source_campaign_probe_truth(
     *,
     artifact: Any,
     artifact_sha256: str,
+    trusted_predecessor_campaign_sha256s: frozenset[str],
     probe_id: str,
     issues: list[str],
 ) -> tuple[str, str, Mapping[str, Any], Mapping[str, Any]] | None:
@@ -916,13 +911,19 @@ def _source_campaign_probe_truth(
     if canonical_json_sha256(source_campaign) != supplied_campaign_sha:
         issues.append(f"{label}.host_campaign_sha256 does not match the exact predecessor campaign")
         return None
+    if supplied_campaign_sha not in trusted_predecessor_campaign_sha256s:
+        issues.append(
+            f"{label}.host_campaign_sha256 is not present in the independently trusted predecessor campaign digests"
+        )
+        return None
 
     schema = source_campaign.get("schema_version")
     if schema == LEGACY_HOST_CAMPAIGN_SCHEMA:
-        expected_fields = LEGACY_HOST_CAMPAIGN_FIELDS
-        expected_contract = LEGACY_HOST_CAMPAIGN_CONTRACT_VERSION
-        result_fields = LEGACY_HOST_RESULT_FIELDS
-    elif schema == HOST_CAMPAIGN_SCHEMA:
+        issues.append(
+            f"{label} legacy Host campaign cannot authorize carry-forward; establish fresh {HOST_CAMPAIGN_SCHEMA} evidence first"
+        )
+        return None
+    if schema == HOST_CAMPAIGN_SCHEMA:
         expected_fields = HOST_CAMPAIGN_FIELDS
         expected_contract = HOST_CAMPAIGN_CONTRACT_VERSION
         result_fields = HOST_RESULT_FIELDS
@@ -1057,6 +1058,7 @@ def _validate_probe_provenance(
     qualification_environment: Mapping[str, Any],
     environments: Mapping[str, Mapping[str, Any]],
     source_campaign_artifacts: Mapping[str, Any],
+    trusted_predecessor_campaign_sha256s: frozenset[str],
     identity: Mapping[str, str],
     current_basis: str,
     issues: list[str],
@@ -1117,6 +1119,7 @@ def _validate_probe_provenance(
         repo,
         artifact=artifact,
         artifact_sha256=str(artifact_sha),
+        trusted_predecessor_campaign_sha256s=trusted_predecessor_campaign_sha256s,
         probe_id=probe_id,
         issues=issues,
     )
@@ -1153,6 +1156,7 @@ def _validate_host_campaign(
     identity: Mapping[str, str],
     qualification_identity: Mapping[str, str],
     probe_bases: Mapping[str, str],
+    trusted_predecessor_campaign_sha256s: frozenset[str],
     issues: list[str],
 ) -> None:
     value = _exact_fields(campaign, HOST_CAMPAIGN_FIELDS, label="host campaign", issues=issues)
@@ -1239,6 +1243,7 @@ def _validate_host_campaign(
             qualification_environment=qualification_environment,
             environments=valid_environments,
             source_campaign_artifacts=source_campaign_artifacts,
+            trusted_predecessor_campaign_sha256s=trusted_predecessor_campaign_sha256s,
             identity=identity,
             current_basis=probe_bases[probe_id],
             issues=issues,
@@ -1369,8 +1374,25 @@ def _validate_final_review_request(
 def verify_release_evidence(
     repo: Path,
     evidence: Mapping[str, Any] | Path,
+    *,
+    trusted_predecessor_campaign_sha256s: tuple[str, ...] | list[str] | set[str] | frozenset[str] = (),
 ) -> dict[str, Any]:
     issues: list[str] = []
+    malformed_trusted_digests = sorted(
+        value
+        for value in trusted_predecessor_campaign_sha256s
+        if not _valid_hex(value, 64)
+    )
+    if malformed_trusted_digests:
+        issues.append(
+            "trusted predecessor campaign digests contain malformed sha256 values: "
+            + ", ".join(malformed_trusted_digests)
+        )
+    trusted_predecessor_campaign_sha256s = frozenset(
+        value
+        for value in trusted_predecessor_campaign_sha256s
+        if _valid_hex(value, 64)
+    )
     try:
         candidate = _resolve_repo(repo)
     except ReleaseEvidenceError as exc:
@@ -1435,6 +1457,7 @@ def verify_release_evidence(
             identity=identity,
             qualification_identity=qualification_identity,
             probe_bases=probe_bases,
+            trusted_predecessor_campaign_sha256s=trusted_predecessor_campaign_sha256s,
             issues=issues,
         )
         review_request = _validate_final_review_request(
@@ -1536,6 +1559,15 @@ def parse_args() -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--evidence", type=Path)
     mode.add_argument("--compare-ref")
+    parser.add_argument(
+        "--trusted-predecessor-campaign-sha256",
+        action="append",
+        default=[],
+        help=(
+            "canonical SHA-256 of an independently preserved predecessor Host campaign; "
+            "repeat once for every predecessor campaign referenced by carry-forward evidence"
+        ),
+    )
     parser.add_argument("--json", action="store_true")
     return parser.parse_args()
 
@@ -1545,7 +1577,13 @@ def main() -> None:
     result = (
         compare_host_qualification(args.repo, args.compare_ref)
         if args.compare_ref is not None
-        else verify_release_evidence(args.repo, args.evidence)
+        else verify_release_evidence(
+            args.repo,
+            args.evidence,
+            trusted_predecessor_campaign_sha256s=tuple(
+                args.trusted_predecessor_campaign_sha256
+            ),
+        )
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
@@ -1557,7 +1595,10 @@ def main() -> None:
                 "basis-compatible: "
                 + (", ".join(result["basis_compatible_host_probes"]) or "none")
             )
-            print("reuse-authorized: no (requires verified predecessor campaign and Host environment)")
+            print(
+                "reuse-authorized: no (requires verified current-schema predecessor campaign, "
+                "independently trusted predecessor campaign digest, and Host environment)"
+            )
         else:
             print("V4 RELEASE EVIDENCE PASS")
     else:

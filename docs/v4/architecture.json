@@ -252,6 +252,9 @@
       "historical_git_basis_recomputed": true,
       "compare_ref_is_reuse_authority": false,
       "carry_forward_requires_exact_source_campaign_artifact": true,
+      "carry_forward_requires_independently_trusted_predecessor_campaign_digest": true,
+      "embedded_source_campaign_self_hash_is_reuse_authority": false,
+      "legacy_host_campaign_can_authorize_carry_forward": false,
       "carried_evidence_ref_preserved": true,
       "carried_source_environment_preserved_exactly": true,
       "stable_environment_fields": [
