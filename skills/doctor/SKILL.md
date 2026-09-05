@@ -21,4 +21,4 @@ The public product line begins at `1.0.0`. Doctor does not interpret, migrate, o
 
 Normal diagnosis does not use the network. Update checking and Plugin update are separate explicit flows and may refresh the configured Marketplace. Plugin update remains protected by package-integrity and canonical-source verification.
 
-Repository publication checks, release-candidate evidence, CI status, Native Core Host campaigns, runtime-attestation campaigns, benchmark/calibration work, and other maintainer workflows stay outside Doctor.
+Repository publication checks, release-candidate evidence, CI status, runtime-attestation campaigns, benchmark/calibration work, and other maintainer workflows stay outside Doctor.

@@ -42,9 +42,9 @@
     "scripts/uninstall-agents.py": "1e00b30766d3714e78ea12b5a4f198eac69dbef3e86b914715db705ba5204d97",
     "scripts/work_graph_v4.py": "ad219094b2c3f2a31ffd6abab527caf7971ffa9704f428c5fb19d02324c35a7f",
     "scripts/writer_lease_v4.py": "1dcfdae3e05d153775feedc16d457220a8d47503037e61d7055605326ec47072",
-    "skills/doctor/SKILL.md": "bdb3ab83ff6d54510b070266c4912ddd5fcd31887ec8fffefad36953d32bb00e",
+    "skills/doctor/SKILL.md": "0d456882190a8752a69dc643de1e7bf11975c653bb33ae3592364069fe0b9351",
     "skills/doctor/agents/openai.yaml": "1c3989188f3c3885e2e637faae04b29ac74a20bf39850e412af12301809d91a9",
-    "skills/orchestrate/SKILL.md": "2bcc894c577cafa0444c51389f1795964e3ca50cdb977e41b42cf51f74ba0734",
+    "skills/orchestrate/SKILL.md": "20f5781bdc6116200c5465715622c9cb3744ea44eb9033f1d21259aa69c07591",
     "skills/orchestrate/agents/openai.yaml": "72093396dc072c6f86fc977b27db30c1799b2c2169a4fd36dc1938042ab5a012"
   },
   "normalization": "utf-8-lf",
