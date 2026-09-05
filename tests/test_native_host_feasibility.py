@@ -12,19 +12,21 @@ INSPECTOR = ROOT / "scripts" / "inspect-collaboration-runtime.py"
 THREAD = "11111111-1111-7111-8111-111111111111"
 CHILD = "22222222-2222-7222-8222-222222222222"
 PROFILES = {
-    "subagents-dispatch-reader.toml": ("gpt-5.6-luna", "max", "read-only"),
-    "subagents-dispatch-worker.toml": ("gpt-5.6-luna", "max", None),
-    "subagents-dispatch-investigator.toml": ("gpt-5.6-terra", "high", "read-only"),
-    "subagents-dispatch-solver.toml": ("gpt-5.6-sol", "high", None),
-    "subagents-dispatch-advisor.toml": ("gpt-5.6-sol", "high", "read-only"),
+    "subagents-dispatch-programmer.toml": ("subagents_dispatch_programmer", None),
+    "subagents-dispatch-product-manager.toml": ("subagents_dispatch_product_manager", None),
+    "subagents-dispatch-department-director.toml": (
+        "subagents_dispatch_department_director",
+        "read-only",
+    ),
 }
 
 
 def test_all_managed_profiles_request_leaf_collaboration_posture_without_route_drift():
-    for filename, (model, effort, sandbox) in PROFILES.items():
+    for filename, (agent_type, sandbox) in PROFILES.items():
         payload = tomllib.loads((ROOT / "agent-profiles" / filename).read_text(encoding="utf-8"))
-        assert payload["model"] == model
-        assert payload["model_reasoning_effort"] == effort
+        assert payload["name"] == agent_type
+        assert "model" not in payload
+        assert "model_reasoning_effort" not in payload
         assert payload.get("sandbox_mode") == sandbox
         assert payload["agents"]["enabled"] is False
         assert payload["features"]["multi_agent_v2"] is False
@@ -57,7 +59,7 @@ def base_records() -> list[dict]:
                     {
                         "task_name": "sd-u1-a1",
                         "message": "SECRET ASSIGNMENT BODY",
-                        "agent_type": "subagents_dispatch_reader",
+                        "agent_type": "subagents_dispatch_programmer",
                         "fork_turns": "none",
                     }
                 ),
@@ -123,7 +125,7 @@ def test_collaboration_inspector_binds_call_result_and_activity_without_message_
                 "name": "spawn_agent",
                 "authorization": {
                     "task_name": "sd-u1-a1",
-                    "agent_type": "subagents_dispatch_reader",
+                    "agent_type": "subagents_dispatch_programmer",
                     "fork_turns": "none",
                 },
                 "message_present": True,

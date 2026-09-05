@@ -1,6 +1,6 @@
 # 1.0.0 Clean-Break Closure Plan
 
-This plan covers the repository closure required for the first public `1.0.0` line. Live branch, commit, CI, review, and Host verdicts belong in GitHub and Issue #91 rather than in this file.
+This plan covers the repository closure required for the first public `1.0.0` line. Live branch, commit, CI, and review state belong in Git/GitHub rather than in this file.
 
 ## Objective
 
@@ -17,7 +17,7 @@ The current product keeps Native Core V4 as an internal architecture generation.
 - Machine architecture state/entity fields match the runtime schema instead of carrying deleted compatibility fields.
 - Current tests exercise current interfaces. Historical tests do not keep deleted APIs alive.
 - The exact PR head passes the complete GitHub Actions matrix, package-integrity verification, Ruff, full pytest, official Plugin validation where applicable, and managed Agent install/check/Doctor/uninstall lifecycle.
-- Real Host qualification remains a separate release gate and is rebound only after the final merged runtime basis is frozen and Issue #91 preflight permits the next action.
+- Host release qualification uses the pinned mature `sol-advisor` / `astra-advisor` reference contract rather than a project-owned real-Host campaign. Current runtime Host truth remains fail-closed when a concrete delegation depends on it.
 
 ## Implementation order
 
@@ -47,4 +47,4 @@ Do not:
 
 ## Verification
 
-Repository completion requires the live GitHub exact-head matrix to pass. Tests are necessary but the final review must also check correctness, simplicity, architecture, security, and performance. Host N0-N7, the separate exact-source Final Review, installed-product verification, and human App observation remain later release gates under `docs/release-checklist.md`.
+Repository completion requires the live GitHub exact-head matrix to pass. Tests are necessary but the final review must also check correctness, simplicity, architecture, security, and performance. Pinned Host-reference conformance, the separate exact-source Department Director / Astra High Final Review, installed-product verification, and human App observation remain release gates under `docs/release-checklist.md`.

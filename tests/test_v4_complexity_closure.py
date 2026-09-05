@@ -184,14 +184,10 @@ def test_runtime_integrity_keeps_product_runtime_and_excludes_maintainer_tools()
     integrity = load_module("closure_integrity", "package_integrity.py")
     files = {path.as_posix() for path in integrity.runtime_files(ROOT)}
     maintainer_only = {
-        "scripts/calibration_profile_contract.py",
-        "scripts/calibration_profiles.py",
-        "scripts/calibration_profiles_core.py",
         "scripts/release_evidence_v4.py",
         "scripts/score-behavioral-evals.py",
         "scripts/validate-experiment-campaign.py",
         "scripts/validate-experiment-run.py",
-        "scripts/validate_experiment_campaign_core.py",
     }
     assert not (files & maintainer_only)
     for required in (

@@ -27,7 +27,7 @@ Experiments never edit production policy automatically and have no runtime/relea
   gpt-6-astra / high
 ```
 
-Configured production routes are operational policy, not proof that they are optimal. A route promotion requires calibration evidence, explicit product/policy approval, focused verification, real-Host qualification, and normal release gates.
+Configured production routes are operational policy, not proof that they are optimal. A route promotion requires calibration evidence, explicit product/policy approval, focused verification, Host-reference conformance, and normal release gates. The current runtime must still fail an affected route closed when its actual Host controls or observations are unavailable or conflicting.
 
 ## 2. One campaign format, two experiment types
 
@@ -146,7 +146,7 @@ frozen campaign
 -> human/product judgment
 -> policy change
 -> focused tests
--> real Host qualification
+-> Host-reference conformance
 -> release gates
 ```
 

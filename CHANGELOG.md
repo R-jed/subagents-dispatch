@@ -13,9 +13,11 @@ Initial public release of subagents-dispatch.
 
 ### Managed profiles
 
-- Reader and Worker use Luna Max.
-- Investigator uses Terra High.
-- Solver and Advisor use Sol High.
+- Programmer uses Luna Max.
+- Product Manager uses Sol Medium by default and Sol High for explicit material-decision or Standard Review obligations.
+- Department Director uses Astra High only for highest-consequence acceptance, including the formal release Final Review.
+- Main model/effort does not inherit into or override managed routes.
+- The three custom-Agent profiles own behavior/configuration only; exact model/effort is supplied by the policy-backed managed spawn.
 
 ### Native Core
 
@@ -35,5 +37,6 @@ Initial public release of subagents-dispatch.
 
 ### Release qualification
 
-- Repository CI, package integrity, real Codex Host qualification, Final Review, installed-product verification, and human App observation remain separate evidence gates.
+- Repository CI, package integrity, pinned mature Host-reference conformance, exact-source Department Director Final Review, installed-product verification, and human App observation remain separate evidence gates.
+- Release Host assumptions are pinned to mature `sol-advisor` and `astra-advisor` implementations instead of a project-owned N0-N7 Host campaign. Runtime Host truth still fails closed per affected delegation.
 - Publication is blocked until the exact release candidate satisfies all required gates.

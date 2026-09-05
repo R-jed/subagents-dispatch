@@ -2,7 +2,7 @@
 
 Research snapshot: OpenAI `openai/codex` `main` at commit `25a6e316c81fb7600d1d75f3e63ffe26be10b7c8` on 2026-08-26.
 
-This note records upstream implementation facts that are relevant to the first public `subagents-dispatch` v1.0.0 Host qualification. It is source-alignment guidance, not a replacement for real-Host evidence from the exact Codex build under qualification.
+This note records upstream implementation facts relevant to the first public `subagents-dispatch` v1.0.0 Native Host boundary. Release qualification now uses `docs/v4/host-reference.json`, which pins mature `sol-advisor` and `astra-advisor` integration patterns; this source snapshot remains supporting implementation context rather than a second release gate.
 
 ## 1. `agent_path` is a canonical task path
 
@@ -40,7 +40,7 @@ Primary sources:
 - https://github.com/openai/codex/blob/25a6e316c81fb7600d1d75f3e63ffe26be10b7c8/codex-rs/core/src/tools/handlers/multi_agents_spec.rs
 - https://github.com/openai/codex/blob/25a6e316c81fb7600d1d75f3e63ffe26be10b7c8/codex-rs/core/src/agent/control.rs
 
-Implication for this repository: N2 materialization evidence should bind the canonical task path to exactly one child thread created after the authorized spawn cutoff. Thread id remains the concrete rollout identity; task path is the V2 native routing identity.
+Implication for this repository: runtime reconciliation treats the canonical task path as the V2 native routing identity and keeps any concrete Host thread identity distinct when the Host exposes it.
 
 ## 4. Upstream V2 does not make children leaf-only by default
 
@@ -53,7 +53,7 @@ Primary sources:
 - https://github.com/openai/codex/blob/25a6e316c81fb7600d1d75f3e63ffe26be10b7c8/codex-rs/core/src/tools/spec_plan.rs
 - https://github.com/openai/codex/blob/25a6e316c81fb7600d1d75f3e63ffe26be10b7c8/codex-rs/core/src/session/multi_agents.rs
 
-Implication for this repository: `subagents-dispatch` leaf-only managed-child behavior is a product invariant that needs independent enforcement and real-Host verification. A V2 child route alone cannot prove containment. Profile declarations that are not applied by the Host cannot be treated as proof either.
+Implication for this repository: `subagents-dispatch` leaf-only managed-child behavior is a semantic product invariant. A V2 child route alone cannot prove Host-hard containment, and profile declarations cannot be treated as such proof. If a task specifically requires Host-hard isolation, direct current-Host evidence is required for that stronger claim.
 
 ## 5. Agent-control state is scoped to a root thread tree
 
@@ -63,16 +63,16 @@ Primary source:
 
 - https://github.com/openai/codex/blob/25a6e316c81fb7600d1d75f3e63ffe26be10b7c8/codex-rs/core/src/agent/control.rs
 
-Implication for this repository: qualification evidence should keep root identity explicit and should not merge observations from unrelated root trees merely because task names match.
+Implication for this repository: runtime evidence should keep root identity explicit and should not merge observations from unrelated root trees merely because task names match.
 
-## 6. Boundary between upstream source facts and Host qualification
+## 6. Boundary between source/reference facts and runtime truth
 
-The source facts above describe current upstream Codex at one pinned commit. The release campaign still qualifies the actual installed Host build and its exact rollout behavior. When upstream source and the installed build differ, the observed Host behavior is the acceptance authority for that build, while the source comparison is supporting evidence and a diagnostic aid.
+The source facts above and the two mature projects pinned by `docs/v4/host-reference.json` establish the design basis for using Native Codex controls. They do not prove that a particular installed Host exposes every model, effort or observation.
 
-For the current campaign this means:
+The current runtime rules therefore remain:
 
-1. treat `agent_path` as V2 task identity;
-2. keep profile-file provenance separate from runtime task identity;
-3. use task-path plus time cutoff only to discover candidate child rollouts, then bind the exact child thread and parent;
-4. keep N1 leaf containment as an explicit Host gate;
-5. keep aggregate rollout statistics as supporting evidence only and fail closed when evidence needed by a gate is absent or ambiguous.
+1. treat `agent_path` as V2 task identity when it has the canonical form;
+2. keep profile/configuration intent separate from observed runtime identity;
+3. use the current callable Host schema as authority for available controls;
+4. keep requested, accepted and observed route facts separate;
+5. fail the affected delegation/review closed when a required Host fact is missing, conflicting or unobservable.

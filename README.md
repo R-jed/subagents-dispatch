@@ -111,17 +111,15 @@ U2 先停一下。
 
 这里的单写入者是工作区边界。未来如果 Host 能可靠地把不同写入者隔离到独立 worktree 或 workspace，并且这些工作在语义上也互不冲突，就可以形成多个独立写入域。当前版本只管理一个 canonical workspace，因此保持一个写入者更稳妥。详细说明见 [写入者边界](docs/writer-boundary.md)。
 
-## 当前固定阵容
+## 当前团队
 
-| 工作 | 模型 | 擅长什么 |
+| 角色 | 模型 | 负责什么 |
 |---|---|---|
-| 阅读 | Luna Max | 窄范围读代码、追调用链 |
-| 实现 | Luna Max | 做法已经明确的有界修改 |
-| 调研 | Terra High | 大范围只读调查、跨文件找证据 |
-| 解题 | Sol High | 需要较多技术判断的实现 |
-| 复核 | Sol High | 独立检查方案和最终结果 |
+| 程序员 | Luna Max | 普通调查、读代码、已明确方案的有界实现 |
+| 产品经理 | Sol Medium / High | 技术判断、跨路径综合、重大决策，以及需要时的标准独立复核 |
+| 部门总监 | Astra High | 候选完成后的最高后果验收；普通任务不会为了“更复杂”而自动调用 |
 
-目前先把阵容固定下来，不做动态模型和思考强度切换。这样行为更容易理解，也更容易复现。以后如果真实数据证明某个组合值得调整，再调整。
+角色背后的模型和 ReasoningEffort 由插件策略固定，Main 会话里用户选择的模型和 Effort 不会继承、覆盖或降低它们。产品经理默认使用 Sol Medium，只有明确的重大决策触发条件才使用 Sol High；部门总监只在高后果验收或正式发布门槛触发。未来若要改变正式路由，需要先有 calibration 证据，再显式修改产品策略。
 
 ## 安装
 
@@ -134,7 +132,7 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 安装完成后启动一个新的 Codex 会话，在 Skill 菜单里选择 **Orchestrate**。
 
-第一次真正需要子代理时，插件会检查自己的五个固定 Agent profile。如果缺失且路径安全，插件只会创建自己拥有的配置。当前 V4 无法从已经运行中的 task 获得权威证据，证明刚创建的 custom Agent profile 已经进入这个 task 的 Agent registry，因此这次任务会保守返回 `RESTART_REQUIRED`，不会尝试用别的 Agent 顶替。重新开一个 Codex 任务后提交原请求即可，这个步骤只发生在 profile 首次创建或需要重新激活时。
+第一次真正需要子代理时，插件会检查自己的三个 Agent profile。如果缺失且路径安全，插件只会创建自己拥有的配置。当前 V4 无法从已经运行中的 task 获得权威证据，证明刚创建的 custom Agent profile 已经进入这个 task 的 Agent registry，因此这次任务会保守返回 `RESTART_REQUIRED`，不会尝试用别的 Agent 顶替。重新开一个 Codex 任务后提交原请求即可，这个步骤只发生在 profile 首次创建或需要重新激活时。
 
 如果你希望第一条正式开发任务不被这个初始化步骤打断，可以在安装后的首次会话里先选择 **Doctor**，明确要求它修复或准备 managed Agent profiles，然后启动一个新的正式工作会话。相关辅助功能需要 Python 3.11 或更高版本。
 

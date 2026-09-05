@@ -14,7 +14,7 @@ Main always owns:
 - external side effects;
 - integration and final response.
 
-Managed children do not create further project Subagents or background Agent teams. Delegation depth is one as a project policy. Profile configuration, behavioral instructions, or a configured depth value do not by themselves prove Host-enforced child containment. Ordinary delegated execution does not require Host-hard descendant isolation. The effective child collaboration surface remains a Host fact, and N1 release qualification verifies that canonical managed children remain leaf in actual managed execution. If a specific user or product requirement demands Host-hard isolation, require direct Host evidence for that stronger boundary or report it unavailable.
+Managed children do not create further project Subagents or background Agent teams. Delegation depth is one as a project policy. Profile configuration, behavioral instructions, or a configured depth value do not by themselves prove Host-enforced child containment. Ordinary delegated execution does not require Host-hard descendant isolation. The effective child collaboration surface remains a Host fact. If a specific user or product requirement demands Host-hard isolation, require direct current-Host evidence for that stronger boundary or report it unavailable.
 
 A stronger model or broader Host capability does not grant broader user authority.
 

@@ -11,7 +11,7 @@ PLUGIN = ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 POLICY = ROOT / "contracts" / "policy.json"
 SKILLS = ROOT / "skills"
-HOST_SMOKE = ROOT / "docs" / "v4" / "host-smoke.json"
+HOST_REFERENCE = ROOT / "docs" / "v4" / "host-reference.json"
 PUBLIC_SKILLS = {"orchestrate", "doctor"}
 CANONICAL_MARKETPLACE = "codex plugin marketplace add R-jed/subagents-dispatch"
 PLUGIN_ADD = "codex plugin add subagents-dispatch@subagents-dispatch"
@@ -102,31 +102,33 @@ def test_marketplace_plugin_source_is_exact_checkout_root():
 
 def test_fixed_profiles_follow_policy_and_request_leaf_containment():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["schema_version"] == 9
+    assert policy["schema_version"] == 10
     assert policy["delegation"] == {
         "max_depth": 1,
         "fork_turns": "none",
         "max_managed_children": 4,
     }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
-    assert set(policy["roles"]) == {"reader", "worker", "investigator", "solver", "advisor"}
+    assert set(policy["roles"]) == {"programmer", "product_manager", "department_director"}
 
     for role, spec in policy["roles"].items():
         profile = tomllib.loads(
             (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
         )
-        assert profile["model"] == spec["model"], role
-        assert profile["model_reasoning_effort"] == spec["effort"], role
+        assert "model" not in profile, role
+        assert "model_reasoning_effort" not in profile, role
         assert profile["agents"]["enabled"] is False, role
         assert profile["features"]["multi_agent_v2"] is False, role
 
 
-def test_native_core_release_is_blocked_until_external_n0_n7_campaign_passes():
-    smoke = json.loads(HOST_SMOKE.read_text(encoding="utf-8"))
-    assert smoke["status"] == "PENDING"
-    assert smoke["results"] == {}
-    assert smoke["gate_id"] == "v4-real-host-n0-n7"
-    assert [probe["id"] for probe in smoke["required_probes"]] == [f"N{index}" for index in range(8)]
+def test_release_uses_pinned_host_references_without_project_campaign():
+    reference = json.loads(HOST_REFERENCE.read_text(encoding="utf-8"))
+    assert reference["release_policy"] == {
+        "live_host_campaign_required": False,
+        "reference_conformance_required": True,
+        "runtime_fail_closed_still_required": True,
+    }
+    assert not (ROOT / "docs" / "v4" / "host-smoke.json").exists()
 
 
 def test_installation_document_keeps_supported_commands():

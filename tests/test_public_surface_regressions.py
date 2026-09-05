@@ -70,11 +70,9 @@ def test_readme_files_are_valid_basic_text_files():
 
 def test_public_uninstall_docs_forbid_manual_managed_profile_removal():
     forbidden = (
-        "rm ~/.codex/agents/subagents-dispatch-reader.toml",
-        "rm ~/.codex/agents/subagents-dispatch-worker.toml",
-        "rm ~/.codex/agents/subagents-dispatch-solver.toml",
-        "rm ~/.codex/agents/subagents-dispatch-investigator.toml",
-        "rm ~/.codex/agents/subagents-dispatch-advisor.toml",
+        "rm ~/.codex/agents/subagents-dispatch-programmer.toml",
+        "rm ~/.codex/agents/subagents-dispatch-product-manager.toml",
+        "rm ~/.codex/agents/subagents-dispatch-department-director.toml",
         "rm ~/.codex/.subagents-dispatch-agents.json",
     )
     for path in (INSTALL_DOC, SKILLS / "doctor" / "SKILL.md"):

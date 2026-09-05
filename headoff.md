@@ -1,100 +1,88 @@
 # Headoff
 
-Updated: 2026-08-30.
+Updated: 2026-09-05.
 
 ## Purpose
 
-This is the development-session handoff for `subagents-dispatch`. It is continuity context only. It is not Plugin runtime, a product contract, Host qualification input, release evidence, or a release gate.
+Development-session continuity only. This file is not Plugin runtime, release evidence, or a release gate.
 
-## Current 1.0.0 closure
+## Current branch and architecture
 
-The active 1.0.0 contract-close work is isolated on:
+Canonical local repository: `/Users/qunqing/2026-Project-Agent/subagents-dispatch`.
 
-```text
-worktree: isolated 1.0 contract-close worktree
-branch: feat/1.0-contract-close
-base: 92cc7e8766021f2c1962c849ef34b34a81708a7e
-```
+Active implementation branch: `feat/gpt6-routing`.
 
-The release architecture is being simplified without changing the Native Core runtime engine, fixed profiles, WorkGraph, WriterLease, Doctor, or `contracts/policy.json`.
-
-Current intended release flow:
+The first-public `1.0.0` architecture now has three managed semantic roles:
 
 ```text
-finish contract-close verification
--> merge approved source into the release line and freeze the exact release commit
--> final release-source repository / CI verification on that frozen commit
--> freeze Host qualification identity
--> real Host N0-N7
--> bind Main-owned pre-review request
--> one fresh exact-release-source Advisor Final Review
--> external release evidence verification
--> installed-product verification
--> human product smoke
--> v1.0.0
+Programmer             gpt-5.6-luna / max
+Product Manager        gpt-5.6-sol / medium | high
+Department Director    gpt-6-astra / high
 ```
 
-## Contract decisions
+Main owns semantic classification and orchestration. Deterministic policy owns the exact legal managed route. Persistent role TOMLs carry behavior/configuration only and do not pin model or effort.
 
-Routing uses minimum useful fanout:
-
-- Main-only is preferred when delegation adds no value.
-- One child is the common delegated shape when one distinct responsibility benefits from delegation.
-- Multiple children may start immediately only for independently ready, non-duplicative responsibilities that are safe to overlap and materially benefit from concurrency.
-- Spare capacity never creates work.
-- A delegated responsibility substitutes for Main doing the same investigation or implementation. Main verifies, integrates, and accepts instead of duplicating it.
-- A short user-visible route rationale may be shown, but no persistent `solo`, `delegate`, `audit`, `full`, or other route-mode state is added.
-
-Host qualification and Final Review are separate:
-
-- `docs/v4/host-smoke.json` owns N0-N7 Host qualification.
-- `contracts/final-review.md` owns the one exact-source Final Review.
-- `scripts/release_evidence_v4.py` binds the two independent evidence lifecycles.
-- The Final Review result must bind a Main-owned pre-review request so the reviewer cannot downgrade `hard_isolation_required` or invent a missing no-edit instruction after launch.
-
-Final Review assurance has three outcomes:
+## Verified implementation commits
 
 ```text
-A  effective Host read-only
-   -> enforced_read_only
-
-B  broader Host write capability + hard isolation not required
-   + Advisor semantic mutation authority remains none
-   + explicit no-edit/no-external-side-effect instruction
-   + exact review artifact unchanged before/after
-   -> artifact_immutability_fallback with residual risk disclosure
-
-C  permission unobservable/ambiguous, hard isolation required without enforced read-only,
-   artifact mutation, or reviewer boundary violation
-   -> INSUFFICIENT_EVIDENCE / fail closed
+499d743  refactor: establish three-role routing core
+91d577e  feat: guard parallel semantic reads
+3801479  refactor: simplify calibration evidence plane
+988c50e  fix: make plugin updates exact and transactional
 ```
 
-The fallback is not Host-hard isolation. `review-artifact.py` does not cover ignored build/cache artifacts or prove absence of external side effects.
+Each commit passed the repository pre-commit checks. Before the current Host-reference closure began, full pytest was 510/510 PASS, Ruff passed, package integrity passed, managed-profile lifecycle/Doctor passed, and the pinned official OpenAI Plugin validator passed.
 
-## Historical Host evidence
+## Host release-policy amendment
 
-The build7119 N0-N8 campaign and permission RCA are preserved as historical evidence in:
+The user explicitly changed the first-release Host verification strategy during implementation: do not run a project-owned real-Host N0-N7 campaign. Reuse the mature Native Codex integration patterns from these pinned projects instead:
 
-- `docs/history/v4/host-qualification-handoff-build7119.md`
-- `docs/history/v4/headoff-pre-1.0-contract-close-build7119.md`
-- Issue #91
+```text
+sol-advisor
+https://github.com/DannyMac180/sol-advisor
+37b75cad535abdd46531f0227483a8842d045ab8
 
-That evidence does not qualify the new contract because `docs/v4/host-smoke.json` changes the Host contract digest from the old N0-N8 basis to the new N0-N7 basis. Do not rewrite historical N8 observations as if they had been collected under the new contract.
+astra-advisor
+https://github.com/DannyMac180/astra-advisor
+c72d3280551f118eba51a5884e3971a0c0058aa6
+```
 
-No formal Host N0-N7 campaign has started for the new contract-close candidate.
+`docs/v4/host-reference.json` is the new machine release owner for these assumptions. The retired N0-N7 campaign contract, qualification guard, rollout collector, procedure and carry-forward release machinery have been removed from the active design.
 
-## Current boundaries
+This amendment changes release qualification, not runtime truth. Ordinary Orchestrate must still use the current callable Host surface as authority and fail the affected delegation/review closed when required model/effort/control or realized-route evidence is missing, conflicting, unavailable or unobservable.
 
-Do not:
+Depth one remains a semantic product boundary. The references do not prove Host-hard descendant isolation. If a specific user requirement demands hard isolation, direct current-Host evidence is required for that stronger claim.
 
-- modify `scripts/orchestrate_v4.py`, scheduler, WorkGraph, WriterLease, managed profiles, Doctor logic, or `contracts/policy.json` merely for this simplification;
-- hard-code one-child-first;
-- add a dynamic Luna/Terra/Sol escalation ladder;
-- start formal Host qualification before the source, package manifest, Host contract, and tests are finalized;
-- treat a development code review as the release Final Review.
+## Final Review
 
-## Next safe continuation
+The formal release Final Review remains required after the exact release source is frozen:
 
-Finish the isolated contract-close diff, regenerate package integrity, run focused and full repository verification, official Plugin validation, and isolated managed-profile lifecycle checks. Then perform a fresh adversarial development review of the complete diff.
+```text
+subagents_dispatch_department_director
+gpt-6-astra
+reasoning_effort = high
+fork_turns = none
+fresh context
+semantic mutation authority = none
+```
 
-Only after the verified change is merged/frozen should the new Host N0-N7 campaign begin. The one release Final Review runs after Host qualification against the exact final release source.
+The Main-owned pre-review request and result both bind the exact candidate and request digest. Permission assurance follows `contracts/final-review.md`.
+
+## Current safe continuation
+
+Host-reference Slice 7 source work is now stabilized:
+
+```text
+release/reference focused tests   14/14 PASS
+affected Slice 7 tests            122/122 PASS
+full pytest                       428/428 PASS
+Ruff                              PASS
+package integrity                 PASS
+managed profile lifecycle/Doctor PASS
+official OpenAI Plugin validator  PASS
+git diff --check                  PASS
+```
+
+Use Git history as the authority for whether this verified Slice 7 source has already been committed. No project-owned Host campaign is required.
+
+Do not push, tag, publish or create a release without explicit user authorization.

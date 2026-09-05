@@ -32,7 +32,8 @@ def test_architecture_owns_orchestrate_transport_and_managed_depth_authority():
     assert architecture["public_skills"] == ["orchestrate", "doctor"]
     assert architecture["runtime_owners"]["orchestration"] == "scripts/orchestrate_v4.py"
     assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
-    assert architecture["routing"]["profile_selection_owner"] == "main"
+    assert architecture["routing"]["role_selection_owner"] == "main"
+    assert architecture["routing"]["exact_route_resolution_owner"] == "deterministic_policy"
     assert architecture["delegation"]["max_depth"] == 1
     assert architecture["delegation"]["max_depth_scope"] == "project_policy"
     assert architecture["delegation"]["max_depth_is_v2_host_containment_proof"] is False

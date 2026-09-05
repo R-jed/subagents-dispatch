@@ -54,7 +54,7 @@ def test_fresh_install_creates_only_current_managed_profiles(tmp_path: Path):
         assert (home / "agents" / filename).read_bytes() == (PROFILE_SOURCE / filename).read_bytes()
     manifest = json.loads((home / CURRENT_MANIFEST).read_text())
     assert (home / CURRENT_LOCK).read_bytes() == b"\x00"
-    assert manifest["schema_version"] == 1
+    assert manifest["schema_version"] == 2
     assert manifest["managed_by"] == "subagents-dispatch"
     assert set(manifest["profile_hashes"]) == set(CURRENT_FILES)
 
@@ -88,7 +88,7 @@ def test_check_is_non_mutating_and_repeat_install_is_noop(tmp_path: Path):
 def test_modified_current_profile_is_not_overwritten_without_current_ownership(tmp_path: Path):
     home = tmp_path / "codex-home"
     assert _install_agents__run(home).returncode == 0
-    profile = home / "agents" / _install_agents__POLICY["roles"]["solver"]["profile_file"]
+    profile = home / "agents" / _install_agents__POLICY["roles"]["product_manager"]["profile_file"]
     profile.write_bytes(profile.read_bytes() + b"\n# user change\n")
     (home / CURRENT_MANIFEST).unlink()
     before = profile.read_bytes()
@@ -101,7 +101,7 @@ def test_modified_current_profile_is_not_overwritten_without_current_ownership(t
 def test_previous_current_profile_can_upgrade_with_exact_current_manifest(tmp_path: Path):
     home = tmp_path / "codex-home"
     assert _install_agents__run(home).returncode == 0
-    profile = home / "agents" / _install_agents__POLICY["roles"]["worker"]["profile_file"]
+    profile = home / "agents" / _install_agents__POLICY["roles"]["programmer"]["profile_file"]
     previous = profile.read_bytes() + b"\n# previous managed generation\n"
     profile.write_bytes(previous)
     manifest_path = home / CURRENT_MANIFEST
@@ -117,7 +117,7 @@ def test_current_manifest_can_add_missing_managed_profile_without_touching_exist
     home = tmp_path / "codex-home"
     agents = home / "agents"
     agents.mkdir(parents=True)
-    missing = _install_agents__POLICY["roles"]["solver"]["profile_file"]
+    missing = _install_agents__POLICY["roles"]["product_manager"]["profile_file"]
     existing_files = [name for name in CURRENT_FILES if name != missing]
     hashes = {}
     for filename in existing_files:
@@ -127,7 +127,7 @@ def test_current_manifest_can_add_missing_managed_profile_without_touching_exist
     (home / CURRENT_MANIFEST).write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "managed_by": "subagents-dispatch",
                 "profile_hashes": hashes,
             }
@@ -338,8 +338,8 @@ def _installer_safety__run_installer(target: Path, *extra: str):
 @pytest.mark.parametrize(
     ("filename", "expected_message"),
     [
-        ("subagents-dispatch-worker.toml", "Refusing to overwrite"),
-        ("my-custom-worker.toml", "reserved current role name"),
+        ("subagents-dispatch-programmer.toml", "Refusing to overwrite"),
+        ("my-custom-programmer.toml", "reserved current role name"),
     ],
     ids=["same-filename", "reserved-role-name"],
 )
@@ -350,8 +350,7 @@ def test_installer_refuses_conflicting_reserved_profile(
     agents = target / "agents"
     agents.mkdir(parents=True)
     (agents / filename).write_text(
-        'name = "subagents_dispatch_worker"\n'
-        'model = "gpt-5.6-terra"\n'
+        'name = "subagents_dispatch_programmer"\n'
         'developer_instructions = "custom"\n'
     )
     result = _installer_safety__run_installer(target)

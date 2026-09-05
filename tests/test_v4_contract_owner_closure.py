@@ -27,7 +27,8 @@ def test_active_contract_files_exist_and_machine_architecture_is_canonical_owner
     assert "other root `contracts/` documents are hardened v3.x" not in architecture_doc.lower()
     assert "docs/v4/architecture.json" in architecture_doc
     assert architecture["public_skills"] == ["orchestrate", "doctor"]
-    assert architecture["routing"]["profile_selection_owner"] == "main"
+    assert architecture["routing"]["role_selection_owner"] == "main"
+    assert architecture["routing"]["exact_route_resolution_owner"] == "deterministic_policy"
     assert architecture["host_truth"]["lifecycle_owner"] == "codex_host"
 
 
@@ -37,7 +38,7 @@ def test_ai_reference_points_to_canonical_owners_without_mirroring_contract_inve
     for owner in (
         "contracts/policy.json",
         "docs/v4/architecture.json",
-        "docs/v4/host-smoke.json",
+        "docs/v4/host-reference.json",
         "docs/v4/technical-debt.json",
     ):
         assert owner in ai_reference
@@ -53,4 +54,5 @@ def test_doctor_and_final_review_keep_current_product_ownership():
     assert "release-candidate evidence" in doctor
     assert "stay outside Doctor" in doctor
     assert "selection/invocation of Dispatch" not in final_review
-    assert "selection/invocation of Orchestrate" in final_review
+    assert "Main confirms semantic trigger facts" in final_review
+    assert "A reviewer never decides its own admission" in final_review

@@ -269,7 +269,7 @@ frozen evidence
 -> product judgment
 -> explicit policy change
 -> focused verification
--> real Host qualification
+-> Host-reference conformance
 -> release gates
 ```
 

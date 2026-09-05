@@ -74,7 +74,7 @@ When data is insufficient, narrow the claim. For example, evidence may support â
 
 Repository tests answer whether the implementation satisfies deterministic contracts.
 
-The real Host campaign answers whether the target Codex Host actually exposes and enforces the lifecycle behavior the product relies on.
+The pinned mature Host-reference contract answers which Native Codex integration assumptions this release is intentionally reusing rather than re-proving. It does not turn a configured or requested route into observed runtime truth; the current Host remains authoritative whenever a concrete execution claim depends on it.
 
 The product benchmark answers whether the resulting user workflow is worth using on real engineering tasks.
 

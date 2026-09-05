@@ -2,22 +2,21 @@
 
 Current product surface: `Orchestrate` and `Doctor`.
 
-Before changing the active release branch, read root `headoff.md`. It is the development-session context transfer entrypoint for project background, important workflow history, current progress and next direction. Read GitHub and Issue #91 directly for current candidate, CI and real-Host evidence. Historical development chronology is not an active contract.
+Before changing the active release branch, read root `headoff.md`. It is the development-session context transfer entrypoint for project background, important workflow history, current progress and next direction. Read Git and GitHub directly for current candidate and CI state. Historical development chronology is not an active contract.
 
-`headoff.md` is development-only context. It is not Plugin runtime, Host qualification input, release evidence, or a phase gate. Do not require a headoff edit or commit merely to record an individual Host result. Its eventual removal is repository housekeeping and does not change Plugin runtime behavior or release authority.
+`headoff.md` is development-only context. It is not Plugin runtime, release evidence, or a phase gate. Do not create a parallel status machine inside it.
 
 ## Canonical truth
 
 Keep one owner per semantic fact:
 
 - `.codex-plugin/plugin.json`: public Plugin version and package identity.
-- `contracts/policy.json`: fixed profile and product policy values.
+- `contracts/policy.json`: managed role routes, decision/review triggers, and product policy values.
 - `contracts/state.md`: current state schema and clean-break boundary.
 - `docs/v4/architecture.json`: complete Native Core V4 machine architecture and runtime owner map.
-- `docs/v4/host-smoke.json`: candidate-bound N0-N7 real-Host qualification oracle.
+- `docs/v4/host-reference.json`: pinned mature Host-integration references and the narrow release assumptions reused from them.
 - `docs/v4/technical-debt.json`: explicit Native Core V4 technical debt.
 - GitHub: current branch, PR, candidate and CI state.
-- Issue #91: real-Host evidence and `REUSE | RERUN | NOT_RUN` preflight decisions.
 
 Do not add another tracked status JSON that copies current SHA, CI result or Host verdict. Do not create parallel machine projections of routing, scheduling, writer or Host semantics already owned by the canonical contracts.
 
@@ -35,21 +34,19 @@ Unsupported current-state schema, installation source, ownership, or product ide
 
 Codex Host owns child materialization, lifecycle truth, child identity, actual capacity, effective permission and effective collaboration capability.
 
-Main owns user intent, decomposition, explicit fixed-profile selection, dispatch judgment, integration, WorkUnit acceptance, irreversible external effects and the final response.
+Main owns user intent, decomposition, semantic role/trigger classification, dispatch judgment, integration, WorkUnit acceptance, irreversible external effects and the final response. Main model/effort never weakens or overrides managed routes.
 
 WorkGraph and WorkUnit own responsibility structure, dependencies and acceptance. ExecutionBinding owns one concrete managed attempt. WriterLease owns managed write coordination for the canonical workspace.
 
-## Fixed profiles
+## Managed team
 
 ```text
-Reader        gpt-5.6-luna   max    no mutation
-Worker        gpt-5.6-luna   max    bounded source write when granted
-Investigator  gpt-5.6-terra  high   no mutation
-Solver        gpt-5.6-sol    high   bounded source write when granted
-Advisor       gpt-5.6-sol    high   review / no mutation
+programmer             gpt-5.6-luna   max          WorkUnit owns mutation authority
+product_manager        gpt-5.6-sol    medium|high  WorkUnit owns mutation authority; review is fresh/read-only
+department_director    gpt-6-astra    high         highest acceptance only; semantic mutation authority none
 ```
 
-Main selects one fixed profile explicitly. There is no automatic model or effort escalation ladder.
+The three persistent TOML profiles contain behavior/configuration only and do not pin model/effort. `policy.json` plus the managed spawn path supplies exact model and `reasoning_effort` every time. Product Manager Medium/High is deterministic from confirmed triggers; failure, task size, file count, or Main model identity never creates an escalation ladder.
 
 ## Core invariants
 
@@ -63,9 +60,9 @@ UNKNOWN blocks conflicting replacement, writer transfer and final acceptance
 interrupt return alone never releases WriterLease
 ```
 
-Main is the sole managed coordinator. Managed profiles and responsibility packets instruct children not to create or control further Agents. Effective child collaboration remains Host truth. Latent V2 recursive capability alone does not decide managed N1; N1 evaluates actual canonical managed execution and descendant evidence.
+Main is the sole managed coordinator. Managed profiles and responsibility packets instruct children not to create or control further Agents. Effective child collaboration remains Host truth. Depth one is a semantic product boundary rather than a claim of Host-hard tool removal; a requirement for hard isolation needs direct current-Host evidence.
 
-Independent read-only overlap requires effective read-only evidence and responsibility isolation. The canonical mutable workspace has one managed writer unless a future Host-verifiable isolated-workspace mode is explicitly designed and validated.
+Semantic-read Programmer/Product Manager work may overlap. When the Host exposes broader write-capable permission, the parallel batch requires no active canonical WriterLease plus before/after artifact-immutability binding; any drift invalidates the batch. The canonical mutable workspace still has one managed writer.
 
 ## Contract index
 
@@ -79,7 +76,7 @@ Use the smallest relevant owner:
 - `contracts/state.md`: current Native Core state schema.
 - `contracts/final-review.md`: exact-candidate independent review.
 
-Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, N0-N7 Host evidence, the separate exact-source Final Review, and benchmark/calibration workflows stay outside ordinary Doctor authority.
+Doctor owns deterministic installed-product diagnosis and explicit maintenance. Repository publication checks, Host-reference conformance, the separate exact-source Final Review, and benchmark/calibration workflows stay outside ordinary Doctor authority.
 
 ## Change discipline
 

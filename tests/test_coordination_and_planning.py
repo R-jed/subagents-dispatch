@@ -33,47 +33,39 @@ def load_module(name: str, filename: str):
 
 def test_v4_policy_freezes_depth_child_ceiling_writer_and_profiles():
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["schema_version"] == 9
+    assert policy["schema_version"] == 10
     assert policy["delegation"] == {
         "max_depth": 1,
         "fork_turns": "none",
         "max_managed_children": 4,
     }
     assert policy["write_coordination"] == {"mode": "single_writer", "scope": "canonical_workspace"}
-    assert policy["fixed_execution_profiles"] == {
-        "luna": "max",
-        "terra": "high",
-        "sol": "high",
-        "dynamic_effort_routing": False,
-    }
+    assert "fixed_execution_profiles" not in policy
     expected = {
-        "reader": ("gpt-5.6-luna", "max", "none"),
-        "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "high", "none"),
-        "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-        "advisor": ("gpt-5.6-sol", "high", "none"),
+        "programmer": ("gpt-5.6-luna", ["max"]),
+        "product_manager": ("gpt-5.6-sol", ["medium", "high"]),
+        "department_director": ("gpt-6-astra", ["high"]),
     }
-    for role, (model, effort, authority) in expected.items():
+    for role, (model, efforts) in expected.items():
         spec = policy["roles"][role]
-        assert (spec["model"], spec["effort"], spec["mutation_authority"]) == (model, effort, authority)
+        assert (spec["model"], spec["allowed_efforts"]) == (model, efforts)
         profile = tomllib.loads((ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8"))
-        assert profile["model"] == model
-        assert profile["model_reasoning_effort"] == effort
+        assert "model" not in profile
+        assert "model_reasoning_effort" not in profile
         assert profile["agents"]["enabled"] is False
         assert profile["features"]["multi_agent_v2"] is False
 
 
 def test_routing_evals_match_the_frozen_profile_contract():
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    policy_module = load_module("coord_policy", "policy.py")
     cases = json.loads(ROUTING_CASES.read_text(encoding="utf-8"))["cases"]
     for case in cases:
         for node in case["expected"].get("nodes", []):
-            role = node["role"]
-            spec = policy["roles"][role]
-            assert node["agent_type"] == spec["agent_type"]
-            assert node["model"] == spec["model"]
-            assert node["effort"] == spec["effort"]
-            assert node["mutation_authority"] == spec["mutation_authority"]
+            route = policy_module.resolve_managed_route(
+                role_id=node["role"], reasoning_effort=node["effort"]
+            )
+            assert node["agent_type"] == route["agent_type"]
+            assert node["model"] == route["model"]
 
 
 def test_plan_only_keeps_zero_child_as_a_valid_nonexecuting_outcome():
@@ -89,8 +81,8 @@ def test_plan_only_keeps_zero_child_as_a_valid_nonexecuting_outcome():
 def test_minimum_useful_fanout_contract_preserves_zero_one_and_parallel_shapes():
     cases = {case["id"]: case for case in json.loads(ROUTING_CASES.read_text(encoding="utf-8"))["cases"]}
     assert cases["single-file-clear-fix"]["expected"]["nodes"] == []
-    assert len(cases["bounded-read-uses-reader"]["expected"]["nodes"]) == 1
-    assert len(cases["three-independent-readers-can-fanout"]["expected"]["nodes"]) == 3
+    assert len(cases["bounded-read-uses-programmer"]["expected"]["nodes"]) == 1
+    assert len(cases["three-independent-programmers-can-fanout-read-only"]["expected"]["nodes"]) == 3
 
     routing = ROUTING.read_text(encoding="utf-8")
     guardrails = GUARDRAILS.read_text(encoding="utf-8")
@@ -107,9 +99,9 @@ def test_route_rationale_is_presentation_only_not_runtime_state():
     skill = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
     architecture = json.loads(ARCHITECTURE.read_text(encoding="utf-8"))
 
-    assert "one brief route rationale" in routing
+    assert "brief route rationale" in routing
     assert "one brief route rationale" in skill
-    assert "presentation only" in routing
+    assert "presentation creates no scheduler or state authority" in routing
     assert "presentation only" in skill
     assert "route_mode" not in architecture["routing"]
     assert architecture["routing"]["route_rationale_persisted"] is False

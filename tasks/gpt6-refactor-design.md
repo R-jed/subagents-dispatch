@@ -1002,3 +1002,90 @@ Implemented:
 Focused/expanded verification before the foundation commit: 158 relevant tests PASS. Package
 integrity manifest was regenerated for the current candidate; it will be regenerated again after
 later runtime slices and checked formally in Slice 7.
+
+### Implementation amendment — Host release qualification
+
+Status: SETTLED DURING IMPLEMENTATION, 2026-09-05
+
+The user explicitly revised the Host verification method after Slices 1-6 were underway. The
+first public `1.0.0` must **not** repeat a project-owned real-Host N0-N7 campaign. Instead, release
+Host integration is based on the mature Native Codex patterns in these exact reference sources:
+
+```text
+sol-advisor
+https://github.com/DannyMac180/sol-advisor
+37b75cad535abdd46531f0227483a8842d045ab8
+
+astra-advisor
+https://github.com/DannyMac180/astra-advisor
+c72d3280551f118eba51a5884e3971a0c0058aa6
+```
+
+This amendment supersedes Q90/Q99 only with respect to **release Host testing and evidence
+machinery**. The production routes, Native Core lifecycle/state safety, current-Host authority,
+requested/accepted/observed separation, and fail-closed unavailability rules remain unchanged.
+
+Consequences:
+
+- `docs/v4/host-reference.json` replaces the tracked N0-N7 Host campaign as release authority;
+- retire the project-specific Host campaign oracle, single-probe guard, rollout evidence collector,
+  staged Host procedure and carry-forward/reuse verifier complexity;
+- runtime must still inspect the current callable Host surface when a concrete delegation or review
+  claim requires it and must fail the affected operation closed on missing/conflicting/unobservable
+  required facts;
+- depth one remains a semantic managed-child rule, not a claim of Host-hard collaboration-tool
+  removal; a user requirement for hard isolation still requires direct current-Host evidence;
+- the exact-source Department Director / Astra High release Final Review remains required.
+
+### Slices 4-6 — verified implementation
+
+```text
+91d577e  feat: guard parallel semantic reads
+3801479  refactor: simplify calibration evidence plane
+988c50e  fix: make plugin updates exact and transactional
+```
+
+Slice 4 added the broader-permission semantic-read artifact-immutability guard. Slice 5 removed
+temporary calibration-profile materialization and simplified experiment validation. Slice 6 fixed
+same-semver exact-identity blindness and made Plugin/profile update rollback transactional.
+
+Before the Host-reference amendment work, the stabilized repository passed 510/510 tests, Ruff,
+package-integrity checks, managed-profile lifecycle/Doctor checks, and the pinned official OpenAI
+Plugin validator. Slice 7 is now the Host-reference/release-contract closure described above.
+
+### Slice 7 — Host-reference/release closure verification
+
+Status: SOURCE VERIFIED
+
+Implemented:
+
+- added `docs/v4/host-reference.json` pinned to the mature `sol-advisor` and `astra-advisor`
+  commits named in the implementation amendment;
+- removed the project-owned N0-N7 Host campaign oracle, qualification guard, Host rollout
+  qualification collector, staged qualification procedure and their campaign-only tests;
+- reduced `scripts/release_evidence_v4.py` from a Host campaign/carry-forward verifier to an
+  exact-source verifier binding package integrity, the pinned Host-reference digest, the Main-owned
+  pre-review request and the fresh Department Director / Astra High result;
+- made release evidence reject dirty working trees so the reviewed/released source must be an exact
+  clean Git commit;
+- preserved ordinary runtime Host capability, lifecycle, identity, permission, UNKNOWN and
+  requested/accepted/observed tests instead of deleting runtime safety together with release-only
+  qualification machinery;
+- updated architecture, release, installation, experiment and developer-facing contracts so no
+  current authority points back to the retired Host campaign.
+
+Verification after the architecture stabilized:
+
+```text
+release/reference focused tests   14/14 PASS
+affected Slice 7 tests            122/122 PASS
+full pytest                       428/428 PASS
+Ruff                              PASS
+package integrity                 PASS
+managed profile lifecycle/Doctor PASS
+official OpenAI Plugin validator  PASS
+git diff --check                  PASS
+```
+
+The lower full-suite count is intentional: campaign-only Host qualification tests were deleted.
+Runtime Host safety tests remain in the suite.

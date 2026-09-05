@@ -137,9 +137,9 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
         "fresh_context_spawn",
     ]
     assert architecture["managed_profile_requirements"] == [
-        "fixed_profile_route",
+        "three_persistent_behavior_profiles",
+        "explicit_policy_backed_model_effort_on_every_spawn",
         "behavioral_leaf_boundary",
-        "host_evidence_for_managed_no_descendant_behavior",
         "host_evidence_for_effective_read_only_when_required",
     ]
     assert architecture["host_truth"] == {
@@ -150,8 +150,9 @@ def test_machine_contracts_keep_profile_intent_separate_from_host_truth():
         "managed_child_collaboration_surface_owner": "codex_host",
         "effective_permission_owner": "codex_host",
     }
-    assert architecture["routing"]["profile_selection_owner"] == "main"
-    assert architecture["routing"]["principle"] == "minimum_useful_fanout_from_fixed_profiles"
+    assert architecture["routing"]["role_selection_owner"] == "main"
+    assert architecture["routing"]["exact_route_resolution_owner"] == "deterministic_policy"
+    assert architecture["routing"]["principle"] == "minimum_useful_fanout_from_managed_roles"
     assert architecture["routing"]["route_rationale_persisted"] is False
     assert architecture["reconciliation"]["mode"] == "main_driven_native_host_reconciliation"
     assert architecture["invariants"]["I08"].startswith("Main is the sole managed coordinator")

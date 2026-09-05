@@ -41,6 +41,7 @@ RUNTIME_SCRIPT_FILES = tuple(
         "scripts/install-agents.py",
         "scripts/managed_execution_v4.py",
         "scripts/orchestrate_v4.py",
+        "scripts/parallel_read_guard.py",
         "scripts/package_integrity.py",
         "scripts/plugin_update.py",
         "scripts/policy.py",

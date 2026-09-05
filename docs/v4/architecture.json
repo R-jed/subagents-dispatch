@@ -143,7 +143,6 @@
     "three_persistent_behavior_profiles",
     "explicit_policy_backed_model_effort_on_every_spawn",
     "behavioral_leaf_boundary",
-    "host_evidence_for_managed_no_descendant_behavior",
     "host_evidence_for_effective_read_only_when_required"
   ],
   "host_truth": {
@@ -159,7 +158,6 @@
     "durable_child_identity_owner": "codex_host",
     "host_activity_binds_thread_identity": true,
     "host_thread_identity_field": "agent_id",
-    "release_campaign_requires_thread_identity_binding": true,
     "resident_runtime_owner": "codex_host",
     "runtime_agent_id_persistence_required": false,
     "runtime_control_address_when_agent_id_unavailable": "native_task_name",
@@ -236,38 +234,11 @@
     "stale_observation_action": "discard"
   },
   "release": {
-    "host_campaign": [
-      "N0_route_model_effort_fork_turns",
-      "N1_managed_delegation_depth",
-      "N2_spawn_identity_binding",
-      "N3_capacity_rejection_no_materialization",
-      "N4_followup_continue_same_child",
-      "N5_interrupt_settlement",
-      "N6_writer_takeover_settlement",
-      "N7_rollout_reconciliation_privacy"
-    ],
-    "host_evidence_reuse": {
-      "classification": "per_probe_qualification_basis",
-      "package_digest_drift_is_blanket_invalidation": false,
-      "fresh_or_verified_carry_forward_required": true,
-      "historical_git_basis_recomputed": true,
-      "compare_ref_is_reuse_authority": false,
-      "carry_forward_requires_exact_source_campaign_artifact": true,
-      "carry_forward_requires_independently_trusted_predecessor_campaign_digest": true,
-      "embedded_source_campaign_self_hash_is_reuse_authority": false,
-      "legacy_host_campaign_can_authorize_carry_forward": false,
-      "carried_evidence_ref_preserved": true,
-      "carried_source_environment_preserved_exactly": true,
-      "stable_environment_fields": [
-        "codex_version",
-        "host_build",
-        "platform",
-        "architecture"
-      ],
-      "new_session_or_thread_alone_invalidates": false,
-      "unclassified_runtime_file_action": "fail_closed"
-    },
-    "final_review_gate": "fresh_department_director_astra_high_exact_release_source_review_after_host_qualification"
+    "host_reference_contract": "docs/v4/host-reference.json",
+    "live_host_campaign_required": false,
+    "reference_conformance_required": true,
+    "runtime_host_availability_policy": "fail_closed_per_affected_delegation",
+    "final_review_gate": "fresh_department_director_astra_high_exact_release_source_review_after_reference_conformance"
   },
   "review": {
     "artifact_mutation_invalidates_verdict": true,
@@ -365,7 +336,7 @@
     "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-8",
+  "schema_version": "4.0.0-native-core-candidate-9",
   "semantic_roles": [
     "main",
     "programmer",

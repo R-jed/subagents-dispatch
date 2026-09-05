@@ -109,10 +109,11 @@ def test_active_contracts_keep_workgraph_authority_and_current_profile_labels():
     assert "does not create a second task state, authority model, scheduler, acceptance model, evidence store, retry protocol, or compatibility marker" in responsibility
     assert not (ROOT / "contracts" / "team-plan.md").exists()
 
-    assert policy["roles"]["investigator"]["effort"] == "high"
-    assert "Terra XHigh" not in receipt
-    assert "Terra High" in receipt
-    assert "derive from the fixed profiles in `policy.json`" in receipt
+    assert policy["roles"]["product_manager"]["allowed_efforts"] == ["medium", "high"]
+    assert "Programmer" in receipt
+    assert "产品经理" in receipt
+    assert "Department Director" in receipt
+    assert "Configured/requested/accepted/observed route truth stays distinct" in receipt
     assert "Dispatch:" not in receipt
     assert "Orchestrate:" in receipt
     assert "Ordinary Dispatch" not in evidence_artifact
@@ -148,14 +149,14 @@ def test_eval_oracles_follow_current_product_ceiling_and_evidence_gated_recovery
     assert correction["fixed_followup_count_ceiling"] is False
 
     by_workload = {item["id"]: item for item in workloads["workloads"]}
-    fanout = by_workload["five-independent-readers-queued"]["expected"]
+    fanout = by_workload["five-independent-programmer-reads-queued"]["expected"]
     assert "initial_managed_children_max" not in fanout
     assert fanout["product_managed_children_max"] == 4
     assert fanout["queue_remainder"] is True
-    assert by_workload["execution-stall-clean-restart"]["expected"]["unchanged_retry_forbidden"] is True
+    assert by_workload["required-route-unavailable"]["expected"]["cross_role_fallback"] is False
 
     by_routing = {item["id"]: item for item in routing["cases"]}
-    local_retry = by_routing["local-defect-can-retry-same-worker"]["expected"]
+    local_retry = by_routing["local-defect-can-retry-programmer"]["expected"]
     assert local_retry["recovery_action"] == "same_role_retry"
     stalled = by_routing["stalled-work-does-not-create-a-model-ladder"]["expected"]
     assert stalled["task_blocker"] == "stalled"

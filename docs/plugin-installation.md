@@ -22,7 +22,7 @@ Bundled helpers require Python 3.11 or newer. The executable does not have to be
 
 ## First delegated run
 
-The Plugin ships five fixed managed Agent profiles, but Codex loads custom-Agent availability at a Host/session boundary that may not hot-reload files created during the current task.
+The Plugin ships three managed Agent profiles (Programmer, Product Manager, Department Director), but Codex loads custom-Agent availability at a Host/session boundary that may not hot-reload files created during the current task.
 
 When Orchestrate first decides delegation is useful:
 
@@ -31,7 +31,7 @@ exact managed role already available
 -> delegate normally
 
 role unavailable + managed files safely absent
--> provision only the five Plugin-owned profiles, ownership manifest, and installer lock
+-> provision only the three Plugin-owned profiles, ownership manifest, and installer lock
 -> verify the installed files
 -> return RESTART_REQUIRED for the current task
 
@@ -54,7 +54,7 @@ Native Core relies on Codex Native Subagent lifecycle primitives and current Hos
 
 When execution readiness must be proven, Doctor can consume a caller-supplied current Host capability snapshot. Missing Host evidence remains `UNKNOWN`; configured files or model self-report do not become observed Host truth.
 
-Release qualification uses the candidate-bound N0-N7 Host campaign in `docs/v4/host-smoke.json`, followed by the separate exact-release-source Final Review in `contracts/final-review.md`.
+Release qualification uses the pinned mature Host-integration references in `docs/v4/host-reference.json`, followed by the separate exact-release-source Department Director / Astra High Final Review in `contracts/final-review.md`. Ordinary runtime still fails an affected delegation closed when the current Host cannot establish required controls or observations.
 
 ## Doctor
 
@@ -94,7 +94,7 @@ Update checking is explicit and may refresh only the configured canonical subage
 <python-3.11+> scripts/check-plugin-update.py --codex-home <active-codex-home>
 ```
 
-This reports installed and available version identity. It does not install a Plugin or mutate managed profiles.
+This reports installed and available version plus exact package identity. Same-semver byte/source drift is reported as an update condition. It does not install a Plugin or mutate managed profiles.
 
 ## Update
 
@@ -104,7 +104,7 @@ Run the explicit updater only when the user intends to install an update:
 <python-3.11+> scripts/plugin_update.py --codex-home <active-codex-home>
 ```
 
-The updater verifies the canonical Marketplace-local Plugin identity, refreshes the Marketplace, installs a newer stable release when available, verifies the installed package, reconciles only Plugin-owned managed profiles, and runs the newly installed Doctor contract as post-write validation.
+The updater snapshots the exact current Plugin-owned package/profile unit, verifies the canonical Marketplace-local source, refreshes the Marketplace, installs when version or exact package identity differs, verifies the installed package, reconciles only Plugin-owned managed profiles, and runs the newly installed Doctor contract as post-write validation. Any post-switch failure restores and verifies the exact previous Plugin package and Plugin-owned profiles; unrelated user Agents and configuration remain outside the transaction.
 
 A changed Plugin package requires a fresh Codex session before normal work resumes.
 

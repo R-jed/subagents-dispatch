@@ -113,17 +113,15 @@ Multi-agent systems can turn parallel work into coordination overhead very quick
 
 Single-writer is a workspace boundary. A future Host that can reliably isolate writers into separate worktrees or workspaces could support multiple independent writer domains when the work is also semantically independent. The current product manages one canonical workspace, so one writer remains the safer default. See [Writer Boundary](docs/writer-boundary.md).
 
-## Current fixed team
+## Current team
 
-| Work | Model | Good at |
+| Role | Model | Responsibility |
 |---|---|---|
-| Reading | Luna Max | focused code reading and call-path tracing |
-| Implementation | Luna Max | bounded changes once the approach is clear |
-| Investigation | Terra High | broad read-only investigation and cross-file evidence |
-| Problem solving | Sol High | implementation that needs substantial technical judgment |
-| Review | Sol High | independent review of plans and final results |
+| Programmer | Luna Max | ordinary investigation, code reading, and bounded implementation once the approach is settled |
+| Product Manager | Sol Medium / High | technical judgment, cross-path synthesis, material decisions, and Standard Review when required |
+| Department Director | Astra High | highest-consequence acceptance after Candidate Ready; ordinary complexity alone never admits it |
 
-The lineup is fixed for now. There is no dynamic model or reasoning-effort switching. Fixed behavior is easier to understand and reproduce; if real evidence later supports a better combination, it can change then.
+The Plugin policy owns these managed routes. The model and reasoning effort selected for Main do not inherit into, override, or weaken them. Product Manager defaults to Sol Medium and uses Sol High only for explicit material-decision triggers. Department Director is reserved for highest-consequence acceptance and the formal release gate. A future production route change requires calibration evidence and an explicit policy revision.
 
 ## Install
 
@@ -136,7 +134,7 @@ codex plugin add subagents-dispatch@subagents-dispatch
 
 Start a fresh Codex session after installation and choose **Orchestrate** from the Skill menu.
 
-The first delegated task checks the five managed Agent profiles. If they are safely absent, the Plugin creates only the files it owns. Current V4 has no authoritative observation from an already-running task that proves newly written custom-Agent profiles have entered that task's Agent registry, so that task conservatively returns `RESTART_REQUIRED` and never substitutes another Agent. Start one fresh Codex task and submit the original request again. This activation step occurs only when managed profiles are first created or need to be reactivated.
+The first delegated task checks the three managed Agent profiles. If they are safely absent, the Plugin creates only the files it owns. Current V4 has no authoritative observation from an already-running task that proves newly written custom-Agent profiles have entered that task's Agent registry, so that task conservatively returns `RESTART_REQUIRED` and never substitutes another Agent. Start one fresh Codex task and submit the original request again. This activation step occurs only when managed profiles are first created or need to be reactivated.
 
 If you want the first real development task to avoid that initialization interruption, use **Doctor** once after installation and explicitly ask it to repair or prepare the managed Agent profiles, then start a fresh work session. The bundled helpers require Python 3.11 or newer.
 

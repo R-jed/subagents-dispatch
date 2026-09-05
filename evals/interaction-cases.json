@@ -171,7 +171,7 @@
       "expected": {
         "runtime_product_health": true,
         "maintenance_requires_explicit_request": true,
-        "host_campaign_publication_authority": false,
+        "host_reference_publication_authority": false,
         "final_review_publication_authority": false
       }
     }

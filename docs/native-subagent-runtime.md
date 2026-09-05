@@ -75,7 +75,7 @@ subagents_dispatch_product_manager      -> gpt-5.6-sol  / medium | high
 subagents_dispatch_department_director  -> gpt-6-astra  / high
 ```
 
-The profiles do not pin model or effort. Exact requested route comes from `policy.json` and is explicit in each spawn; actual realized model/effort remains Host evidence. Mutation authority comes from the WorkUnit/ExecutionBinding rather than the role label, except Department Director is always semantic read-only. Managed profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. The depth-one product rule does not require Host-hard tool removal. N1 verifies all four executable production routes and fails on child-issued nested Agent creation/control or descendant materialization.
+The profiles do not pin model or effort. Exact requested route comes from `policy.json` and is explicit in each spawn; actual realized model/effort remains Host evidence. Mutation authority comes from the WorkUnit/ExecutionBinding rather than the role label, except Department Director is always semantic read-only. Managed profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. The depth-one product rule does not require Host-hard tool removal. If a task specifically requires Host-hard descendant isolation, that stronger fact must be established from the current Host or reported unavailable.
 
 ## Capacity and dispatch
 

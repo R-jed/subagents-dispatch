@@ -38,45 +38,15 @@ def test_public_installation_commands_match_current_cli_surface():
         assert "--codex-home" in result.stdout
 
 
-def test_release_checklist_uses_same_n0_n7_gate_as_machine_contract():
-    smoke = json.loads(
-        (ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8")
+def test_release_checklist_uses_pinned_mature_host_reference_contract():
+    reference = json.loads(
+        (ROOT / "docs" / "v4" / "host-reference.json").read_text(encoding="utf-8")
     )
-    expected = [f"N{index}" for index in range(8)]
-    assert [item["id"] for item in smoke["required_probes"]] == expected
-
     checklist = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
-    for probe in expected:
-        assert f"{probe} " in checklist
-
-
-def test_real_host_procedure_cannot_invent_release_gates():
-    plan = (ROOT / "tasks" / "real-host-qualification-plan.md").read_text(encoding="utf-8")
-    checklist = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
-
-    assert "`docs/v4/host-smoke.json` is the machine-readable authority." in checklist
-    assert (
-        "Only requirements in `docs/v4/host-smoke.json` may decide whether an N0-N7 "
-        "product probe passes or fails."
-    ) in plan
-    assert (
-        "Procedure-only or diagnostic evidence may explain a verdict, but it cannot create a "
-        "new product PASS/FAIL gate."
-    ) in plan
-    assert (
-        "Compare payload equality only at the same transport boundary; do not compare a prepared "
-        "Host tool argument with Host-rendered child communication."
-    ) in plan
-    assert "## Current recovery point" not in plan
-
-
-def test_n0_qualification_uses_minimum_execution_authority():
-    plan = (ROOT / "tasks" / "real-host-qualification-plan.md").read_text(encoding="utf-8")
-
-    assert "Profile capability is an authority ceiling" in plan
-    assert "N0 uses the minimum authority required by the qualification responsibility" in plan
-    assert "Worker and Solver N0 canaries use `granted_authority=none`" in plan
-    assert "empty write scope and no WriterLease" in plan
+    assert reference["release_policy"]["live_host_campaign_required"] is False
+    assert {item["name"] for item in reference["sources"]} == {"sol-advisor", "astra-advisor"}
+    assert "Do **not** run a project-owned N0-N7 Host campaign" in checklist
+    assert "runtime Host evidence" not in checklist or "current Host" in checklist
 
 
 def test_ai_and_runtime_docs_match_current_public_roles_and_child_ceiling():
@@ -84,7 +54,9 @@ def test_ai_and_runtime_docs_match_current_public_roles_and_child_ceiling():
     runtime = (ROOT / "docs" / "native-subagent-runtime.md").read_text(encoding="utf-8")
     for text in (ai, runtime):
         assert "Orchestrate" in text and "Doctor" in text
-        assert "gpt-5.6-terra" in text
+        assert "gpt-6-astra" in text
+        assert "gpt-5.6-sol" in text
+        assert "gpt-5.6-luna" in text
         assert "high" in text
         assert "managed children <= 4" in text
         assert "initial managed children <= 2" not in text

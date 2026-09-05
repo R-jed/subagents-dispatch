@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "contract_kind": "host-reference-conformance",
+  "release_policy": {
+    "live_host_campaign_required": false,
+    "reference_conformance_required": true,
+    "runtime_fail_closed_still_required": true
+  },
+  "sources": [
+    {
+      "name": "sol-advisor",
+      "repository": "https://github.com/DannyMac180/sol-advisor",
+      "commit": "37b75cad535abdd46531f0227483a8842d045ab8",
+      "evidence_paths": [
+        "plugins/sol-advisor/skills/orchestration/references/operations.md",
+        "plugins/sol-advisor/skills/orchestration/SKILL.md"
+      ],
+      "supports": [
+        "managed native role dispatch",
+        "fresh child context with fork_turns none",
+        "missing conflicting or unavailable exact role route fails closed",
+        "fresh independent review remains separate from implementation"
+      ]
+    },
+    {
+      "name": "astra-advisor",
+      "repository": "https://github.com/DannyMac180/astra-advisor",
+      "commit": "c72d3280551f118eba51a5884e3971a0c0058aa6",
+      "evidence_paths": [
+        "plugins/astra-advisor/skills/orchestration/references/operations.md",
+        "plugins/astra-advisor/skills/orchestration/SKILL.md"
+      ],
+      "supports": [
+        "generic native spawn with explicit model reasoning_effort and fork_turns none",
+        "current callable Host tool schema is authoritative",
+        "requested and runtime observed model effort are separate facts",
+        "missing conflicting unavailable or unobservable route controls fail closed"
+      ]
+    }
+  ],
+  "required_assumptions": {
+    "fresh_context": "fork_turns_none",
+    "explicit_route_controls": "model_and_reasoning_effort_when_exposed_by_current_host_schema",
+    "public_host_schema_is_authoritative": true,
+    "requested_is_not_observed": true,
+    "silent_route_fallback": false,
+    "unavailable_or_conflicting_route": "fail_closed"
+  },
+  "runtime_boundary": "Reference conformance replaces a project-owned release Host campaign. It does not claim that every user Host exposes every route. Ordinary Orchestrate must still inspect the current callable Host surface when material and fail the affected delegation closed when required controls or realized-route evidence are unavailable or conflicting."
+}

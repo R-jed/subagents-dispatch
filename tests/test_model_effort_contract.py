@@ -11,22 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 POLICY = ROOT / "contracts" / "policy.json"
 EXPECTED = {
-    "reader": ("gpt-5.6-luna", "max", "none"),
-    "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-    "investigator": ("gpt-5.6-terra", "high", "none"),
-    "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-    "advisor": ("gpt-5.6-sol", "high", "none"),
+    "programmer": ("gpt-5.6-luna", ("max",)),
+    "product_manager": ("gpt-5.6-sol", ("medium", "high")),
+    "department_director": ("gpt-6-astra", ("high",)),
 }
-CURRENT_DOCS = (
-    "README.md",
-    "README_EN.md",
-    "README_AI.md",
-    "CHANGELOG.md",
-    "docs/architecture.md",
-    "docs/native-subagent-runtime.md",
-    "docs/release-checklist.md",
-    "evals/README.md",
-)
 
 
 def load_module(name: str, filename: str):
@@ -42,69 +30,51 @@ def load_module(name: str, filename: str):
         sys.path.remove(str(SCRIPTS))
 
 
-def test_fixed_model_effort_authority_is_exact():
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["fixed_execution_profiles"] == {
-        "luna": "max",
-        "terra": "high",
-        "sol": "high",
-        "dynamic_effort_routing": False,
-    }
-    actual = {
-        role: (spec["model"], spec["effort"], spec["mutation_authority"])
-        for role, spec in policy["roles"].items()
-    }
-    assert actual == EXPECTED
-
-
-def test_profiles_runtime_doctor_and_machine_architecture_match_policy():
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
-    state = load_module("model_effort_state", "dispatch_state_v4.py")
-    doctor = load_module("model_effort_doctor", "doctor.py")
-
-    assert state.PROFILE_CONTRACT == EXPECTED
-    assert not hasattr(doctor, "EXPECTED_PROFILES")
-    doctor_profiles = doctor.policy_contract.profile_contracts()
+def test_three_role_model_effort_authority_is_exact():
+    module = load_module("model_effort_policy", "policy.py")
+    payload = module.load_policy_contract()
+    assert "fixed_execution_profiles" not in payload
+    assert "capability_dedup" not in payload
+    roles = module.role_contracts()
     assert {
-        role: (spec["model"], spec["effort"], spec["mutation_authority"])
-        for role, spec in doctor_profiles.items()
+        role: (spec["model"], spec["allowed_efforts"])
+        for role, spec in roles.items()
     } == EXPECTED
 
-    for role, expected in EXPECTED.items():
+
+def test_profiles_do_not_duplicate_model_effort_route_truth():
+    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
+
+    assert set(architecture["profiles"]) == set(EXPECTED)
+    for role, (model, efforts) in EXPECTED.items():
         spec = policy["roles"][role]
         profile = tomllib.loads(
             (ROOT / "agent-profiles" / spec["profile_file"]).read_text(encoding="utf-8")
         )
-        architecture_profile = architecture["profiles"][role]
-        assert (profile["model"], profile["model_reasoning_effort"]) == expected[:2]
-        assert (
-            architecture_profile["model"],
-            architecture_profile["effort"],
-            architecture_profile["mutation_authority"],
-        ) == expected
+        assert "model" not in profile
+        assert "model_reasoning_effort" not in profile
+        assert architecture["profiles"][role]["model"] == model
+        assert tuple(architecture["profiles"][role]["allowed_efforts"]) == efforts
 
 
-def test_routing_evals_use_current_production_profiles():
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+def test_routing_evals_use_only_exact_policy_routes():
+    module = load_module("model_effort_policy_eval", "policy.py")
     cases = json.loads((ROOT / "evals" / "routing-cases.json").read_text(encoding="utf-8"))["cases"]
     for case in cases:
         for node in case["expected"].get("nodes", []):
-            spec = policy["roles"][node["role"]]
-            assert (node["model"], node["effort"], node["mutation_authority"]) == (
-                spec["model"],
-                spec["effort"],
-                spec["mutation_authority"],
+            route = module.resolve_managed_route(
+                role_id=node["role"], reasoning_effort=node["effort"]
             )
+            assert node["agent_type"] == route["agent_type"]
+            assert node["model"] == route["model"]
 
 
-def test_current_product_docs_keep_terra_high():
-    for relative in CURRENT_DOCS:
-        text = (ROOT / relative).read_text(encoding="utf-8")
-        lowered = text.lower()
-        assert "terra" in lowered, relative
-        assert "xhigh" not in lowered, relative
-
-    architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
-    assert architecture["profiles"]["investigator"]["model"] == "gpt-5.6-terra"
-    assert architecture["profiles"]["investigator"]["effort"] == "high"
+def test_department_director_is_exact_astra_high_release_route():
+    module = load_module("model_effort_policy_director", "policy.py")
+    assert module.resolve_managed_route(role_id="department_director") == {
+        "role_id": "department_director",
+        "agent_type": "subagents_dispatch_department_director",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+    }

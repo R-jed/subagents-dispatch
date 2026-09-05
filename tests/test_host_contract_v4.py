@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import ast
 import importlib.util
-import json
 from pathlib import Path
 import sys
 
@@ -65,11 +63,12 @@ def test_execution_binding_rejects_host_invalid_native_task_name():
             "execution_id": "exec_1",
             "unit_id": "U1",
             "attempt_no": 1,
-            "profile_id": "reader",
+            "role_id": "programmer",
+            "agent_type": "subagents_dispatch_programmer",
             "agent_id": "agent-exec-1",
             "native_task_name": "sd-u1-a1",
             "model": "gpt-5.6-luna",
-            "effort": "max",
+            "reasoning_effort": "max",
             "granted_authority": "none",
             "granted_write_scope": [],
             "workspace_id": "canonical",
@@ -99,7 +98,8 @@ def test_allocate_execution_rejects_host_invalid_task_names(tmp_path: Path, bad_
             unit_id="U1",
             execution_id="exec_1",
             native_task_name=bad_name,
-            profile_id="reader",
+            role_id="programmer",
+            reasoning_effort="max",
             granted_authority="none",
             temp_root=tmp_path,
         )
@@ -169,102 +169,9 @@ def test_scheduler_rejects_caller_shaped_inconsistent_normalized_snapshot():
         scheduler.constraint_snapshot(payload, capability_snapshot=forged, wakeup_reason="USER_INPUT")
 
 
-def test_release_identity_binds_native_host_contract_digest():
-    release = load_module("native_release_contract", "release_evidence_v4.py")
-    identity = release.current_candidate_identity(ROOT)
-
-    assert release.HOST_CAMPAIGN_CONTRACT_VERSION == "4.0.0-native-host-smoke-3"
-    assert release.REQUIRED_HOST_PROBES == tuple(f"N{index}" for index in range(8))
-    assert "host_contract_sha256" in identity
-    assert len(identity["host_contract_sha256"]) == 64
-
-
-def test_machine_host_contract_is_native_core_n0_n7():
-    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-
-    assert contract["gate_id"] == "v4-real-host-n0-n7"
-    assert [probe["id"] for probe in contract["required_probes"]] == [f"N{index}" for index in range(8)]
-    assert "activation_manifest" not in contract
-    assert "production_manifest" not in contract
-    for probe in contract["required_probes"]:
-        basis = probe["qualification_basis"]
-        assert basis["runtime_files"] == sorted(set(basis["runtime_files"]))
-        assert basis["shared_contract_fields"] == sorted(set(basis["shared_contract_fields"]))
-        assert "environment_identity_semantics" in basis["shared_contract_fields"]
-
-
-def test_host_probe_dependency_map_classifies_every_shipped_runtime_file():
-    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    manifest = json.loads((ROOT / ".codex-plugin" / "package-integrity.json").read_text(encoding="utf-8"))
-    probe_paths = {
-        path
-        for probe in contract["required_probes"]
-        for path in probe["qualification_basis"]["runtime_files"]
-    }
-    non_probe = set(contract["qualification_non_probe_runtime_files"])
-
-    assert not probe_paths.intersection(non_probe)
-    assert probe_paths.union(non_probe) == set(manifest["files"])
-    assert "skills/doctor/SKILL.md" in non_probe
-    assert "scripts/doctor.py" in non_probe
-    assert "scripts/writer_lease_v4.py" in probe_paths
-
-    by_id = {probe["id"]: set(probe["qualification_basis"]["runtime_files"]) for probe in contract["required_probes"]}
-    assert all("scripts/writer_lease_v4.py" in by_id[probe_id] for probe_id in by_id)
-
-
-def test_each_probe_runtime_script_map_covers_repository_local_import_closure():
-    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    local_modules = {
-        path.stem: path.name
-        for path in SCRIPTS.glob("*.py")
-        if path.stem.isidentifier()
-    }
-    dynamic_edges = {
-        "scripts/runtime-evidence.py": {"scripts/inspect-agent-runtime.py"},
-    }
-
-    for probe in contract["required_probes"]:
-        declared = set(probe["qualification_basis"]["runtime_files"])
-        script_paths = {path for path in declared if path.startswith("scripts/") and path.endswith(".py")}
-        missing: set[str] = set()
-        for relative in script_paths:
-            path = ROOT / relative
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            imported: set[str] = set()
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    imported.update(alias.name.split(".", 1)[0] for alias in node.names)
-                elif isinstance(node, ast.ImportFrom) and node.module:
-                    imported.add(node.module.split(".", 1)[0])
-            for name in imported.intersection(local_modules):
-                target = f"scripts/{local_modules[name]}"
-                if target not in declared:
-                    missing.add(target)
-            for target in dynamic_edges.get(relative, set()):
-                if target not in declared:
-                    missing.add(target)
-        assert missing == set(), f"{probe['id']} misses runtime import closure: {sorted(missing)}"
-
-
-def test_n1_oracle_targets_actual_managed_delegation_depth():
-    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    n1 = next(probe for probe in contract["required_probes"] if probe["id"] == "N1")
-
-    assert n1["operation"] == "managed delegation depth"
-    assert "accepted_grandchild_outcomes" not in n1
-    assert any("canonical managed spawn route" in item for item in n1["requires"])
-    assert any("every fixed managed profile" in item for item in n1["requires"])
-    assert any("adversarial untrusted-input" in item for item in n1["requires"])
-    assert any("does not issue spawn_agent" in item for item in n1["requires"])
-    assert any("no descendant identity" in item and "spawn-edge" in item for item in n1["requires"])
-    assert any("is FAIL" in item and "descendant materialization" in item for item in n1["requires"])
-    assert any("is UNKNOWN" in item for item in n1["requires"])
-    assert any("generic V2 recursive-capability probes" in item for item in n1["requires"])
-    assert any("do not prove Host-hard descendant isolation" in item for item in n1["requires"])
-
-
 def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
+    import json
+
     architecture = json.loads((ROOT / "docs" / "v4" / "architecture.json").read_text(encoding="utf-8"))
 
     identity = architecture["identity_binding"]
@@ -275,7 +182,7 @@ def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     assert identity["task_address_is_not_thread_identity"] is True
     assert identity["durable_child_identity_owner"] == "codex_host"
     assert identity["resident_runtime_owner"] == "codex_host"
-    assert identity["release_campaign_requires_thread_identity_binding"] is True
+    assert "release_campaign_requires_thread_identity_binding" not in identity
     assert identity["runtime_agent_id_persistence_required"] is False
     assert identity["runtime_control_address_when_agent_id_unavailable"] == "native_task_name"
 
@@ -298,33 +205,6 @@ def test_architecture_hardens_current_v2_identity_capacity_and_steer_contract():
     assert architecture["delegation"]["max_depth"] == 1
     assert architecture["delegation"]["max_depth_scope"] == "project_policy"
     assert architecture["delegation"]["max_depth_is_v2_host_containment_proof"] is False
-    assert "host_evidence_for_managed_no_descendant_behavior" in architecture["managed_profile_requirements"]
+    assert "host_evidence_for_managed_no_descendant_behavior" not in architecture["managed_profile_requirements"]
     assert "host_evidence_for_effective_child_containment" not in architecture["managed_profile_requirements"]
     assert "managed children must not create or control descendants" in architecture["invariants"]["I08"]
-
-
-def test_host_campaign_hardens_n2_n3_n4_oracles():
-    contract = json.loads((ROOT / "docs" / "v4" / "host-smoke.json").read_text(encoding="utf-8"))
-    probes = {probe["id"]: probe for probe in contract["required_probes"]}
-
-    n2 = probes["N2"]
-    assert "task-address and Host-thread identity evidence" in n2["operation"]
-    assert any("canonical native task address" in item for item in n2["requires"])
-    assert any("underlying child thread identity" in item for item in n2["requires"])
-    assert any("external release evidence" in item for item in n2["requires"])
-    assert any("ordinary runtime reconciliation" in item and "omits agent_id" in item for item in n2["requires"])
-
-    n3 = probes["N3"]
-    assert n3["operation"] == "Host admission rejection materialization safety"
-    assert any("root-inclusive internal V2 session limit" in item for item in n3["requires"])
-    assert any("residency pressure" in item for item in n3["requires"])
-    assert any("Started activity" in item and "durable child identity" in item for item in n3["requires"])
-    assert any("UNKNOWN" in item for item in n3["requires"])
-
-    n4 = probes["N4"]
-    assert n4["operation"] == "same-child steering, correction, and continuation"
-    assert n4["v2_running_steer_tool"] == "followup_task"
-    assert any("RUNNING Steer" in item and "followup_task" in item for item in n4["requires"])
-    assert any("same child" in item and "consumed" in item for item in n4["requires"])
-    assert any("tool-call acceptance alone is insufficient" in item for item in n4["requires"])
-    assert any("attempt_no, control_epoch, and followup_count" in item for item in n4["requires"])
