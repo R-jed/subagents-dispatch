@@ -2,7 +2,7 @@
 
 subagents-dispatch treats writer ownership as a workspace boundary.
 
-The current product manages one canonical mutable workspace. Inside that workspace, at most one managed writing actor may be active at a time. The possible writers are Main, a Luna Worker, or a Sol Solver when the responsibility explicitly grants write authority.
+The current product manages one canonical mutable workspace. Inside that workspace, at most one managed writing actor may be active at a time. The possible writers are Main, Programmer, or Product Manager when the exact responsibility explicitly grants write authority. Department Director never writes.
 
 This rule is intentionally stricter than checking whether two tasks claim different file lists. Planned write scopes do not isolate the physical checkout. Two writers can still interact through the Git index, untracked files, generated artifacts, formatter or build output, lockfiles, migrations, schemas, shared configuration, caches, or files that one task discovers only after it starts. A stale assumption can also create a semantic conflict even when the final changed paths do not overlap.
 
@@ -16,7 +16,7 @@ For the current V4 runtime there is one managed workspace, so the effective writ
 
 ## Why this is a workspace rule
 
-Parallel read-only investigation is cheap to reconcile only when the Host actually enforces or otherwise proves the required read-only boundary. A profile's behavioral authority or requested sandbox does not establish that fact. If effective read-only is unknown, the conservative path avoids overlapping that child with a canonical-workspace writer.
+Parallel semantic-read investigation may overlap with other semantic-read work even when the Host reports broader write-capable permission, but only while there is no active canonical WriterLease and a before/after artifact-immutability guard protects the shared baseline. Any drift invalidates the whole workspace-dependent read batch. A role label does not itself prove effective Host read-only, and semantic reads do not overlap an active canonical writer by default.
 
 Parallel writing changes the environment while other actors are reasoning about it. The risk is larger than a textual merge conflict:
 

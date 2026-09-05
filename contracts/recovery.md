@@ -2,7 +2,7 @@
 
 Recovery owns what happens to one delegated WorkUnit after an ExecutionBinding has been created. It separates confirmed execution failure from Host uncertainty, requires changed evidence for repeated work, and preserves stable responsibility identity across fresh attempts.
 
-`routing.md` decides which fixed capability the unresolved work needs. WorkGraph and WorkUnit own responsibility and dependency truth. `interaction.md` owns user-facing control intent. `state.md` and WriterLease own project lifecycle generation and write ownership. Codex Host owns native lifecycle truth.
+`routing.md` decides which managed role/tier the unresolved work needs. WorkGraph and WorkUnit own responsibility and dependency truth. `interaction.md` owns user-facing control intent. `state.md` and WriterLease own project lifecycle generation and write ownership. Codex Host owns native lifecycle truth.
 
 ## Identity
 
@@ -13,7 +13,10 @@ unit_id
 execution_id
 attempt_no
 native_task_name
-profile_id
+role_id
+agent_type
+model
+reasoning_effort
 agent_id, when Host evidence establishes it
 control_epoch
 execution_basis_ref
@@ -156,7 +159,7 @@ Main takeover
 
 FOLLOWUP and CONTINUE reuse the same ExecutionBinding. Fresh retry creates a new ExecutionBinding for the same WorkUnit after the prior execution and writer ownership are safely settled.
 
-Semantic reroute is justified only when the unresolved responsibility now needs a different fixed Profile. Failure alone never defines an automatic Luna, Terra, Sol escalation chain.
+Semantic reroute is justified only when newly accepted task truth changes the required managed role or Product Manager decision tier. Failure, file count, low confidence, or spare capacity never defines an automatic model/effort escalation chain, and a child cannot self-escalate from Product Manager Medium to High.
 
 ## WriterLease recovery
 

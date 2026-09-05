@@ -72,11 +72,12 @@ ExecutionBinding records one fresh attempt identity and its current same-child a
 execution_id
 unit_id
 attempt_no
-profile_id
+role_id
+agent_type
 agent_id
 native_task_name
 model
-effort
+reasoning_effort
 granted_authority
 granted_write_scope
 workspace_id
@@ -157,7 +158,7 @@ The product-managed active-child ceiling is validated inside the locked state mu
 ### Fresh spawn
 
 ```text
-validate WorkUnit readiness/profile/authority/writer admission
+validate WorkUnit readiness/role/route/authority/writer admission
 -> require a changed execution basis for every retry relative to retained recovery evidence
 -> compact only older safely settled attempts when needed
 -> derive canonical task name from WorkUnit plus next attempt_no

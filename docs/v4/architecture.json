@@ -55,11 +55,12 @@
         "execution_id",
         "unit_id",
         "attempt_no",
-        "profile_id",
+        "role_id",
+        "agent_type",
         "agent_id",
         "native_task_name",
         "model",
-        "effort",
+        "reasoning_effort",
         "granted_authority",
         "granted_write_scope",
         "workspace_id",
@@ -139,7 +140,8 @@
     "fresh_context_spawn"
   ],
   "managed_profile_requirements": [
-    "fixed_profile_route",
+    "three_persistent_behavior_profiles",
+    "explicit_policy_backed_model_effort_on_every_spawn",
     "behavioral_leaf_boundary",
     "host_evidence_for_managed_no_descendant_behavior",
     "host_evidence_for_effective_read_only_when_required"
@@ -179,43 +181,42 @@
     "I12": "Main verifies candidate artifacts and mutation scope before WorkUnit acceptance.",
     "I13": "Ordinary correctness depends on native Host lifecycle truth, bounded local state, Main reconciliation, WorkUnit acceptance, and WriterLease settlement.",
     "I14": "The product admits at most four concurrently active managed child executions.",
-    "I15": "Read-only overlap with a canonical-workspace writer requires effective Host isolation evidence. Final Review separately allows exact-artifact immutability fallback for broader Host permission only when hard isolation is not required."
+    "I15": "Semantic-read Programmer/Product Manager executions may overlap each other under broader Host permission only with no active canonical WriterLease and a before/after artifact-immutability guard; Host-proven read-only is the stronger assurance path."
   },
   "migration": {
     "silent_live_state_migration": false,
-    "source_family": "V3.x",
-    "unresolved_live_state": "fail_closed"
+    "source_family": "pre-4.1",
+    "unresolved_live_state": "fail_closed",
+    "current_state_schema": "4.1"
   },
   "profiles": {
-    "advisor": {
-      "effort": "high",
-      "model": "gpt-5.6-sol",
-      "mutation_authority": "none",
-      "semantic_role": "review"
-    },
-    "investigator": {
-      "effort": "high",
-      "model": "gpt-5.6-terra",
-      "mutation_authority": "none",
-      "semantic_role": "work"
-    },
-    "reader": {
-      "effort": "max",
+    "programmer": {
+      "agent_type": "subagents_dispatch_programmer",
       "model": "gpt-5.6-luna",
-      "mutation_authority": "none",
+      "allowed_efforts": [
+        "max"
+      ],
+      "mutation_authority_owner": "work_unit",
       "semantic_role": "work"
     },
-    "solver": {
-      "effort": "high",
+    "product_manager": {
+      "agent_type": "subagents_dispatch_product_manager",
       "model": "gpt-5.6-sol",
-      "mutation_authority": "bounded-source-write",
-      "semantic_role": "work"
+      "allowed_efforts": [
+        "medium",
+        "high"
+      ],
+      "mutation_authority_owner": "work_unit",
+      "semantic_role": "decision_and_standard_review"
     },
-    "worker": {
-      "effort": "max",
-      "model": "gpt-5.6-luna",
-      "mutation_authority": "bounded-source-write",
-      "semantic_role": "work"
+    "department_director": {
+      "agent_type": "subagents_dispatch_department_director",
+      "model": "gpt-6-astra",
+      "allowed_efforts": [
+        "high"
+      ],
+      "mutation_authority": "none",
+      "semantic_role": "highest_acceptance_review"
     }
   },
   "public_skills": [
@@ -266,7 +267,7 @@
       "new_session_or_thread_alone_invalidates": false,
       "unclassified_runtime_file_action": "fail_closed"
     },
-    "final_review_gate": "fresh_exact_release_source_review_after_host_qualification"
+    "final_review_gate": "fresh_department_director_astra_high_exact_release_source_review_after_host_qualification"
   },
   "review": {
     "artifact_mutation_invalidates_verdict": true,
@@ -277,7 +278,7 @@
     "artifact_immutability_fallback_requires": [
       "permission_observation=broader_write_capable",
       "hard_isolation_required=false",
-      "advisor_mutation_authority=none",
+      "semantic_mutation_authority=none",
       "no_edit_instruction=true",
       "artifact_unchanged=true",
       "residual_risk_disclosed"
@@ -298,20 +299,41 @@
         "hard_isolation_required",
         "no_edit_instruction",
         "reviewer_agent_type",
+        "model",
+        "reasoning_effort",
         "fork_turns",
         "fresh_context",
         "evidence_ref"
       ]
     },
     "permission_unobservable_verdict": "insufficient_evidence",
-    "reviewer_profile": "advisor"
+    "standard": {
+      "role_id": "product_manager",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "high",
+      "fresh": true
+    },
+    "highest": {
+      "role_id": "department_director",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "fresh": true,
+      "release_required": true
+    }
   },
   "routing": {
-    "dynamic_reasoning_effort": false,
-    "peer_messaging_on_correctness_path": false,
-    "profile_selection_owner": "main",
-    "principle": "minimum_useful_fanout_from_fixed_profiles",
-    "route_rationale_persisted": false
+    "role_selection_owner": "main",
+    "semantic_trigger_confirmation_owner": "main",
+    "exact_route_resolution_owner": "deterministic_policy",
+    "main_model_effort_affects_managed_routes": false,
+    "runtime_arbitrary_effort_override": false,
+    "product_manager_effort_tiers": [
+      "medium",
+      "high"
+    ],
+    "principle": "minimum_useful_fanout_from_managed_roles",
+    "route_rationale_persisted": false,
+    "peer_messaging_on_correctness_path": false
   },
   "runtime_owners": {
     "orchestration": "scripts/orchestrate_v4.py",
@@ -343,11 +365,12 @@
     "selection_owner": "main",
     "unknown_host_capacity_blocks_spawn": false
   },
-  "schema_version": "4.0.0-native-core-candidate-7",
+  "schema_version": "4.0.0-native-core-candidate-8",
   "semantic_roles": [
     "main",
-    "work",
-    "review"
+    "programmer",
+    "product_manager",
+    "department_director"
   ],
   "state": {
     "bounded_bytes": 65536,

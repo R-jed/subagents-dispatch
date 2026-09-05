@@ -15,6 +15,7 @@ from typing import Any, Mapping
 import dispatch_state_v4 as state
 import execution_lifecycle_v4 as lifecycle
 import policy as policy_contract
+import parallel_read_guard
 import scheduler_v4 as scheduler
 import work_graph_v4 as work_graph
 
@@ -28,6 +29,10 @@ MANAGED_ROLES = {
     }
     for role_id, spec in _ROLE_SPECS.items()
 }
+
+
+begin_parallel_read_batch = parallel_read_guard.begin_parallel_read_batch
+verify_parallel_read_batch = parallel_read_guard.verify_parallel_read_batch
 
 
 class OrchestrateError(RuntimeError):

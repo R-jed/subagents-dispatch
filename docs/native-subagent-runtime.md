@@ -17,7 +17,7 @@ Orchestrate contains plan-only, status, steer, takeover, cancel, execution, reco
 
 Codex Host owns child materialization, native lifecycle, actual capacity and native control primitives.
 
-The main session owns user intent, decomposition, explicit fixed-profile selection, dispatch judgment, integration and final acceptance.
+The main session owns user intent, decomposition, semantic classification, dispatch judgment, integration and final acceptance. Managed model/effort is resolved from product policy rather than inherited from Main.
 
 Project state owns WorkUnit responsibility and acceptance, ExecutionBinding identity and generation, and WriterLease.
 
@@ -27,7 +27,8 @@ Deterministic orchestration helpers report machine-checkable constraints. They d
 
 ```text
 fresh spawn
--> exact managed agent_type chosen by Main
+-> Main confirms role/tier semantics
+-> deterministic policy resolves exact agent_type, model and reasoning_effort
 -> fork_turns = none
 -> Host success binds one child identity
 -> explicit pre-materialization rejection rolls back provisional activation
@@ -66,17 +67,15 @@ unsafe/conflicting ownership state
 
 No speculative spawn is used to probe a known-stale registry boundary.
 
-## Current exact roles
+## Current exact routes
 
 ```text
-subagents_dispatch_reader        -> gpt-5.6-luna  / max  / mutation none
-subagents_dispatch_worker        -> gpt-5.6-luna  / max  / bounded source write when granted
-subagents_dispatch_investigator  -> gpt-5.6-terra / high / mutation none
-subagents_dispatch_solver        -> gpt-5.6-sol   / high / bounded source write when granted
-subagents_dispatch_advisor       -> gpt-5.6-sol   / high / mutation none
+subagents_dispatch_programmer           -> gpt-5.6-luna / max
+subagents_dispatch_product_manager      -> gpt-5.6-sol  / medium | high
+subagents_dispatch_department_director  -> gpt-6-astra  / high
 ```
 
-Managed child profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. Profile configuration records intent only. Effective child collaboration surface, model, effort and sandbox are Host facts when those facts are material. The depth-one product rule does not require Host-hard tool removal. N1 verifies actual canonical managed execution and fails on child-issued nested Agent creation/control or descendant materialization. Only a requirement for Host-hard isolation depends on direct evidence such as collaboration-tool absence or authoritative Host denial.
+The profiles do not pin model or effort. Exact requested route comes from `policy.json` and is explicit in each spawn; actual realized model/effort remains Host evidence. Mutation authority comes from the WorkUnit/ExecutionBinding rather than the role label, except Department Director is always semantic read-only. Managed profiles request a leaf-style collaboration posture and instruct children not to create or control further managed Agents. The depth-one product rule does not require Host-hard tool removal. N1 verifies all four executable production routes and fails on child-issued nested Agent creation/control or descendant materialization.
 
 ## Capacity and dispatch
 
@@ -94,7 +93,7 @@ The main session chooses which ready responsibility to delegate and when. Spare 
 
 ## Concurrency and writer ownership
 
-Independent read-only responsibilities may overlap when effective read-only behavior and responsibility independence are verifiable. If either cannot be established, use the conservative serial path.
+Independent semantic-read Programmer/Product Manager responsibilities may overlap. If Host effective permission is broader than semantic authority, the batch requires no active canonical WriterLease plus before/after artifact-immutability binding. Any drift invalidates all workspace-dependent evidence from that batch. Host-proven effective read-only is the stronger assurance path.
 
 The canonical mutable workspace has one active managed WriterLease. A second writer requires Host-verifiable isolated workspace ownership and a clear integration boundary. Intended file separation alone is insufficient.
 
