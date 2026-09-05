@@ -47,17 +47,18 @@ def work_unit(*, state: str = "CANCELLED", authority: str = "none") -> dict:
 
 
 def execution(*, lifecycle: str, authority: str = "none") -> dict:
-    profile_id = "worker" if authority != "none" else "reader"
+    role_id = "programmer"
     model = "gpt-5.6-luna"
     return {
         "execution_id": "exec-1",
         "unit_id": "U1",
         "attempt_no": 1,
-        "profile_id": profile_id,
+        "role_id": role_id,
+        "agent_type": "subagents_dispatch_programmer",
         "agent_id": "agent-1",
         "native_task_name": "sd_u1_a1",
         "model": model,
-        "effort": "max",
+        "reasoning_effort": "max",
         "granted_authority": authority,
         "granted_write_scope": ["src/owned.py"] if authority != "none" else [],
         "workspace_id": "canonical",

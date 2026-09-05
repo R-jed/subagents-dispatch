@@ -62,7 +62,7 @@ def allocate_writer(lifecycle, tmp_path: Path, *, unit_id: str = "U1", execution
         unit_id=unit_id,
         execution_id=execution_id,
         native_task_name=f"sd_{unit_id.lower()}_a1",
-        profile_id="worker",
+        role_id="programmer", reasoning_effort="max",
         granted_authority="bounded-source-write",
         granted_write_scope=scope,
         writer_lease_id=lease_id,

@@ -1,87 +1,78 @@
 # Execution Receipt
 
-This contract owns the optional user-facing summary of subagents-dispatch orchestration. It is a presentation view over current Native Core facts. It is not a lifecycle protocol, persisted event ledger, retry authority, acceptance authority, or replacement control plane.
+This contract owns the optional user-facing summary of subagents-dispatch orchestration. It is a presentation view over current Native Core facts, not a lifecycle protocol, event ledger, retry authority, acceptance authority, or replacement control plane.
 
 ## Source of truth
 
-A receipt may be derived only from facts already established by current owners:
+A receipt may be derived only from current owner facts:
 
 ```text
 WorkUnit
 ExecutionBinding
 current Host lifecycle observation
 Main acceptance
-Final Review state when applicable
-explicit user control intent when the current interaction records it
+independent review state when applicable
+explicit current user control intent
 ```
 
-Do not create receipt-only state to make a summary possible. `accounting_refs` remains bounded Native Core evidence such as current-generation Host observations; it is not a receipt event store.
+Do not create receipt-only state. Configured/requested/accepted/observed route truth stays distinct.
 
 ## Language and vocabulary
 
-Use the language of the substantive user task. Canonical model/effort labels derive from the fixed profiles in `policy.json` and stay in English:
+Use the language of the substantive user task. The public managed-team names are:
 
-```text
-Luna Max
-Terra High
-Sol High
-```
+| Machine role | Chinese | English | Production route |
+| --- | --- | --- | --- |
+| `programmer` | 程序员 | Programmer | Luna Max |
+| `product_manager` | 产品经理 | Product Manager | Sol Medium / Sol High |
+| `department_director` | 部门总监 | Department Director | Astra High |
 
-Normal user-facing activity labels may summarize managed work as:
+These names are intentionally personified presentation. Runtime state, authority, lifecycle, and evidence fields remain technical.
 
-| Responsibility | Chinese | English |
-| --- | --- | --- |
-| Reader | 读取 | Read |
-| Investigator | 调研 | Investigate |
-| Worker / Solver | 执行 | Execute |
-| Advisor judgment | 决策 | Decide |
-| Advisor Final Review | 验收 | Review |
-
-Internal role names do not need to appear in the normal receipt.
+Showing a configured route such as `程序员 · Luna Max` means policy selected/requested that route. It does not claim Host-observed model/effort unless separate runtime evidence proves it.
 
 ## What may be reported
 
-Report only facts that can be reconstructed without inventing history:
+Report only reconstructable facts:
 
 ```text
-materialized managed executions and their selected configured lanes
-current or terminal lifecycle when Host evidence establishes it
-whether Main accepted the WorkUnit
-whether an independent Final Review was required and its current verdict
-whether an explicit same-child followup or continuation is represented by the current ExecutionBinding state
-blocking UNKNOWN or unresolved writer ownership
+materialized managed executions and selected policy routes
+current/terminal lifecycle when Host evidence establishes it
+Main WorkUnit acceptance
+standard or highest review requirement and current verdict
+current same-child followup/continuation facts retained by ExecutionBinding
+blocking UNKNOWN or unresolved WriterLease ownership
 ```
 
-Configured route truth and observed runtime truth stay separate. Showing `Luna Max`, `Terra High`, or `Sol High` means the execution was bound to that project profile. It does not claim the Host independently re-observed model and effort unless separate Host evidence proves that fact.
-
-A pre-materialization spawn rejection is not a materialized Agent attempt. A same-child continuation does not become a fresh attempt. Do not infer a retry or rework count from the final capsule when the current state does not retain enough history to prove it.
+A pre-materialization rejection is not a materialized Agent attempt. Same-child continuation is not a fresh attempt. Do not invent retry/rework counts from unavailable history.
 
 ## Compact presentation
 
-A successful delegated run may use a compact form such as:
+Examples:
 
 ```text
-编排: Luna Max 读取 · Terra High 调研 · Luna Max 执行
-验收: Main 已接受 3 个职责 · 独立复核未触发
+编排: 程序员 · Luna Max · 执行
+决策: 产品经理 · Sol Medium
+验收: 未触发独立复核
 ```
 
 ```text
-Orchestrate: Luna Max Read · Terra High Investigate · Luna Max Execute
-Review: Main accepted 3 responsibilities · independent review not triggered
+Orchestrate: Programmer · Luna Max · Execute
+Decision: Product Manager · Sol Medium
+Review: independent review not required
 ```
 
-When current truth is uncertain, say so explicitly:
+For a highest-consequence candidate:
 
 ```text
-编排: U2 状态 UNKNOWN，未启动替代执行
-验收: 阻塞
+验收: 部门总监 · Astra High · authorization boundary
 ```
 
-Do not convert `UNKNOWN` into failure, completion, ownership transfer, or acceptance.
+When current truth is uncertain, preserve `UNKNOWN` exactly. Do not convert it into failure, completion, transfer, or acceptance.
 
 ## Zero-child orchestration
 
-When the user explicitly asks Orchestrate to evaluate delegation and Main correctly keeps all work local, a minimal acknowledgement is enough:
+For an explicit Orchestrate decision that correctly keeps work local:
 
 ```text
 编排: 未调度子代理
@@ -93,31 +84,21 @@ Orchestrate: no Subagents dispatched
 Review: completed by Main
 ```
 
-Plan-only does not need a terminal execution receipt because it creates no runtime state or Host actions.
+Plan-only creates no runtime state or terminal execution receipt requirement.
 
-## Final Review
+## Independent review
 
-If `contracts/final-review.md` requires independent review, report only the current exact-candidate review state. A prior verdict invalidated by candidate mutation must not be presented as current.
+`contracts/final-review.md` owns the exact-candidate review tiers. A prior verdict invalidated by candidate mutation is not current.
 
-Examples:
-
-```text
-验收: 独立复核待执行
-验收: 独立复核 ship
-验收: 独立复核 fix-first，候选尚未完成
-验收: 独立复核证据不足
-```
-
-## Boundary with the task-facing response
-
-The receipt does not replace Main's final response. Main still owns:
+Possible compact states include:
 
 ```text
-what changed
-what evidence was verified
-what tests passed or failed
-remaining risks
-whether the user's requested outcome was achieved
+验收: 产品经理 · Sol High · 待独立复核
+验收: 部门总监 · Astra High · ship
+验收: fix-first，候选尚未完成
+验收: 证据不足
 ```
 
-The receipt answers only what managed orchestration materially occurred and what acceptance/review state can be proven from current Native Core truth.
+## Boundary with Main response
+
+The receipt does not replace Main's task-facing answer. Main still owns what changed, what evidence was verified, test results, residual risks, and whether the requested outcome was achieved.

@@ -91,7 +91,7 @@ def test_doctor_reports_current_product_health_layers_with_host_unknown(tmp_path
     assert positions == sorted(positions)
     assert "[OK] Plugin package: Plugin files and public skills are valid" in result.stdout
     assert (
-        "[OK] Managed Agents: All 5 managed Agent profiles are installed and match this Plugin version"
+        "[OK] Managed Agents: All 3 managed Agent profiles are installed and match this Plugin version"
         in result.stdout
     )
     assert "[UNKNOWN] Host integration: Current Host capabilities were not checked" in result.stdout
@@ -219,7 +219,7 @@ def test_unknown_execution_and_writer_lease_remain_unknown_in_doctor(tmp_path: P
         unit_id="U1",
         execution_id="exec-1",
         native_task_name="sd_u1_a1",
-        profile_id="worker",
+        role_id="programmer", reasoning_effort="max",
         granted_authority="bounded-source-write",
         granted_write_scope=["src/a.py"],
         writer_lease_id="lease-1",
@@ -261,7 +261,7 @@ def test_missing_managed_profiles_are_warning_and_repairable(tmp_path: Path):
 def test_modified_owned_profile_blocks_doctor(tmp_path: Path):
     home = tmp_path / "codex-home"
     install(home)
-    profile = home / "agents" / "subagents-dispatch-reader.toml"
+    profile = home / "agents" / "subagents-dispatch-programmer.toml"
     profile.write_bytes(profile.read_bytes() + b"\n# mutation\n")
 
     result = run_doctor(home, tmp_path, "--check")

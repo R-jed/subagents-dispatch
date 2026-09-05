@@ -50,7 +50,7 @@ def install_spawn_pending_reader(tmp_path: Path):
         unit_id="U1",
         execution_id="exec-1",
         native_task_name="sd_u1_a1",
-        profile_id="reader",
+        role_id="programmer", reasoning_effort="max",
         granted_authority="none",
         temp_root=tmp_path,
     )
@@ -67,7 +67,7 @@ def install_running_reader(tmp_path: Path):
     )
     graph.install_work_graph("thread-control", units=[unit], temp_root=tmp_path)
     lifecycle.allocate_execution(
-        "thread-control", unit_id="U1", execution_id="exec-1", native_task_name="sd_u1_a1", profile_id="reader", granted_authority="none", temp_root=tmp_path
+        "thread-control", unit_id="U1", execution_id="exec-1", native_task_name="sd_u1_a1", role_id="programmer", reasoning_effort="max", granted_authority="none", temp_root=tmp_path
     )
     basis = lifecycle.fresh_observation_basis("thread-control", execution_id="exec-1", temp_root=tmp_path)
     lifecycle.persist_host_observation(
@@ -81,25 +81,35 @@ def test_orchestrate_and_doctor_are_the_public_surface():
     assert skills == ["doctor", "orchestrate"]
 
 
-def test_main_selects_one_fixed_profile_explicitly():
-    orchestrate = load_module("orch_explicit_profile", "orchestrate_v4.py")
+def test_main_selects_one_managed_role_and_policy_exact_route():
+    orchestrate = load_module("orch_explicit_role", "orchestrate_v4.py")
     roles = json.loads(POLICY.read_text(encoding="utf-8"))["roles"]
-    for profile_id in ("reader", "worker", "investigator", "solver", "advisor"):
-        selected = orchestrate.select_profile(profile_id=profile_id, intent="bounded work")
-        assert selected["profile_id"] == profile_id
-        assert selected["agent_type"] == roles[profile_id]["agent_type"]
-        assert selected["model"] == roles[profile_id]["model"]
-        assert selected["effort"] == roles[profile_id]["effort"]
-    with pytest.raises(orchestrate.OrchestrateError, match="fixed managed profiles"):
-        orchestrate.select_profile(profile_id="automatic-best-agent", intent="work")
+    selections = {
+        "programmer": "max",
+        "product_manager": "medium",
+        "department_director": "high",
+    }
+    for role_id, effort in selections.items():
+        selected = orchestrate.select_role(
+            role_id=role_id, intent="bounded work", reasoning_effort=effort
+        )
+        assert selected["role_id"] == role_id
+        assert selected["agent_type"] == roles[role_id]["agent_type"]
+        assert selected["model"] == roles[role_id]["model"]
+        assert selected["reasoning_effort"] == effort
+    with pytest.raises(orchestrate.OrchestrateError, match="unknown managed role"):
+        orchestrate.select_role(
+            role_id="automatic-best-agent", intent="work", reasoning_effort="high"
+        )
 
 
 def test_orchestrate_skill_names_every_exact_managed_agent_type():
     roles = json.loads(POLICY.read_text(encoding="utf-8"))["roles"]
     text = ORCHESTRATE_SKILL.read_text(encoding="utf-8")
-    for profile_id in ("reader", "worker", "investigator", "solver", "advisor"):
-        assert f"`{roles[profile_id]['agent_type']}`" in text
-    assert "generic Host Agent" in text
+    for role_id in ("programmer", "product_manager", "department_director"):
+        assert f"`{roles[role_id]['agent_type']}`" in text
+    assert "Never substitute" in text
+    assert "another role, another model, or another effort" in text
     assert "prepare_managed_spawn" in text
     assert "Do not handwrite" in text
 
@@ -119,9 +129,11 @@ def test_prepare_managed_spawn_owns_exact_host_payload(tmp_path: Path):
     assert prepared["operation"] == "SPAWN"
     assert prepared["execution_id"] == "exec-1"
     tool_input = prepared["tool_input"]
-    assert set(tool_input) == {"task_name", "message", "agent_type", "fork_turns"}
+    assert set(tool_input) == {"task_name", "message", "agent_type", "model", "reasoning_effort", "fork_turns"}
     assert tool_input["task_name"] == "sd_u1_a1"
-    assert tool_input["agent_type"] == "subagents_dispatch_reader"
+    assert tool_input["agent_type"] == "subagents_dispatch_programmer"
+    assert tool_input["model"] == "gpt-5.6-luna"
+    assert tool_input["reasoning_effort"] == "max"
     assert tool_input["fork_turns"] == "none"
     assert isinstance(tool_input["message"], str) and tool_input["message"]
     packet = json.loads(tool_input["message"])
@@ -147,19 +159,19 @@ def test_plan_only_requires_explicit_profile_and_never_creates_runtime_state(tmp
     preview = orchestrate.plan_only_preview(
         goal="plan a safe change",
         responsibilities=[
-            {"intent": "inspect", "goal": "map code", "profile_id": "reader"},
-            {"intent": "implement", "goal": "change code", "profile_id": "worker"},
+            {"intent": "inspect", "goal": "map code", "role_id": "programmer", "reasoning_effort": "max"},
+            {"intent": "implement", "goal": "change code", "role_id": "programmer", "reasoning_effort": "max"},
         ],
     )
     assert preview["mode"] == "PLAN_ONLY"
     assert preview["state_created"] is False
     assert preview["writer_lease_acquired"] is False
     assert preview["host_actions"] == []
-    assert [item["profile"]["profile_id"] for item in preview["work_units"]] == ["reader", "worker"]
+    assert [item["route"]["role_id"] for item in preview["work_units"]] == ["programmer", "programmer"]
     assert state.load_state("thread-plan", temp_root=tmp_path) is None
-    with pytest.raises(orchestrate.OrchestrateError, match="explicit profile_id"):
+    with pytest.raises(orchestrate.OrchestrateError, match="explicit role_id"):
         orchestrate.plan_only_preview(
-            goal="ambiguous profile",
+            goal="ambiguous role",
             responsibilities=[{"intent": "inspect", "goal": "map code"}],
         )
 

@@ -55,7 +55,7 @@ def test_dependencies_unlock_only_after_work_unit_acceptance(tmp_path: Path):
     )
     graph.install_work_graph("thread-accept", units=[u1, u2], temp_root=tmp_path)
     lifecycle.allocate_execution(
-        "thread-accept", unit_id="U1", execution_id="exec-1", native_task_name="sd_u1_a1", profile_id="reader", granted_authority="none", temp_root=tmp_path
+        "thread-accept", unit_id="U1", execution_id="exec-1", native_task_name="sd_u1_a1", role_id="programmer", reasoning_effort="max", granted_authority="none", temp_root=tmp_path
     )
     basis = lifecycle.fresh_observation_basis("thread-accept", execution_id="exec-1", temp_root=tmp_path)
     lifecycle.persist_host_observation(
@@ -127,8 +127,8 @@ def test_unknown_execution_counts_against_product_and_host_capacity():
     payload["work_units"][0]["state"] = "EXECUTING"
     payload["executions"] = [{
         "execution_id": "exec-1", "unit_id": "U1",
-        "attempt_no": 1, "profile_id": "reader", "agent_id": "agent-1",
-        "native_task_name": "sd_u1_a1", "model": "gpt-5.6-luna", "effort": "max",
+        "attempt_no": 1, "role_id": "programmer", "agent_type": "subagents_dispatch_programmer", "agent_id": "agent-1",
+        "native_task_name": "sd_u1_a1", "model": "gpt-5.6-luna", "reasoning_effort": "max",
         "granted_authority": "none", "granted_write_scope": [], "workspace_id": "canonical",
         "lifecycle": "UNKNOWN", "control_epoch": 0, "followup_count": 0,
         "failure_origin": "runtime_ambiguous", "blocker": "investigation", "quarantine_reason": "host_ambiguous"
@@ -156,13 +156,13 @@ def test_execution_facade_enforces_single_product_child_ceiling(tmp_path: Path):
     for i in range(1, 5):
         lifecycle.allocate_execution(
             "thread-limit", unit_id=f"U{i}", execution_id=f"exec-{i}", native_task_name=f"sd_u{i}_a1",
-            profile_id="reader", granted_authority="none", temp_root=tmp_path
+            role_id="programmer", reasoning_effort="max", granted_authority="none", temp_root=tmp_path
         )
 
     with pytest.raises(lifecycle.ExecutionLifecycleError, match="child limit 4"):
         lifecycle.allocate_execution(
             "thread-limit", unit_id="U5", execution_id="exec-5", native_task_name="sd_u5_a1",
-            profile_id="reader", granted_authority="none", temp_root=tmp_path
+            role_id="programmer", reasoning_effort="max", granted_authority="none", temp_root=tmp_path
         )
     current = state.load_state("thread-limit", temp_root=tmp_path)
     assert current is not None

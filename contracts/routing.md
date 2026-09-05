@@ -1,48 +1,79 @@
 # Routing
 
-This is the current V4 routing contract. The main session owns the user goal, decomposition, profile choice, dispatch judgment, integration, WorkUnit acceptance, and final response. Delegation is optional and exists only when a distinct child responsibility is worth its coordination cost.
+This is the current three-role Native Subagent routing contract. Main owns the user goal, decomposition, semantic classification, dispatch judgment, integration, WorkUnit acceptance, and final response. Delegation remains optional and exists only when a distinct managed responsibility is worth its coordination cost.
 
-`policy.json` owns the five fixed managed profile identities and the single product child ceiling. `responsibility-packet.md` owns the serialized child responsibility record. The WorkGraph and WorkUnit state own responsibility structure, dependencies, ownership, and acceptance. `recovery.md` owns ExecutionBinding lifecycle and recovery. `interaction.md` owns user controls. `final-review.md` owns exact-candidate independent review.
+`policy.json` owns the three managed role identities, their exact production model/effort routes, Decision tier triggers, review tier triggers, and the single product child ceiling. `responsibility-packet.md` owns the serialized responsibility record. WorkGraph/WorkUnit own responsibility structure and acceptance. `recovery.md` owns ExecutionBinding lifecycle. `interaction.md` owns user controls. `final-review.md` owns exact-candidate independent review and highest-consequence acceptance review.
 
 ## Delegation value
 
-Keep work in the main session when a child would mostly duplicate context, add handoff cost, or provide no useful isolation, parallelism, capability uplift, read-heavy investigation, or independent judgment. Main-only is preferred when delegation adds no value. Zero children is a normal outcome.
+Keep work in Main when delegation would mostly duplicate context, add handoff cost, or provide no useful isolation, parallelism, bounded capability, investigation, implementation, or independent judgment. Zero children is normal.
 
-Task size, file count, expense, or a description such as complex does not by itself justify delegation. The main session creates only responsibilities that can make useful progress and may add more WorkUnits later when new independent work becomes clear.
+Task size, file count, one failure, low confidence, expense, a spare Host slot, or a description such as `complex` does not by itself justify delegation or a higher model tier. Use the minimum useful fanout. Multiple children may launch only when responsibilities are independently ready, non-duplicative, and safe to overlap under current writer/permission boundaries.
 
-Use the minimum useful fanout, not the fewest children as an end in itself. When one distinct responsibility benefits from delegation, one child is the common shape. Multiple children may launch immediately only when multiple responsibilities are independently ready, non-duplicative, safe to overlap under the current permission and writer boundaries, and the concurrency materially improves the task path, evidence coverage, or latency. Do not serialize genuinely valuable independent work merely to satisfy a one-child-first habit.
+Delegated work substitutes for Main doing that same responsibility. Main verifies returned evidence and artifacts, integrates across responsibility boundaries, and owns acceptance; it does not redo a child responsibility merely to recreate confidence. Child output remains a claim until Main accepts the relevant evidence into canonical task truth.
 
-Delegated work substitutes for Main doing that same responsibility. Main verifies returned evidence, integrates across responsibility boundaries, and owns acceptance; it does not redo the child's investigation or implementation merely to recreate confidence. Re-investigate only when verification finds a concrete gap, stale evidence, conflict, or invalid result.
+Main model and Main `ReasoningEffort` do not select, weaken, inherit into, or suppress managed role routes. A strong Main does not absorb a formal managed Decision merely because it is strong; a weak Main does not itself trigger extra delegation. Routing checks are admitted only by genuine ambiguity or consequence.
 
-WorkGraph is the structural source of truth for one or many WorkUnits.
+## Three managed roles
 
-## Preserve task truth
+The stable product vocabulary is localized for presentation but the machine role ids are fixed:
 
-When an accepted user plan, another trusted Skill, or an upstream workflow already defines goal, decomposition, dependencies, outputs, business acceptance, or quality gates, preserve that truth. Orchestrate may assign owners, select specialist profiles, control useful concurrency, and enforce writer and lifecycle boundaries. It must not silently replace the upstream domain plan.
+```text
+程序员 / Programmer             -> programmer
+产品经理 / Product Manager      -> product_manager
+部门总监 / Department Director  -> department_director
+```
 
-Before delegation, identify the material obligations that must survive decomposition. Each obligation must remain covered by a delegated responsibility or an explicit main-session integration or verification responsibility. Cross-responsibility seams remain real work even when no child owns them.
+Users invoke `Orchestrate` and `Doctor`; they do not directly select a managed role to bypass admission policy.
 
-A structurally valid graph does not prove semantic coverage. If decomposition loses an already-known requirement, repair the decomposition in the main session. Use the `contract` blocker only when required task truth is genuinely missing, contradictory, or underspecified.
+### Programmer
 
-## Select one fixed profile explicitly
+Programmer is the ordinary work role and always uses the exact production route `gpt-5.6-luna / max`.
 
-Profile choice is a main-session judgment. Deterministic runtime code validates the chosen fixed profile; it does not infer a profile from task size, failure, file count, or a numeric routing score.
+Use Programmer for bounded factual inspection or for bounded implementation after behavior, invariants, material decisions, scope, and acceptance are settled. Read versus write is not encoded in role identity. The WorkUnit/Responsibility Record owns `intent`, `mutation_authority`, `write_scope`, interfaces, invariants, and stop conditions.
 
-Use Reader for narrow read-only factual work such as bounded repository traces, call mapping, test mapping, or focused evidence collection.
+### Product Manager
 
-Use Worker when behavior, invariants, scope, acceptance, and material decisions are settled and the remaining work is bounded implementation inside explicit write authority.
+Product Manager is the technical decision role and always uses `gpt-5.6-sol` with an explicitly selected `medium` or `high` effort. The profile does not supply or inherit effort.
 
-Use Investigator for broader read-only technical exploration and synthesis when semantics are stable and no material decision remains unresolved.
+`medium` is the default Decision tier for local, reversible technical judgment that does not alter a material architecture/contract/authority/persistence/security boundary. `high` is required when Main confirms one or more `decision_routing.high_triggers` from `policy.json`. Deterministic policy code resolves the exact effort from those confirmed triggers; it does not infer the semantic trigger from task size, file count, retries, or a numeric risk score.
 
-Use Solver when material judgment is coupled to implementation and cannot be separated safely from the writing work.
+Product Manager may perform read-only investigation/synthesis. It may receive bounded write authority only when all of the following remain true:
 
-Use Advisor for a demanding read-only second judgment or the fresh independent review required by `final-review.md`.
+```text
+an unresolved material judgment exists
+AND it cannot safely be settled before implementation
+AND the judgment remains coupled to the writing work
+AND independent delegation has concrete value
+```
 
-Failure does not define a model ladder. A weak Luna result, one failed test, low confidence, or task size does not automatically route work to Terra or Sol. The main session reassesses the unresolved responsibility and selects the fixed profile that fits the remaining need.
+A Product Manager routing check is advisory evidence only. It cannot widen itself into a formal Decision responsibility or edit WorkGraph. If a Medium check discovers a High trigger, it reports the trigger and evidence to Main; Main creates the formal High responsibility. There is no self-escalation.
+
+### Department Director
+
+Department Director is the highest-consequence acceptance role and always uses the exact production route `gpt-6-astra / high`.
+
+It has one mode only: fresh, semantically read-only, exact-candidate-bound acceptance review after Candidate Ready. It does not plan, implement, perform routing checks, provide mid-task advice, or act as a general expensive expert. Complexity alone never admits Department Director. Admission comes only from the highest review triggers in `policy.json`.
+
+If the exact Department Director route is unavailable, do not downgrade to Product Manager or another model/effort. The acceptance obligation remains pending/insufficient.
+
+## Exact route enforcement
+
+`policy.json` is the single production owner of model/effort. Every managed spawn carries the exact model and reasoning effort explicitly. Custom-Agent profiles own stable role instructions/configuration intent, not production route truth. Parent defaults and role-profile model/effort values are not fallback sources.
+
+The current production routes are:
+
+```text
+programmer           gpt-5.6-luna / max
+product_manager      gpt-5.6-sol  / medium | high (explicit every spawn)
+department_director  gpt-6-astra  / high
+```
+
+Unavailable or unsupported exact routes fail closed. There is no Luna -> Sol -> Astra failure escalation ladder.
 
 ## Responsibility semantics
 
-Every delegated child owns one stable WorkUnit responsibility, not the raw user request. Before creating an ExecutionBinding, the main session must establish enough truth to define:
+Every delegated child owns one stable WorkUnit responsibility, not the raw user request. Before creating an ExecutionBinding, Main must establish enough truth to define:
 
 ```text
 observable goal and output
@@ -52,39 +83,37 @@ mutation-authority ceiling
 interfaces and invariants
 material decision boundary
 acceptance condition
-valid evidence that should be reused
+valid evidence safe to reuse
 stop boundary
 ```
 
-Those semantics are serialized through `responsibility-packet.md`. A child cannot widen scope, permission, mutation authority, user intent, external impact, acceptance, or its own role.
-
-Every fresh child receives fresh context with `fork_turns = none`. The main session places only task-needed context in the responsibility packet. Reuse the same child when continuity with that child's existing context is materially useful.
+A child cannot widen scope, permission, mutation authority, user intent, external impact, acceptance, or its own role. Every fresh child uses `fork_turns = none` and receives only task-needed accepted context. All managed roles are leaf roles and may not create or control further Agents.
 
 ## Ready frontier and dispatch
 
-A responsibility is structurally ready when its dependencies are accepted. Semantic readiness remains a main-session judgment.
+A responsibility is structurally ready when its dependencies are accepted. Semantic readiness remains Main judgment.
 
-The product has one managed-child ceiling:
+The product has one safety ceiling:
 
 ```text
 managed children <= 4
 ```
 
-The ceiling is a safety limit, not a target. Codex V2 session concurrency includes the primary agent, so a known Host session capacity may reduce the projected child slots after accounting for Main and current managed project children. Unknown numeric Host capacity is not guessed and does not create a synthetic project capacity token. Missing required Host capability evidence blocks delegated launch. The Host remains authoritative and may reject a spawn before materialization when other session occupancy or a stricter runtime limit consumes capacity.
+Known Host capacity may reduce available slots. Unknown capacity is not guessed. Spare capacity never authorizes decorative work. Deterministic helpers may report ready frontier, active managed children, Host readiness, known capacity, WriterLease state, and conservative slots; they do not rank work, choose responsibilities, or create automatic launch actions.
 
-Deterministic code may report the ready frontier, current active project-child count, Host readiness, known Host session capacity, WriterLease state, and a conservative available-slot projection. It does not rank the frontier, choose a WorkUnit, create critical-path priority, apply a fixed acceptance-backlog threshold, or emit automatic launch actions. The main session owns those decisions.
-
-Spare capacity never justifies decorative work. If unprocessed results make further delegation counterproductive, integrate and accept the useful results first.
-
-Before execution, give the user one brief route rationale when it materially helps them understand the plan, for example `Main-only: delegation adds no value` or `Main + 2 Readers: two independent read-only evidence tracks can overlap`. This explanation is presentation only. It does not create a persistent routing mode, scheduler state, WorkGraph field, or release-evidence field.
+Before execution, give the user a brief route rationale when useful. Presentation may show the localized role plus route, for example `程序员 · Luna Max`, `产品经理 · Sol High`, or `部门总监 · Astra High`. This presentation creates no scheduler or state authority.
 
 ## Concurrency and writer ownership
 
-Independent read-only work may overlap when read-only behavior and responsibility independence are verifiable. A read-only role label alone is insufficient proof. If effective read-only or isolation cannot be established, use the conservative serial path.
+Semantic mutation authority is owned by the WorkUnit/Responsibility Record. Host effective permission is separate runtime evidence and never expands semantic authority.
 
-The canonical mutable workspace has one active managed WriterLease. Intended file separation alone does not prove safe parallel writes. Parallel writers require Host-verifiable isolated workspaces and explicit integration boundaries; without that evidence, keep one writer.
+Independent semantic-read responsibilities may overlap. When Host positively proves effective read-only/isolation, that is the strongest path. When Host exposes broader write-capable permission, read/read overlap is still allowed only with no active canonical-workspace WriterLease and a before/after artifact-immutability guard covering the relevant workspace baseline. If the artifact changes, invalidate all workspace-dependent evidence from that batch, quarantine affected executions, pause new managed mutation, and let Main re-establish current workspace truth. Do not guess who changed it and do not auto-rollback user files.
 
-`UNKNOWN` writer ownership blocks conflicting mutation or replacement. Nonconflicting work may continue only when isolation from the unknown execution is deterministically established.
+Semantic-read work does not overlap an active canonical-workspace managed writer by default unless a future Host provides a separately verified immutable/isolated workspace boundary.
+
+The canonical mutable workspace has one active managed WriterLease. WriterLease belongs to an exact ExecutionBinding, not to a role. Programmer or Product Manager may hold it when their responsibility grants bounded write authority. Department Director never holds it. Parallel writers still require Host-verifiable isolated workspaces and explicit integration boundaries.
+
+`UNKNOWN` writer ownership blocks conflicting mutation or replacement.
 
 ## Blockers and recovery
 
@@ -97,14 +126,14 @@ investigation
 stalled
 ```
 
-`contract` means required task truth is missing or contradictory. `judgment` means a material decision remains. `investigation` means broader read-only evidence gathering is useful. `stalled` means the same responsibility is not progressing without one of the preceding blocker types.
+`contract` means required task truth is missing or contradictory. `judgment` means a material decision remains. `investigation` means broader evidence/synthesis is useful. `stalled` means the same responsibility is not progressing without one of those substantive blockers.
 
-Recovery mechanics, evidence-gated follow-up or fresh retry, UNKNOWN handling, and main-session takeover belong to `recovery.md`. Routing chooses no automatic escalation ladder.
+Failure does not define a model ladder. Recovery, evidence-gated retry, UNKNOWN handling, same-child continuity, and Main takeover remain owned by `recovery.md`. If responsibility meaning materially changes, create a new WorkUnit identity rather than rewriting the old one.
 
-If a WorkUnit goal, output, ownership, or acceptance meaning materially changes after execution begins, create a new WorkUnit identity instead of rewriting the old responsibility.
+## Completion and review
 
-## Completion
+Host completion creates candidate evidence and never accepts a WorkUnit by itself. Main verifies artifacts and relevant evidence before `ACCEPTED`; dependencies unlock only from accepted WorkUnits.
 
-Host completion creates candidate evidence and never accepts a WorkUnit by itself. The main session verifies actual artifacts and relevant evidence before `ACCEPTED`. Dependencies unlock only from accepted WorkUnits.
+Before Candidate Ready, Main closes material obligations, integration seams, the actual deliverable, and required deterministic/reproducible verification. Then apply `final-review.md`.
 
-Before Candidate Ready, verify material obligations, integration seams, the actual deliverable, and required deterministic or reproducible evidence. Apply `final-review.md` when consequence-based review policy requires an independent second judgment.
+Review is consequence-driven and independent of implementation history. Prior Product Manager use, model strength, diff size, file count, retries, or recovery do not trigger review by themselves.

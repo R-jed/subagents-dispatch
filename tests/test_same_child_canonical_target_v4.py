@@ -49,7 +49,7 @@ def setup_read_execution(label: str, tmp_path: Path):
         unit_id="U1",
         execution_id="exec-1",
         native_task_name="sd_u1_a1",
-        profile_id="reader",
+        role_id="programmer", reasoning_effort="max",
         granted_authority="none",
         execution_basis_ref="initial:u1",
         temp_root=tmp_path,

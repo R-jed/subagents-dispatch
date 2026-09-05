@@ -26,44 +26,43 @@ def load_module(name: str, filename: str):
 
 def test_doctor_uses_canonical_policy_projection_for_profile_truth(monkeypatch, tmp_path: Path):
     doctor = load_module("doctor_policy_source", "doctor.py")
-    assert not hasattr(doctor, "EXPECTED_PROFILES")
 
-    profiles = {}
+    profiles = {
+        "programmer": {
+            "profile_file": "programmer.toml",
+            "agent_type": "test_programmer",
+            "model": "test-luna",
+            "allowed_efforts": ("max",),
+        },
+        "product_manager": {
+            "profile_file": "product-manager.toml",
+            "agent_type": "test_product_manager",
+            "model": "test-sol",
+            "allowed_efforts": ("medium", "high"),
+        },
+        "department_director": {
+            "profile_file": "director.toml",
+            "agent_type": "test_department_director",
+            "model": "test-astra",
+            "allowed_efforts": ("high",),
+        },
+    }
     profile_dir = tmp_path / "profiles"
     profile_dir.mkdir()
-    for index, role in enumerate(("reader", "worker", "investigator", "solver", "advisor"), start=1):
-        read_only = role in {"reader", "investigator", "advisor"}
-        profile_file = f"{role}.toml"
-        profiles[role] = {
-            "profile_file": profile_file,
-            "agent_type": f"test_{role}",
-            "model": f"test-model-{index}",
-            "effort": f"test-effort-{index}",
-            "mutation_authority": "none" if read_only else "bounded-source-write",
-            "semantic_role": "review" if role == "advisor" else "work",
-        }
-        if read_only:
-            profiles[role]["sandbox_mode"] = "read-only"
-        (profile_dir / profile_file).write_text(
-            "\n".join(
-                (
-                    f'model = "test-model-{index}"',
-                    f'model_reasoning_effort = "test-effort-{index}"',
-                    'developer_instructions = "Do not create further subagents."',
-                    "",
-                    "[agents]",
-                    "enabled = false",
-                    "",
-                    "[features]",
-                    "multi_agent_v2 = false",
-                    "",
-                )
-            ),
+    for role_id, spec in profiles.items():
+        sandbox = 'sandbox_mode = "read-only"\n' if role_id == "department_director" else ""
+        (profile_dir / spec["profile_file"]).write_text(
+            f'name = "{spec["agent_type"]}"\n'
+            f'description = "{role_id} role"\n'
+            + sandbox
+            + 'developer_instructions = "Do not create further subagents."\n\n'
+            + '[agents]\nenabled = false\n\n'
+            + '[features]\nmulti_agent_v2 = false\n',
             encoding="utf-8",
         )
 
     monkeypatch.setattr(doctor, "PROFILE_DIR", profile_dir)
-    monkeypatch.setattr(doctor.policy_contract, "profile_contracts", lambda: profiles)
+    monkeypatch.setattr(doctor.policy_contract, "role_contracts", lambda: profiles)
     monkeypatch.setattr(
         doctor.subprocess,
         "run",
@@ -73,4 +72,4 @@ def test_doctor_uses_canonical_policy_projection_for_profile_truth(monkeypatch, 
     result = doctor.diagnose_managed_agents(tmp_path / "codex-home")
 
     assert result["status"] == "OK"
-    assert result["details"]["profiles"] == 5
+    assert result["details"]["profiles"] == 3

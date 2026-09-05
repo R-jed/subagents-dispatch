@@ -170,24 +170,28 @@ def diagnose_plugin_package() -> dict[str, Any]:
 
 def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
     try:
-        profiles = policy_contract.profile_contracts()
+        profiles = policy_contract.role_contracts()
     except RuntimeError as exc:
         return layer("Managed Agents", "FAIL", f"Managed Agent configuration is unavailable: {exc}")
     mismatches: list[str] = []
-    for role, spec in profiles.items():
+    for role_id, spec in profiles.items():
         try:
             profile = tomllib.loads(
                 (PROFILE_DIR / spec["profile_file"]).read_text(encoding="utf-8")
             )
         except (OSError, UnicodeError, tomllib.TOMLDecodeError):
-            mismatches.append(role)
+            mismatches.append(role_id)
             continue
+        expected_sandbox = "read-only" if role_id == "department_director" else None
         if (
-            profile.get("model") != spec["model"]
-            or profile.get("model_reasoning_effort") != spec["effort"]
+            profile.get("name") != spec["agent_type"]
+            or "model" in profile
+            or "model_reasoning_effort" in profile
+            or profile.get("sandbox_mode") != expected_sandbox
+            or not str(profile.get("description", "")).strip()
             or not _profile_disables_child_collaboration(profile)
         ):
-            mismatches.append(role)
+            mismatches.append(role_id)
     if mismatches:
         return layer(
             "Managed Agents",
@@ -213,8 +217,8 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         return layer(
             "Managed Agents",
             "OK",
-            "All 5 managed Agent profiles are installed and match this Plugin version",
-            profiles=5,
+            "All 3 managed Agent profiles are installed and match this Plugin version",
+            profiles=3,
         )
     diagnostic = (verifier.stderr or verifier.stdout).strip()
     recoverable = any(diagnostic.startswith(prefix) for prefix in RECOVERABLE_PROFILE_CHECK_PREFIXES)
@@ -225,7 +229,7 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
             "Managed Agent profiles need setup or repair",
             action="Run Doctor repair. Start a fresh Codex session if profiles change.",
             diagnostic=diagnostic,
-            profiles=5,
+            profiles=3,
         )
     return layer(
         "Managed Agents",
@@ -233,7 +237,7 @@ def diagnose_managed_agents(codex_home: Path) -> dict[str, Any]:
         "Managed Agent profiles cannot be changed safely",
         action="Resolve the reported file ownership or filesystem conflict, then run Doctor repair.",
         diagnostic=diagnostic,
-        profiles=5,
+        profiles=3,
     )
 
 

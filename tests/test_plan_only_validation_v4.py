@@ -38,15 +38,15 @@ def test_plan_only_rejects_non_array_responsibilities(responsibilities):
 @pytest.mark.parametrize(
     "responsibility",
     [
-        {"intent": None, "goal": "inspect", "profile_id": "reader"},
-        {"intent": "unsupported", "goal": "inspect", "profile_id": "reader"},
-        {"intent": "inspect", "goal": None, "profile_id": "reader"},
-        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": None},
-        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": "U1"},
-        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": ("U1",)},
-        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": {"U1": 1}},
-        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": [1]},
-        {"intent": "inspect", "goal": "inspect", "profile_id": "reader", "depends_on": ["U9"]},
+        {"intent": None, "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max"},
+        {"intent": "unsupported", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max"},
+        {"intent": "inspect", "goal": None, "role_id": "programmer", "reasoning_effort": "max"},
+        {"intent": "inspect", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max", "depends_on": None},
+        {"intent": "inspect", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max", "depends_on": "U1"},
+        {"intent": "inspect", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max", "depends_on": ("U1",)},
+        {"intent": "inspect", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max", "depends_on": {"U1": 1}},
+        {"intent": "inspect", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max", "depends_on": [1]},
+        {"intent": "inspect", "goal": "inspect", "role_id": "programmer", "reasoning_effort": "max", "depends_on": ["U9"]},
     ],
 )
 def test_plan_only_rejects_malformed_workunit_fields(responsibility):
@@ -67,13 +67,13 @@ def test_plan_only_rejects_dependency_cycles():
                 {
                     "intent": "inspect",
                     "goal": "inspect first",
-                    "profile_id": "reader",
+                    "role_id": "programmer", "reasoning_effort": "max",
                     "depends_on": ["U2"],
                 },
                 {
                     "intent": "review",
                     "goal": "review second",
-                    "profile_id": "advisor",
+                    "role_id": "product_manager", "reasoning_effort": "high",
                     "depends_on": ["U1"],
                 },
             ],
@@ -85,11 +85,11 @@ def test_plan_only_accepts_valid_dependencies_without_runtime_side_effects(tmp_p
     preview = orchestrate.plan_only_preview(
         goal="preview a dependency graph",
         responsibilities=[
-            {"intent": "inspect", "goal": "inspect first", "profile_id": "reader"},
+            {"intent": "inspect", "goal": "inspect first", "role_id": "programmer", "reasoning_effort": "max"},
             {
                 "intent": "review",
                 "goal": "review second",
-                "profile_id": "advisor",
+                "role_id": "product_manager", "reasoning_effort": "high",
                 "depends_on": ["U1"],
             },
         ],

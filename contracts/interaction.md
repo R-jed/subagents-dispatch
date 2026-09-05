@@ -52,7 +52,7 @@ Do not run runtime-evidence diagnostics merely to make the preview look more pre
 
 The `status` control payload is a one-shot state inspection, not a polling loop.
 
-The normal user-facing view is low-resolution and activity-based. Use the public model-lane/activity vocabulary from `receipt.md`; do not leak internal `Reader`, `Worker`, `Solver`, `Investigator`, or `Advisor` names in normal Chinese Status output.
+The normal user-facing view uses the localized managed-team vocabulary from `receipt.md`: 程序员 / 产品经理 / 部门总监 in Chinese and Programmer / Product Manager / Department Director in English, together with the selected model/effort when useful. Internal machine ids remain hidden unless diagnostic detail is requested.
 
 Group current responsibilities into the smallest useful presentation:
 
@@ -69,10 +69,10 @@ Chinese example:
 
 ```text
 运行中
-U1 · Luna Max 读取
+U1 · 程序员 · Luna Max · 读取
 
 等待
-U2 · Luna Max 执行 · 等待 U1
+U2 · 程序员 · Luna Max · 执行 · 等待 U1
 
 需处理
 无
@@ -85,10 +85,10 @@ English example:
 
 ```text
 Running
-U1 · Luna Max Read
+U1 · Programmer · Luna Max · Read
 
 Waiting
-U2 · Luna Max Execute · waiting for U1
+U2 · Programmer · Luna Max · Execute · waiting for U1
 
 Needs attention
 None
@@ -105,7 +105,7 @@ An optional exact unit-id zoom may add only current accepted facts that help con
 
 ```text
 U2
-职责: Luna Max 执行
+职责: 程序员 · Luna Max · 执行
 状态: 等待
 依赖: U1
 写入范围: src/...
@@ -190,7 +190,7 @@ An ordinary delegated terminal response may include a compact execution receipt 
 
 Explicit Orchestrate with zero materialized children may emit the minimal acknowledgement defined by `receipt.md` and creates no persistent state. Plan-only Preview and Status-only Orchestrate intents do not require a terminal execution receipt.
 
-The public vocabulary is activity-based. Chinese uses `读取`, `调研`, `执行`, `决策`, and `验收` and need not expose internal Reader, Worker, Solver, Investigator, or Advisor names. English uses Read, Investigate, Execute, Decide, and Review.
+The public role vocabulary is personified but bounded: Chinese uses `程序员`, `产品经理`, `部门总监`; English uses `Programmer`, `Product Manager`, `Department Director`. Activity words such as 读取/执行/决策/验收 (Read/Execute/Decide/Review) may be appended. Machine role ids and Host agent_type values are diagnostic implementation details.
 
 The receipt may report only inspectable orchestration facts. Never expose private reasoning, raw child transcripts, credentials, source contents, or unrelated tool logs.
 

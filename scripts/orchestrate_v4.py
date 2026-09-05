@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """V4 Native Core Orchestrate production facade.
 
-The main session owns decomposition, profile choice, dispatch judgment, integration,
-and final acceptance. Deterministic helpers validate fixed profile, lifecycle, and
-state constraints without selecting work on the main session's behalf.
+The main session owns decomposition, semantic classification, dispatch judgment, integration,
+and final acceptance. Deterministic helpers resolve policy-exact role routes and validate
+lifecycle/state constraints without selecting work on the main session's behalf.
 """
 
 from __future__ import annotations
@@ -19,16 +19,14 @@ import scheduler_v4 as scheduler
 import work_graph_v4 as work_graph
 
 
-_PROFILE_SPECS = policy_contract.profile_contracts()
-FIXED_PROFILES = {
-    role: {
+_ROLE_SPECS = policy_contract.role_contracts()
+MANAGED_ROLES = {
+    role_id: {
         "agent_type": spec["agent_type"],
         "model": spec["model"],
-        "effort": spec["effort"],
-        "authority_ceiling": spec["mutation_authority"],
-        "semantic_role": spec["semantic_role"],
+        "allowed_efforts": tuple(spec["allowed_efforts"]),
     }
-    for role, spec in _PROFILE_SPECS.items()
+    for role_id, spec in _ROLE_SPECS.items()
 }
 
 
@@ -36,17 +34,19 @@ class OrchestrateError(RuntimeError):
     """An Orchestrate request violates V4 session or fixed-profile policy."""
 
 
-def select_profile(*, profile_id: str, intent: str) -> dict[str, Any]:
-    """Validate one profile chosen explicitly by the main session."""
-    if profile_id not in FIXED_PROFILES:
-        raise OrchestrateError("profile_id is outside the fixed managed profiles")
+def select_role(
+    *, role_id: str, intent: str, reasoning_effort: str | None = None
+) -> dict[str, Any]:
+    """Validate one semantic role and resolve its exact policy route."""
     if not isinstance(intent, str) or not intent.strip():
         raise OrchestrateError("intent must be non-empty")
-    profile = copy.deepcopy(FIXED_PROFILES[profile_id])
-    profile["profile_id"] = profile_id
-    profile["intent"] = intent
-    return profile
-
+    try:
+        route = policy_contract.resolve_managed_route(
+            role_id=role_id, reasoning_effort=reasoning_effort
+        )
+    except RuntimeError as exc:
+        raise OrchestrateError(str(exc)) from exc
+    return {**copy.deepcopy(route), "intent": intent}
 
 def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -> dict[str, Any]:
     if not isinstance(goal, str) or not goal.strip():
@@ -59,12 +59,16 @@ def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -
         if not isinstance(responsibility, Mapping):
             raise OrchestrateError("responsibility must be an object")
         intent = responsibility.get("intent", "inspect")
-        profile_id = responsibility.get("profile_id")
-        if not isinstance(profile_id, str) or not profile_id.strip():
+        role_id = responsibility.get("role_id")
+        if not isinstance(role_id, str) or not role_id.strip():
             raise OrchestrateError(
-                "plan-only responsibility requires explicit profile_id from the main session"
+                "plan-only responsibility requires explicit role_id from the main session"
             )
-        profile = select_profile(profile_id=profile_id, intent=intent)
+        route = select_role(
+            role_id=role_id,
+            intent=intent,
+            reasoning_effort=responsibility.get("reasoning_effort"),
+        )
         unit_goal = responsibility.get("goal", intent)
         dependencies = responsibility.get("depends_on", [])
         if not isinstance(dependencies, list):
@@ -84,7 +88,7 @@ def plan_only_preview(*, goal: str, responsibilities: list[Mapping[str, Any]]) -
                 "intent": unit["intent"],
                 "goal": unit["goal"],
                 "depends_on": list(unit["depends_on"]),
-                "profile": profile,
+                "route": route,
             }
         )
 

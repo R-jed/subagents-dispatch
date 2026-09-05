@@ -1,5 +1,5 @@
 {
-  "schema_version": 9,
+  "schema_version": 10,
   "delegation": {
     "max_depth": 1,
     "fork_turns": "none",
@@ -15,83 +15,82 @@
       "parent_turn"
     ]
   },
-  "capability_dedup": {
-    "reference_role": "solver",
-    "model_aliases": [
-      "gpt-5.6"
-    ],
-    "reasoning_effort_order": [
-      "minimal",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-      "max"
-    ]
-  },
-  "fixed_execution_profiles": {
-    "luna": "max",
-    "terra": "high",
-    "sol": "high",
-    "dynamic_effort_routing": false
-  },
   "roles": {
-    "reader": {
-      "profile_file": "subagents-dispatch-reader.toml",
-      "agent_type": "subagents_dispatch_reader",
+    "programmer": {
+      "profile_file": "subagents-dispatch-programmer.toml",
+      "agent_type": "subagents_dispatch_programmer",
       "model": "gpt-5.6-luna",
-      "effort": "max",
-      "mutation_authority": "none",
-      "sandbox_mode": "read-only"
+      "allowed_efforts": [
+        "max"
+      ]
     },
-    "worker": {
-      "profile_file": "subagents-dispatch-worker.toml",
-      "agent_type": "subagents_dispatch_worker",
-      "model": "gpt-5.6-luna",
-      "effort": "max",
-      "mutation_authority": "bounded-source-write"
-    },
-    "solver": {
-      "profile_file": "subagents-dispatch-solver.toml",
-      "agent_type": "subagents_dispatch_solver",
+    "product_manager": {
+      "profile_file": "subagents-dispatch-product-manager.toml",
+      "agent_type": "subagents_dispatch_product_manager",
       "model": "gpt-5.6-sol",
-      "effort": "high",
-      "mutation_authority": "bounded-source-write"
+      "allowed_efforts": [
+        "medium",
+        "high"
+      ]
     },
-    "investigator": {
-      "profile_file": "subagents-dispatch-investigator.toml",
-      "agent_type": "subagents_dispatch_investigator",
-      "model": "gpt-5.6-terra",
-      "effort": "high",
-      "mutation_authority": "none",
-      "sandbox_mode": "read-only"
-    },
-    "advisor": {
-      "profile_file": "subagents-dispatch-advisor.toml",
-      "agent_type": "subagents_dispatch_advisor",
-      "model": "gpt-5.6-sol",
-      "effort": "high",
-      "mutation_authority": "none",
-      "sandbox_mode": "read-only"
+    "department_director": {
+      "profile_file": "subagents-dispatch-department-director.toml",
+      "agent_type": "subagents_dispatch_department_director",
+      "model": "gpt-6-astra",
+      "allowed_efforts": [
+        "high"
+      ]
     }
   },
-  "final_review": {
-    "trigger_codes": [
-      "user_requested",
-      "public_contract_change",
-      "persistent_state_change",
-      "security_boundary",
-      "authorization_boundary",
+  "decision_routing": {
+    "role_id": "product_manager",
+    "default_effort": "medium",
+    "high_effort": "high",
+    "high_triggers": [
+      "architecture_boundary",
+      "public_contract",
+      "compatibility",
+      "ownership_authority",
+      "persistent_semantics",
+      "security_or_authorization",
       "data_integrity",
       "concurrency_semantics",
-      "migration",
-      "verification_gap"
-    ],
-    "ship_verdict": "ship",
-    "correction_verdicts": [
+      "migration"
+    ]
+  },
+  "review_routing": {
+    "standard": {
+      "role_id": "product_manager",
+      "effort": "high",
+      "triggers": [
+        "user_requested_review",
+        "public_contract_change",
+        "material_behavior_change",
+        "persistent_state_change",
+        "verification_gap"
+      ]
+    },
+    "highest": {
+      "role_id": "department_director",
+      "effort": "high",
+      "triggers": [
+        "security_boundary",
+        "authorization_boundary",
+        "data_integrity",
+        "critical_concurrency_or_ownership",
+        "migration",
+        "irreversible_external_effect",
+        "release",
+        "user_requested_highest_assurance"
+      ]
+    }
+  },
+  "review_verdicts": {
+    "ship": "ship",
+    "correction": [
       "fix-first",
       "rethink"
     ],
-    "unresolved_verdict": "insufficient_evidence"
+    "unresolved": "insufficient_evidence"
   }
 }

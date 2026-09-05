@@ -21,7 +21,7 @@ import policy as policy_contract
 import state_storage as storage
 
 
-SCHEMA_VERSION = "4.0"
+SCHEMA_VERSION = "4.1"
 DEFAULT_MAX_BYTES = 64 * 1024
 CANONICAL_WORKSPACE_ID = "canonical"
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
@@ -68,11 +68,12 @@ EXECUTION_REQUIRED_FIELDS = {
     "execution_id",
     "unit_id",
     "attempt_no",
-    "profile_id",
+    "role_id",
+    "agent_type",
     "agent_id",
     "native_task_name",
     "model",
-    "effort",
+    "reasoning_effort",
     "granted_authority",
     "granted_write_scope",
     "workspace_id",
@@ -130,7 +131,6 @@ FAILURE_ORIGINS = {
     "runtime_ambiguous",
 }
 TASK_BLOCKERS = {"none", "contract", "judgment", "investigation", "stalled"}
-PROFILE_CONTRACT = policy_contract.profile_contract_tuples()
 HOST_STATE_MAP = {
     "pending_init": "RUNNING",
     "pendingInit": "RUNNING",
@@ -382,12 +382,18 @@ def _validate_executions(
         if not _strict_int(attempt, minimum=1):
             raise StatePayloadError(f"execution {execution_id} attempt_no must be positive")
         attempts_by_unit.setdefault(unit_id, []).append(attempt)
-        profile = execution["profile_id"]
-        if profile not in PROFILE_CONTRACT:
-            raise StatePayloadError(f"execution {execution_id} has invalid profile_id")
-        model, effort, profile_authority = PROFILE_CONTRACT[profile]
-        if execution["model"] != model or execution["effort"] != effort:
-            raise StatePayloadError(f"execution {execution_id} model/effort drift from fixed profile")
+        role_id = execution["role_id"]
+        try:
+            route = policy_contract.resolve_managed_route(
+                role_id=role_id,
+                reasoning_effort=execution["reasoning_effort"],
+            )
+        except RuntimeError as exc:
+            raise StatePayloadError(f"execution {execution_id} has invalid managed route: {exc}") from exc
+        if execution["agent_type"] != route["agent_type"]:
+            raise StatePayloadError(f"execution {execution_id} agent_type drift from managed role")
+        if execution["model"] != route["model"]:
+            raise StatePayloadError(f"execution {execution_id} model drift from managed route")
         task_name = validate_native_task_name(execution["native_task_name"])
         if task_name in native_names:
             raise StatePayloadError(f"execution {execution_id} duplicates native_task_name")
@@ -407,8 +413,8 @@ def _validate_executions(
             raise StatePayloadError(f"execution {execution_id} has invalid granted_authority")
         if AUTHORITY_RANK[granted] > AUTHORITY_RANK[work_units[unit_id]["authority_ceiling"]]:
             raise StatePayloadError(f"execution {execution_id} exceeds WorkUnit authority ceiling")
-        if AUTHORITY_RANK[granted] > AUTHORITY_RANK[profile_authority]:
-            raise StatePayloadError(f"execution {execution_id} exceeds profile mutation authority")
+        if role_id == "department_director" and granted != "none":
+            raise StatePayloadError(f"execution {execution_id} Department Director must be read-only")
         granted_scope = _validate_scope_list(
             execution["granted_write_scope"], label=f"execution {execution_id}.granted_write_scope"
         )
@@ -678,7 +684,7 @@ def validate_state_payload(
     _serialized_payload(state, max_bytes=max_bytes)
     storage._reject_forbidden_persisted_fields(state)
     if state["schema_version"] != SCHEMA_VERSION:
-        raise StatePayloadError("unsupported V4 state schema_version")
+        raise StatePayloadError("unsupported Native Core state schema_version")
     identity = storage.resolve_thread_id(
         thread_id if thread_id is not None else state["root_session_id"]
     )

@@ -11,19 +11,19 @@ First decide whether delegation helps the requested task. Small, tightly coupled
 
 For plan-only requests, read `../../contracts/policy.json` and `../../contracts/routing.md`, then return a provisional WorkUnit and dependency shape without creating orchestration state, provisioning Agent profiles, acquiring WriterLease, or invoking Host lifecycle tools.
 
-When delegation adds value, read `../../contracts/policy.json` and `../../contracts/routing.md`. Main creates one or more WorkUnits and selects one fixed managed profile explicitly for each delegated responsibility. Runtime code validates that selection. Do not dynamically change child model or reasoning effort and do not apply an automatic Luna, Terra, Sol escalation ladder.
+When delegation adds value, read `../../contracts/policy.json` and `../../contracts/routing.md`. Main creates one or more WorkUnits, classifies the semantic role and any policy trigger facts, and lets deterministic policy code resolve the only legal managed route. Main model/effort never inherits into, weakens, or suppresses managed role routes. Do not create an automatic failure-driven model ladder.
 
 Use the minimum useful fanout. One child is the common shape when exactly one distinct responsibility benefits from delegation. Multiple children may launch immediately only for independently ready, non-duplicative responsibilities that are safe to overlap and materially benefit from concurrency. Do not hard-code one-child-first and do not serialize valuable independent work merely to minimize the child count.
 
 The exact managed Host selectors are part of the product contract:
 
-- Reader: `subagents_dispatch_reader`
-- Worker: `subagents_dispatch_worker`
-- Investigator: `subagents_dispatch_investigator`
-- Solver: `subagents_dispatch_solver`
-- Advisor: `subagents_dispatch_advisor`
+- 程序员 / Programmer: `subagents_dispatch_programmer` -> `gpt-5.6-luna / max`
+- 产品经理 / Product Manager: `subagents_dispatch_product_manager` -> `gpt-5.6-sol / medium | high`
+- 部门总监 / Department Director: `subagents_dispatch_department_director` -> `gpt-6-astra / high`
 
-Before every native spawn, call the Orchestrate facade `prepare_managed_spawn` for the current ExecutionBinding and pass its returned `tool_input` to `spawn_agent` unchanged. The facade derives the canonical payload through `build_managed_spawn_tool_input` and validates it with `prepare_spawn`. Do not handwrite or override `task_name`, `message`, `agent_type`, or `fork_turns` at the Host call site. Never substitute a built-in or generic Host Agent type for a managed profile. If the exact managed `agent_type` is unavailable, omitted from the callable Host surface, or rejected by the Host, stop delegated execution and report the Host limitation. Do not fall back to a generic Reader, Worker, default Agent, or another role.
+Product Manager effort is explicit on every spawn. `medium` is the default Decision tier; `high` is legal only for the confirmed material triggers in `policy.json`. Department Director is admitted only after Candidate Ready for the highest-consequence trigger set.
+
+Before every native spawn, call the Orchestrate facade `prepare_managed_spawn` for the current ExecutionBinding and pass its returned `tool_input` to `spawn_agent` unchanged. The facade derives the canonical payload through `build_managed_spawn_tool_input` and validates it with `prepare_spawn`. Do not handwrite or override `task_name`, `message`, `agent_type`, `model`, `reasoning_effort`, or `fork_turns` at the Host call site. Never substitute a built-in/generic Agent, another role, another model, or another effort. If the exact policy route is unavailable or rejected, stop that delegated route and report the Host limitation.
 
 New children use `fork_turns: none`. Delegation depth remains one. Managed children cannot create or control further Agents. The product ceiling is four concurrently active managed children. This is a safety ceiling, not a target. Known lower Host session concurrency may reduce the projected child slots after accounting for the primary agent; unknown numeric Host capacity is not guessed and does not require a synthetic occupancy token. Missing required Host capability evidence stops delegated execution.
 
@@ -31,13 +31,13 @@ WorkGraph is the responsibility structure truth for one or many WorkUnits. Befor
 
 Main owns dispatch judgment. Deterministic helpers may report the ready frontier, active project-child count, Host readiness, known session capacity, WriterLease state, and a conservative launch-slot projection. They do not rank WorkUnits, impose fixed critical-path priority, apply a fixed acceptance-backlog threshold, choose automatic launch actions, or replace Host rejection as the final capacity authority.
 
-The canonical mutable workspace has one active managed WriterLease. Independent read-only work may overlap with other work only when effective read-only behavior and responsibility isolation are verified. If that evidence is missing, use the conservative serial path. Multiple writers require Host-verifiable isolated workspaces and clear integration boundaries; file-list separation alone is insufficient.
+The canonical mutable workspace has one active managed WriterLease. Independent semantic-read responsibilities may overlap each other. If Host permission is broader than semantic `mutation_authority=none`, allow read/read overlap only with no active canonical WriterLease and a before/after artifact-immutability guard; any drift invalidates the whole workspace-dependent batch and pauses new managed mutation until Main re-establishes truth. Semantic reads do not overlap an active canonical writer by default. Multiple writers require Host-verifiable isolated workspaces and clear integration boundaries; file-list separation alone is insufficient.
 
 Main always owns the user goal, scope, integration, WorkUnit acceptance, irreversible external side effects, and final response. Host completion proves candidate lifecycle completion only. Accept results after checking relevant evidence and the actual artifact. Delegated work substitutes for Main doing that responsibility; verify and integrate it without redoing the same investigation or implementation unless a concrete evidence gap requires renewed work.
 
-When useful to the user, state one brief route rationale before execution, such as `Main-only: delegation adds no value` or `Main + 2 Readers: two independent read-only evidence tracks can overlap`. This is presentation only; do not persist a `solo`, `delegate`, `audit`, `full`, or other route-mode field in runtime state.
+When useful to the user, state one brief route rationale before execution, such as `Main-only: delegation adds no value`, `程序员 · Luna Max`, `产品经理 · Sol High`, or `部门总监 · Astra High: authorization boundary`. This is presentation only; do not persist a `solo`, `delegate`, `audit`, `full`, or other route-mode field in runtime state.
 
-Before the first child spawn, require the exact selected managed profile and never substitute a generic Agent type. When a required profile is cleanly absent, use the bounded plugin-owned provisioning path and return `RESTART_REQUIRED` for that task. A fresh task must expose the exact managed `agent_type`; if the Host cannot expose or honor it, report the Host limitation and stop.
+Before the first child spawn, require the exact selected managed role/profile and exact policy model/effort route; never substitute a generic Agent type or inherited parent route. When a required profile is cleanly absent, use the bounded plugin-owned provisioning path and return `RESTART_REQUIRED` for that task. A fresh task must expose the exact managed `agent_type`; if the Host cannot expose or honor it, report the Host limitation and stop.
 
 Delegated execution requires the Native Subagent lifecycle capabilities needed by the selected operation. Managed children must follow the depth-one boundary and must not issue nested Agent creation or control actions. The effective child collaboration surface remains a Host fact; latent V2 recursive capability does not by itself block ordinary managed execution or decide N1. Missing required lifecycle capability for the selected operation stops delegated execution. Do not infer Host-enforced read-only solely from profile configuration.
 

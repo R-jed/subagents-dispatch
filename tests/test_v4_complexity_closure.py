@@ -54,7 +54,7 @@ def test_single_reader_execution_does_not_carry_team_plan_compatibility(tmp_path
         unit_id="U1",
         execution_id="exec-reader",
         native_task_name="sd_u1_a1",
-        profile_id="reader",
+        role_id="programmer", reasoning_effort="max",
         granted_authority="none",
         temp_root=tmp_path,
     )
@@ -74,7 +74,7 @@ def test_single_writer_execution_reserves_lease_without_compatibility_marker(tmp
         unit_id="U1",
         execution_id="exec-writer",
         native_task_name="sd_u1_a1",
-        profile_id="worker",
+        role_id="programmer", reasoning_effort="max",
         granted_authority="bounded-source-write",
         granted_write_scope=["src/a.py"],
         writer_lease_id="lease-single",
@@ -171,14 +171,13 @@ def test_profile_machine_truth_has_one_policy_projection():
     orchestrate = load_module("closure_orchestrate_policy", "orchestrate_v4.py")
     managed = load_module("closure_managed_policy", "managed_execution_v4.py")
 
-    profiles = policy.profile_contracts()
-    assert set(profiles) == {"reader", "worker", "investigator", "solver", "advisor"}
-    for role, spec in profiles.items():
-        assert state.PROFILE_CONTRACT[role] == (
-            spec["model"], spec["effort"], spec["mutation_authority"]
-        )
-        assert orchestrate.FIXED_PROFILES[role]["model"] == spec["model"]
-        assert managed.PROFILE_AGENT_TYPES[role] == spec["agent_type"]
+    roles = policy.role_contracts()
+    assert set(roles) == {"programmer", "product_manager", "department_director"}
+    assert not hasattr(state, "PROFILE_CONTRACT")
+    assert set(orchestrate.MANAGED_ROLES) == set(roles)
+    assert managed.ROLE_AGENT_TYPES == {
+        role_id: spec["agent_type"] for role_id, spec in roles.items()
+    }
 
 
 def test_runtime_integrity_keeps_product_runtime_and_excludes_maintainer_tools():
@@ -240,7 +239,7 @@ def test_active_contracts_assign_current_two_skill_and_native_host_ownership():
     assert not (ROOT / "docs" / "v4" / "phase-status.json").exists()
     assert not (ROOT / "docs" / "repository-architecture.md").exists()
     assert "../../docs/v4/architecture.json#runtime_owners" in orchestrate_skill
-    assert "selection/invocation of Orchestrate" in final_review
+    assert "material compute expansion" in final_review
     assert machine["public_skills"] == ["orchestrate", "doctor"]
     assert machine["host_truth"]["lifecycle_owner"] == "codex_host"
 

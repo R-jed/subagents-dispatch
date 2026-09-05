@@ -42,7 +42,7 @@ bounded-source-write
 
 `none` permits no artifact mutation. `declared-output-only` permits only the explicitly named deliverable. `bounded-source-write` permits source mutation only inside the granted write scope and decision rights.
 
-Reader, Investigator, and Advisor are behaviorally read-only. Worker or Solver may write source only when Main explicitly grants bounded source-write authority for that responsibility.
+Role identity does not grant mutation authority. Programmer or Product Manager may be semantically read-only or may write only when Main explicitly grants the responsibility's bounded authority. Department Director is always semantically read-only and never holds WriterLease.
 
 If useful completion requires broader mutation than the responsibility grants, stop and return the required scope change to Main. Children do not self-upgrade authority.
 
@@ -64,8 +64,8 @@ Writing actors are:
 
 ```text
 Main while mutating the workspace
-Luna Worker when granted bounded-source-write
-Sol Solver when granted bounded-source-write
+Programmer / Luna Max when granted bounded-source-write
+Product Manager / Sol Medium|High when granted bounded-source-write
 ```
 
 If a managed child owns WriterLease, Main may continue read-only inspection or acceptance preparation, but conflicting integration writes wait for safe ownership transfer.
@@ -111,9 +111,9 @@ Ask before materially expanding:
 - external or irreversible actions;
 - compute far beyond what the user could reasonably expect;
 - broad speculative fanout whose value has not been established;
-- repeated expensive Solver, Advisor, Investigator, or correction/re-review loops after the ordinary useful path is exhausted.
+- repeated expensive Product Manager/Department Director or correction/re-review loops after the ordinary useful path is exhausted.
 
-Routine first-use provisioning does not require a separate consent prompt when real delegation is already justified and mutation is limited to the five Plugin-owned managed profiles, ownership manifest, and installer lock.
+Routine first-use provisioning does not require a separate consent prompt when real delegation is already justified and mutation is limited to the three Plugin-owned managed profiles, ownership manifest, and installer lock.
 
 That narrow authority does not cover unowned conflicts, migration, update, credentials, MCP configuration, repository changes, unrelated Agent profiles, or broader Codex configuration.
 

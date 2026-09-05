@@ -59,24 +59,30 @@ def execution(
     lifecycle: str = "RUNNING",
     agent_id: str | None = "agent-1",
     control_epoch: int = 0,
-    profile_id: str = "worker",
+    role_id: str = "programmer",
+    reasoning_effort: str | None = None,
+    granted_authority: str | None = None,
 ) -> dict:
-    model, effort, authority = {
-        "reader": ("gpt-5.6-luna", "max", "none"),
-        "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "xhigh", "none"),
-        "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-        "advisor": ("gpt-5.6-sol", "high", "none"),
-    }[profile_id]
+    routes = {
+        "programmer": ("subagents_dispatch_programmer", "gpt-5.6-luna", "max"),
+        "product_manager": ("subagents_dispatch_product_manager", "gpt-5.6-sol", "medium"),
+        "department_director": ("subagents_dispatch_department_director", "gpt-6-astra", "high"),
+    }
+    agent_type, model, default_effort = routes[role_id]
+    effort = reasoning_effort or default_effort
+    authority = granted_authority
+    if authority is None:
+        authority = "bounded-source-write" if role_id == "programmer" else "none"
     return {
         "execution_id": execution_id,
         "unit_id": unit_id,
         "attempt_no": 1,
-        "profile_id": profile_id,
+        "role_id": role_id,
+        "agent_type": agent_type,
         "agent_id": agent_id,
         "native_task_name": f"sd_{unit_id.lower()}_a1",
         "model": model,
-        "effort": effort,
+        "reasoning_effort": effort,
         "granted_authority": authority,
         "granted_write_scope": ["src/owned.py"] if authority != "none" else [],
         "workspace_id": "canonical",
@@ -112,7 +118,7 @@ def test_new_v4_state_has_exact_bounded_top_level_shape():
     state = module.new_state(thread_id="thread-1", locale="zh", now="2026-08-17T00:00:00Z")
 
     assert state == {
-        "schema_version": "4.0",
+        "schema_version": "4.1",
         "root_session_id": "thread-1",
         "state_revision": 0,
         "work_units": [],
@@ -174,12 +180,12 @@ def test_work_graph_requires_safe_acyclic_dependencies_and_closed_ownership():
         module.validate_state_payload(state)
 
 
-def test_execution_is_pinned_to_fixed_profile_and_work_unit_authority_ceiling():
+def test_execution_is_pinned_to_exact_role_route_and_work_unit_authority_ceiling():
     module = load_module("dispatch_state_v4_profiles", MODULE_PATH)
     state = populated_state(module)
 
-    state["executions"][0]["effort"] = "high"
-    with pytest.raises(module.StatePayloadError, match="model/effort drift"):
+    state["executions"][0]["reasoning_effort"] = "high"
+    with pytest.raises(module.StatePayloadError, match="managed route"):
         module.validate_state_payload(state)
 
     state = populated_state(module)
@@ -200,16 +206,16 @@ def test_v2_native_task_name_is_sufficient_when_agent_id_is_unavailable():
     assert state["executions"][0]["native_task_name"] == "sd_u1_a1"
 
 
-def test_read_only_profile_cannot_claim_write_authority():
+def test_department_director_cannot_claim_write_authority():
     module = load_module("dispatch_state_v4_readonly", MODULE_PATH)
     state = module.new_state(thread_id="thread-1")
     state["work_units"] = [work_unit(authority="bounded-source-write")]
-    record = execution(profile_id="reader")
+    record = execution(role_id="department_director", granted_authority="bounded-source-write")
     record["granted_authority"] = "bounded-source-write"
     record["granted_write_scope"] = ["src/owned.py"]
     state["executions"] = [record]
 
-    with pytest.raises(module.StatePayloadError, match="profile mutation authority"):
+    with pytest.raises(module.StatePayloadError, match="Department Director must be read-only"):
         module.validate_state_payload(state)
 
 
@@ -270,7 +276,8 @@ def test_managed_child_ceiling_is_rejected_inside_atomic_mutation(tmp_path: Path
         execution(
             execution_id=f"exec-{index}",
             unit_id=f"U{index}",
-            profile_id="reader",
+            role_id="programmer", reasoning_effort="max",
+            granted_authority="none",
             agent_id=f"agent-{index}",
         )
         for index in range(1, 5)
@@ -285,7 +292,8 @@ def test_managed_child_ceiling_is_rejected_inside_atomic_mutation(tmp_path: Path
             execution(
                 execution_id="exec-5",
                 unit_id="U5",
-                profile_id="reader",
+                role_id="programmer", reasoning_effort="max",
+                granted_authority="none",
                 agent_id="agent-5",
             )
         )

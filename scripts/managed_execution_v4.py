@@ -12,13 +12,11 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
-import dispatch_state_v4 as state
 import policy as policy_contract
 
 
 MANAGED_FORK_TURNS = "none"
-_PROFILE_SPECS = policy_contract.profile_contracts()
-PROFILE_AGENT_TYPES = {role: spec["agent_type"] for role, spec in _PROFILE_SPECS.items()}
+ROLE_AGENT_TYPES = {role: spec["agent_type"] for role, spec in policy_contract.role_contracts().items()}
 RESPONSIBILITY_CONTEXT_FIELDS = {
     "interfaces",
     "invariants",
@@ -55,19 +53,24 @@ def _unit(current: Mapping[str, Any], unit_id: str) -> Mapping[str, Any]:
     return matches[0]
 
 
-def _profile_agent_type(execution: Mapping[str, Any]) -> str:
-    profile_id = execution.get("profile_id")
-    if profile_id not in _PROFILE_SPECS:
-        raise ManagedExecutionContractError("execution has unsupported managed profile")
-    spec = _PROFILE_SPECS[str(profile_id)]
-    if execution.get("model") != spec["model"] or execution.get("effort") != spec["effort"]:
-        raise ManagedExecutionContractError("execution model/effort drift from fixed profile")
-    if state.AUTHORITY_RANK.get(execution.get("granted_authority"), 99) > state.AUTHORITY_RANK.get(
-        spec["mutation_authority"], -1
-    ):
-        raise ManagedExecutionContractError("execution authority exceeds fixed profile")
-    return spec["agent_type"]
-
+def _managed_route(execution: Mapping[str, Any]) -> dict[str, str]:
+    role_id = execution.get("role_id")
+    if not isinstance(role_id, str):
+        raise ManagedExecutionContractError("execution has unsupported managed role")
+    try:
+        route = policy_contract.resolve_managed_route(
+            role_id=role_id,
+            reasoning_effort=execution.get("reasoning_effort"),
+        )
+    except RuntimeError as exc:
+        raise ManagedExecutionContractError(str(exc)) from exc
+    if execution.get("agent_type") != route["agent_type"]:
+        raise ManagedExecutionContractError("execution agent_type drift from managed role")
+    if execution.get("model") != route["model"]:
+        raise ManagedExecutionContractError("execution model drift from managed route")
+    if role_id == "department_director" and execution.get("granted_authority") != "none":
+        raise ManagedExecutionContractError("Department Director must remain read-only")
+    return route
 
 def _nonempty(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
@@ -156,11 +159,13 @@ def expected_spawn_input_for_execution(
     current: Mapping[str, Any], *, execution_id: str
 ) -> dict[str, Any]:
     execution = _execution_by_id(current, execution_id)
-    agent_type = _profile_agent_type(execution)
+    route = _managed_route(execution)
     packet = assignment_packet(current, execution=execution)
     return {
         "task_name": execution["native_task_name"],
         "message": render_assignment_message(packet),
-        "agent_type": agent_type,
+        "agent_type": route["agent_type"],
+        "model": route["model"],
+        "reasoning_effort": route["reasoning_effort"],
         "fork_turns": MANAGED_FORK_TURNS,
     }

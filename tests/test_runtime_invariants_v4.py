@@ -56,29 +56,32 @@ def make_execution(
     unit_id: str,
     *,
     execution_id: str,
-    profile_id: str = "reader",
+    role_id: str = "programmer",
+    reasoning_effort: str | None = None,
     lifecycle: str = "SPAWN_PENDING",
     attempt_no: int = 1,
     control_epoch: int = 0,
+    granted_authority: str = "none",
 ) -> dict:
-    model, effort, authority = {
-        "reader": ("gpt-5.6-luna", "max", "none"),
-        "worker": ("gpt-5.6-luna", "max", "bounded-source-write"),
-        "investigator": ("gpt-5.6-terra", "high", "none"),
-        "solver": ("gpt-5.6-sol", "high", "bounded-source-write"),
-        "advisor": ("gpt-5.6-sol", "high", "none"),
-    }[profile_id]
+    routes = {
+        "programmer": ("subagents_dispatch_programmer", "gpt-5.6-luna", "max"),
+        "product_manager": ("subagents_dispatch_product_manager", "gpt-5.6-sol", "medium"),
+        "department_director": ("subagents_dispatch_department_director", "gpt-6-astra", "high"),
+    }
+    agent_type, model, default_effort = routes[role_id]
+    effort = reasoning_effort or default_effort
     return {
         "execution_id": execution_id,
         "unit_id": unit_id,
         "attempt_no": attempt_no,
-        "profile_id": profile_id,
+        "role_id": role_id,
+        "agent_type": agent_type,
         "agent_id": None,
         "native_task_name": f"sd_{unit_id.lower()}_a{attempt_no}",
         "model": model,
-        "effort": effort,
-        "granted_authority": authority,
-        "granted_write_scope": [f"src/{unit_id.lower()}.py"] if authority != "none" else [],
+        "reasoning_effort": effort,
+        "granted_authority": granted_authority,
+        "granted_write_scope": [f"src/{unit_id.lower()}.py"] if granted_authority != "none" else [],
         "workspace_id": "canonical",
         "lifecycle": lifecycle,
         "control_epoch": control_epoch,
@@ -102,19 +105,21 @@ def host_snapshot(capacity: int = 4) -> dict:
     )
 
 
-def test_reader_binding_cannot_prepare_worker_agent_type(tmp_path: Path):
+def test_programmer_binding_cannot_prepare_other_agent_type(tmp_path: Path):
     state = load_module("native_state_profile", "dispatch_state_v4.py")
     lifecycle = load_module("native_lifecycle_profile", "execution_lifecycle_v4.py")
 
     payload = state.new_state(thread_id="thread-profile")
     payload["work_units"] = [make_work_unit("U1", state_name="EXECUTING")]
-    payload["executions"] = [make_execution("U1", execution_id="exec-1", profile_id="reader")]
+    payload["executions"] = [make_execution("U1", execution_id="exec-1")]
     state.write_state(payload, temp_root=tmp_path)
 
     mismatched = {
         "task_name": "sd_u1_a1",
         "message": "inspect only",
-        "agent_type": "subagents_dispatch_worker",
+        "agent_type": "subagents_dispatch_product_manager",
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "medium",
         "fork_turns": "none",
     }
     with pytest.raises(Exception, match="profile|managed spawn|does not match"):
@@ -132,13 +137,15 @@ def test_managed_spawn_requires_fork_turns_none_at_prepare_boundary(tmp_path: Pa
 
     payload = state.new_state(thread_id="thread-fork")
     payload["work_units"] = [make_work_unit("U1", state_name="EXECUTING")]
-    payload["executions"] = [make_execution("U1", execution_id="exec-1", profile_id="reader")]
+    payload["executions"] = [make_execution("U1", execution_id="exec-1")]
     state.write_state(payload, temp_root=tmp_path)
 
     bad = {
         "task_name": "sd_u1_a1",
         "message": "inspect only",
-        "agent_type": "subagents_dispatch_reader",
+        "agent_type": "subagents_dispatch_programmer",
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "max",
         "fork_turns": "all",
     }
     with pytest.raises(Exception, match="fresh-context|managed spawn|does not match"):
@@ -160,7 +167,7 @@ def test_corrupt_accepted_state_requires_completed_current_producer():
     unit["accepted_control_epoch"] = 0
     payload["work_units"] = [unit]
     payload["executions"] = [
-        make_execution("U1", execution_id="exec-1", profile_id="reader", lifecycle="RUNNING")
+        make_execution("U1", execution_id="exec-1", role_id="programmer", reasoning_effort="max", lifecycle="RUNNING")
     ]
 
     with pytest.raises(state.StatePayloadError, match="accepted|COMPLETED|producer"):
@@ -198,7 +205,7 @@ def test_constraint_snapshot_reports_remaining_slots_without_selecting_work():
     payload["work_units"] = [make_work_unit(f"U{i}") for i in range(1, 5)]
     payload["work_units"][0]["state"] = "EXECUTING"
     payload["executions"] = [
-        make_execution("U1", execution_id="exec-1", profile_id="reader", lifecycle="RUNNING")
+        make_execution("U1", execution_id="exec-1", role_id="programmer", reasoning_effort="max", lifecycle="RUNNING")
     ]
     state.validate_state_payload(payload)
 

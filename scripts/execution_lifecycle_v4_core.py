@@ -20,7 +20,6 @@ import policy as policy_contract
 import writer_lease_v4 as writer
 
 
-_PROFILE_SPECS = policy_contract.profile_contracts()
 _SETTLED_EXECUTION_STATES = {"COMPLETED", "FAILED", "CLOSED"}
 _HISTORY_KIND = "execution_history"
 _RECOVERY_BASIS_KIND = "recovery_basis"
@@ -201,7 +200,8 @@ def allocate_execution(
     unit_id: str,
     execution_id: str,
     native_task_name: str,
-    profile_id: str,
+    role_id: str,
+    reasoning_effort: str | None,
     granted_authority: str,
     granted_write_scope: Sequence[str] = (),
     execution_basis_ref: str | None = None,
@@ -209,18 +209,22 @@ def allocate_execution(
     temp_root: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Allocate one evidence-bound fresh activation and reserve writer ownership atomically."""
-    if profile_id not in _PROFILE_SPECS:
-        raise ExecutionLifecycleError("profile_id is outside fixed V4 profiles")
+    try:
+        route = policy_contract.resolve_managed_route(
+            role_id=role_id,
+            reasoning_effort=reasoning_effort,
+        )
+    except RuntimeError as exc:
+        raise ExecutionLifecycleError(str(exc)) from exc
     if not isinstance(execution_id, str) or not execution_id.strip():
         raise ExecutionLifecycleError("execution_id must be non-empty")
     if not isinstance(native_task_name, str) or not native_task_name.strip():
         raise ExecutionLifecycleError("native_task_name must be non-empty")
     if execution_basis_ref is not None and not _nonempty(execution_basis_ref):
         raise ExecutionLifecycleError("execution_basis_ref must be non-empty when supplied")
-    profile = _PROFILE_SPECS[profile_id]
-    model = profile["model"]
-    effort = profile["effort"]
-    profile_authority = profile["mutation_authority"]
+    model = route["model"]
+    agent_type = route["agent_type"]
+    selected_effort = route["reasoning_effort"]
     scope = list(granted_write_scope)
     allocated: dict[str, Any] = {}
 
@@ -257,8 +261,8 @@ def allocate_execution(
             raise ExecutionLifecycleError("granted_authority is invalid")
         if _authority_rank(granted_authority) > _authority_rank(unit["authority_ceiling"]):
             raise ExecutionLifecycleError("granted authority exceeds WorkUnit ceiling")
-        if _authority_rank(granted_authority) > _authority_rank(profile_authority):
-            raise ExecutionLifecycleError("granted authority exceeds fixed profile capability")
+        if role_id == "department_director" and granted_authority != "none":
+            raise ExecutionLifecycleError("Department Director is semantically read-only")
         if not state.scopes_within(scope, unit["write_scope_ceiling"]):
             raise ExecutionLifecycleError("granted write scope exceeds WorkUnit ceiling")
         if granted_authority == "none" and scope:
@@ -276,11 +280,12 @@ def allocate_execution(
             "execution_id": execution_id,
             "unit_id": unit_id,
             "attempt_no": attempt_no,
-            "profile_id": profile_id,
+            "role_id": role_id,
+            "agent_type": agent_type,
             "agent_id": None,
             "native_task_name": native_task_name,
             "model": model,
-            "effort": effort,
+            "reasoning_effort": selected_effort,
             "granted_authority": granted_authority,
             "granted_write_scope": scope,
             "workspace_id": state.CANONICAL_WORKSPACE_ID,
@@ -356,7 +361,7 @@ def prepare_spawn(
         raise ExecutionLifecycleError(str(exc)) from exc
     if dict(tool_input) != expected:
         raise ExecutionLifecycleError(
-            "managed spawn tool_input does not match profile, fresh-context, or assignment contract"
+            "managed spawn tool_input does not match role, exact route, fresh-context, or assignment contract"
         )
     return {
         "operation": "SPAWN",

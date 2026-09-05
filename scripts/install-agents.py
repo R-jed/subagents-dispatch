@@ -15,15 +15,14 @@ import tomllib
 from typing import NoReturn
 import uuid
 
-from policy import load_policy_contract
+from policy import role_contracts
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_SOURCE = ROOT / "agent-profiles"
 MANIFEST_NAME = ".subagents-dispatch-agents.json"
 LOCK_NAME = ".subagents-dispatch-agents.lock"
-MANIFEST_SCHEMA = 1
+MANIFEST_SCHEMA = 2
 MANAGED_BY = "subagents-dispatch"
-ROLE_KEYS = {"reader", "worker", "solver", "investigator", "advisor"}
 
 
 def fail(message: str) -> NoReturn:
@@ -102,47 +101,26 @@ def file_hash(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
 
 
-def load_installer_policy() -> dict:
+def load_installer_roles() -> dict[str, dict]:
     try:
-        payload = load_policy_contract()
+        return role_contracts()
     except RuntimeError as exc:
         fail(f"Invalid subagents-dispatch policy contract: {exc}")
-    roles = payload.get("roles")
-    if not isinstance(roles, dict) or set(roles) != ROLE_KEYS:
-        fail("Policy contract must define reader, worker, solver, investigator, and advisor roles")
-    required = {"profile_file", "agent_type", "model", "effort", "mutation_authority"}
-    seen_files: set[str] = set()
-    seen_names: set[str] = set()
-    for role, spec in roles.items():
-        if not isinstance(spec, dict) or not required <= set(spec):
-            fail(f"Policy contract role {role!r} is incomplete")
-        values = [spec.get(key) for key in required]
-        if not all(isinstance(value, str) and value.strip() for value in values):
-            fail(f"Policy contract role {role!r} contains an empty/non-string constant")
-        sandbox_mode = spec.get("sandbox_mode")
-        if spec["mutation_authority"] == "none":
-            if sandbox_mode != "read-only":
-                fail(f"Read-only policy role {role!r} must pin sandbox_mode='read-only'")
-        elif sandbox_mode is not None:
-            fail(f"Writable policy role {role!r} must inherit Host sandbox permission")
-        if spec["profile_file"] in seen_files or spec["agent_type"] in seen_names:
-            fail(f"Duplicate profile or Agent role in policy contract: {role}")
-        seen_files.add(spec["profile_file"])
-        seen_names.add(spec["agent_type"])
-    return payload
 
 
-POLICY_CONTRACT = load_installer_policy()
-ROLE_SPECS = POLICY_CONTRACT["roles"]
+def expected_profile_sandbox(role_id: str) -> str | None:
+    return "read-only" if role_id == "department_director" else None
+
+
+ROLE_SPECS = load_installer_roles()
 PROFILE_FILES = tuple(spec["profile_file"] for spec in ROLE_SPECS.values())
 EXPECTED_PROFILES = {
-    spec["profile_file"]: (
-        spec["agent_type"],
-        spec["model"],
-        spec["effort"],
-        spec.get("sandbox_mode"),
-    )
-    for spec in ROLE_SPECS.values()
+    spec["profile_file"]: {
+        "role_id": role_id,
+        "agent_type": spec["agent_type"],
+        "sandbox_mode": expected_profile_sandbox(role_id),
+    }
+    for role_id, spec in ROLE_SPECS.items()
 }
 
 
@@ -203,6 +181,9 @@ def desired_manifest() -> dict:
 
 
 def validate_sources() -> None:
+    shipped = {path.name for path in PROFILE_SOURCE.glob("*.toml")}
+    if shipped != set(PROFILE_FILES):
+        fail("Agent profile package must contain exactly the three policy-owned role files")
     seen_names: set[str] = set()
     for filename, expected in EXPECTED_PROFILES.items():
         path = PROFILE_SOURCE / filename
@@ -212,21 +193,27 @@ def validate_sources() -> None:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
             fail(f"Invalid Agent profile {path}: {exc}")
-        actual = (
-            str(data.get("name", "")).strip(),
-            str(data.get("model", "")).strip(),
-            str(data.get("model_reasoning_effort", "")).strip(),
-            data.get("sandbox_mode"),
-        )
-        if actual != expected:
-            fail(f"Agent profile {filename} pins {actual!r}; expected {expected!r}")
+        if data.get("name") != expected["agent_type"]:
+            fail(f"Agent profile {filename} has the wrong managed Agent identity")
+        if "model" in data or "model_reasoning_effort" in data:
+            fail(f"Agent profile {filename} must not pin production model or reasoning effort")
+        if data.get("sandbox_mode") != expected["sandbox_mode"]:
+            fail(f"Agent profile {filename} has an invalid role sandbox configuration")
         if not str(data.get("description", "")).strip() or not str(
             data.get("developer_instructions", "")
         ).strip():
             fail(f"Agent profile is incomplete: {filename}")
-        if expected[0] in seen_names:
-            fail(f"Duplicate shipped Agent role name: {expected[0]}")
-        seen_names.add(expected[0])
+        instructions = str(data["developer_instructions"]).lower()
+        if (
+            data.get("agents", {}).get("enabled") is not False
+            or data.get("features", {}).get("multi_agent_v2") is not False
+            or "create further subagents" not in instructions
+        ):
+            fail(f"Agent profile {filename} does not preserve the managed leaf-agent contract")
+        name = str(data["name"]).strip()
+        if name in seen_names:
+            fail(f"Duplicate shipped Agent role name: {name}")
+        seen_names.add(name)
 
 
 def preflight_agents_dir(path: Path, *, check_only: bool) -> None:
@@ -283,7 +270,7 @@ def preflight_profiles(
             f"and is not proven unchanged from a previous subagents-dispatch install: {target}"
         )
 
-    current_roles = {values[0] for values in EXPECTED_PROFILES.values()}
+    current_roles = {values["agent_type"] for values in EXPECTED_PROFILES.values()}
     if agents_dir.exists():
         for existing in agents_dir.glob("*.toml"):
             if existing.name in PROFILE_FILES or existing.is_symlink() or not existing.is_file():
