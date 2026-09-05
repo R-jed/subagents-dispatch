@@ -13,6 +13,9 @@ from typing import Any, Mapping
 from plugin_update import (
     MARKETPLACE_NAME,
     UpdateError,
+    _installed_cache_root,
+    _local_source_root,
+    _package_identity,
     _run_json,
     installation_layer_from_payload,
     package_version,
@@ -31,7 +34,7 @@ def check_update(
         raise UpdateError("Codex CLI is unavailable; explicit update check cannot run")
 
     before = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
-    require_canonical_installed_source(before)
+    before_row = require_canonical_installed_source(before)
 
     upgrade_result = _run_json(
         binary,
@@ -44,10 +47,18 @@ def check_update(
         raise UpdateError("Marketplace refresh did not complete cleanly")
 
     inventory = _run_json(binary, ["plugin", "list", "--json"], codex_home=codex_home)
-    require_canonical_installed_source(inventory)
+    refreshed_row = require_canonical_installed_source(inventory)
+    installed_version = before_row.get("version")
+    if not isinstance(installed_version, str) or not installed_version.strip():
+        raise UpdateError("installed Plugin version is unavailable for exact identity check")
+    installed_identity = _package_identity(
+        _installed_cache_root(codex_home, installed_version.strip())
+    )
+    available_identity = _package_identity(_local_source_root(refreshed_row))
     installation = installation_layer_from_payload(
         inventory,
         package_version=package_version(),
+        exact_identity_match=installed_identity == available_identity,
     )
     details = installation.get("details")
     if not isinstance(details, dict):
@@ -58,6 +69,8 @@ def check_update(
         "marketplace_refreshed": True,
         "plugin_install_performed": False,
         "managed_profiles_mutated": False,
+        "installed_package_identity": installed_identity,
+        "available_package_identity": available_identity,
         "installation": installation,
     }
 

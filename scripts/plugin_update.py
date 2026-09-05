@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
+from pathlib import PurePosixPath
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Any, Mapping, Sequence
 
 
@@ -23,10 +26,235 @@ CANONICAL_GIT_URLS = {
     "https://github.com/R-jed/subagents-dispatch.git",
 }
 CANONICAL_MARKETPLACE_SOURCES = {CANONICAL_REPOSITORY, *CANONICAL_GIT_URLS}
+MANAGED_PROFILE_MANIFEST = ".subagents-dispatch-agents.json"
+PLUGIN_CACHE_RELATIVE = Path("plugins") / "cache" / MARKETPLACE_NAME / PLUGIN_NAME
 
 
 class UpdateError(RuntimeError):
     """Explicit Plugin update cannot be completed safely."""
+
+
+def _normalized_runtime_bytes(path: Path) -> bytes:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise UpdateError(f"runtime file is not readable UTF-8 text: {path}") from exc
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
+def _safe_relative_runtime_path(value: str) -> PurePosixPath:
+    path = PurePosixPath(value)
+    if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+        raise UpdateError(f"package identity contains unsafe runtime path: {value!r}")
+    return path
+
+
+def _package_identity(root: Path) -> str:
+    """Return one exact runtime-package identity after verifying every manifested byte."""
+    try:
+        resolved_root = root.expanduser().resolve(strict=True)
+    except OSError as exc:
+        raise UpdateError("Plugin package root is unavailable for exact identity") from exc
+    if not resolved_root.is_dir() or root.is_symlink():
+        raise UpdateError("Plugin package root is unsafe for exact identity")
+
+    manifest_path = resolved_root / ".codex-plugin" / "package-integrity.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise UpdateError("Plugin package integrity manifest is unavailable for exact identity")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise UpdateError("Plugin package integrity manifest is unreadable") from exc
+    if not isinstance(manifest, dict):
+        raise UpdateError("Plugin package integrity manifest is invalid")
+    if manifest.get("algorithm") != "sha256" or manifest.get("normalization") != "utf-8-lf":
+        raise UpdateError("Plugin package integrity contract is unsupported")
+    files = manifest.get("files")
+    if not isinstance(files, dict) or not files:
+        raise UpdateError("Plugin package integrity manifest has no runtime files")
+    plugin_version = package_version(resolved_root)
+    if manifest.get("plugin_version") != plugin_version:
+        raise UpdateError("Plugin package integrity version does not match plugin.json")
+
+    for relative_text, expected in files.items():
+        if not isinstance(relative_text, str) or not isinstance(expected, str) or len(expected) != 64:
+            raise UpdateError("Plugin package integrity manifest contains an invalid file entry")
+        relative = _safe_relative_runtime_path(relative_text)
+        candidate = resolved_root.joinpath(*relative.parts)
+        if candidate.is_symlink() or not candidate.is_file():
+            raise UpdateError(f"Plugin package runtime file is unavailable: {relative_text}")
+        try:
+            resolved = candidate.resolve(strict=True)
+            resolved.relative_to(resolved_root)
+        except (OSError, ValueError) as exc:
+            raise UpdateError(f"Plugin package runtime file escapes package root: {relative_text}") from exc
+        actual = hashlib.sha256(_normalized_runtime_bytes(candidate)).hexdigest()
+        if actual != expected:
+            raise UpdateError(f"Plugin package runtime bytes do not match integrity manifest: {relative_text}")
+
+    canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _plugin_cache_base(codex_home: Path) -> Path:
+    return codex_home / PLUGIN_CACHE_RELATIVE
+
+
+def _installed_cache_root(codex_home: Path, version: str) -> Path:
+    root = _plugin_cache_base(codex_home) / version
+    if root.is_symlink():
+        raise UpdateError("installed Plugin cache root must not be a symlink")
+    try:
+        resolved = root.resolve(strict=True)
+    except OSError as exc:
+        raise UpdateError("installed Plugin cache root is unavailable") from exc
+    if not resolved.is_dir():
+        raise UpdateError("installed Plugin cache root is not a directory")
+    return resolved
+
+
+def _profile_manifest_records(codex_home: Path) -> tuple[bytes | None, dict[str, str]]:
+    manifest_path = codex_home / MANAGED_PROFILE_MANIFEST
+    if manifest_path.is_symlink():
+        raise UpdateError("managed-profile manifest must not be a symlink")
+    if not manifest_path.exists():
+        return None, {}
+    if not manifest_path.is_file():
+        raise UpdateError("managed-profile manifest is not a regular file")
+    raw = manifest_path.read_bytes()
+    try:
+        payload = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise UpdateError("managed-profile manifest is unreadable") from exc
+    if not isinstance(payload, dict) or payload.get("managed_by") != "subagents-dispatch":
+        raise UpdateError("managed-profile manifest ownership is invalid")
+    hashes = payload.get("profile_hashes")
+    if not isinstance(hashes, dict):
+        raise UpdateError("managed-profile manifest has invalid profile hashes")
+    result: dict[str, str] = {}
+    for filename, digest in hashes.items():
+        if (
+            not isinstance(filename, str)
+            or Path(filename).name != filename
+            or not filename.endswith(".toml")
+            or not isinstance(digest, str)
+            or len(digest) != 64
+        ):
+            raise UpdateError("managed-profile manifest contains an unsafe profile record")
+        result[filename] = digest
+    return raw, result
+
+
+def _verified_profile_bytes(codex_home: Path, records: Mapping[str, str]) -> dict[str, bytes]:
+    agents_dir = codex_home / "agents"
+    result: dict[str, bytes] = {}
+    for filename, expected in records.items():
+        path = agents_dir / filename
+        if path.is_symlink() or not path.is_file():
+            raise UpdateError(f"managed profile is unavailable before update: {filename}")
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != expected:
+            raise UpdateError(f"managed profile drift blocks transactional update: {filename}")
+        result[filename] = raw
+    return result
+
+
+def _reject_tree_symlinks(root: Path) -> None:
+    if root.is_symlink():
+        raise UpdateError(f"refusing symlinked Plugin-owned tree: {root}")
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise UpdateError(f"refusing symlink inside Plugin-owned tree: {path}")
+
+
+def _snapshot_installed_product(
+    codex_home: Path,
+    *,
+    before_version: str,
+    backup_root: Path,
+) -> dict[str, Any]:
+    """Freeze only Plugin-owned cache/profile state needed for exact rollback."""
+    cache_base = _plugin_cache_base(codex_home)
+    if cache_base.is_symlink() or not cache_base.is_dir():
+        raise UpdateError("installed Plugin cache base is unavailable for transactional update")
+    _reject_tree_symlinks(cache_base)
+    installed_root = _installed_cache_root(codex_home, before_version)
+    before_identity = _package_identity(installed_root)
+
+    cache_backup = backup_root / "plugin-cache"
+    shutil.copytree(cache_base, cache_backup, symlinks=False)
+    manifest_bytes, profile_records = _profile_manifest_records(codex_home)
+    profile_bytes = _verified_profile_bytes(codex_home, profile_records)
+    return {
+        "before_version": before_version,
+        "before_identity": before_identity,
+        "cache_backup": cache_backup,
+        "profile_manifest": manifest_bytes,
+        "profile_records": dict(profile_records),
+        "profile_bytes": profile_bytes,
+    }
+
+
+def _restore_profile_snapshot(codex_home: Path, snapshot: Mapping[str, Any]) -> None:
+    agents_dir = codex_home / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    before_records = dict(snapshot.get("profile_records", {}))
+    before_bytes = dict(snapshot.get("profile_bytes", {}))
+    current_manifest, current_records = _profile_manifest_records(codex_home)
+    del current_manifest
+
+    for filename, digest in current_records.items():
+        if filename in before_records:
+            continue
+        path = agents_dir / filename
+        if not path.exists():
+            continue
+        if path.is_symlink() or not path.is_file():
+            raise UpdateError(f"rollback cannot safely remove managed profile: {filename}")
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != digest:
+            raise UpdateError(f"rollback found drift in newly managed profile: {filename}")
+        path.unlink()
+
+    for filename, raw in before_bytes.items():
+        path = agents_dir / filename
+        if path.is_symlink():
+            raise UpdateError(f"rollback refuses symlinked managed profile: {filename}")
+        path.write_bytes(raw)
+
+    manifest_path = codex_home / MANAGED_PROFILE_MANIFEST
+    manifest_before = snapshot.get("profile_manifest")
+    if manifest_before is None:
+        manifest_path.unlink(missing_ok=True)
+    elif isinstance(manifest_before, bytes):
+        manifest_path.write_bytes(manifest_before)
+    else:
+        raise UpdateError("rollback snapshot has invalid managed-profile manifest")
+
+
+def _rollback_installed_product(codex_home: Path, snapshot: Mapping[str, Any]) -> None:
+    """Restore the exact previous Plugin cache and Plugin-owned profile unit."""
+    cache_base = _plugin_cache_base(codex_home)
+    cache_backup = snapshot.get("cache_backup")
+    if not isinstance(cache_backup, Path) or not cache_backup.is_dir():
+        raise UpdateError("transaction rollback cache snapshot is unavailable")
+    if cache_base.is_symlink():
+        raise UpdateError("transaction rollback refuses symlinked Plugin cache base")
+    if cache_base.exists():
+        shutil.rmtree(cache_base)
+    cache_base.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(cache_backup, cache_base, symlinks=False)
+    _restore_profile_snapshot(codex_home, snapshot)
+
+    version = snapshot.get("before_version")
+    identity = snapshot.get("before_identity")
+    if not isinstance(version, str) or not isinstance(identity, str):
+        raise UpdateError("transaction rollback snapshot identity is invalid")
+    restored_root = _installed_cache_root(codex_home, version)
+    if _package_identity(restored_root) != identity:
+        raise UpdateError("transaction rollback did not restore the previous Plugin identity")
+    _, records = _profile_manifest_records(codex_home)
+    _verified_profile_bytes(codex_home, records)
 
 
 def _layer(
@@ -165,6 +393,7 @@ def installation_layer_from_payload(
     payload: Mapping[str, Any],
     *,
     package_version: str,
+    exact_identity_match: bool | None = None,
 ) -> dict[str, Any]:
     rows = payload.get("installed")
     if not isinstance(rows, list):
@@ -246,7 +475,7 @@ def installation_layer_from_payload(
         )
     assert available_core is not None
 
-    update_available = available_core > installed_core
+    update_available = available_core > installed_core or exact_identity_match is False
     source_older = available_core < installed_core
     package_cache_skew = package_version != installed_version
     enabled = row.get("enabled")
@@ -258,6 +487,7 @@ def installation_layer_from_payload(
         "enabled": enabled,
         "update_available": update_available,
         "package_cache_skew": package_cache_skew,
+        "exact_identity_match": exact_identity_match,
     }
 
     if source_older:
@@ -275,6 +505,13 @@ def installation_layer_from_payload(
             **details,
         )
     if update_available:
+        if available_core == installed_core and exact_identity_match is False:
+            return _layer(
+                "WARN",
+                "Marketplace package bytes differ from the installed Plugin at the same version",
+                action="Run the Plugin updater, then start a fresh Codex session.",
+                **details,
+            )
         return _layer(
             "WARN",
             "A newer stable version is available",
@@ -517,108 +754,138 @@ def update_plugin(
         )
     before_version = before_version.strip()
 
-    upgrade_result = _run_json(
-        binary,
-        ["plugin", "marketplace", "upgrade", MARKETPLACE_NAME, "--json"],
-        codex_home=codex_home,
-        timeout=120,
-    )
-    errors = upgrade_result.get("errors")
-    if not isinstance(errors, list) or errors:
-        raise UpdateError("Marketplace upgrade did not complete cleanly")
+    with tempfile.TemporaryDirectory(prefix="subagents-dispatch-update-") as temp_name:
+        snapshot = _snapshot_installed_product(
+            codex_home,
+            before_version=before_version,
+            backup_root=Path(temp_name),
+        )
 
-    refreshed_payload = _run_json(
-        binary, ["plugin", "list", "--json"], codex_home=codex_home
-    )
-    refreshed_row = require_canonical_installed_source(refreshed_payload)
-    target_version = _available_version(refreshed_row)
+        upgrade_result = _run_json(
+            binary,
+            ["plugin", "marketplace", "upgrade", MARKETPLACE_NAME, "--json"],
+            codex_home=codex_home,
+            timeout=120,
+        )
+        errors = upgrade_result.get("errors")
+        if not isinstance(errors, list) or errors:
+            raise UpdateError("Marketplace upgrade did not complete cleanly")
 
-    before_core = _core_semver(before_version)
-    target_core = _core_semver(target_version)
-    assert before_core is not None and target_core is not None
-    if target_core < before_core:
-        raise UpdateError("refreshed Marketplace source is older than the installed Plugin")
+        refreshed_payload = _run_json(
+            binary, ["plugin", "list", "--json"], codex_home=codex_home
+        )
+        refreshed_row = require_canonical_installed_source(refreshed_payload)
+        target_version = _available_version(refreshed_row)
+        target_source_root = _local_source_root(refreshed_row)
+        target_identity = _package_identity(target_source_root)
 
-    if target_version == before_version:
+        before_core = _core_semver(before_version)
+        target_core = _core_semver(target_version)
+        assert before_core is not None and target_core is not None
+        if target_core < before_core:
+            raise UpdateError("refreshed Marketplace source is older than the installed Plugin")
+
+        if target_version == before_version and target_identity == snapshot["before_identity"]:
+            return {
+                "schema_version": 3,
+                "changed": False,
+                "from_version": before_version,
+                "to_version": before_version,
+                "marketplace_version": target_version,
+                "package_identity": target_identity,
+                "restart_required": package_version() != before_version,
+                "steps": [
+                    {
+                        "name": "Marketplace",
+                        "status": "OK",
+                        "summary": "Marketplace is current",
+                    },
+                    {
+                        "name": "Plugin",
+                        "status": "OK",
+                        "summary": "Installed Plugin exact identity is already current",
+                    },
+                ],
+            }
+
+        try:
+            add_result = _run_json(
+                binary,
+                ["plugin", "add", PLUGIN_ID, "--json"],
+                codex_home=codex_home,
+                timeout=120,
+            )
+            installed_version, installed_root = _validate_add_result(add_result)
+            if installed_version != target_version:
+                raise UpdateError(
+                    "Codex installed version does not match the refreshed Marketplace package"
+                )
+            _verify_installed_manifest(installed_root, installed_version)
+            if _package_identity(installed_root) != target_identity:
+                raise UpdateError(
+                    "installed Plugin exact identity does not match the refreshed Marketplace package"
+                )
+
+            post_payload = _run_json(
+                binary, ["plugin", "list", "--json"], codex_home=codex_home
+            )
+            post_layer = installation_layer_from_payload(
+                post_payload, package_version=installed_version
+            )
+            if post_layer.get("status") != "OK":
+                raise UpdateError(
+                    "post-update Codex Plugin inventory did not converge to the canonical installed release"
+                )
+
+            _verify_new_package(
+                installed_root,
+                codex_home=codex_home,
+                codex_bin=binary,
+                expected_version=installed_version,
+            )
+        except Exception as exc:
+            try:
+                _rollback_installed_product(codex_home, snapshot)
+            except Exception as rollback_exc:
+                raise UpdateError(
+                    f"update failed and exact previous installed product could not be restored: {rollback_exc}"
+                ) from exc
+            if isinstance(exc, UpdateError):
+                detail = str(exc)
+            else:
+                detail = exc.__class__.__name__
+            raise UpdateError(
+                f"update failed; exact previous installed product restored: {detail}"
+            ) from exc
+
         return {
-            "schema_version": 2,
-            "changed": False,
+            "schema_version": 3,
+            "changed": True,
             "from_version": before_version,
-            "to_version": before_version,
+            "to_version": installed_version,
             "marketplace_version": target_version,
-            "restart_required": package_version() != before_version,
+            "package_identity": target_identity,
+            "installed_root": str(installed_root),
+            "restart_required": True,
             "steps": [
                 {
                     "name": "Marketplace",
                     "status": "OK",
-                    "summary": "Marketplace is current",
+                    "summary": f"Version {target_version} is available",
                 },
                 {
                     "name": "Plugin",
                     "status": "OK",
-                    "summary": "Installed Plugin is already current",
+                    "summary": f"Installed {installed_version} with exact package identity",
                 },
+                {
+                    "name": "Managed Agent profiles",
+                    "status": "OK",
+                    "summary": "Managed Agent profiles are current",
+                },
+                {"name": "Health check", "status": "OK", "summary": "Passed"},
             ],
         }
-
-    add_result = _run_json(
-        binary,
-        ["plugin", "add", PLUGIN_ID, "--json"],
-        codex_home=codex_home,
-        timeout=120,
-    )
-    installed_version, installed_root = _validate_add_result(add_result)
-    if installed_version != target_version:
-        raise UpdateError(
-            "Codex installed version does not match the refreshed Marketplace package"
-        )
-    _verify_installed_manifest(installed_root, installed_version)
-
-    post_payload = _run_json(
-        binary, ["plugin", "list", "--json"], codex_home=codex_home
-    )
-    post_layer = installation_layer_from_payload(
-        post_payload, package_version=installed_version
-    )
-    if post_layer.get("status") != "OK":
-        raise UpdateError(
-            "post-update Codex Plugin inventory did not converge to the canonical installed release"
-        )
-
-    _verify_new_package(
-        installed_root,
-        codex_home=codex_home,
-        codex_bin=binary,
-        expected_version=installed_version,
-    )
-
-    return {
-        "schema_version": 2,
-        "changed": True,
-        "from_version": before_version,
-        "to_version": installed_version,
-        "marketplace_version": target_version,
-        "installed_root": str(installed_root),
-        "restart_required": True,
-        "steps": [
-            {
-                "name": "Marketplace",
-                "status": "OK",
-                "summary": f"Version {target_version} is available",
-            },
-            {
-                "name": "Plugin",
-                "status": "OK",
-                "summary": f"Installed {installed_version}",
-            },
-            {
-                "name": "Managed Agent profiles",
-                "status": "OK",
-                "summary": "Managed Agent profiles are current",
-            },
-            {"name": "Health check", "status": "OK", "summary": "Passed"},
-        ],
-    }
 
 
 def render_update(report: Mapping[str, Any]) -> str:

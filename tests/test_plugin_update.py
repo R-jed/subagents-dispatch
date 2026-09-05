@@ -173,6 +173,19 @@ def test_explicit_update_uses_refreshed_local_checkout_and_verifies_new_package(
     monkeypatch.setattr(module, "_run_json", fake_run_json)
     monkeypatch.setattr(
         module,
+        "_snapshot_installed_product",
+        lambda *_args, **_kwargs: {
+            "before_version": "1.0.0",
+            "before_identity": "before-id",
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "_package_identity",
+        lambda root: "after-id" if root in {refreshed_root.resolve(), installed_root.resolve()} else "before-id",
+    )
+    monkeypatch.setattr(
+        module,
         "_verify_installed_manifest",
         lambda root, version: verified.append(f"manifest:{root.name}:{version}"),
     )
@@ -216,9 +229,118 @@ def test_noop_update_refreshes_marketplace_without_reinstall(
     monkeypatch.setattr(module, "resolve_codex_binary", lambda _value=None: "/fake/codex")
     monkeypatch.setattr(module, "_run_json", fake_run_json)
     monkeypatch.setattr(module, "package_version", lambda: "1.0.0")
+    monkeypatch.setattr(
+        module,
+        "_snapshot_installed_product",
+        lambda *_args, **_kwargs: {
+            "before_version": "1.0.0",
+            "before_identity": "same-id",
+        },
+    )
+    monkeypatch.setattr(module, "_package_identity", lambda _root: "same-id")
     report = module.update_plugin(codex_home=home)
     assert report["changed"] is False
     assert not any(call[0:2] == ("plugin", "add") for call in calls)
+
+
+def test_same_semver_different_exact_identity_reinstalls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_module()
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    before_root = marketplace_root(tmp_path / "before", "1.0.0")
+    refreshed_root = marketplace_root(tmp_path / "after", "1.0.0")
+    installed_root = tmp_path / "installed" / "1.0.0"
+    installed_root.mkdir(parents=True)
+    calls: list[tuple[str, ...]] = []
+    list_count = 0
+
+    def fake_run_json(_binary, args, **_kwargs):
+        nonlocal list_count
+        calls.append(tuple(args))
+        if args == ["plugin", "list", "--json"]:
+            list_count += 1
+            return plugin_list(
+                installed_version="1.0.0",
+                local_root=before_root if list_count == 1 else refreshed_root,
+            )
+        if args[:3] == ["plugin", "marketplace", "upgrade"]:
+            return {"selectedMarketplaces": ["subagents-dispatch"], "upgradedRoots": [], "errors": []}
+        if args == ["plugin", "add", "subagents-dispatch@subagents-dispatch", "--json"]:
+            return add_result("1.0.0", installed_root)
+        raise AssertionError(args)
+
+    monkeypatch.setattr(module, "resolve_codex_binary", lambda _value=None: "/fake/codex")
+    monkeypatch.setattr(module, "_run_json", fake_run_json)
+    monkeypatch.setattr(
+        module,
+        "_snapshot_installed_product",
+        lambda *_args, **_kwargs: {
+            "before_version": "1.0.0",
+            "before_identity": "old-bytes",
+        },
+    )
+    monkeypatch.setattr(module, "_package_identity", lambda _root: "new-bytes")
+    monkeypatch.setattr(module, "_verify_installed_manifest", lambda *_args: None)
+    monkeypatch.setattr(module, "_verify_new_package", lambda *_args, **_kwargs: None)
+
+    report = module.update_plugin(codex_home=home)
+
+    assert report["changed"] is True
+    assert report["from_version"] == report["to_version"] == "1.0.0"
+    assert report["package_identity"] == "new-bytes"
+    assert ("plugin", "add", "subagents-dispatch@subagents-dispatch", "--json") in calls
+
+
+def test_post_switch_failure_rolls_back_exact_previous_product(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_module()
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    before_root = marketplace_root(tmp_path / "before", "1.0.0")
+    refreshed_root = marketplace_root(tmp_path / "after", "1.1.0")
+    installed_root = tmp_path / "installed" / "1.1.0"
+    installed_root.mkdir(parents=True)
+    list_count = 0
+    rollback_calls: list[dict] = []
+
+    def fake_run_json(_binary, args, **_kwargs):
+        nonlocal list_count
+        if args == ["plugin", "list", "--json"]:
+            list_count += 1
+            return plugin_list(
+                installed_version="1.0.0" if list_count < 3 else "1.1.0",
+                local_root=before_root if list_count == 1 else refreshed_root,
+            )
+        if args[:3] == ["plugin", "marketplace", "upgrade"]:
+            return {"selectedMarketplaces": ["subagents-dispatch"], "upgradedRoots": [], "errors": []}
+        if args == ["plugin", "add", "subagents-dispatch@subagents-dispatch", "--json"]:
+            return add_result("1.1.0", installed_root)
+        raise AssertionError(args)
+
+    snapshot = {"before_version": "1.0.0", "before_identity": "old-id"}
+    monkeypatch.setattr(module, "resolve_codex_binary", lambda _value=None: "/fake/codex")
+    monkeypatch.setattr(module, "_run_json", fake_run_json)
+    monkeypatch.setattr(module, "_snapshot_installed_product", lambda *_args, **_kwargs: snapshot)
+    monkeypatch.setattr(module, "_package_identity", lambda _root: "new-id")
+    monkeypatch.setattr(module, "_verify_installed_manifest", lambda *_args: None)
+    monkeypatch.setattr(
+        module,
+        "_verify_new_package",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(module.UpdateError("Doctor failed")),
+    )
+    monkeypatch.setattr(
+        module,
+        "_rollback_installed_product",
+        lambda _home, captured: rollback_calls.append(dict(captured)),
+    )
+
+    with pytest.raises(module.UpdateError, match="exact previous installed product restored"):
+        module.update_plugin(codex_home=home)
+
+    assert rollback_calls == [snapshot]
 
 
 def prepare_updated_package(root: Path, version: str) -> None:

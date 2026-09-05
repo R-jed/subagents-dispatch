@@ -89,6 +89,9 @@ def test_check_update_verifies_source_refreshes_marketplace_and_never_installs(
     monkeypatch.setattr(module, "resolve_codex_binary", lambda _value=None: "/fake/codex")
     monkeypatch.setattr(module, "_run_json", fake_run_json)
     monkeypatch.setattr(module, "package_version", lambda: "1.0.0")
+    monkeypatch.setattr(module, "_installed_cache_root", lambda *_args: before)
+    monkeypatch.setattr(module, "_local_source_root", lambda _row: after)
+    monkeypatch.setattr(module, "_package_identity", lambda root: "old-id" if root == before else "new-id")
 
     report = module.check_update(codex_home=home)
     assert report["marketplace_refreshed"] is True
@@ -96,6 +99,39 @@ def test_check_update_verifies_source_refreshes_marketplace_and_never_installs(
     assert report["managed_profiles_mutated"] is False
     assert report["installation"]["details"]["update_available"] is True
     assert all(call[0:2] != ("plugin", "add") for call in calls)
+
+
+def test_check_update_reports_same_semver_exact_identity_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    module = load_module()
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    before = marketplace_root(tmp_path / "before", "1.0.0")
+    after = marketplace_root(tmp_path / "after", "1.0.0")
+    list_count = 0
+
+    def fake_run_json(_binary, args, **_kwargs):
+        nonlocal list_count
+        if args == ["plugin", "list", "--json"]:
+            list_count += 1
+            return inventory("1.0.0", before if list_count == 1 else after)
+        if args[:3] == ["plugin", "marketplace", "upgrade"]:
+            return {"selectedMarketplaces": ["subagents-dispatch"], "upgradedRoots": [], "errors": []}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(module, "resolve_codex_binary", lambda _value=None: "/fake/codex")
+    monkeypatch.setattr(module, "_run_json", fake_run_json)
+    monkeypatch.setattr(module, "package_version", lambda: "1.0.0")
+    monkeypatch.setattr(module, "_installed_cache_root", lambda *_args: before)
+    monkeypatch.setattr(module, "_local_source_root", lambda _row: after)
+    monkeypatch.setattr(module, "_package_identity", lambda root: "installed-id" if root == before else "available-id")
+
+    report = module.check_update(codex_home=home)
+
+    assert report["installation"]["status"] == "WARN"
+    assert report["installation"]["details"]["update_available"] is True
+    assert report["installation"]["details"]["exact_identity_match"] is False
 
 
 def test_update_check_render_is_product_facing():
