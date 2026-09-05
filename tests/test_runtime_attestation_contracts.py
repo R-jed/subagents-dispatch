@@ -11,16 +11,16 @@ NORMALIZER = ROOT / "scripts" / "runtime-evidence.py"
 POLICY = json.loads((ROOT / "contracts" / "policy.json").read_text(encoding="utf-8"))
 THREAD = "11111111-1111-7111-8111-111111111111"
 PARENT = "00000000-0000-7000-8000-000000000000"
-WORKER = POLICY["roles"]["worker"]
+PROGRAMMER = POLICY["roles"]["programmer"]
 
 
 def expected() -> dict:
     return {
         "thread_id": THREAD,
         "parent_thread_id": PARENT,
-        "agent_role": WORKER["agent_type"],
-        "model": WORKER["model"],
-        "effort": WORKER["effort"],
+        "agent_role": PROGRAMMER["agent_type"],
+        "model": PROGRAMMER["model"],
+        "effort": PROGRAMMER["allowed_efforts"][0],
         "runtime_observation_required": True,
         "requires_permission_observation": True,
     }
@@ -30,9 +30,9 @@ def full_observation() -> dict:
     return {
         "thread_id": THREAD,
         "parent_thread_id": PARENT,
-        "agent_role": WORKER["agent_type"],
-        "model": WORKER["model"],
-        "effort": WORKER["effort"],
+        "agent_role": PROGRAMMER["agent_type"],
+        "model": PROGRAMMER["model"],
+        "effort": PROGRAMMER["allowed_efforts"][0],
         "sandbox_policy_type": "danger-full-access",
         "permission_profile_type": "disabled",
         "runtime_version": "0.999.0-test",
@@ -79,9 +79,9 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
     assert data["route_evidence"]["source"] == "local"
     assert data["truth_layers"]["observed"]["status"] == "matched"
     assert data["truth_layers"]["observed"]["fields"] == {
-        "agent_role": WORKER["agent_type"],
-        "model": WORKER["model"],
-        "effort": WORKER["effort"],
+        "agent_role": PROGRAMMER["agent_type"],
+        "model": PROGRAMMER["model"],
+        "effort": PROGRAMMER["allowed_efforts"][0],
     }
     assert data["truth_layers"]["observed"]["source_by_field"] == {
         "agent_role": "local",
@@ -114,8 +114,8 @@ def test_exact_local_rollout_can_close_formal_runtime_observation():
 def test_public_and_local_runtime_sources_can_collectively_close_required_fields():
     native = {
         "thread_id": THREAD,
-        "agent_role": WORKER["agent_type"],
-        "model": WORKER["model"],
+        "agent_role": PROGRAMMER["agent_type"],
+        "model": PROGRAMMER["model"],
     }
     local = full_observation()
     del local["model"]
@@ -183,7 +183,7 @@ def test_parent_permission_source_must_bind_expected_parent_identity():
 def test_public_and_local_runtime_conflict_quarantines_the_route():
     native = full_observation()
     local = full_observation()
-    local["model"] = "gpt-5.6-terra"
+    local["model"] = "gpt-5.6-sol"
     data = normalize(
         {
             "subject": "child",

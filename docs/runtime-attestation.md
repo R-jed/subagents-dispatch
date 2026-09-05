@@ -12,13 +12,13 @@ Keep these facts separate:
 
 ```text
 Configured route
--> contracts/policy.json and the exact managed Agent profile describe intended model, effort, and agent_type
+-> contracts/policy.json describes the exact intended agent_type, model, and reasoning effort; the persistent Agent profile supplies behavior/configuration only
 
 Behavioral authority
--> role mutation_authority describes whether the responsibility may mutate source
+-> WorkUnit / ExecutionBinding mutation_authority describes whether the responsibility may mutate source
 
 Requested
--> the actual spawn request selects the exact managed agent_type
+-> the actual spawn request selects the exact managed agent_type, model, reasoning_effort, and fork_turns
 
 Accepted
 -> the Host acknowledges/creates the requested role and child identity when that fact is exposed
@@ -105,7 +105,7 @@ cwd
 runtime_version
 ```
 
-Formal `model_effort` calibration uses these Host-observed auxiliary fields as required controls. Public Host metadata and the exact rollout must agree where both expose them. In Multi-Agent V2, `agent_path` is the Host-native canonical task path under `/root`, such as `/root/sd_n0_reader_a1`; it is task identity, not a profile-file path. When a gate uses it, it must match the expected canonical task path. Managed profile provenance is established separately from the exact `agent_type`, installed profile inventory, policy binding, and frozen profile bytes or digest. `model_provider` must equal the provider frozen by the campaign. Missing evidence remains `UNKNOWN`; configured values and agent-type identity are never copied into Observed.
+Formal `model_effort` calibration uses these Host-observed auxiliary fields as required controls. Public Host metadata and the exact rollout must agree where both expose them. In Multi-Agent V2, `agent_path` is the Host-native canonical task path under `/root`, such as `/root/sd_n0_programmer_a1`; it is task identity, not a profile-file path. When a gate uses it, it must match the expected canonical task path. Managed role provenance is established separately from the exact `agent_type`, installed three-profile inventory, policy binding, and explicit spawn request. `model_provider` must equal the provider frozen by the campaign. Missing evidence remains `UNKNOWN`; configured/requested values and agent-type identity are never copied into Observed.
 
 This V2 interpretation is aligned to OpenAI Codex upstream source pinned in `docs/codex-v2-source-alignment.md`. The exact installed Host build remains the runtime acceptance authority when upstream and installed behavior differ.
 
@@ -113,7 +113,7 @@ The inspector does not emit prompts, assistant messages, tool payloads, hidden r
 
 ## Normalize and compare
 
-Build `expected` from `contracts/policy.json` and the exact child/root identities. For formal five-role live-route validation set:
+Build `expected` from `contracts/policy.json`, the explicit spawn route, and the exact child/root identities. For formal production-route live validation set:
 
 ```text
 runtime_observation_required = true
@@ -214,19 +214,18 @@ cross-turn model/effort/sandbox/permission drift
 
 Do not silently fall back to a different role, model, effort, or permission level merely to make the gate pass.
 
-## Five-role release table
+## Production-route release table
 
-For a formal live-route smoke, record all five exact managed roles separately:
+For a formal live-route smoke, record all four executable production routes separately:
 
-| Role | Configured model / effort | Behavioral authority | Host accepted identity | Route assurance | Effective permission state | Permission provenance |
+| Route | Configured model / effort | Behavioral authority | Host accepted identity | Route assurance | Effective permission state | Permission provenance |
 | --- | --- | --- | --- | --- | --- | --- |
-| Reader | from policy | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
-| Worker | from policy | assigned bounded-source-write | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
-| Solver | from policy | assigned bounded-source-write | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
-| Investigator | from policy | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
-| Advisor | from policy | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Programmer | Luna / max | responsibility-assigned | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Product Manager Medium | Sol / medium | responsibility-assigned | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Product Manager High | Sol / high | responsibility-assigned; review mode none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
+| Department Director | Astra / high | none | actual | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL | VERIFIED/UNKNOWN/FAIL |
 
-For Reader, Investigator, and Advisor, also record a narrow pre/post workspace mutation check appropriate to the smoke responsibility and require no project-file mutation. That check verifies the behavioral contract only. It is not Host sandbox proof and cannot replace permission attestation.
+For every smoke responsibility granted semantic mutation authority `none`, also record a narrow pre/post workspace mutation check and require no project-file mutation. That check verifies the behavioral contract only. It is not Host sandbox proof and cannot replace permission attestation.
 
 For a release gate that explicitly requires observed model, effort, actual permission state, ancestry, or permission provenance, `UNKNOWN` does not pass that specific gate. Provenance `UNKNOWN` cannot support a source/precedence claim, but does not downgrade verified route or permission-state facts.
 
@@ -238,4 +237,4 @@ Do not use this mechanism to collect prompt text, assistant content, reasoning, 
 
 ## Main-session distinction
 
-This protocol closes child route attestation. Main-session capability coverage is a separate routing optimization question. Local-only main-session metadata does not by itself justify skipping a Sol child when the current routing policy would otherwise require that delegated judgment or writing responsibility. This distinction does not change the fixed child profiles or authorize dynamic reasoning-effort routing.
+This protocol closes child route attestation. Main-session model/effort may be recorded as experimental context, but it is not managed-route authority: it neither weakens nor suppresses a formally admitted Programmer, Product Manager, or Department Director route. Local-only Main metadata never substitutes for exact child-route evidence.

@@ -1,95 +1,179 @@
 {
   "schema_version": "4.0-native-core-2",
   "surface": {
-    "public_skills": ["orchestrate", "doctor"],
-    "orchestrate_control_intents": ["preview", "status", "steer", "takeover", "cancel", "continue", "correction"]
+    "public_skills": [
+      "orchestrate",
+      "doctor"
+    ],
+    "orchestrate_control_intents": [
+      "preview",
+      "status",
+      "steer",
+      "takeover",
+      "cancel",
+      "continue",
+      "correction"
+    ]
   },
   "cases": [
     {
       "id": "orchestrate-preview-plan-only",
       "selected_skill": "orchestrate",
       "control_intent": "preview",
-      "expected": {"child_spawns": 0, "profile_provisioning": 0, "source_mutations": 0, "external_actions": 0, "persistent_state_created": false}
+      "expected": {
+        "child_spawns": 0,
+        "profile_provisioning": 0,
+        "source_mutations": 0,
+        "external_actions": 0,
+        "persistent_state_created": false
+      }
     },
     {
       "id": "orchestrate-first-use-profile-readiness",
       "selected_skill": "orchestrate",
       "control_intent": "execute",
       "precondition": "managed profiles safely absent at task start",
-      "expected": {"provision_owned_profiles_only": true, "restart_required": true, "child_spawns_before_restart": 0, "cross_role_fallback": false}
+      "expected": {
+        "provision_owned_profiles_only": true,
+        "restart_required": true,
+        "child_spawns_before_restart": 0,
+        "cross_role_fallback": false
+      }
     },
     {
       "id": "orchestrate-managed-spawn-fresh-context",
       "selected_skill": "orchestrate",
       "control_intent": "execute",
-      "precondition": "exact managed Reader is available in the fresh task",
-      "expected": {"agent_type": "subagents_dispatch_reader", "fork_turns": "none", "assignment_message_matches_workunit": true, "fresh_attempt_consumed_on_pre_materialization_rejection": false}
+      "precondition": "exact managed Programmer is available in the fresh task",
+      "expected": {
+        "agent_type": "subagents_dispatch_programmer",
+        "fork_turns": "none",
+        "assignment_message_matches_workunit": true,
+        "fresh_attempt_consumed_on_pre_materialization_rejection": false
+      }
     },
     {
       "id": "orchestrate-status-one-shot-unknown",
       "selected_skill": "orchestrate",
       "control_intent": "status",
-      "expected": {"host_observation_max": 1, "reconciliation_pass_max": 1, "child_spawns": 0, "source_mutations": 0, "unknown_preserved": true, "replacement_authorized": false}
+      "expected": {
+        "host_observation_max": 1,
+        "reconciliation_pass_max": 1,
+        "child_spawns": 0,
+        "source_mutations": 0,
+        "unknown_preserved": true,
+        "replacement_authorized": false
+      }
     },
     {
       "id": "orchestrate-control-target-exactness",
       "selected_skill": "orchestrate",
       "control_intent": "steer",
-      "expected": {"explicit_unit_exact_match": true, "ambiguous_target_requires_user_choice": true, "unrelated_session_guessing": false}
+      "expected": {
+        "explicit_unit_exact_match": true,
+        "ambiguous_target_requires_user_choice": true,
+        "unrelated_session_guessing": false
+      }
     },
     {
       "id": "orchestrate-steer-preserves-responsibility",
       "selected_skill": "orchestrate",
       "control_intent": "steer",
-      "expected": {"same_work_unit": true, "same_execution_binding": true, "authority_unchanged": true, "scope_widening": false, "replacement_child": false}
+      "expected": {
+        "same_work_unit": true,
+        "same_execution_binding": true,
+        "authority_unchanged": true,
+        "scope_widening": false,
+        "replacement_child": false
+      }
     },
     {
       "id": "orchestrate-takeover-writer-settlement",
       "selected_skill": "orchestrate",
       "control_intent": "takeover",
-      "expected": {"interrupt_or_settlement_requested": true, "interrupt_return_alone_releases_writer": false, "current_generation_host_settlement_required": true, "unknown_transfers_writer": false}
+      "expected": {
+        "interrupt_or_settlement_requested": true,
+        "interrupt_return_alone_releases_writer": false,
+        "current_generation_host_settlement_required": true,
+        "unknown_transfers_writer": false
+      }
     },
     {
       "id": "orchestrate-continue-same-child",
       "selected_skill": "orchestrate",
       "control_intent": "continue",
       "precondition": "target ExecutionBinding is INTERRUPTED",
-      "expected": {"same_execution_binding": true, "fresh_attempt_increment": false, "followup_budget_consumed": false, "control_epoch_advances": true}
+      "expected": {
+        "same_execution_binding": true,
+        "fresh_attempt_increment": false,
+        "followup_budget_consumed": false,
+        "control_epoch_advances": true
+      }
     },
     {
       "id": "orchestrate-correction-bounded-followup",
       "selected_skill": "orchestrate",
       "control_intent": "correction",
-      "expected": {"same_execution_binding": true, "correction_basis_required": true, "fixed_followup_count_ceiling": false, "material_scope_change_requires_recompile": true}
+      "expected": {
+        "same_execution_binding": true,
+        "correction_basis_required": true,
+        "fixed_followup_count_ceiling": false,
+        "material_scope_change_requires_recompile": true
+      }
     },
     {
       "id": "orchestrate-spawn-result-ambiguity",
       "selected_skill": "orchestrate",
       "control_intent": "execute",
-      "expected": {"explicit_pre_materialization_rejection_rolls_back": true, "ambiguous_materialization_becomes_unknown": true, "unknown_blocks_replacement": true, "unknown_writer_blocks_transfer": true}
+      "expected": {
+        "explicit_pre_materialization_rejection_rolls_back": true,
+        "ambiguous_materialization_becomes_unknown": true,
+        "unknown_blocks_replacement": true,
+        "unknown_writer_blocks_transfer": true
+      }
     },
     {
       "id": "orchestrate-route-mismatch",
       "selected_skill": "orchestrate",
       "control_intent": "execute",
-      "expected": {"configured_and_observed_route_separate": true, "contradictory_observed_route_fails_closed": true, "child_self_report_is_runtime_evidence": false}
+      "expected": {
+        "configured_and_observed_route_separate": true,
+        "contradictory_observed_route_fails_closed": true,
+        "child_self_report_is_runtime_evidence": false
+      }
     },
     {
       "id": "orchestrate-handoff-fresh-context",
       "selected_skill": "orchestrate",
       "control_intent": "execute",
-      "expected": {"fork_turns": "none", "accepted_evidence_may_be_distilled": true, "raw_transcript_inheritance": false, "stale_evidence_requires_reverification": true}
+      "expected": {
+        "fork_turns": "none",
+        "accepted_evidence_may_be_distilled": true,
+        "raw_transcript_inheritance": false,
+        "stale_evidence_requires_reverification": true
+      }
     },
     {
       "id": "native-core-execution-receipt",
       "selected_skill": "orchestrate",
       "control_intent": "execute",
-      "expected": {"optional_compact_receipt": true, "persistent_receipt_ledger": false, "retry_rework_control_history_reconstructed": false, "current_inspectable_facts_only": true, "unsupported_model_token_cost_claims": 0}
+      "expected": {
+        "optional_compact_receipt": true,
+        "persistent_receipt_ledger": false,
+        "retry_rework_control_history_reconstructed": false,
+        "current_inspectable_facts_only": true,
+        "unsupported_model_token_cost_claims": 0
+      }
     },
     {
       "id": "doctor-diagnosis-does-not-own-release",
       "selected_skill": "doctor",
-      "expected": {"runtime_product_health": true, "maintenance_requires_explicit_request": true, "host_campaign_publication_authority": false, "final_review_publication_authority": false}
+      "expected": {
+        "runtime_product_health": true,
+        "maintenance_requires_explicit_request": true,
+        "host_campaign_publication_authority": false,
+        "final_review_publication_authority": false
+      }
     }
   ]
 }

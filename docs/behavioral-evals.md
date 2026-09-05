@@ -1,532 +1,277 @@
-# Live Behavioral Evaluation Protocol
+# Behavioral Evaluation
 
-Static tests prove repository contracts, packaging, profile lifecycle, schemas, deterministic tooling, and policy wiring. They do not prove model quality, cost, native runtime behavior, onboarding quality, interaction usability, or the real value of a routing choice.
+This document describes maintainer-only paired behavioral measurement for the current
+three-role subagents-dispatch product. It does not define runtime policy and cannot
+promote a route, authorize a release, or create a Host capability claim.
 
-The live suite uses controlled paired workloads where a meaningful paired comparison exists, plus controlled single-surface interaction workloads where pairing would distort the question. Experimental labels remain measurement vocabulary and never become runtime policy.
+Production truth remains in `contracts/policy.json`, the Orchestrate/Doctor Skills, and
+the Native Core contracts. The behavioral registry and result schema live under
+`evals/`.
 
-## Measurement boundary
+## Current production roles
 
-`evals/` is a measurement surface.
+| Role | Production route | Responsibility boundary |
+| --- | --- | --- |
+| Programmer | `gpt-5.6-luna / max` | bounded factual inspection or implementation after material behavior/decisions are settled |
+| Product Manager | `gpt-5.6-sol / medium` or `high` | synthesis, routing checks, material decisions, judgment-coupled implementation, Standard Review |
+| Department Director | `gpt-6-astra / high` | fresh highest-consequence exact-candidate acceptance review |
 
-Some schema/mode names remain from earlier Routing V4 experiments so historical runs stay comparable. They are experiment labels only. Current runtime policy is owned by:
+Model and reasoning effort are requested explicitly at managed spawn. Canonical role
+profiles provide semantic instructions and leaf posture; they are not the model/effort
+authority.
+
+Main remains Main. Main model/effort is not compared with managed routes to decide
+whether a required responsibility should exist. A recorded `main_session_route` is an
+experiment control only.
+
+## What behavioral evaluation is for
+
+The current live workloads answer bounded product questions rather than trying to
+derive a universal model ranking:
+
+1. Does a bounded Programmer responsibility reduce Main context/rework versus an
+   otherwise comparable direct execution arm?
+2. Does Product Manager involvement improve tasks with genuine decision or synthesis
+   obligations without becoming decorative delegation?
+3. Does Product Manager Medium remain adequate for local/reversible judgment, while
+   High is reserved for the policy-defined material triggers?
+4. For judgment-coupled implementation, does one Product Manager execution outperform
+   an unnecessary decision-to-Programmer handoff when judgment truly remains coupled to
+   writing?
+5. Does Standard Review catch material issues at an acceptable false-positive and
+   correction cost?
+6. Do highest-consequence candidates receive Department Director review only when a
+   highest trigger is present, without stacking a redundant Standard Review underneath?
+7. Does useful read-only fanout improve evidence latency without violating the four-child
+   ceiling, WriterLease rules, or current workspace mutation guard?
+8. Do Status, Steer, Continue, Correction, Takeover, UNKNOWN handling, and fresh-context
+   handoff preserve the Native Core ownership model under realistic interruption and
+   recovery conditions?
+
+The evaluation system does not ask whether a strong Main can suppress Product Manager
+or Department Director. Parent capability deduplication is not part of the current
+product.
+
+## Frozen workload registry
+
+`evals/behavioral-workloads.json` freezes named live workload shapes. The registry is
+not a result file and contains no product-performance claims.
+
+Current workload families include:
 
 ```text
-contracts/interaction.md
-contracts/routing.md
-contracts/handoff.md
-contracts/recovery.md
-contracts/guardrails.md
-contracts/final-review.md
-contracts/receipt.md
-contracts/state.md
-contracts/policy.json
+bounded implementation
+material decision and judgment-coupled implementation
+cross-path read synthesis
+decision reclassification after new evidence
+Standard Review admission and invalidation
+highest-consequence review admission
+independent read fanout under the product ceiling
+execution stall and evidence-gated restart
+duplicate-responsibility suppression
+semantic-coverage planning
+phase-transition recompilation
+Orchestrate Preview / Status / Steer / Takeover
+fresh-context Handoff evidence
+compact factual execution receipts
 ```
 
-Do not make the Skill maintain an ontology merely because an eval field exists.
+Process history alone is not a review trigger. File count, task size, retry count, spare
+capacity, prior Product Manager use, or Main model identity are not reasons to invoke a
+stronger managed route.
 
-`evals/interaction-cases.json` is the deterministic policy fixture for Orchestrate Preview, first-use readiness, Status, Steer, Takeover, Execution Receipt, and Handoff Capsule boundaries. `evals/coordination-cases.json` covers structural and semantic coordination invariants. Live evaluation still matters for Host behavior and user-value questions that static fixtures cannot establish.
+## Pair construction
 
-## Primary product questions
+A primary comparison is meaningful only when the pair freezes the same executable task
+and controls all non-experimental inputs that could materially affect the result.
 
-The live suite asks:
-
-1. Does a bounded Luna responsibility reduce correction work versus giving Luna the raw task?
-2. For implementation where material judgment is coupled to writing, does one Sol Solver outperform an Advisor -> Luna handoff in total quality/correction cost?
-3. When the main session already meets the Sol reference capability, does keeping ordinary judgment-coupled work in Main avoid redundant Sol calls without reducing quality?
-4. When main-route telemetry is unavailable, does the product avoid buying Sol for routine bounded work while still protecting genuine material judgment?
-5. When Luna encounters a material semantic blocker, does correct rerouting reduce wrong edits/rework compared with simply continuing Luna?
-6. For stable semantics and read-only work, does Terra provide useful quality/context depth at lower total cost than a Sol judgment lane, and when does narrow Luna Reader remain sufficient?
-7. Does consequence-driven Final Review catch material issues while avoiding decorative review caused only by process history?
-8. Does explicit user selection of Orchestrate plus automatic bounded first-use provisioning produce a clean one-time `RESTART_REQUIRED` handoff, with zero stale-session spawn attempts and no unnecessary setup prompt?
-9. Does the independent-axis Execution Receipt improve orchestration transparency without mixing in Main's task-result summary, and does explicit zero-child Orchestrate remain transparent with its minimal Receipt?
-10. Does the Preview control help users understand likely delegation without accidentally spawning, provisioning, mutating, or creating false route certainty?
-11. Do Status, Steer, and Takeover improve user control while preserving `UNKNOWN`, stable responsibility identity, and one-writer safety?
-12. Does a small evidence-bound Handoff Capsule reduce repeated discovery without increasing stale-context or inherited-claim errors?
-13. Does multi-responsibility decomposition preserve every material task obligation and cross-unit seam without forcing decorative Agent work?
-14. When an accepted deliverable feeds a materially different later phase, does Main recompile responsibilities and authority while reusing only still-valid evidence?
-
-These are separate questions. Do not collapse them into one global score.
-
-## Comparison modes
-
-Schema `4.0` currently recognizes historical measurement labels:
+At minimum freeze:
 
 ```text
-main_session_only
+workload_definition_hash
+repository revision and starting state
+exact task/prompt bytes
+acceptance rubric
+main_session_route as an environment control
+permissions fingerprint
+tool-surface fingerprint
+Host/runtime version
+```
+
+The execution route or strategy may differ only when that difference is the declared
+experimental variable. If another controlled input changes, create a new fixture/pair
+rather than comparing unlike runs.
+
+`evals/LOCAL_EVAL_FIXTURE_TEMPLATE.md` is the local freezing template.
+
+## Current comparison modes
+
+`evals/behavioral-result.schema.json` owns the accepted evaluator mode identifiers.
+Some names, such as `raw_prompt_luna`, are evaluator arm labels rather than production
+roles or public Skill names.
+
+Representative current comparisons are:
+
+```text
 raw_prompt_luna
-bounded_luna
-advisor_then_luna
-sol_solver
-terra_delta
-adaptive_routing_v4
-adaptive_routing_v4_final_review
+  vs bounded_programmer
+
+product_manager_then_programmer
+  vs product_manager_coupled
+
 external_baseline
+  vs product_manager_read_synthesis
+
+managed_routing_v4
+  vs managed_routing_v4_standard_review
 ```
 
-`adaptive_routing_v4` and `terra_delta` are retained as experiment identifiers. They do not define current runtime taxonomy or imply that Terra is an escalation rung.
+Highest Review is consequence-gated. Do not create an Astra comparison arm merely to
+measure whether a more expensive model produces a nicer answer on an ordinary task.
 
-Interaction and semantic-coordination experiments may use workload metadata/notes without adding a new runtime mode unless a future schema revision demonstrates a real measurement need.
+## Runtime route evidence
 
-`execution_route` records actual primary execution placement and may differ across paired strategies by design.
+Configured/requested/accepted/observed truth stays separate. A run may claim an observed
+child route only from supported Host-produced evidence.
 
-## Freeze controlled inputs
-
-Before the first run in a pair, freeze:
+For every materialized managed child, record when available:
 
 ```text
-exact user prompt bytes
-repository + base revision
-setup / starting state
-acceptance rubric + id
-allowed verification commands
-main-session route, when exposed
-main capability state, when material
-permissions / approval posture
-tool surface
-Codex runtime version
+role / agent_type
+requested model and reasoning effort
+Host-accepted model/effort when exposed
+Host-observed model/effort
+effective permission state
+model provider when material
+evidence source / ref
 ```
 
-For interaction experiments also record the exact Host surface used for Agent inspection/steering/stopping and whether token/thread telemetry is exposed to the evaluator.
+Child prose, profile filenames, configured values, or copied expected fields never count
+as Observed evidence. Missing required evidence remains unknown; conflicting evidence is
+failed/quarantined.
 
-For semantic-coverage and phase-transition experiments, also freeze the material task obligations and the exact authority boundary or transition trigger used by the evaluator. These are evaluation inputs, not a runtime requirement taxonomy.
-
-Hash the frozen definition into `workload_definition_hash`. If a controlled input changes, create a new pair id/hash.
-
-Do not require the same `execution_route` across a pair when execution placement is the experimental variable.
+`scripts/runtime-evidence.py` is child-attestation tooling only. Main model/effort is not
+a managed routing authority and has no capability-coverage result in the current design.
 
 ## Core metrics
 
-Record only telemetry actually available.
+The scorer reports paired deltas and descriptive mode aggregates. Metrics are evidence,
+not automatic policy decisions.
 
-### Outcome
+Current coordination/quality metrics include:
 
 ```text
-success
 acceptance_score
-scope_violations
-wrong_edits
-regressions
+agent_count / peak_active_children
+scope_violations / wrong_edits / regressions
 material_judgment_violations
-```
-
-### Routing / correction
-
-```text
-agent_count
-peak_active_children
-correction_turns
+correction_turns / reclassification_events
 execution_stall_events
-clean_same_lane_restarts
-unjustified_retry_calls
-same_failure_without_new_evidence
-judgment_uplift_calls
-solver_calls
-advisor_calls
-terra_calls
-redundant_sol_calls
-```
-
-Existing `reclassification_events` may remain as a compatibility field for old runs; for current runs interpret it simply as a meaningful actor/capability reroute after new evidence.
-
-### Interaction control
-
-When the workload exercises the current interaction controls, additionally record when available:
-
-```text
-preview_children_spawned
-preview_mutations
-status_unknown_preserved
-steer_preserved_unit_identity
-steer_required_reclassification
-takeover_stop_requested
-takeover_conflicting_write
-takeover_settlement_ms
-takeover_unknown_preserved
-receipt_lines
-receipt_unsupported_claims
-```
-
-For first-use readiness also record:
-
-```text
-first_use_provisioning_prompts
-first_use_profiles_provisioned
-first_use_spawn_attempts_before_restart
-first_use_restart_required
-first_use_conflict_overwrites
-fresh_task_role_available
-```
-
-These may remain external worksheet fields until the result schema has a demonstrated need to persist them.
-
-### Resource use
-
-```text
-input_tokens
-output_tokens
-reasoning_tokens
-latency_ms
-main_session_correction_tokens
-main_session_correction_ms
+unjustified_retry_calls / same_failure_without_new_evidence
+programmer_calls
+product_manager_medium_calls
+product_manager_high_calls
+department_director_calls
+redundant_product_manager_calls
+review_findings / review_false_positives
+final_review_attempts
+review_artifact_verify_failures / post_review_mutations
 consent_prompts
-```
-
-Record these only when the runtime/evaluator exposes exact attributable values. Do not infer token counts or currency cost from configured models, elapsed time, or output length.
-
-### Evidence efficiency
-
-```text
-evidence_established
-evidence_invalidated
-unjustified_repeated_commands
-unjustified_repeated_discovery
+evidence_established / evidence_invalidated
 duplicate_dependency_calls
 ```
 
-For Handoff Capsule experiments also record:
+When supported by the runtime, token and latency fields may also be recorded. Missing
+telemetry stays null; response length, elapsed wall-clock guesses, or model self-report
+must not manufacture token/cost facts.
+
+Mode-level aggregates are descriptive only because different workload mixes are not
+automatically comparable. Use frozen pairs for causal product comparisons.
+
+## Review measurement
+
+Standard Review is `Product Manager / Sol High`. Highest Review is
+`Department Director / Astra High`.
+
+A review run records:
 
 ```text
-capsule_items_reused
-capsule_items_reverified
-capsule_stale_items
-unverified_claims_propagated
-repeated_discovery_avoided
-```
-
-For semantic-coverage and phase-transition experiments, initially record structured notes for:
-
-```text
-material_obligations_preserved
-material_obligations_dropped
-cross_unit_seams_owned
-unowned_material_seams
-decorative_seam_children
-phase_recompiled
-prior_units_inappropriately_repurposed
-authority_inappropriately_inherited
-accepted_evidence_reused
-stale_evidence_reused
-```
-
-Keep these outside the stable result schema until repeated workloads show which fields are reliable and materially useful.
-
-### Independent review
-
-```text
-review_findings
-review_caught_material_issue
-review_false_positives
 final_review_requirement
 final_review_trigger_reasons
 final_review_attempts
 final_review_verdict
 final_review_gate_satisfied
+review_findings
+review_false_positives
 review_artifact_verify_failures
 post_review_mutations
 ```
 
-Missing telemetry stays `null` where allowed. Never estimate unavailable tokens, route facts, latency, or runtime observability.
+A satisfied required review must have a fresh review attempt and the `ship` verdict.
+Candidate mutation invalidates the old verdict. A finding does not automatically escalate
+the review tier; only new candidate truth that independently introduces a highest trigger
+does so.
 
-## Experiment A: bounded Luna
+For the formal `1.0.0` release, the release-specific gate is always the fresh exact-source
+Department Director / Astra High review defined by the release contract. Behavioral
+measurement cannot substitute for it.
 
-```text
-raw_prompt_luna
-vs
-bounded_luna
-```
+## Parallel-read measurement
 
-Use the same Luna route and frozen task. The bounded case must have desired behavior, important invariants, and acceptance already resolved.
+Read-only overlap is valid only when responsibility independence and the required
+workspace safety evidence are established. The product ceiling is four managed children,
+not a target fanout.
 
-Measure correctness, scope discipline, material judgment violations, correction work, repeated discovery, and total resource use.
+The current parallel-read guard snapshots the canonical candidate workspace around
+managed read-only overlap. Unexpected candidate mutation is not attributed to a child
+without evidence; it is a safety stop that quarantines the affected observation and
+requires Main to re-establish current workspace truth before further managed mutation.
 
-## Experiment B: judgment-coupled implementation
+## Recovery measurement
 
-```text
-advisor_then_luna
-vs
-sol_solver
-```
-
-Use a workload where implementation repeatedly exposes consequential semantic choices that cannot safely be decided once up front.
-
-The question is whether one write-capable Sol responsibility reduces handoff/review loops. Do not assume Solver wins.
-
-## Experiment C: Sol main capability reuse
-
-On the same judgment-heavy writing workload with trusted main-session capability at or above the current policy reference, compare:
+Recovery experiments must preserve the same rules as production:
 
 ```text
-main_session_only
-vs
-sol_solver
+UNKNOWN never becomes permission by timeout
+fresh retry requires changed execution basis and prior settlement
+same-child Correction requires a new correction basis
+Continue reuses the interrupted ExecutionBinding
+Takeover waits for current-generation writer settlement
+duplicate unchanged responsibility is not a useful second child
 ```
 
-Measure whether the extra Sol child is redundant. This does not apply to independent Final Review, which intentionally requires a second fresh context.
-
-## Experiment D: unknown main route
-
-For routine bounded work when main route telemetry is unavailable, compare bounded Luna against an unnecessary Sol Solver strategy.
-
-The purpose is to prove missing telemetry does not become “always buy Sol.”
-
-Separately exercise a material-judgment workload under unknown telemetry to ensure quality protection remains intact.
-
-## Experiment E: material judgment emerges during Luna work
-
-Start with genuinely bounded work, then introduce evidence showing a consequential semantic choice is now required.
-
-Compare blindly continuing Luna with the current product behavior, which stops bounded execution and routes the actual judgment need to Main/Sol.
-
-Measure wrong edits, correction turns, repeated work, and whether the unresolved problem narrows.
-
-## Experiment F: Terra read-heavy investigation
-
-Use a workload where desired semantics are already fixed, no material decision remains, and the task is read-only but benefits from broader technical exploration or evidence synthesis than a narrow Reader task.
-
-Compare at least:
-
-```text
-Luna Reader
-vs
-Terra Investigator
-vs
-Sol Advisor when the task is deliberately framed as judgment-heavy
-```
-
-The current product hypothesis is that Terra can provide a useful middle lane for intelligence/cost balance on read-heavy work. Do not assume that hypothesis is true until measured.
-
-Negative controls:
-
-```text
-routine narrow factual lookup
--> should remain Luna Reader / Main
-
-demanding, ambiguous, multi-step technical reasoning with material decisions
--> should route to Main/Sol
-```
-
-Weak Luna output alone must never become a Terra trigger.
-
-## Experiment G: consequence-driven Final Review
-
-Required-review population should exercise public contract, security, authorization, concurrency, persistent state, data integrity, material migration, user-requested review, and verification-gap reasons.
-
-Record:
-
-```text
-Candidate Ready
--> review_artifact_id
--> fresh Sol Advisor
--> ship | fix-first | rethink | INSUFFICIENT_EVIDENCE
-```
-
-For the process-history negative control, use a candidate where Terra/Solver/recovery happened but no semantic review reason remains. Compare no review with the legacy forced-review strategy. Process history alone must not become a trigger.
-
-## Experiment H: first-use readiness
-
-Measure the first explicit task run through Orchestrate when project Agent profiles are absent from both disk and the current task's loaded Agent registry.
-
-The current candidate should:
-
-```text
-identify that delegation will be useful
--> check exact required role availability
--> run non-mutating installer --check
--> observe clean Not installed state
--> automatically provision only the plugin-owned managed profiles/manifest/lock
--> run --check successfully
--> set readiness outcome RESTART_REQUIRED
--> perform 0 child spawns in the current task
--> show one concise fresh-task handoff
--> rerun the original request through Orchestrate in a fresh task/session
--> verify exact role availability there before spawning
-```
-
-There is no separate routine provisioning confirmation prompt in this clean first-use path. Explicit user selection/invocation of Orchestrate is the narrow authorization for plugin-owned provisioning after delegation is already justified.
-
-Hard negative controls:
-
-```text
-Orchestrate Preview or Status with profiles absent
--> 0 provisioning
-
-profile collision / symlink / modified-unowned state
--> 0 overwrite
--> USER_ACTION_REQUIRED
-
-profiles exact but role unavailable in current task
--> RESTART_REQUIRED
--> 0 child spawns before restart
-
-fresh task still lacks the exact role
--> fail closed as Host/config limitation
--> no role substitution
-```
-
-Record onboarding interruptions, first-use provisioning prompts, stale-session spawn attempts, whether the user understood the single fresh-task instruction, and whether any unrelated state was modified. The release target is one unavoidable fresh-task handoff caused by Host registration timing, not an additional plugin-generated setup prompt plus a failed spawn.
-
-## Experiment I: Execution Receipt clarity
-
-Compare delegated tasks with the current independent-axis Receipt against the prior completion style without a default orchestration receipt.
-
-The Main response should still focus on the task-facing result, verification, and remaining material risk. The Receipt separately reports only orchestration facts:
-
-```text
-Orchestrate / 编排
-Control / 控制       # only when used
-Review / 验收
-Recovery / 恢复     # exceptional only
-```
-
-Measure whether users can correctly answer which project lanes performed materialized work, whether explicit controls were used, whether independent review produced a verdict, and whether a real delegated retry occurred. Flag any task-result claim, unsupported observed-model claim, token estimate, or currency-cost estimate inside the Receipt as a hard failure.
-
-Negative controls:
-
-```text
-explicit Orchestrate with zero materialized children
--> minimal zero-child Orchestrate + Review receipt
--> no active state
-
-Orchestrate Preview-only request
--> predictive presentation only
--> no terminal Execution Receipt
-
-Orchestrate Status-only request
--> status snapshot only
--> no terminal Execution Receipt
-```
-
-## Experiment J: Preview and live control
-
-Select **Orchestrate** through the Host UI, request its Preview control, and supply the same substantive task later used for a real Orchestrate run. Do not assume or record a literal slash string unless the App directly renders one.
-
-Verify:
-
-```text
-0 child spawns
-0 profile provisioning
-0 source mutation
-0 external action
-provisional language present
-```
-
-Do not score preview against the later actual route as if disagreement were automatically wrong. Score whether the preview exposed a plausible plan without falsely claiming execution certainty.
-
-Status workload verifies one-shot inspection and exact preservation of `UNKNOWN` when native state is absent.
-
-Steer workload sends focused guidance that stays inside the same responsibility. A negative-control steer requests a material scope/role/authority change and should return to Main reclassification rather than silently updating the child contract.
-
-Takeover workload includes a writing child. Verify that Main does not perform a conflicting write before the native child is settled. Add a Host-ambiguity case where stop/terminal state cannot be established; the expected result is pending/UNKNOWN rather than forced ownership transfer.
-
-The current deterministic interaction boundaries are defined directly by `evals/interaction-cases.json`. Do not maintain a second hand-written case inventory in this protocol; the fixture IDs are the authoritative static case list.
-
-## Experiment K: Handoff Capsule
-
-Use a chain where responsibility B would normally repeat a material read performed and verified during responsibility A.
-
-Compare:
-
-```text
-fresh child + normal packet
-vs
-fresh child + compact accepted Handoff Capsule
-```
-
-Keep `fork_turns=none` in both cases.
-
-Measure:
-
-```text
-unjustified repeated discovery
-latency/tokens when exact telemetry exists
-acceptance score
-stale-context mistakes
-unverified claim propagation
-```
-
-Add two hard negative controls:
-
-1. A reports a confident claim that Main cannot verify. It must not enter `ACCEPTED FACTS`.
-2. A capsule depends on a file that changes before B runs. The affected evidence must be reverified instead of reused as settled truth.
-
-Do not set a permanent token budget for capsules until repeated live workloads establish a useful size/quality tradeoff.
-
-## Experiment L: Semantic Coverage Closure
-
-Use a read-only planning or analysis workload whose acceptance has several material obligations that naturally span multiple responsibilities, including at least one cross-unit semantic seam.
-
-The candidate behavior should:
-
-```text
-derive material obligations from current task truth
--> decompose useful responsibilities
--> retain an owner for every material obligation
--> keep cross-unit seam ownership explicit
--> let Main own the seam when another child adds no value
--> integrate the planning/analysis deliverable
--> re-check semantic coverage before Candidate Ready
-```
-
-Negative controls:
-
-```text
-structurally valid WorkGraph with one dropped material obligation
--> Candidate Ready forbidden
-
-valid integration order with an unowned material seam
--> semantic coverage incomplete
-
-seam already well-owned by Main
--> no decorative seam child
-```
-
-This experiment measures task preservation across decomposition, not performance on any specific API, UI, persistence, migration, or provider pattern.
-
-## Experiment M: Phase Transition Recompilation
-
-Use a workflow where one accepted phase produces an actionable deliverable and a later user instruction materially changes intent or authority.
-
-The candidate behavior should:
-
-```text
-accept earlier deliverable/evidence
--> wait for the actual later-phase trigger or authorization
--> treat accepted evidence as upstream task truth
--> reassess material obligations, scope, decision rights, authority, dependencies, and acceptance
--> compile fresh responsibilities
--> reuse still-valid evidence
--> assign new unit IDs when goals/outputs materially change
-```
-
-Hard negative controls:
-
-```text
-earlier phase says later action is ready
--> later action remains unauthorized until current task truth grants it
-
-old planning/audit/review unit would need a new goal/output
--> do not silently convert that unit into a writer
-
-prior evidence is stale after relevant mutation/drift
--> reverify instead of inheriting it as settled truth
-```
-
-This is a generic transition contract. Planning -> implementation is one workload shape; the same rules apply to other materially changed task phases.
+Do not use repeated failure, a weak result, or an available Host slot as a hidden model
+escalation rule.
 
 ## Scoring
 
+Validate and score a paired behavioral result with:
+
 ```bash
-python scripts/score-behavioral-evals.py path/to/result.json
+python scripts/score-behavioral-evals.py <result.json> --json
 ```
 
-The scorer validates schema and controlled pairing first. Primary candidate-minus-baseline deltas are produced only for each workload's declared pair. Cross-workload mode aggregates are descriptive inventory, not controlled comparisons.
+The scorer validates schema, pair controls, workload mode requirements, basic concurrency
+consistency, and Final Review semantics before computing deltas. It does not run Codex,
+choose production routes, change policy, or grant release readiness.
 
-Interaction and semantic-coordination experiments may initially use structured notes alongside existing result files where the current schema lacks a field. Add schema fields only after the metric becomes stable and materially useful.
+## Claim boundary
 
-## Evidence rule
+Do not claim better quality, lower cost, lower token use, lower latency, reduced rework,
+better review yield, or superior routing until repeated named workloads on named runtime
+versions support that claim.
 
-Do not claim improved quality, lower cost, reduced rework, Solver superiority, Terra value, onboarding improvement, receipt usability, takeover usability, Handoff Capsule efficiency, semantic-coverage improvement, or phase-transition improvement until named live workloads on named runtime versions support that claim.
+One good run is not a route promotion. Promotion follows the experiment protocol:
 
-Static contract tests can prove that Orchestrate Preview is instructed to avoid spawning, that clean first-use absence maps to bounded automatic provisioning plus `RESTART_REQUIRED`, that unsafe first-use state fails closed, that UNKNOWN takeover is prohibited, that capsules require accepted evidence, that structural WorkGraph validity alone is not treated as semantic completeness, and that later-phase readiness does not create authority. Only a real Codex Host run can prove the native task/session registration boundary, fresh-task role availability, steer/stop/control surface, and user experience on a particular build. Direct Codex App UI observations are required for the exact rendered Skill menu identity and selection behavior; model self-report cannot replace that evidence.
+```text
+frozen evidence
+-> repeated claim-eligible runs
+-> product judgment
+-> explicit policy change
+-> focused verification
+-> real Host qualification
+-> release gates
+```
 
-The runtime mechanism defines where each role and control is allowed to operate. Behavioral evidence determines whether those choices create user value in practice.
+See `experiment-protocol.md` for formal campaign/run provenance and
+`runtime-attestation.md` for child runtime evidence rules.

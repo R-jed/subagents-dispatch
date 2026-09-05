@@ -27,7 +27,6 @@ allowed_verification:
 - <command or inspection>
 
 main_session_route:
-main_judgment_coverage: <covered | uncovered | unknown when material>
 permissions_fingerprint:
 tool_surface_fingerprint:
 codex_runtime_version:

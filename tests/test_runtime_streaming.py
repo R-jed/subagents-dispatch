@@ -1,11 +1,8 @@
 from __future__ import annotations
-import ast
 import importlib.util
 import json
 import os
 from pathlib import Path
-import subprocess
-import sys
 import pytest
 import gc
 import weakref
@@ -15,7 +12,7 @@ RELEASE_CHECKLIST = ROOT / 'docs' / 'release-checklist.md'
 REQUIREMENTS = ROOT / 'requirements-dev.txt'
 THREAD = '11111111-1111-7111-8111-111111111111'
 PARENT = '00000000-0000-7000-8000-000000000000'
-ROLE = 'subagents_dispatch_worker'
+ROLE = 'subagents_dispatch_programmer'
 
 def _post_release_hardening__load_inspector():
     spec = importlib.util.spec_from_file_location('post_release_runtime_inspector', INSPECTOR)
@@ -54,7 +51,7 @@ def test_rollout_reader_detects_path_replacement_between_lstat_and_open(tmp_path
             swapped = True
             backup = rollout.with_suffix('.original')
             os.replace(rollout, backup)
-            write_rollout(rollout, model='gpt-5.6-terra')
+            write_rollout(rollout, model='gpt-5.6-sol')
         return original_open(path, flags, *args, **kwargs)
     monkeypatch.setattr(module.os, 'open', racing_open)
     with pytest.raises(SystemExit, match='identity drifted while opening'):
@@ -127,30 +124,20 @@ def test_rollout_reader_rejects_oversized_line(tmp_path: Path, monkeypatch: pyte
     with pytest.raises(SystemExit, match='maximum rollout line size'):
         module.inspect_rollout(rollout, thread_id=THREAD, expected_parent_thread_id=PARENT, expected_agent_role=ROLE)
 
-def test_calibration_adapter_import_order_is_process_isolated_and_equivalent():
-    script = '\nimport hashlib\nimport json\nimport sys\nsys.path.insert(0, sys.argv[1])\norder = sys.argv[2]\nif order == "core-first":\n    import calibration_profiles_core as core\n    import calibration_profiles as adapter\nelse:\n    import calibration_profiles as adapter\n    import calibration_profiles_core as core\nnames = [\n    "_path_inventory",\n    "_load_policy",\n    "_validated_campaign",\n    "_profile_records",\n    "_host_home_identity",\n    "parse_args",\n]\nprint(json.dumps({\n    name: {\n        "same_object": getattr(core, name) is getattr(adapter, name),\n        "adapter_code": hashlib.sha256(getattr(adapter, name).__code__.co_code).hexdigest(),\n        "core_code": hashlib.sha256(getattr(core, name).__code__.co_code).hexdigest(),\n    }\n    for name in names\n}, sort_keys=True))\n'
-    outputs = []
-    for order in ('core-first', 'adapter-first'):
-        result = subprocess.run([sys.executable, '-c', script, str(ROOT / 'scripts'), order], cwd=ROOT, text=True, capture_output=True, check=False)
-        assert result.returncode == 0, result.stderr
-        payload = json.loads(result.stdout)
-        assert all((item['same_object'] for item in payload.values()))
-        assert all((item['adapter_code'] == item['core_code'] for item in payload.values()))
-        outputs.append(payload)
-    assert outputs[0] == outputs[1]
+def test_experiment_plane_has_no_temporary_profile_materialization_modules():
+    retired = {
+        "calibration_profile_contract.py",
+        "calibration_profiles.py",
+        "calibration_profiles_core.py",
+        "validate_experiment_campaign_core.py",
+    }
+    assert not any((ROOT / "scripts" / name).exists() for name in retired)
+    for current in ("validate-experiment-campaign.py", "validate-experiment-run.py"):
+        text = (ROOT / "scripts" / current).read_text(encoding="utf-8")
+        assert "materialized_agent_type" not in text
+        assert "materialization_manifest_ref" not in text
+        assert "calibration_profiles" not in text
 
-def test_calibration_core_mutable_hooks_are_not_imported_by_value_in_production():
-    mutable_hooks = {'_path_inventory', '_load_policy', '_validated_campaign', '_profile_records', '_host_home_identity', 'parse_args'}
-    offenders: list[str] = []
-    for path in sorted((ROOT / 'scripts').glob('*.py')):
-        tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ImportFrom) or node.module != 'calibration_profiles_core':
-                continue
-            bound_hooks = sorted((alias.name for alias in node.names if alias.name in mutable_hooks))
-            if bound_hooks:
-                offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}: {', '.join(bound_hooks)}")
-    assert offenders == []
 
 def test_dev_dependency_closure_is_exactly_pinned_for_ci_replay():
     lines = {line.strip() for line in REQUIREMENTS.read_text(encoding='utf-8').splitlines() if line.strip() and (not line.lstrip().startswith('#'))}
@@ -160,7 +147,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INSPECTOR = ROOT / 'scripts' / 'inspect-agent-runtime.py'
 THREAD = '11111111-1111-7111-8111-111111111111'
 PARENT = '00000000-0000-7000-8000-000000000000'
-ROLE = 'subagents_dispatch_worker'
+ROLE = 'subagents_dispatch_programmer'
 
 def _rollout_streaming_followup__load_inspector():
     spec = importlib.util.spec_from_file_location('rollout_streaming_followup', INSPECTOR)

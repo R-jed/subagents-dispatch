@@ -4,34 +4,46 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-import tomllib
-
 import jsonschema
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 POLICY = json.loads((CONTRACTS / "policy.json").read_text(encoding="utf-8"))
-ADVISOR = ROOT / "agent-profiles" / "subagents-dispatch-advisor.toml"
+PRODUCT_MANAGER = ROOT / "agent-profiles" / "subagents-dispatch-product-manager.toml"
+DEPARTMENT_DIRECTOR = ROOT / "agent-profiles" / "subagents-dispatch-department-director.toml"
 SCHEMA = ROOT / "evals" / "behavioral-result.schema.json"
 SCORER = ROOT / "scripts" / "score-behavioral-evals.py"
 
 
-def test_advisor_route_is_fixed_sol_high_read_only():
-    spec = POLICY["roles"]["advisor"]
-    profile = tomllib.loads(ADVISOR.read_text(encoding="utf-8"))
-    assert spec["model"] == profile["model"] == "gpt-5.6-sol"
-    assert spec["effort"] == profile["model_reasoning_effort"] == "high"
-    assert spec["mutation_authority"] == "none"
-    assert spec["agent_type"] == "subagents_dispatch_advisor"
+def test_review_routes_are_exact_and_profiles_do_not_pin_model_or_effort():
+    standard = POLICY["review_routing"]["standard"]
+    highest = POLICY["review_routing"]["highest"]
+    product_manager = POLICY["roles"][standard["role_id"]]
+    department_director = POLICY["roles"][highest["role_id"]]
+
+    assert (product_manager["agent_type"], product_manager["model"], standard["effort"]) == (
+        "subagents_dispatch_product_manager",
+        "gpt-5.6-sol",
+        "high",
+    )
+    assert (
+        department_director["agent_type"],
+        department_director["model"],
+        highest["effort"],
+    ) == ("subagents_dispatch_department_director", "gpt-6-astra", "high")
+    for path in (PRODUCT_MANAGER, DEPARTMENT_DIRECTOR):
+        text = path.read_text(encoding="utf-8")
+        assert "model =" not in text
+        assert "model_reasoning_effort" not in text
     assert POLICY["delegation"]["fork_turns"] == "none"
 
 
 def test_review_verdict_policy_remains_fail_closed():
-    final = POLICY["final_review"]
-    assert final["ship_verdict"] == "ship"
-    assert final["correction_verdicts"] == ["fix-first", "rethink"]
-    assert final["unresolved_verdict"] == "insufficient_evidence"
+    final = POLICY["review_verdicts"]
+    assert final["ship"] == "ship"
+    assert final["correction"] == ["fix-first", "rethink"]
+    assert final["unresolved"] == "insufficient_evidence"
 
 
 def test_behavioral_schema_keeps_review_metrics_and_verdicts():
@@ -60,7 +72,6 @@ def _run(mode: str) -> dict:
         "repo_revision": "candidate-sha",
         "workload_definition_hash": "sha256:workload-fixture",
         "main_session_route": "gpt-5.6-sol/high",
-        "main_judgment_coverage": "covered",
         "dependency_kind": "bounded_execution",
         "execution_route": "gpt-5.6-luna/max",
         "permissions_fingerprint": "workspace-write+default-approval",
@@ -72,7 +83,7 @@ def _run(mode: str) -> dict:
         "peak_active_children": 1,
         "ready_dependencies": 1,
         "runtime_slot_waits": 0,
-        "roles": ["worker"],
+        "roles": ["programmer"],
         "policy_violations": [],
         "scope_violations": 0,
         "wrong_edits": 0,
@@ -85,10 +96,11 @@ def _run(mode: str) -> dict:
         "unjustified_retry_calls": 0,
         "same_failure_without_new_evidence": 0,
         "judgment_uplift_calls": 0,
-        "solver_calls": 0,
-        "advisor_calls": 0,
-        "terra_calls": 0,
-        "redundant_sol_calls": 0,
+        "programmer_calls": 1,
+        "product_manager_medium_calls": 0,
+        "product_manager_high_calls": 0,
+        "department_director_calls": 0,
+        "redundant_product_manager_calls": 0,
         "review_findings": 0,
         "review_false_positives": 0,
         "final_review_attempts": 0,
@@ -127,7 +139,7 @@ def _score(tmp_path: Path, runs: list[dict]) -> subprocess.CompletedProcess[str]
 
 def test_scorer_rejects_satisfied_gate_without_ship_verdict(tmp_path: Path):
     baseline = _run("raw_prompt_luna")
-    candidate = _run("bounded_luna")
+    candidate = _run("bounded_programmer")
     candidate.update(
         {
             "final_review_requirement": "required",
@@ -145,5 +157,16 @@ def test_scorer_rejects_satisfied_gate_without_ship_verdict(tmp_path: Path):
 def test_behavioral_workloads_cover_review_invalidation():
     workloads = json.loads((ROOT / "evals" / "behavioral-workloads.json").read_text(encoding="utf-8"))
     by_id = {item["id"]: item for item in workloads["workloads"]}
-    assert by_id["public-contract-final-review-required"]["expected"]["fresh_sol_required"] is True
+    standard = by_id["public-contract-standard-review-required"]["expected"]
+    highest = by_id["authorization-highest-review-required"]["expected"]
+    assert (standard["role"], standard["effort"], standard["fresh_reviewer"]) == (
+        "product_manager",
+        "high",
+        True,
+    )
+    assert (highest["role"], highest["effort"], highest["fresh_reviewer"]) == (
+        "department_director",
+        "high",
+        True,
+    )
     assert by_id["post-review-mutation-invalidates-ship"]["expected"]["old_verdict_valid"] is False

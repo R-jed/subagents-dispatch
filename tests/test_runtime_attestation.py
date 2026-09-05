@@ -13,7 +13,7 @@ INSPECTOR = ROOT / "scripts" / "inspect-agent-runtime.py"
 EVIDENCE = ROOT / "scripts" / "runtime-evidence.py"
 THREAD = "11111111-1111-7111-8111-111111111111"
 PARENT = "00000000-0000-7000-8000-000000000000"
-ROLE = "subagents_dispatch_worker"
+ROLE = "subagents_dispatch_programmer"
 
 
 def write_rollout(
@@ -180,7 +180,7 @@ def test_runtime_evidence_rejects_public_rollout_conflict(tmp_path: Path):
     write_rollout(sessions)
     payload = {
         "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
-        "native": {"agent_role": ROLE, "model": "gpt-5.6-terra", "effort": "max"},
+        "native": {"agent_role": ROLE, "model": "gpt-5.6-sol", "effort": "max"},
         "rollout": {"thread_id": THREAD, "sessions_dir": str(sessions)},
     }
     result = subprocess.run(
@@ -212,7 +212,7 @@ def test_runtime_evidence_rejects_auxiliary_public_rollout_conflict(tmp_path: Pa
 
 
 def test_runtime_evidence_reports_exact_task_path_and_provider_control(tmp_path: Path):
-    task_path = "/root/sd_runtime_worker"
+    task_path = "/root/sd_runtime_programmer"
     sessions = tmp_path / "sessions"
     write_rollout(sessions, agent_path=task_path)
     payload = {
@@ -256,11 +256,11 @@ def test_runtime_evidence_rejects_filesystem_path_as_v2_agent_path(tmp_path: Pat
 def test_runtime_evidence_fails_closed_on_public_rollout_task_path_or_provider_conflict(
     tmp_path: Path, field: str
 ):
-    task_path = "/root/sd_runtime_worker"
+    task_path = "/root/sd_runtime_programmer"
     sessions = tmp_path / "sessions"
     write_rollout(sessions, agent_path=task_path)
     native = {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"}
-    native[field] = "/root/sd_other_worker" if field == "agent_path" else "external"
+    native[field] = "/root/sd_other_programmer" if field == "agent_path" else "external"
     payload = {
         "expected": {"agent_role": ROLE, "model": "gpt-5.6-luna", "effort": "max"},
         "native": native,
@@ -419,7 +419,7 @@ def test_expected_parent_and_role_bind_the_observation(tmp_path: Path):
     wrong_role = run_inspector(
         sessions,
         "--expected-agent-role",
-        "subagents_dispatch_reader",
+        "subagents_dispatch_product_manager",
     )
     assert wrong_role.returncode != 0
     assert "agent_role does not match" in wrong_role.stderr
@@ -428,7 +428,7 @@ def test_expected_parent_and_role_bind_the_observation(tmp_path: Path):
 @pytest.mark.parametrize(
     ("field", "first_value", "second_value"),
     [
-        ("model", "gpt-5.6-luna", "gpt-5.6-terra"),
+        ("model", "gpt-5.6-luna", "gpt-5.6-sol"),
         ("effort", "high", "max"),
     ],
     ids=["model", "effort"],

@@ -26,7 +26,7 @@ def expected(**overrides):
     value = {
         "thread_id": THREAD,
         "parent_thread_id": PARENT,
-        "agent_role": "subagents_dispatch_worker",
+        "agent_role": "subagents_dispatch_programmer",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "runtime_observation_required": False,
@@ -40,7 +40,7 @@ def observation(**overrides):
     value = {
         "thread_id": THREAD,
         "parent_thread_id": PARENT,
-        "agent_role": "subagents_dispatch_worker",
+        "agent_role": "subagents_dispatch_programmer",
         "model": "gpt-5.6-luna",
         "effort": "max",
         "sandbox_policy_type": "danger-full-access",
@@ -89,7 +89,7 @@ def test_platform_acceptance_never_counts_as_observed_runtime_proof():
 
 def test_accepted_route_mismatch_or_accepted_observed_drift_is_quarantined():
     result, data = run_verifier(
-        {"expected": expected(), "accepted": observation(model="gpt-5.6-terra", effort="xhigh")}
+        {"expected": expected(), "accepted": observation(model="gpt-5.6-sol", effort="high")}
     )
     assert result.returncode == 0
     assert data["decision"] == "quarantine"
@@ -100,7 +100,7 @@ def test_accepted_route_mismatch_or_accepted_observed_drift_is_quarantined():
         {
             "expected": expected(),
             "accepted": observation(),
-            "native": observation(model="gpt-5.6-terra", effort="xhigh"),
+            "native": observation(model="gpt-5.6-sol", effort="high"),
         }
     )
     assert result.returncode == 0
@@ -121,7 +121,7 @@ def test_complete_native_child_route_is_r1_and_complete_agreement_is_r2():
 
 def test_partial_native_child_route_never_counts_as_runtime_proof():
     result, data = run_verifier(
-        {"expected": expected(), "native": {"agent_role": "subagents_dispatch_worker"}}
+        {"expected": expected(), "native": {"agent_role": "subagents_dispatch_programmer"}}
     )
     assert result.returncode == 0
     assert data["evidence_grade"] == "C1_configuration_only"
@@ -133,7 +133,7 @@ def test_runtime_required_rejects_partial_native_child_route():
     result, data = run_verifier(
         {
             "expected": expected(runtime_observation_required=True),
-            "native": {"agent_role": "subagents_dispatch_worker", "model": "gpt-5.6-luna"},
+            "native": {"agent_role": "subagents_dispatch_programmer", "model": "gpt-5.6-luna"},
         }
     )
     assert result.returncode == 0 and data["decision"] == "return_to_main_session"
@@ -151,7 +151,7 @@ def test_child_route_ancestry_and_permission_conflicts_remain_typed():
         {
             "expected": expected(),
             "native": observation(),
-            "local": observation(model="gpt-5.6-terra", effort="xhigh"),
+            "local": observation(model="gpt-5.6-sol", effort="high"),
         }
     )
     assert result.returncode == 0
@@ -234,90 +234,15 @@ def test_unknown_permission_provenance_blocks_only_claims_that_require_it():
     assert data["decision"] == "return_to_main_session"
 
 
-def test_native_sol_main_provides_covered_judgment_state():
+def test_main_session_capability_subject_is_retired():
     result, data = run_verifier(
         {
             "subject": "main_session",
-            "native": {"model": "gpt-5.6-sol", "effort": "high"},
+            "native": {"model": "gpt-6-astra", "effort": "high"},
         }
     )
-    assert result.returncode == 0
-    assert data["subject"] == "main_session"
-    assert data["main_judgment_coverage"] == "covered"
-    assert data["coverage_source"] == "trusted_session_metadata"
-    assert data["evidence_grade"] == "R1_runtime_reported"
-    assert data["truth_layers"]["observed"]["status"] == "matched"
-
-
-def test_official_gpt_5_6_alias_is_treated_as_sol_coverage():
-    result, data = run_verifier(
-        {
-            "subject": "main_session",
-            "native": {"model": "gpt-5.6", "effort": "high"},
-        }
-    )
-    assert result.returncode == 0
-    assert data["main_judgment_coverage"] == "covered"
-    assert data["coverage_source"] == "trusted_session_metadata"
-    assert data["observed_main_model"] == "gpt-5.6"
-
-
-def test_accepted_sol_main_without_native_observation_remains_unknown():
-    result, data = run_verifier(
-        {
-            "subject": "main_session",
-            "requested": {"model": "gpt-5.6-sol", "effort": "high"},
-            "accepted": {"model": "gpt-5.6-sol", "effort": "high"},
-        }
-    )
-    assert result.returncode == 0
-    assert data["truth_layers"]["requested"]["status"] == "declared"
-    assert data["truth_layers"]["accepted"]["status"] == "matched"
-    assert data["truth_layers"]["observed"]["status"] == "not_observed"
-    assert data["main_judgment_coverage"] == "unknown"
-    assert data["coverage_source"] == "not_observed"
-
-
-def test_native_non_sol_main_provides_uncovered_judgment_state():
-    result, data = run_verifier(
-        {
-            "subject": "main_session",
-            "native": {"model": "gpt-5.6-luna", "effort": "max"},
-        }
-    )
-    assert result.returncode == 0
-    assert data["main_judgment_coverage"] == "uncovered"
-    assert data["observed_main_model"] == "gpt-5.6-luna"
-
-
-def test_missing_partial_or_local_only_main_route_remains_unknown():
-    for payload in [
-        {"subject": "main_session"},
-        {"subject": "main_session", "native": {"model": "gpt-5.6-sol"}},
-        {
-            "subject": "main_session",
-            "local": {"model": "gpt-5.6-sol", "effort": "high"},
-        },
-    ]:
-        result, data = run_verifier(payload)
-        assert result.returncode == 0
-        assert data["main_judgment_coverage"] == "unknown"
-        assert data["coverage_source"] == "not_observed"
-
-
-def test_conflicting_main_route_is_quarantined_and_unknown():
-    result, data = run_verifier(
-        {
-            "subject": "main_session",
-            "native": {"model": "gpt-5.6-sol", "effort": "high"},
-            "local": {"model": "gpt-5.6-luna", "effort": "max"},
-        }
-    )
-    assert result.returncode == 0
-    assert data["status"] == "conflict"
-    assert data["decision"] == "quarantine_main_route_claim"
-    assert data["main_judgment_coverage"] == "unknown"
-    assert data["evidence_grade"] == "X0_conflicted"
+    assert result.returncode != 0 and data is None
+    assert "Main model/effort is not a managed routing authority" in result.stderr
 
 
 def test_unknown_subject_fails_closed():

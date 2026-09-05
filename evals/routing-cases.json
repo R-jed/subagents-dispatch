@@ -137,7 +137,7 @@
     },
     {
       "id": "strong-main-does-not-suppress-required-decision",
-      "category": "main_coverage",
+      "category": "main_independence",
       "input": {
         "task": "Main is running a high-capability model, but a formal compatibility decision remains a distinct responsibility."
       },
@@ -160,7 +160,7 @@
     },
     {
       "id": "weak-main-alone-does-not-force-routing-check",
-      "category": "main_coverage",
+      "category": "main_independence",
       "input": {
         "task": "Main model is relatively weak, but the task is a clearly bounded low-consequence single responsibility."
       },

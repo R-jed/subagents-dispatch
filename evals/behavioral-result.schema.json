@@ -2,21 +2,59 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "subagents-dispatch live behavioral result",
   "type": "object",
-  "required": ["schema_version", "suite", "runtime", "runs"],
+  "required": [
+    "schema_version",
+    "suite",
+    "runtime",
+    "runs"
+  ],
   "properties": {
-    "schema_version": {"const": "4.0"},
-    "suite": {"const": "subagents-dispatch-live-behavior"},
+    "schema_version": {
+      "const": "4.0"
+    },
+    "suite": {
+      "const": "subagents-dispatch-live-behavior"
+    },
     "runtime": {
       "type": "object",
-      "required": ["codex_version", "date"],
+      "required": [
+        "codex_version",
+        "date"
+      ],
       "properties": {
-        "codex_version": {"type": "string", "minLength": 1},
-        "date": {"type": "string", "minLength": 1},
-        "platform": {"type": ["string", "null"]},
-        "observed_child_capacity": {"type": ["integer", "null"], "minimum": 0},
+        "codex_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_child_capacity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
         "child_progress_observability": {
-          "type": ["string", "null"],
-          "enum": [null, "none", "terminal_only", "periodic_summary", "structured_live"]
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "none",
+            "terminal_only",
+            "periodic_summary",
+            "structured_live"
+          ]
         }
       },
       "additionalProperties": true
@@ -33,7 +71,6 @@
           "repo_revision",
           "workload_definition_hash",
           "main_session_route",
-          "main_judgment_coverage",
           "dependency_kind",
           "execution_route",
           "permissions_fingerprint",
@@ -45,82 +82,344 @@
           "decision"
         ],
         "properties": {
-          "workload_id": {"type": "string", "minLength": 1},
+          "workload_id": {
+            "type": "string",
+            "minLength": 1
+          },
           "mode": {
             "enum": [
               "main_session_only",
               "raw_prompt_luna",
-              "bounded_luna",
-              "advisor_then_luna",
-              "sol_solver",
-              "terra_delta",
-              "adaptive_routing_v4",
-              "adaptive_routing_v4_final_review",
+              "bounded_programmer",
+              "product_manager_then_programmer",
+              "product_manager_coupled",
+              "product_manager_read_synthesis",
+              "managed_routing_v4",
+              "managed_routing_v4_standard_review",
+              "managed_routing_v4_highest_review",
               "external_baseline"
             ]
           },
-          "pair_id": {"type": "string", "minLength": 1},
-          "repeat_index": {"type": "integer", "minimum": 1},
-          "repo_revision": {"type": "string", "minLength": 1},
-          "workload_definition_hash": {"type": "string", "minLength": 1},
-          "main_session_route": {"type": "string", "minLength": 1},
-          "main_judgment_coverage": {"enum": ["covered", "uncovered", "unknown"]},
-          "dependency_kind": {
-            "enum": ["evidence", "bounded_execution", "judgment", "judgment_coupled_execution", "technical_investigation", "mixed"]
+          "pair_id": {
+            "type": "string",
+            "minLength": 1
           },
-          "execution_route": {"type": ["string", "null"], "minLength": 1},
-          "permissions_fingerprint": {"type": "string", "minLength": 1},
-          "tool_surface_fingerprint": {"type": "string", "minLength": 1},
-          "acceptance_rubric_id": {"type": "string", "minLength": 1},
-          "success": {"type": "boolean"},
-          "acceptance_score": {"type": ["number", "null"], "minimum": 0},
-          "decision": {"type": "string", "minLength": 1},
-          "agent_count": {"type": "integer", "minimum": 0},
-          "peak_active_children": {"type": ["integer", "null"], "minimum": 0},
-          "ready_dependencies": {"type": ["integer", "null"], "minimum": 0},
-          "dependency_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-          "runtime_slot_waits": {"type": "integer", "minimum": 0},
-          "roles": {"type": "array", "items": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]}, "uniqueItems": true},
-          "route_evidence_grade": {"type": ["string", "null"]},
-          "policy_violations": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-          "scope_violations": {"type": "integer", "minimum": 0},
-          "wrong_edits": {"type": "integer", "minimum": 0},
-          "regressions": {"type": "integer", "minimum": 0},
-          "material_judgment_violations": {"type": "integer", "minimum": 0},
-          "correction_turns": {"type": "integer", "minimum": 0},
-          "reclassification_events": {"type": "integer", "minimum": 0},
-          "execution_stall_events": {"type": "integer", "minimum": 0},
-          "clean_same_lane_restarts": {"type": "integer", "minimum": 0},
-          "unjustified_retry_calls": {"type": "integer", "minimum": 0},
-          "same_failure_without_new_evidence": {"type": "integer", "minimum": 0},
-          "judgment_uplift_calls": {"type": "integer", "minimum": 0},
-          "solver_calls": {"type": "integer", "minimum": 0},
-          "advisor_calls": {"type": "integer", "minimum": 0},
-          "terra_calls": {"type": "integer", "minimum": 0},
-          "redundant_sol_calls": {"type": "integer", "minimum": 0},
-          "main_session_correction_tokens": {"type": ["integer", "null"], "minimum": 0},
-          "main_session_correction_ms": {"type": ["integer", "null"], "minimum": 0},
-          "review_findings": {"type": "integer", "minimum": 0},
-          "review_caught_material_issue": {"type": ["boolean", "null"]},
-          "review_false_positives": {"type": "integer", "minimum": 0},
-          "final_review_requirement": {"type": ["string", "null"], "enum": [null, "not_required", "required"]},
-          "final_review_trigger_reasons": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-          "final_review_attempts": {"type": "integer", "minimum": 0},
-          "final_review_verdict": {"type": ["string", "null"], "enum": [null, "ship", "fix-first", "rethink", "insufficient_evidence", "incomplete", "declined"]},
-          "final_review_gate_satisfied": {"type": ["boolean", "null"]},
-          "review_artifact_verify_failures": {"type": "integer", "minimum": 0},
-          "post_review_mutations": {"type": "integer", "minimum": 0},
-          "consent_prompts": {"type": "integer", "minimum": 0},
-          "input_tokens": {"type": ["integer", "null"], "minimum": 0},
-          "output_tokens": {"type": ["integer", "null"], "minimum": 0},
-          "reasoning_tokens": {"type": ["integer", "null"], "minimum": 0},
-          "latency_ms": {"type": ["integer", "null"], "minimum": 0},
-          "evidence_established": {"type": "integer", "minimum": 0},
-          "evidence_invalidated": {"type": "integer", "minimum": 0},
-          "unjustified_repeated_commands": {"type": "integer", "minimum": 0},
-          "unjustified_repeated_discovery": {"type": "integer", "minimum": 0},
-          "duplicate_dependency_calls": {"type": "integer", "minimum": 0},
-          "notes": {"type": ["string", "null"]}
+          "repeat_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "repo_revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "workload_definition_hash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "main_session_route": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependency_kind": {
+            "enum": [
+              "evidence",
+              "bounded_execution",
+              "judgment",
+              "judgment_coupled_execution",
+              "technical_investigation",
+              "mixed"
+            ]
+          },
+          "execution_route": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "permissions_fingerprint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tool_surface_fingerprint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "acceptance_rubric_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "acceptance_score": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "peak_active_children": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "ready_dependencies": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "dependency_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "runtime_slot_waits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "programmer",
+                "product_manager",
+                "department_director"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "route_evidence_grade": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "policy_violations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "scope_violations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wrong_edits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "regressions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "material_judgment_violations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "correction_turns": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reclassification_events": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "execution_stall_events": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clean_same_lane_restarts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unjustified_retry_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "same_failure_without_new_evidence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "judgment_uplift_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "main_session_correction_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "main_session_correction_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "review_findings": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "review_caught_material_issue": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "review_false_positives": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "final_review_requirement": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              null,
+              "not_required",
+              "required"
+            ]
+          },
+          "final_review_trigger_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "final_review_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "final_review_verdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              null,
+              "ship",
+              "fix-first",
+              "rethink",
+              "insufficient_evidence",
+              "incomplete",
+              "declined"
+            ]
+          },
+          "final_review_gate_satisfied": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "review_artifact_verify_failures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "post_review_mutations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "consent_prompts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "output_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "reasoning_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "latency_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "evidence_established": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "evidence_invalidated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unjustified_repeated_commands": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unjustified_repeated_discovery": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duplicate_dependency_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "programmer_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "product_manager_medium_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "product_manager_high_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "department_director_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "redundant_product_manager_calls": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       }

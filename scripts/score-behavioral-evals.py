@@ -23,7 +23,6 @@ POLICY = ROOT / "contracts" / "policy.json"
 PAIR_CONTROL_FIELDS = (
     "workload_definition_hash",
     "main_session_route",
-    "main_judgment_coverage",
     "permissions_fingerprint",
     "tool_surface_fingerprint",
     "acceptance_rubric_id",
@@ -54,10 +53,11 @@ METRICS = (
     Metric("unjustified_retry_calls", "unjustified_retry_calls", "sum"),
     Metric("same_failure_without_new_evidence", "same_failure_without_new_evidence", "sum"),
     Metric("judgment_uplift_calls", "judgment_uplift_calls", "sum"),
-    Metric("solver_calls", "solver_calls", "sum"),
-    Metric("advisor_calls", "advisor_calls", "sum"),
-    Metric("terra_calls", "terra_calls", "sum"),
-    Metric("redundant_sol_calls", "redundant_sol_calls", "sum"),
+    Metric("programmer_calls", "programmer_calls", "sum"),
+    Metric("product_manager_medium_calls", "product_manager_medium_calls", "sum"),
+    Metric("product_manager_high_calls", "product_manager_high_calls", "sum"),
+    Metric("department_director_calls", "department_director_calls", "sum"),
+    Metric("redundant_product_manager_calls", "redundant_product_manager_calls", "sum"),
     Metric("main_session_correction_tokens", "mean_main_session_correction_tokens", "mean"),
     Metric("main_session_correction_ms", "mean_main_session_correction_ms", "mean"),
     Metric("review_findings", "review_findings", "sum"),
@@ -83,7 +83,7 @@ COMPARISON_CLI_FIELDS = (
     "correction_turns",
     "material_judgment_violations",
     "reclassification_events",
-    "redundant_sol_calls",
+    "redundant_product_manager_calls",
     "main_session_correction_tokens",
     "input_tokens",
     "reasoning_tokens",
@@ -139,10 +139,10 @@ def workload_specs(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def final_review_contract(payload: dict[str, Any]) -> tuple[str, set[str], str]:
     try:
-        review = payload["final_review"]
-        ship = review["ship_verdict"]
-        correction = set(review["correction_verdicts"])
-        unresolved = review["unresolved_verdict"]
+        review = payload["review_verdicts"]
+        ship = review["ship"]
+        correction = set(review["correction"])
+        unresolved = review["unresolved"]
     except (KeyError, TypeError) as exc:
         fail(f"invalid final-review policy contract: {exc}")
     if not isinstance(ship, str) or not ship or not isinstance(unresolved, str) or not unresolved:
@@ -374,10 +374,11 @@ def print_human(summary: dict[str, Any]) -> None:
             "material_judgment_violations",
             "reclassification_events",
             "judgment_uplift_calls",
-            "solver_calls",
-            "advisor_calls",
-            "terra_calls",
-            "redundant_sol_calls",
+            "programmer_calls",
+            "product_manager_medium_calls",
+            "product_manager_high_calls",
+            "department_director_calls",
+            "redundant_product_manager_calls",
             "unjustified_retry_calls",
             "review_false_positives",
             "final_review_attempts",
@@ -400,8 +401,8 @@ def main() -> None:
     except jsonschema.ValidationError as exc:
         fail(f"result schema validation failed: {exc.message}")
 
-    if workloads_payload.get("schema_version") != "4.0":
-        fail("behavioral workload registry schema is not 4.0")
+    if workloads_payload.get("schema_version") != "4.1":
+        fail("behavioral workload registry schema is not 4.1")
 
     specs = workload_specs(workloads_payload)
     validate_run_semantics(payload["runs"], policy)

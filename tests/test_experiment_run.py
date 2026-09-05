@@ -4,1165 +4,389 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import subprocess
 import sys
 
 import pytest
 
+import test_experiment_campaign as campaign_fixture
+
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "scripts"
-RUN_VALIDATOR = SCRIPTS / "validate-experiment-run.py"
-POLICY = ROOT / "contracts" / "policy.json"
-sys.path.insert(0, str(SCRIPTS))
-from calibration_profile_contract import materialized_agent_type, role_contract_digest  # noqa: E402
-sys.path.pop(0)
+VALIDATOR_PATH = ROOT / "scripts" / "validate-experiment-run.py"
 
 
-def assurance_requirements(claim_kind: str = "model_effort") -> dict:
-    return {
-        "claim_kind": claim_kind,
-        "required": ["route", "permission_state"],
-        "allow_unknown": ["permission_provenance"],
-    }
-
-
-def load_run_validator():
-    sys.path.insert(0, str(SCRIPTS))
+def load_validator():
+    sys.path.insert(0, str(ROOT / "scripts"))
     try:
-        spec = importlib.util.spec_from_file_location("experiment_run_validator", RUN_VALIDATOR)
+        spec = importlib.util.spec_from_file_location("experiment_run_validator", VALIDATOR_PATH)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         return module
     finally:
-        sys.path.remove(str(SCRIPTS))
+        sys.path.remove(str(ROOT / "scripts"))
 
 
-VALIDATOR = load_run_validator()
+VALIDATOR = load_validator()
 
 
-@pytest.fixture(autouse=True)
-def normal_home_is_test_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(VALIDATOR.Path, "home", lambda: tmp_path)
+def canonical(value) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")).hexdigest()
 
 
-def test_validator_imports_without_unix_pwd_module():
-    assert "pwd" not in VALIDATOR.__dict__
-
-
-def head_sha() -> str:
-    result = subprocess.run(
-        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    return result.stdout.strip()
-
-
-def canonical_hash(payload: object) -> str:
-    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
-    return hashlib.sha256(raw).hexdigest()
-
-
-def text_hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def controls() -> dict:
-    return {
-        "main_session_route_fingerprint": "main:sol-high",
-        "permissions_fingerprint": "permissions:workspace-write",
-        "tool_surface_fingerprint": "tools:fixed-v1",
-        "project_rule_refs": ["AGENTS.md@sha256:abc"],
-    }
-
-
-def workload(*, role: str | None = None, stratum: str | None = "small_bounded") -> dict:
-    task = "Change one bounded behavior and verify it."
-    payload = {
-        "id": "W1",
-        "repository_url": "https://github.com/example/example.git",
-        "base_revision": "a" * 40,
-        "source_task_ref": "fixture:W1",
-        "task_text": task,
-        "task_sha256": text_hash(task),
-        "reset_procedure": ["git reset --hard BASE", "git clean -fdx"],
-        "acceptance": {
-            "rubric_id": "rubric-W1-v1",
-            "oracle_kind": "deterministic",
-            "verification": ["pytest focused-test"],
-        },
-        "controls": controls(),
-    }
-    if role is not None:
-        packet = "OBJECTIVE\nChange one bounded behavior.\nVERIFICATION\npytest focused-test"
-        payload["calibration_role"] = role
-        payload["responsibility_packet_sha256"] = text_hash(packet)
-        payload["responsibility_packet_ref"] = "fixture:calibration-packet-v1"
-    if stratum is not None:
-        payload["benchmark_stratum"] = stratum
-    return payload
-
-
-def product_campaign(*, stage: str = "exploratory") -> dict:
-    return {
-        "schema_version": "2.0",
-        "campaign_id": "product-campaign",
-        "stage": stage,
-        "materialization_mode": "shared_config",
-        "plugin_candidate_sha": head_sha(),
-        "host_target": {"product": "Codex", "version": "test-host-1", "platform": "linux-test"},
-        "repeat_policy": {
-            "minimum_completed_per_arm": 3 if stage == "formal" else 1,
-            "ordering": "interleaved",
-        },
-        "assurance_requirements": assurance_requirements("product_behavior"),
-        "experiment": {
-            "type": "product_benchmark",
-            "baseline_mode": "single_agent",
-            "candidate_mode": "dispatch",
-        },
-        "workloads": [workload()],
-    }
-
-
-def calibration_campaign() -> dict:
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    reader = policy["roles"]["reader"]
-    profile = __import__("tomllib").loads((ROOT / "agent-profiles" / "subagents-dispatch-reader.toml").read_text())
-    digest = role_contract_digest("reader", profile["description"], profile["developer_instructions"], "none")
-    control = {
-        "id": "reader-control",
-        "model": reader["model"],
-        "effort": reader["effort"],
-        "mutation_authority": reader["mutation_authority"],
-        "semantic_role": "reader", "configured_model": reader["model"], "configured_effort": reader["effort"], "materialized_agent_type": materialized_agent_type("calibration-campaign", "reader", "reader-control"), "role_contract_digest": digest,
-    }
-    challenger_effort = "xhigh"
-    challenger = {
-        "id": "reader-challenger",
-        "model": "gpt-5.6-terra",
-        "effort": challenger_effort,
-        "mutation_authority": reader["mutation_authority"],
-        "semantic_role": "reader", "configured_model": "gpt-5.6-terra", "configured_effort": challenger_effort, "materialized_agent_type": materialized_agent_type("calibration-campaign", "reader", "reader-challenger"), "role_contract_digest": digest,
-    }
-    return {
-        "schema_version": "2.0",
-        "campaign_id": "calibration-campaign",
-        "stage": "exploratory",
-        "materialization_mode": "profile_only",
-        "model_provider_control": "openai",
-        "plugin_candidate_sha": head_sha(),
-        "host_target": {"product": "Codex", "version": "test-host-1", "platform": "linux-test"},
-        "repeat_policy": {"minimum_completed_per_arm": 1, "ordering": "randomized"},
-        "assurance_requirements": assurance_requirements(),
-        "experiment": {
-            "type": "role_calibration",
-            "policy_promotion": False,
-            "promotion_criteria_ref": None,
-            "roles": [
-                {
-                    "role": "reader",
-                    "contract_ref": "contracts/routing.md#reader",
-                    "control": control,
-                    "challengers": [challenger],
-                }
-            ],
-        },
-        "workloads": [workload(role="reader", stratum=None)],
-    }
-
-
-def scalar_input(value: str | None, *, verdict: str = "verified", ref: str | None = "evidence:scalar") -> dict:
+def scalar(value, *, verdict: str = "verified", ref: str | None = "evidence:scalar") -> dict:
     return {"observed_value": value, "verdict": verdict, "evidence_ref": ref}
 
 
-def scalar_control(value: str | None, *, verdict: str = "verified", ref: str | None = "evidence:control") -> dict:
-    return {"observed_fingerprint": value, "verdict": verdict, "evidence_ref": ref}
+def measurement(status: str, value: int | None = None, ref: str | None = None) -> dict:
+    if status == "observed":
+        return {"status": status, "value": value, "source_ref": ref or "metrics:source"}
+    return {"status": status, "value": None, "source_ref": None}
 
 
-def input_evidence(campaign: dict, *, mode: str = "single_agent") -> dict:
-    item = campaign["workloads"][0]
-    calibration = campaign["experiment"]["type"] == "role_calibration"
-    plugin_state = (
-        "absent"
-        if campaign["experiment"]["type"] == "product_benchmark" and mode == "single_agent"
-        else campaign["plugin_candidate_sha"]
-    )
+def input_evidence(campaign: dict, workload: dict, *, plugin_value: str, calibration: bool) -> dict:
     packet = (
-        scalar_input(item["responsibility_packet_sha256"], ref="artifact:responsibility-packet")
+        scalar(workload["responsibility_packet_sha256"], ref="input:packet")
         if calibration
-        else scalar_input(None, verdict="not_applicable", ref=None)
+        else scalar(None, verdict="not_applicable", ref=None)
     )
     return {
-        "plugin_candidate": scalar_input(plugin_state, ref="plugin:observed-state"),
-        "host": {
-            "observed": campaign["host_target"],
-            "verdict": "verified",
-            "evidence_ref": "host:version-platform",
-        },
+        "plugin_candidate": scalar(plugin_value, ref="input:plugin"),
+        "host": {"observed": campaign["host_target"], "verdict": "verified", "evidence_ref": "input:host"},
         "repository": {
-            "observed": {
-                "repository_url": item["repository_url"],
-                "base_revision": item["base_revision"],
-            },
+            "observed": {"repository_url": workload["repository_url"], "base_revision": workload["base_revision"]},
             "verdict": "verified",
-            "evidence_ref": "git:remote-and-head",
+            "evidence_ref": "input:repo",
         },
-        "task_sha256": scalar_input(item["task_sha256"], ref="rollout:user-task-sha256"),
-        "reset_procedure_sha256": scalar_input(
-            canonical_hash(item["reset_procedure"]), ref="workspace:reset-procedure"
-        ),
-        "acceptance_sha256": scalar_input(
-            canonical_hash(item["acceptance"]), ref="oracle:acceptance-contract"
-        ),
+        "task_sha256": scalar(workload["task_sha256"], ref="input:task"),
+        "reset_procedure_sha256": scalar(canonical(workload["reset_procedure"]), ref="input:reset"),
+        "acceptance_sha256": scalar(canonical(workload["acceptance"]), ref="input:acceptance"),
         "responsibility_packet_sha256": packet,
         "controls": {
-            "main_session_route": scalar_control(
-                item["controls"]["main_session_route_fingerprint"], ref="host:main-route"
-            ),
-            "permissions": scalar_control(
-                item["controls"]["permissions_fingerprint"], ref="host:permissions"
-            ),
-            "tool_surface": scalar_control(
-                item["controls"]["tool_surface_fingerprint"], ref="host:tool-surface"
-            ),
+            "main_session_route": scalar(workload["controls"]["main_session_route_fingerprint"], ref="input:main-route"),
+            "permissions": scalar(workload["controls"]["permissions_fingerprint"], ref="input:permissions"),
+            "tool_surface": scalar(workload["controls"]["tool_surface_fingerprint"], ref="input:tools"),
             "project_rules": {
-                "observed_refs": item["controls"]["project_rule_refs"],
+                "observed_refs": workload["controls"]["project_rule_refs"],
                 "verdict": "verified",
-                "evidence_ref": "workspace:project-rules",
+                "evidence_ref": "input:rules",
             },
         },
     }
 
 
-def materialization(count: int | None, *, source: str | None = "host:child-set") -> dict:
+def metrics(*, children: int | None) -> dict:
+    child = measurement("unavailable") if children is None else (
+        measurement("not_applicable") if children == 0 else measurement("observed", 20, "metrics:child")
+    )
+    aggregate = measurement("unavailable") if children is None else measurement(
+        "observed", 100 if children == 0 else 120, "metrics:aggregate"
+    )
     return {
-        "status": "observed" if count is not None else "unavailable",
-        "count": count,
-        "source_ref": source if count is not None else source,
-    }
-
-
-def metric(status: str = "unavailable", value: int | None = None, source: str | None = None) -> dict:
-    return {"status": status, "value": value, "source_ref": source}
-
-
-def metrics(*, children: bool = False) -> dict:
-    main = metric("observed", 100, "rollout:main:tokens")
-    child = metric("observed", 40, "rollout:children:tokens") if children else metric("not_applicable")
-    aggregate = metric("observed", 140 if children else 100, "derived:reported-token-sum")
-    return {
-        "wall_clock_ms": metric("observed", 2500, "clock:run"),
-        "main_total_tokens": main,
+        "wall_clock_ms": measurement("observed", 1000, "metrics:clock"),
+        "main_total_tokens": measurement("observed", 100, "metrics:main"),
         "child_total_tokens": child,
         "aggregate_total_tokens": aggregate,
-        "main_context_peak_tokens": metric(),
-        "user_interventions": metric("observed", 0, "run:user-interventions"),
-        "semantic_reworks": metric("observed", 0, "receipt:semantic-reworks"),
-        "retries": metric("observed", 0, "receipt:retries"),
-        "review_rounds": metric("observed", 0, "receipt:review-rounds"),
-        "compactions": metric(),
+        "main_context_peak_tokens": measurement("observed", 50, "metrics:context"),
+        "user_interventions": measurement("observed", 0, "metrics:user"),
+        "semantic_reworks": measurement("observed", 0, "metrics:rework"),
+        "retries": measurement("observed", 0, "metrics:retry"),
+        "review_rounds": measurement("observed", 0, "metrics:review"),
+        "compactions": measurement("observed", 0, "metrics:compact"),
     }
+
+
+def permission_provenance(root: str, *, verdict: str = "verified") -> dict:
+    if verdict == "unknown":
+        return {
+            "source_kind": None, "source_id": None, "sandbox_policy_type": None,
+            "permission_profile_type": None, "evidence_source": "none",
+            "evidence_ref": None, "selection_evidence_ref": None, "verdict": "unknown",
+        }
+    return {
+        "source_kind": "parent_turn", "source_id": root,
+        "sandbox_policy_type": "danger-full-access", "permission_profile_type": "disabled",
+        "evidence_source": "native", "evidence_ref": "permission:source",
+        "selection_evidence_ref": "permission:selection", "verdict": verdict,
+    }
+
+
+def child_route(*, role: str, model: str, effort: str, root: str, provider: str | None = None) -> dict:
+    agent_type = {
+        "programmer": "subagents_dispatch_programmer",
+        "product_manager": "subagents_dispatch_product_manager",
+        "department_director": "subagents_dispatch_department_director",
+    }[role]
+    return {
+        "child_thread_id": f"child-{role}",
+        "parent_thread_id": root,
+        "role": role,
+        "requested": {"agent_type": agent_type, "model": model, "effort": effort, "evidence_ref": "route:request"},
+        "accepted": {"agent_type": agent_type, "model": model, "effort": effort, "verdict": "verified", "evidence_ref": "route:accepted"},
+        "observed": {
+            "agent_type": agent_type, "model": model, "effort": effort,
+            "sandbox_policy_type": "danger-full-access", "permission_profile_type": "disabled",
+            "model_provider": provider, "evidence_source": "native", "evidence_ref": "route:observed",
+        },
+        "permission_state_verdict": "verified",
+        "permission_provenance": permission_provenance(root),
+        "verdict": "verified",
+    }
+
+
+def campaign_hash(campaign: dict) -> str:
+    return canonical(campaign)
 
 
 def base_run(campaign: dict, *, mode: str = "single_agent") -> dict:
+    workload = campaign["workloads"][0]
+    calibration = campaign["experiment"]["type"] == "role_calibration"
+    root = "root-thread"
+    if calibration:
+        role = campaign["experiment"]["roles"][0]["role"]
+        arm = {"kind": "role_calibration", "role": role, "route_id": campaign["experiment"]["roles"][0]["challengers"][0]["id"]}
+        plugin = campaign["plugin_candidate_sha"]
+        provider = "unknown"
+    else:
+        arm = {"kind": "product_benchmark", "mode": mode}
+        plugin = "absent" if mode == "single_agent" else campaign["plugin_candidate_sha"]
+        provider = "not_applicable"
     return {
-        "schema_version": "1.0",
-        "run_id": f"run-W1-{mode}-1",
+        "schema_version": "2.0",
+        "run_id": "run-1",
         "campaign_id": campaign["campaign_id"],
-        "campaign_sha256": canonical_hash(campaign),
+        "campaign_sha256": campaign_hash(campaign),
         "plugin_candidate_sha": campaign["plugin_candidate_sha"],
         "stage": campaign["stage"],
         "experiment_type": campaign["experiment"]["type"],
-        "workload_id": "W1",
+        "workload_id": workload["id"],
         "repeat_index": 1,
-        "arm": {"kind": "product_benchmark", "mode": mode},
-        "root_thread_id": "root-thread-1",
+        "arm": arm,
+        "root_thread_id": root,
         "input_assurance": "verified",
-        "input_evidence": input_evidence(campaign, mode=mode),
-        "child_materialization": materialization(0),
+        "input_evidence": input_evidence(campaign, workload, plugin_value=plugin, calibration=calibration),
+        "child_materialization": {"status": "observed", "count": 0, "source_ref": "host:children"},
         "execution": {
-            "status": "completed",
-            "acceptance_status": "passed",
-            "oracle_refs": ["pytest:focused-test:PASS"],
-            "quality_score": None,
-            "quality_score_ref": None,
-            "result_ref": "git:result-sha",
-            "failure_ref": None,
+            "status": "completed", "acceptance_status": "passed", "oracle_refs": ["oracle:1"],
+            "quality_score": None, "quality_score_ref": None, "result_ref": "result:1", "failure_ref": None,
         },
-        "route_assurance": "not_applicable",
-        "permission_state_assurance": "not_applicable",
-        "permission_provenance_assurance": "not_applicable",
+        "route_assurance": "not_applicable" if mode == "single_agent" and not calibration else "unknown",
+        "permission_state_assurance": "not_applicable" if mode == "single_agent" and not calibration else "unknown",
+        "permission_provenance_assurance": "not_applicable" if mode == "single_agent" and not calibration else "unknown",
+        "provider_control_assurance": provider,
         "child_routes": [],
-        "metrics": metrics(children=False),
-        "evidence_artifact_ref": "artifact:run-W1-1",
+        "metrics": metrics(children=0),
+        "evidence_artifact_ref": "artifact:run-1",
     }
 
 
-def child_route(role: str = "worker", *, verdict: str = "verified") -> dict:
-    policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    spec = policy["roles"][role]
-    observed = {
-        "model": spec["model"],
-        "effort": spec["effort"],
-        "sandbox_policy_type": "danger-full-access",
-        "permission_profile_type": "disabled",
-        "agent_path": None,
-        "model_provider": None,
-    }
-    return {
-        "child_thread_id": f"child-{role}-1",
-        "parent_thread_id": "root-thread-1",
-        "agent_type": spec["agent_type"],
-        "role": role,
-        "observed": observed,
-        "permission_state_verdict": "verified",
-        "permission_provenance": {
-            "source_kind": "parent_turn",
-            "source_id": "root-thread-1",
-            "sandbox_policy_type": "danger-full-access",
-            "permission_profile_type": "disabled",
-            "evidence_source": "native",
-            "evidence_ref": "host:permission-source",
-            "selection_evidence_ref": "host:permission-selection",
-            "verdict": "verified",
-        },
-        "verdict": verdict,
-        "evidence_source": "native" if verdict != "unknown" else "none",
-        "evidence_ref": "runtime:child-1" if verdict != "unknown" else None,
-    }
-
-
-def write_campaign(tmp_path: Path, payload: dict) -> Path:
+def write_campaign(tmp_path: Path, campaign: dict) -> Path:
     path = tmp_path / "campaign.json"
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    path.write_text(json.dumps(campaign), encoding="utf-8")
     return path
 
 
 def validate(tmp_path: Path, campaign: dict, run: dict) -> dict:
-    if campaign["experiment"]["type"] == "role_calibration":
-        route = run["child_routes"][0]
-        if "provider_control_verdict" not in route:
-            route["observed"]["model_provider"] = campaign["model_provider_control"]
-        route.setdefault("provider_control_verdict", "verified")
-        evaluator_root = tmp_path / "evaluator"
-        evaluator_root.mkdir(exist_ok=True)
-        (evaluator_root / ".subagents-dispatch-evaluator-root.json").write_text(json.dumps({
-            "schema_version": 1, "managed_by": "subagents-dispatch-calibration",
-            "evaluator_root": str(evaluator_root),
-        }))
-        codex_home = tmp_path / ".codex"
-        agents = codex_home / "agents"
-        agents.mkdir(parents=True, exist_ok=True)
-        profile = agents / f"{route['materialized_agent_type']}.toml"
-        sys.path.insert(0, str(ROOT / "scripts"))
-        try:
-            from calibration_profiles import _load_policy, _profile_records
-            generated, _ = _profile_records(campaign, _load_policy())
-        finally:
-            sys.path.pop(0)
-        generated_item = next(
-            (item for item in generated if item["route_id"] == run["arm"]["route_id"]),
-            generated[0],
-        )
-        profile.write_bytes(generated_item["profile_bytes"])
-        route.setdefault("expected_profile_path", str(profile))
-        route.setdefault("expected_profile_sha256", hashlib.sha256(profile.read_bytes()).hexdigest())
-        if route["observed"].get("agent_path") is None:
-            route["observed"]["agent_path"] = f"/root/{route['materialized_agent_type']}"
-        route.setdefault("profile_origin_verdict", "verified")
-        sessions = codex_home / "sessions"
-        sessions.mkdir(parents=True, exist_ok=True)
-        child_id = route["child_thread_id"]
-        rollout_path = sessions / f"rollout-test-{child_id}.jsonl"
-        rollout_path.write_text("\n".join(json.dumps(item) for item in [
-            {"type": "session_meta", "payload": {
-                "id": child_id, "parent_thread_id": run["root_thread_id"],
-                "agent_role": route["observed_agent_type"],
-                "agent_path": route["observed"]["agent_path"],
-                "model_provider": route["observed"]["model_provider"],
-            }},
-            {"type": "turn_context", "payload": {
-                "model": route["observed"]["model"], "effort": route["observed"]["effort"],
-                "sandbox_policy": {"type": route["observed"]["sandbox_policy_type"]},
-                "permission_profile": {"type": route["observed"]["permission_profile_type"]},
-            }},
-        ]) + "\n", encoding="utf-8")
-        provisioning = sessions / "rollout-test-provisioning-task-1.jsonl"
-        provisioning.write_text("\n".join([
-            json.dumps({"type": "session_meta", "payload": {"id": "provisioning-task-1"}}),
-            json.dumps({"type": "turn_context", "payload": {"model": "test"}}),
-        ]) + "\n")
-        runtime_input = {
-            "subject": "child",
-            "expected": {
-                "agent_role": route["observed_agent_type"],
-                "model": route["configured_model"],
-                "effort": route["configured_effort"],
-                "agent_path": route["observed"]["agent_path"],
-                "model_provider": campaign["model_provider_control"],
-            },
-            "native": {
-                "thread_id": child_id,
-                "parent_thread_id": run["root_thread_id"],
-                "agent_role": route["observed_agent_type"],
-                "model": route["observed"]["model"],
-                "effort": route["observed"]["effort"],
-                "agent_path": route["observed"]["agent_path"],
-                "model_provider": route["observed"]["model_provider"],
-            },
-            "rollout": {
-                "thread_id": child_id,
-                "sessions_dir": str(sessions),
-                "expected_parent_thread_id": run["root_thread_id"],
-                "expected_agent_role": route["observed_agent_type"],
-            },
-        }
-        runtime_path = tmp_path / "runtime-evidence.json"
-        runtime_path.write_text(json.dumps(runtime_input), encoding="utf-8")
-        route.setdefault("runtime_evidence_ref", str(runtime_path))
-        route.setdefault("runtime_evidence_sha256", hashlib.sha256(runtime_path.read_bytes()).hexdigest())
-        parent = agents.stat()
-        identity = profile.stat()
-        campaign_path = evaluator_root / "campaign.json"
-        campaign_path.write_text(json.dumps(campaign))
-        manifest = {
-            "schema_version": VALIDATOR.CALIBRATION_MANIFEST_SCHEMA,
-            "managed_by": "subagents-dispatch-calibration",
-            "campaign_id": campaign["campaign_id"],
-            "campaign_sha256": canonical_hash(campaign),
-            "candidate_sha": campaign["plugin_candidate_sha"],
-            "materialization_mode": "profile_only",
-            "shared_config_mutations": [],
-            "provisioning_task_id": "provisioning-task-1",
-            "evaluator_root": str(evaluator_root),
-            "codex_home": str(codex_home),
-            "campaign_path": str(campaign_path),
-            "campaign_raw_sha256": hashlib.sha256(campaign_path.read_bytes()).hexdigest(),
-            "environment_baseline": {},
-            "host_home_identity": {
-                "active_codex_home": str(codex_home),
-                "provisioning_rollout_path": str(provisioning),
-                "provisioning_rollout_sha256": hashlib.sha256(provisioning.read_bytes()).hexdigest(),
-            },
-            "profiles": [{
-                "campaign_id": campaign["campaign_id"],
-                "campaign_sha256": canonical_hash(campaign),
-                "candidate_sha": campaign["plugin_candidate_sha"],
-                "route_id": run["arm"]["route_id"],
-                "materialized_agent_type": route["materialized_agent_type"],
-                "filename": profile.name,
-                "path": route["expected_profile_path"],
-                "sha256": route["expected_profile_sha256"],
-                "staging_path": str(agents / f".{route['materialized_agent_type']}.calibration-staging"),
-                "semantic_role": route["semantic_role"],
-                "role_contract_digest": route["role_contract_digest"],
-                "configured_model": route["configured_model"],
-                "configured_effort": route["configured_effort"],
-                "device": identity.st_dev, "inode": identity.st_ino,
-                "parent_device": parent.st_dev, "parent_inode": parent.st_ino,
-                "status": "COMMITTED",
-            }],
-        }
-        manifest["owned_objects"] = [{
-            "object_type": "file",
-            "path": route["expected_profile_path"],
-            "sha256": route["expected_profile_sha256"],
-        }]
-        manifest_path = evaluator_root / ".subagents-dispatch-calibration.json"
-        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-        run.setdefault("materialization_manifest_ref", str(manifest_path))
-        run.setdefault("profile_origin_assurance", route["profile_origin_verdict"])
-        run.setdefault("provider_control_assurance", route["provider_control_verdict"])
     return VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
 
 
-def add_one_child(run: dict, route: dict | None = None) -> None:
-    run["child_routes"] = [route or child_route()]
-    run["child_materialization"] = materialization(1)
-    run["route_assurance"] = run["child_routes"][0]["verdict"]
-    run["permission_state_assurance"] = run["child_routes"][0]["permission_state_verdict"]
-    run["permission_provenance_assurance"] = run["child_routes"][0]["permission_provenance"]["verdict"]
-    run["metrics"] = metrics(children=True)
+def add_route(run: dict, route: dict) -> None:
+    run["child_routes"] = [route]
+    run["child_materialization"] = {"status": "observed", "count": 1, "source_ref": "host:children"}
+    run["route_assurance"] = route["verdict"]
+    run["permission_state_assurance"] = route["permission_state_verdict"]
+    run["permission_provenance_assurance"] = route["permission_provenance"]["verdict"]
+    run["metrics"] = metrics(children=1)
 
 
-def test_product_single_agent_run_binds_exact_campaign_without_child_routes(tmp_path: Path):
-    campaign = product_campaign()
+def test_single_agent_product_run_is_valid_without_child_routes(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
     result = validate(tmp_path, campaign, base_run(campaign))
     assert result["run_valid"] is True
-    assert result["input_assurance"] == "verified"
     assert result["materialized_children"] == 0
     assert result["route_assurance"] == "not_applicable"
-
-
-def test_product_dispatch_run_accepts_verified_policy_route(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    add_one_child(run)
-    result = validate(tmp_path, campaign, run)
-    assert result["materialized_children"] == 1
-    assert result["route_assurance"] == "verified"
-
-
-def test_zero_child_dispatch_requires_observed_zero_materialization(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["materialized_children"] == 0
-
-    run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
-    run["route_assurance"] = "unknown"
-    run["permission_state_assurance"] = "unknown"
-    run["permission_provenance_assurance"] = "unknown"
-    run["metrics"]["child_total_tokens"] = metric("unavailable")
-    run["metrics"]["aggregate_total_tokens"] = metric("unavailable")
-    result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["materialized_children"] is None
-    assert result["route_assurance"] == "unknown"
-
-
-def test_materialized_child_count_cannot_omit_or_invent_route_rows(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    run["child_materialization"] = materialization(1)
-    run["route_assurance"] = "unknown"
-    run["permission_state_assurance"] = "unknown"
-    run["permission_provenance_assurance"] = "unknown"
-    run["metrics"]["child_total_tokens"] = metric("unavailable")
-    run["metrics"]["aggregate_total_tokens"] = metric("unavailable")
-    with pytest.raises(SystemExit, match="count must equal the number of child_routes"):
-        validate(tmp_path, campaign, run)
-
-    run = base_run(campaign, mode="dispatch")
-    run["child_routes"] = [child_route()]
-    with pytest.raises(SystemExit, match="count must equal the number of child_routes"):
-        validate(tmp_path, campaign, run)
-
-
-def test_single_agent_requires_observed_zero_project_children(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    run["child_materialization"] = materialization(1)
-    run["child_routes"] = [child_route()]
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
-    with pytest.raises(SystemExit, match="single_agent benchmark arm requires observed project child count = 0"):
-        validate(tmp_path, campaign, run)
-
-
-def test_formal_failed_run_is_preserved_as_valid_evidence(tmp_path: Path):
-    campaign = product_campaign(stage="formal")
-    run = base_run(campaign)
-    run["execution"].update(
-        status="failed",
-        acceptance_status="unknown",
-        oracle_refs=[],
-        result_ref=None,
-        failure_ref="run:tool-failure",
-    )
-    result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["execution_status"] == "failed"
-
-
-def test_non_completed_execution_cannot_claim_passed_acceptance(tmp_path: Path):
-    campaign = product_campaign()
-    for status in ["failed", "interrupted", "unknown"]:
-        run = base_run(campaign)
-        run["execution"]["status"] = status
-        run["execution"]["failure_ref"] = "run:not-complete" if status != "unknown" else None
-        with pytest.raises(SystemExit, match="non-completed execution"):
-            validate(tmp_path, campaign, run)
-
-
-def test_run_rejects_wrong_campaign_hash(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    run["campaign_sha256"] = "f" * 64
-    with pytest.raises(SystemExit, match="campaign_sha256"):
-        validate(tmp_path, campaign, run)
-
-
-def test_frozen_inputs_cannot_be_copied_into_observed_without_evidence_refs(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    run["input_evidence"]["controls"]["tool_surface"]["evidence_ref"] = None
-    with pytest.raises(SystemExit, match="tool_surface.evidence_ref"):
-        validate(tmp_path, campaign, run)
-
-    run = base_run(campaign)
-    run["input_evidence"]["host"]["evidence_ref"] = None
-    with pytest.raises(SystemExit, match="input_evidence.host.evidence_ref"):
-        validate(tmp_path, campaign, run)
-
-
-def test_single_agent_baseline_must_attest_plugin_absence(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    plugin = run["input_evidence"]["plugin_candidate"]
-    plugin["observed_value"] = campaign["plugin_candidate_sha"]
-    with pytest.raises(SystemExit, match="plugin_candidate.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-    plugin["verdict"] = "failed"
-    run["input_assurance"] = "failed"
-    result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["input_assurance"] == "failed"
-
-
-def test_dispatch_must_attest_exact_plugin_candidate(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    plugin = run["input_evidence"]["plugin_candidate"]
-    plugin["observed_value"] = "absent"
-    with pytest.raises(SystemExit, match="plugin_candidate.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-
-def test_reset_and_acceptance_inputs_are_attested_not_assumed(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    reset = run["input_evidence"]["reset_procedure_sha256"]
-    reset["observed_value"] = "0" * 64
-    with pytest.raises(SystemExit, match="reset_procedure_sha256.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-    run = base_run(campaign)
-    acceptance = run["input_evidence"]["acceptance_sha256"]
-    acceptance["observed_value"] = "f" * 64
-    with pytest.raises(SystemExit, match="acceptance_sha256.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-
-def test_unknown_input_evidence_is_preserved_and_derives_unknown_assurance(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    item = run["input_evidence"]["controls"]["main_session_route"]
-    item.update(observed_fingerprint=None, verdict="unknown", evidence_ref="host:route-unavailable")
-    run["input_assurance"] = "unknown"
-    result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["input_assurance"] == "unknown"
-
-
-def test_observed_input_drift_must_be_recorded_as_failed_not_hidden(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    item = run["input_evidence"]["controls"]["tool_surface"]
-    item["observed_fingerprint"] = "tools:drifted"
-    with pytest.raises(SystemExit, match="requires verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-    item["verdict"] = "failed"
-    run["input_assurance"] = "failed"
-    result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["input_assurance"] == "failed"
-
-
-def test_host_repository_and_task_evidence_bind_actual_inputs(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    run["input_evidence"]["repository"]["observed"]["base_revision"] = "b" * 40
-    with pytest.raises(SystemExit, match="repository.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-    run = base_run(campaign)
-    run["input_evidence"]["task_sha256"]["observed_value"] = "0" * 64
-    with pytest.raises(SystemExit, match="task_sha256.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-
-def test_product_benchmark_packet_evidence_is_explicitly_not_applicable(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign)
-    packet = run["input_evidence"]["responsibility_packet_sha256"]
-    packet.update(observed_value="c" * 64, verdict="verified", evidence_ref="fake:packet")
-    with pytest.raises(SystemExit, match="must be not_applicable"):
-        validate(tmp_path, campaign, run)
-
-
-def test_configured_or_self_reported_route_source_cannot_be_observed_evidence(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    route = child_route()
-    route["evidence_source"] = "configured"
-    add_one_child(run, route)
-    with pytest.raises(SystemExit, match="schema validation"):
-        validate(tmp_path, campaign, run)
-
-
-def test_evidence_source_none_cannot_carry_observed_route_values(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    route = child_route(verdict="unknown")
-    add_one_child(run, route)
-    with pytest.raises(SystemExit, match="evidence_source=none must keep all observed route fields null"):
-        validate(tmp_path, campaign, run)
-
-
-@pytest.mark.parametrize(
-    ("target_path", "value", "message"),
-    [
-        (("observed", "model"), "gpt-5.6-sol", "mismatch requires verdict=failed"),
-        (
-            ("permission_provenance", "sandbox_policy_type"),
-            "read-only",
-            "permission provenance verdict must be 'failed'",
-        ),
-    ],
-    ids=["route-model", "permission-provenance-sandbox"],
-)
-def test_verified_child_route_rejects_observed_mismatch(
-    tmp_path: Path, target_path: tuple[str, ...], value: str, message: str
-):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    route = child_route()
-    target = route
-    for key in target_path[:-1]:
-        target = target[key]
-    target[target_path[-1]] = value
-    add_one_child(run, route)
-    with pytest.raises(SystemExit, match=message):
-        validate(tmp_path, campaign, run)
-
-
-
-def test_unknown_permission_provenance_does_not_erase_verified_route_or_state(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    route = child_route()
-    route["permission_provenance"] = {
-        "source_kind": None,
-        "source_id": None,
-        "sandbox_policy_type": None,
-        "permission_profile_type": None,
-        "evidence_source": "none",
-        "evidence_ref": None,
-        "selection_evidence_ref": None,
-        "verdict": "unknown",
-    }
-    route["evidence_source"] = "native"
-    route["evidence_ref"] = "runtime:permission-source-unavailable"
-    add_one_child(run, route)
-    result = validate(tmp_path, campaign, run)
-    assert result["route_assurance"] == "verified"
-    assert result["permission_state_assurance"] == "verified"
-    assert result["permission_provenance_assurance"] == "unknown"
     assert result["claim_eligible"] is True
 
 
-def test_unknown_permission_provenance_cannot_support_a_source_claim(tmp_path: Path):
-    campaign = product_campaign()
-    campaign["assurance_requirements"] = {
-        "claim_kind": "product_behavior",
-        "required": ["route", "permission_state", "permission_provenance"],
-        "allow_unknown": [],
-    }
+def test_dispatch_accepts_programmer_and_both_product_manager_production_efforts(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
+    for role, model, effort in (
+        ("programmer", "gpt-5.6-luna", "max"),
+        ("product_manager", "gpt-5.6-sol", "medium"),
+        ("product_manager", "gpt-5.6-sol", "high"),
+        ("department_director", "gpt-6-astra", "high"),
+    ):
+        run = base_run(campaign, mode="dispatch")
+        route = child_route(role=role, model=model, effort=effort, root=run["root_thread_id"])
+        add_route(run, route)
+        run["provider_control_assurance"] = "not_applicable"
+        result = validate(tmp_path, campaign, run)
+        assert result["route_assurance"] == "verified"
+
+
+def test_product_dispatch_rejects_route_outside_production_policy(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
     run = base_run(campaign, mode="dispatch")
-    route = child_route()
-    route["permission_provenance"] = {
-        "source_kind": "parent_turn",
-        "source_id": run["root_thread_id"],
-        "sandbox_policy_type": "danger-full-access",
-        "permission_profile_type": "disabled",
-        "evidence_source": "native",
-        "evidence_ref": "host:permission-source",
-        "selection_evidence_ref": None,
-        "verdict": "unknown",
-    }
-    add_one_child(run, route)
-
-    result = validate(tmp_path, campaign, run)
-
-    assert result["route_assurance"] == "verified"
-    assert result["permission_state_assurance"] == "verified"
-    assert result["permission_provenance_assurance"] == "unknown"
-    assert result["claim_eligible"] is False
-
-    route["permission_provenance"]["verdict"] = "verified"
-    run["permission_provenance_assurance"] = "verified"
-    with pytest.raises(SystemExit, match="permission provenance verdict must be 'unknown'"):
+    add_route(run, child_route(role="product_manager", model="gpt-5.6-sol", effort="xhigh", root=run["root_thread_id"]))
+    run["provider_control_assurance"] = "not_applicable"
+    with pytest.raises(SystemExit, match="outside production policy"):
         validate(tmp_path, campaign, run)
 
 
-def test_duplicate_child_identity_and_forged_route_assurance_fail_closed(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    first = child_route()
-    second = child_route(role="reader")
-    second["child_thread_id"] = first["child_thread_id"]
-    run["child_routes"] = [first, second]
-    run["child_materialization"] = materialization(2)
-    run["route_assurance"] = "verified"
-    run["metrics"] = metrics(children=True)
-    with pytest.raises(SystemExit, match="duplicates child_thread_id"):
-        validate(tmp_path, campaign, run)
-
-    run = base_run(campaign, mode="dispatch")
-    unknown = child_route(verdict="unknown")
-    unknown["observed"] = {
-        "model": None,
-        "effort": None,
-        "sandbox_policy_type": None,
-        "permission_profile_type": None,
-        "agent_path": None,
-        "model_provider": None,
-    }
-    unknown["permission_state_verdict"] = "unknown"
-    unknown["permission_provenance"] = {
-        "source_kind": None,
-        "source_id": None,
-        "sandbox_policy_type": None,
-        "permission_profile_type": None,
-        "evidence_source": "none",
-        "evidence_ref": None,
-        "selection_evidence_ref": None,
-        "verdict": "unknown",
-    }
-    add_one_child(run, unknown)
-    run["route_assurance"] = "verified"
-    with pytest.raises(SystemExit, match="route_assurance must be 'unknown'"):
-        validate(tmp_path, campaign, run)
-
-
-def calibration_run(campaign: dict) -> dict:
+def test_calibration_accepts_frozen_challenger_without_temporary_profile_identity(tmp_path: Path):
+    campaign = campaign_fixture.calibration_campaign(role_id="programmer")
     challenger = campaign["experiment"]["roles"][0]["challengers"][0]
     run = base_run(campaign)
-    run.update(
-        run_id="run-reader-challenger-1",
-        experiment_type="role_calibration",
-        arm={"kind": "role_calibration", "role": "reader", "route_id": challenger["id"]},
-        route_assurance="verified",
-        permission_state_assurance="verified",
-        permission_provenance_assurance="verified",
-        child_materialization=materialization(1),
-        metrics=metrics(children=True),
+    route = child_route(
+        role="programmer", model=challenger["model"], effort=challenger["effort"],
+        root=run["root_thread_id"], provider=campaign["model_provider_control"],
     )
-    run["root_thread_id"] = "11111111-1111-4111-8111-111111111111"
-    run["child_routes"] = [
-        {
-            "child_thread_id": "22222222-2222-4222-8222-222222222222",
-            "parent_thread_id": run["root_thread_id"],
-            "agent_type": challenger["materialized_agent_type"],
-            "requested_agent_type": challenger["materialized_agent_type"],
-            "accepted_agent_type": challenger["materialized_agent_type"],
-            "accepted_agent_type_verdict": "verified",
-            "accepted_agent_type_evidence_ref": "host:accepted-agent",
-            "observed_agent_type": challenger["materialized_agent_type"],
-            "semantic_role": "reader",
-            "materialized_agent_type": challenger["materialized_agent_type"],
-            "role_contract_digest": challenger["role_contract_digest"],
-            "configured_model": challenger["configured_model"],
-            "configured_effort": challenger["configured_effort"],
-            "role": "reader",
-            "observed": {
-                "model": challenger["model"],
-                "effort": challenger["effort"],
-                "sandbox_policy_type": "danger-full-access",
-                "permission_profile_type": "disabled",
-                "agent_path": None,
-                "model_provider": None,
-            },
-            "permission_state_verdict": "verified",
-            "permission_provenance": {
-                "source_kind": "parent_turn",
-                "source_id": run["root_thread_id"],
-                "sandbox_policy_type": "danger-full-access",
-                "permission_profile_type": "disabled",
-                "evidence_source": "both",
-                "evidence_ref": "host:permission-source",
-                "selection_evidence_ref": "host:permission-selection",
-                "verdict": "verified",
-            },
-            "verdict": "verified",
-            "evidence_source": "both",
-            "evidence_ref": "runtime:reader-challenger",
-        }
-    ]
-    run["fresh_root_evidence"] = {
-        "provisioning_task_id": "provisioning-task-1",
-        "execution_task_id": run["root_thread_id"],
-        "fork_turns": "none",
-        "fresh_task_evidence_ref": "host:fresh-task-boundary",
-    }
-    return run
-
-
-def test_role_calibration_run_binds_packet_and_declared_challenger(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
+    add_route(run, route)
+    run["provider_control_assurance"] = "verified"
     result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
-    assert result["input_assurance"] == "verified"
-    assert result["materialized_children"] == 1
-    assert result["profile_origin_assurance"] == "verified"
-    assert result["provider_control_assurance"] == "verified"
     assert result["claim_eligible"] is True
+    assert "materialization_manifest_ref" not in run
+    assert "materialized_agent_type" not in route
 
-    run["arm"]["route_id"] = "undeclared-route"
-    with pytest.raises(SystemExit, match="not a declared route"):
+
+def test_calibration_route_mismatch_is_failed_not_rewritten(tmp_path: Path):
+    campaign = campaign_fixture.calibration_campaign()
+    challenger = campaign["experiment"]["roles"][0]["challengers"][0]
+    run = base_run(campaign)
+    route = child_route(role="programmer", model=challenger["model"], effort=challenger["effort"], root=run["root_thread_id"], provider="openai")
+    route["observed"]["model"] = "wrong-model"
+    add_route(run, route)
+    run["provider_control_assurance"] = "verified"
+    with pytest.raises(SystemExit, match="route verdict"):
         validate(tmp_path, campaign, run)
-
-
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("materialized_agent_type", "subagents_dispatch_calibration_reader_wrong_0000000000000000"),
-        ("role_contract_digest", "0" * 64),
-        ("configured_model", "gpt-5.6-sol"),
-        ("configured_effort", "low"),
-    ],
-)
-def test_role_calibration_child_identity_and_configured_metadata_must_match_campaign(
-    tmp_path: Path, field: str, value: str
-):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    run["child_routes"][0][field] = value
-    with pytest.raises(SystemExit, match=f"calibration child {field}"):
-        validate(tmp_path, campaign, run)
-
-
-def test_observed_calibration_route_mismatch_is_failed_without_overwriting_observation(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    route = run["child_routes"][0]
-    route["observed"]["model"] = "gpt-5.6-sol"
-    with pytest.raises(SystemExit, match="mismatch requires verdict=failed"):
-        validate(tmp_path, campaign, run)
-
     route["verdict"] = "failed"
     run["route_assurance"] = "failed"
     result = validate(tmp_path, campaign, run)
     assert result["route_assurance"] == "failed"
-    assert route["observed"]["model"] == "gpt-5.6-sol"
-
-
-def test_calibration_profile_origin_requires_exact_owned_path_and_current_sha(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    route = run["child_routes"][0]
-    route["observed"]["agent_path"] = "/root/different_task"
-    result = validate(tmp_path, campaign, run)
-    assert result["profile_origin_assurance"] == "verified"
-    assert route["observed"]["agent_path"] == "/root/different_task"
-
-    run = calibration_run(campaign)
-    validate(tmp_path, campaign, run)
-    Path(run["child_routes"][0]["expected_profile_path"]).write_text("drifted\n")
-    run["child_routes"][0]["profile_origin_verdict"] = "failed"
-    run["profile_origin_assurance"] = "failed"
-    result = VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
+    assert route["observed"]["model"] == "wrong-model"
     assert result["claim_eligible"] is False
 
 
-def test_calibration_provider_control_missing_or_different_is_ineligible(tmp_path: Path):
-    campaign = calibration_campaign()
-    for provider, verdict in [(None, "unknown")]:
-        run = calibration_run(campaign)
-        route = run["child_routes"][0]
-        route["provider_control_verdict"] = verdict
-        route["observed"]["model_provider"] = provider
-        run["provider_control_assurance"] = verdict
-        result = validate(tmp_path, campaign, run)
-        assert result["provider_control_assurance"] == verdict
-        assert result["claim_eligible"] is False
-
-    run = calibration_run(campaign)
-    route = run["child_routes"][0]
-    route["provider_control_verdict"] = "failed"
-    route["observed"]["model_provider"] = "external"
-    run["provider_control_assurance"] = "failed"
-    with pytest.raises(SystemExit, match="runtime evidence|provider"):
-        validate(tmp_path, campaign, run)
-
-
-def test_calibration_rejects_forged_profile_or_provider_assurance(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    run["profile_origin_assurance"] = "unknown"
-    with pytest.raises(SystemExit, match="profile_origin_assurance"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
+def test_calibration_provider_control_is_observed_and_claim_gating(tmp_path: Path):
+    campaign = campaign_fixture.calibration_campaign()
+    challenger = campaign["experiment"]["roles"][0]["challengers"][0]
+    run = base_run(campaign)
+    route = child_route(role="programmer", model=challenger["model"], effort=challenger["effort"], root=run["root_thread_id"], provider=None)
+    add_route(run, route)
     run["provider_control_assurance"] = "unknown"
-    with pytest.raises(SystemExit, match="provider_control_assurance"):
-        validate(tmp_path, campaign, run)
-
-
-def test_calibration_rejects_forged_manifest_ownership_or_runtime_artifact(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    validate(tmp_path, campaign, run)
-    manifest_path = Path(run["materialization_manifest_ref"])
-    manifest = json.loads(manifest_path.read_text())
-    manifest["owned_objects"] = []
-    manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(SystemExit, match="does not own"):
-        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
-
-    run = calibration_run(campaign)
-    validate(tmp_path, campaign, run)
-    artifact_path = Path(run["child_routes"][0]["runtime_evidence_ref"])
-    artifact = json.loads(artifact_path.read_text())
-    artifact["local"] = {**artifact["native"], "agent_path": "/root/other_task"}
-    artifact_path.write_text(json.dumps(artifact))
-    run["child_routes"][0]["runtime_evidence_sha256"] = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
-    with pytest.raises(SystemExit, match="conflict"):
-        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
-
-    run = calibration_run(campaign)
-    validate(tmp_path, campaign, run)
-    artifact_path = Path(run["child_routes"][0]["runtime_evidence_ref"])
-    artifact = json.loads(artifact_path.read_text())
-    artifact["rollout"]["thread_id"] = "33333333-3333-4333-8333-333333333333"
-    artifact_path.write_text(json.dumps(artifact))
-    run["child_routes"][0]["runtime_evidence_sha256"] = hashlib.sha256(
-        artifact_path.read_bytes()
-    ).hexdigest()
-    with pytest.raises(SystemExit, match="rollout identity|no rollout filename matched"):
-        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
-
-
-def test_calibration_rejects_synthetic_partial_manifest(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    validate(tmp_path, campaign, run)
-    manifest_path = Path(run["materialization_manifest_ref"])
-    manifest = json.loads(manifest_path.read_text())
-    manifest.pop("environment_baseline")
-    manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(SystemExit, match="exact calibration producer artifact"):
-        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
-
-
-def test_calibration_rejects_unbound_provisioning_rollout(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    validate(tmp_path, campaign, run)
-    manifest_path = Path(run["materialization_manifest_ref"])
-    manifest = json.loads(manifest_path.read_text())
-    rollout = Path(manifest["host_home_identity"]["provisioning_rollout_path"])
-    rollout.write_text(json.dumps({"type": "session_meta", "payload": {"id": "other"}}) + "\n")
-    manifest["host_home_identity"]["provisioning_rollout_sha256"] = hashlib.sha256(
-        rollout.read_bytes()
-    ).hexdigest()
-    manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(SystemExit, match="does not identify preparation"):
-        VALIDATOR.validate_run(run, write_campaign(tmp_path, campaign))
-
-
-def test_product_run_rejects_calibration_agent_identity_prefix(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    route = child_route()
-    route["materialized_agent_type"] = "subagents_dispatch_calibration_reader_fake"
-    add_one_child(run, route)
-    with pytest.raises(SystemExit, match="cannot use calibration materialized_agent_type"):
-        validate(tmp_path, campaign, run)
-
-
-def test_calibration_requires_distinct_fresh_roots_and_verified_agent_identity(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    run["fresh_root_evidence"]["execution_task_id"] = run["fresh_root_evidence"]["provisioning_task_id"]
-    with pytest.raises(SystemExit, match="different provisioning and execution tasks"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
-    run["fresh_root_evidence"]["fork_turns"] = "all"
-    with pytest.raises(SystemExit, match="schema validation"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
-    run["fresh_root_evidence"]["execution_task_id"] = "different-task"
-    with pytest.raises(SystemExit, match="must equal the run root_thread_id"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
-    run["fresh_root_evidence"]["fresh_task_evidence_ref"] = "TBD"
-    with pytest.raises(SystemExit, match="fresh_task_evidence_ref"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
-    run["fresh_root_evidence"]["host_restart_evidence_ref"] = "host:restart"
-    with pytest.raises(SystemExit, match="schema validation"):
-        validate(tmp_path, campaign, run)
-
-    run = calibration_run(campaign)
-    run["child_routes"][0]["accepted_agent_type"] = "wrong"
-    with pytest.raises(SystemExit, match="accepted_agent_type"):
-        validate(tmp_path, campaign, run)
-
-    for invalid_ref in (None, "", "TBD"):
-        run = calibration_run(campaign)
-        run["child_routes"][0]["accepted_agent_type_evidence_ref"] = invalid_ref
-        with pytest.raises(SystemExit, match="accepted_agent_type_evidence_ref"):
-            validate(tmp_path, campaign, run)
-
-
-def test_role_calibration_requires_observed_exactly_one_child(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
-    with pytest.raises(SystemExit, match="requires an observed materialized child count"):
-        validate(tmp_path, campaign, run)
-
-
-def test_calibration_packet_drift_cannot_be_attributed_to_model_effort(tmp_path: Path):
-    campaign = calibration_campaign()
-    run = calibration_run(campaign)
-    run["input_evidence"]["responsibility_packet_sha256"]["observed_value"] = "d" * 64
-    with pytest.raises(SystemExit, match="responsibility_packet_sha256.*verdict=failed"):
-        validate(tmp_path, campaign, run)
-
-    run["input_evidence"]["responsibility_packet_sha256"]["verdict"] = "failed"
-    run["input_assurance"] = "failed"
     result = validate(tmp_path, campaign, run)
-    assert result["run_valid"] is True
+    assert result["provider_control_assurance"] == "unknown"
+    assert result["claim_eligible"] is False
+
+    run = base_run(campaign)
+    route = child_route(role="programmer", model=challenger["model"], effort=challenger["effort"], root=run["root_thread_id"], provider="other-provider")
+    add_route(run, route)
+    run["provider_control_assurance"] = "failed"
+    result = validate(tmp_path, campaign, run)
+    assert result["provider_control_assurance"] == "failed"
+    assert result["claim_eligible"] is False
+
+
+def test_materialized_child_count_and_duplicate_identity_fail_closed(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
+    run = base_run(campaign, mode="dispatch")
+    run["child_materialization"] = {"status": "observed", "count": 1, "source_ref": "host:children"}
+    with pytest.raises(SystemExit, match="count must equal"):
+        validate(tmp_path, campaign, run)
+
+    run = base_run(campaign, mode="dispatch")
+    first = child_route(role="programmer", model="gpt-5.6-luna", effort="max", root=run["root_thread_id"])
+    second = json.loads(json.dumps(first))
+    run["child_routes"] = [first, second]
+    run["child_materialization"] = {"status": "observed", "count": 2, "source_ref": "host:children"}
+    run["route_assurance"] = run["permission_state_assurance"] = run["permission_provenance_assurance"] = "verified"
+    run["provider_control_assurance"] = "not_applicable"
+    run["metrics"] = metrics(children=1)
+    with pytest.raises(SystemExit, match="duplicates child_thread_id"):
+        validate(tmp_path, campaign, run)
+
+
+def test_unavailable_materialization_preserves_unknown_assurance(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
+    run = base_run(campaign, mode="dispatch")
+    run["child_materialization"] = {"status": "unavailable", "count": None, "source_ref": "host:children-unavailable"}
+    run["route_assurance"] = run["permission_state_assurance"] = run["permission_provenance_assurance"] = "unknown"
+    run["provider_control_assurance"] = "not_applicable"
+    run["metrics"] = metrics(children=None)
+    result = validate(tmp_path, campaign, run)
+    assert result["materialized_children"] is None
+    assert result["route_assurance"] == "unknown"
+
+
+def test_input_drift_must_be_recorded_as_failed_and_packet_is_real_calibration_input(tmp_path: Path):
+    campaign = campaign_fixture.calibration_campaign()
+    run = base_run(campaign)
+    run["input_evidence"]["task_sha256"]["observed_value"] = "0" * 64
+    with pytest.raises(SystemExit, match="mismatch requires verdict=failed"):
+        validate(tmp_path, campaign, run)
+    run["input_evidence"]["task_sha256"]["verdict"] = "failed"
+    run["input_assurance"] = "failed"
+    run["child_materialization"] = {"status": "unavailable", "count": None, "source_ref": "host:none"}
+    run["route_assurance"] = run["permission_state_assurance"] = run["permission_provenance_assurance"] = "unknown"
+    run["provider_control_assurance"] = "unknown"
+    run["metrics"] = metrics(children=None)
+    result = validate(tmp_path, campaign, run)
     assert result["input_assurance"] == "failed"
 
-
-def test_measurements_require_provenance_and_reported_token_totals_must_reconcile(tmp_path: Path):
-    campaign = product_campaign()
     run = base_run(campaign)
-    run["metrics"]["wall_clock_ms"] = metric("observed", 1000, None)
-    with pytest.raises(SystemExit, match="source_ref"):
-        validate(tmp_path, campaign, run)
-
-    run = base_run(campaign, mode="dispatch")
-    add_one_child(run)
-    run["metrics"]["aggregate_total_tokens"]["value"] = 999
-    with pytest.raises(SystemExit, match="aggregate_total_tokens"):
+    run["input_evidence"]["responsibility_packet_sha256"]["observed_value"] = "f" * 64
+    with pytest.raises(SystemExit, match="responsibility_packet_sha256"):
         validate(tmp_path, campaign, run)
 
 
-def test_unavailable_materialization_cannot_mark_child_tokens_not_applicable(tmp_path: Path):
-    campaign = product_campaign()
-    run = base_run(campaign, mode="dispatch")
-    run["child_materialization"] = materialization(None, source="host:child-set-unavailable")
-    run["route_assurance"] = "unknown"
-    run["permission_state_assurance"] = "unknown"
-    run["permission_provenance_assurance"] = "unknown"
-    with pytest.raises(SystemExit, match="unavailable child materialization"):
+def test_failed_execution_is_preserved_but_cannot_be_claim_eligible(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
+    run = base_run(campaign)
+    run["execution"] = {
+        "status": "failed", "acceptance_status": "unknown", "oracle_refs": [],
+        "quality_score": None, "quality_score_ref": None, "result_ref": None, "failure_ref": "failure:1",
+    }
+    result = validate(tmp_path, campaign, run)
+    assert result["run_valid"] is True
+    assert result["execution_status"] == "failed"
+    assert result["claim_eligible"] is False
+
+
+def test_noncompleted_cannot_claim_passed_acceptance_and_pass_requires_oracle_result(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
+    run = base_run(campaign)
+    run["execution"]["status"] = "interrupted"
+    with pytest.raises(SystemExit, match="non-completed"):
         validate(tmp_path, campaign, run)
-
-
-def test_passed_acceptance_requires_oracle_and_result_refs(tmp_path: Path):
-    campaign = product_campaign()
     run = base_run(campaign)
     run["execution"]["oracle_refs"] = []
     with pytest.raises(SystemExit, match="oracle_ref"):
         validate(tmp_path, campaign, run)
 
+
+def test_measurement_provenance_and_token_reconciliation_are_required(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
     run = base_run(campaign)
-    run["execution"]["result_ref"] = None
-    with pytest.raises(SystemExit, match="result_ref"):
+    run["metrics"]["wall_clock_ms"] = {"status": "observed", "value": 1, "source_ref": None}
+    with pytest.raises(SystemExit, match="source_ref"):
+        validate(tmp_path, campaign, run)
+
+    run = base_run(campaign, mode="dispatch")
+    route = child_route(role="programmer", model="gpt-5.6-luna", effort="max", root=run["root_thread_id"])
+    add_route(run, route)
+    run["provider_control_assurance"] = "not_applicable"
+    run["metrics"]["aggregate_total_tokens"]["value"] = 999
+    with pytest.raises(SystemExit, match="aggregate_total_tokens"):
+        validate(tmp_path, campaign, run)
+
+
+def test_run_binds_exact_campaign_hash_and_actual_evidence_refs(tmp_path: Path):
+    campaign = campaign_fixture.product_campaign(stage="exploratory")
+    run = base_run(campaign)
+    run["campaign_sha256"] = "0" * 64
+    with pytest.raises(SystemExit, match="campaign_sha256"):
+        validate(tmp_path, campaign, run)
+    run = base_run(campaign)
+    run["input_evidence"]["host"]["evidence_ref"] = None
+    with pytest.raises(SystemExit, match="evidence_ref"):
         validate(tmp_path, campaign, run)

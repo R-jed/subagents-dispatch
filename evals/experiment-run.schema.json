@@ -3,30 +3,14 @@
   "title": "subagents-dispatch experiment run evidence",
   "type": "object",
   "required": [
-    "schema_version",
-    "run_id",
-    "campaign_id",
-    "campaign_sha256",
-    "plugin_candidate_sha",
-    "stage",
-    "experiment_type",
-    "workload_id",
-    "repeat_index",
-    "arm",
-    "root_thread_id",
-    "input_assurance",
-    "input_evidence",
-    "child_materialization",
-    "execution",
-    "route_assurance",
-    "permission_state_assurance",
-    "permission_provenance_assurance",
-    "child_routes",
-    "metrics",
-    "evidence_artifact_ref"
+    "schema_version", "run_id", "campaign_id", "campaign_sha256", "plugin_candidate_sha",
+    "stage", "experiment_type", "workload_id", "repeat_index", "arm", "root_thread_id",
+    "input_assurance", "input_evidence", "child_materialization", "execution",
+    "route_assurance", "permission_state_assurance", "permission_provenance_assurance",
+    "provider_control_assurance", "child_routes", "metrics", "evidence_artifact_ref"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "2.0"},
     "run_id": {"type": "string", "minLength": 1},
     "campaign_id": {"type": "string", "minLength": 1},
     "campaign_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -35,12 +19,7 @@
     "experiment_type": {"enum": ["role_calibration", "product_benchmark"]},
     "workload_id": {"type": "string", "minLength": 1},
     "repeat_index": {"type": "integer", "minimum": 1},
-    "arm": {
-      "oneOf": [
-        {"$ref": "#/$defs/product_arm"},
-        {"$ref": "#/$defs/calibration_arm"}
-      ]
-    },
+    "arm": {"oneOf": [{"$ref": "#/$defs/product_arm"}, {"$ref": "#/$defs/calibration_arm"}]},
     "root_thread_id": {"type": "string", "minLength": 1},
     "input_assurance": {"enum": ["verified", "unknown", "failed"]},
     "input_evidence": {"$ref": "#/$defs/input_evidence"},
@@ -49,60 +28,17 @@
     "route_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "permission_state_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "permission_provenance_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
-    "profile_origin_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
     "provider_control_assurance": {"enum": ["verified", "unknown", "failed", "not_applicable"]},
-    "materialization_manifest_ref": {"type": "string", "minLength": 1},
-    "child_routes": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/child_route"}
-    },
+    "child_routes": {"type": "array", "items": {"$ref": "#/$defs/child_route"}},
     "metrics": {"$ref": "#/$defs/metrics"},
-    "evidence_artifact_ref": {"type": "string", "minLength": 1},
-    "fresh_root_evidence": {"$ref": "#/$defs/fresh_root_evidence"}
+    "evidence_artifact_ref": {"type": "string", "minLength": 1}
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": {"experiment_type": {"const": "role_calibration"}},
-        "required": ["experiment_type"]
-      },
-      "then": {
-        "required": ["fresh_root_evidence", "profile_origin_assurance", "provider_control_assurance", "materialization_manifest_ref"],
-        "properties": {
-          "child_routes": {
-            "items": {
-              "required": [
-                "semantic_role",
-                "materialized_agent_type",
-                "role_contract_digest",
-                "configured_model",
-                "configured_effort",
-                "expected_profile_path",
-                "expected_profile_sha256",
-                "profile_origin_verdict",
-                "provider_control_verdict",
-                "runtime_evidence_ref",
-                "runtime_evidence_sha256",
-                "requested_agent_type",
-                "accepted_agent_type",
-                "accepted_agent_type_verdict",
-                "accepted_agent_type_evidence_ref",
-                "observed_agent_type"
-              ]
-            }
-          }
-        }
-      }
-    }
-  ],
   "$defs": {
+    "role_id": {"enum": ["programmer", "product_manager", "department_director"]},
     "product_arm": {
       "type": "object",
       "required": ["kind", "mode"],
-      "properties": {
-        "kind": {"const": "product_benchmark"},
-        "mode": {"enum": ["single_agent", "dispatch"]}
-      },
+      "properties": {"kind": {"const": "product_benchmark"}, "mode": {"enum": ["single_agent", "dispatch"]}},
       "additionalProperties": false
     },
     "calibration_arm": {
@@ -110,23 +46,12 @@
       "required": ["kind", "role", "route_id"],
       "properties": {
         "kind": {"const": "role_calibration"},
-        "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
+        "role": {"$ref": "#/$defs/role_id"},
         "route_id": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },
-    "fresh_root_evidence": {
-      "type": "object",
-      "required": ["provisioning_task_id", "execution_task_id", "fork_turns", "fresh_task_evidence_ref"],
-      "properties": {
-        "provisioning_task_id": {"type": "string", "minLength": 1},
-        "execution_task_id": {"type": "string", "minLength": 1},
-        "fork_turns": {"const": "none"},
-        "fresh_task_evidence_ref": {"type": "string", "minLength": 1}
-      },
-      "additionalProperties": false
-    },
-    "scalar_input_evidence": {
+    "scalar_evidence": {
       "type": "object",
       "required": ["observed_value", "verdict", "evidence_ref"],
       "properties": {
@@ -136,23 +61,15 @@
       },
       "additionalProperties": false
     },
-    "host_observation": {
-      "type": "object",
-      "required": ["product", "version", "platform"],
-      "properties": {
-        "product": {"type": "string", "minLength": 1},
-        "version": {"type": "string", "minLength": 1},
-        "platform": {"type": "string", "minLength": 1}
-      },
-      "additionalProperties": false
-    },
-    "host_input_evidence": {
+    "host_evidence": {
       "type": "object",
       "required": ["observed", "verdict", "evidence_ref"],
       "properties": {
         "observed": {
           "oneOf": [
-            {"$ref": "#/$defs/host_observation"},
+            {"type": "object", "required": ["product", "version", "platform"], "properties": {
+              "product": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}, "platform": {"type": "string", "minLength": 1}
+            }, "additionalProperties": false},
             {"type": "null"}
           ]
         },
@@ -161,51 +78,15 @@
       },
       "additionalProperties": false
     },
-    "repository_observation": {
-      "type": "object",
-      "required": ["repository_url", "base_revision"],
-      "properties": {
-        "repository_url": {"type": "string", "minLength": 1},
-        "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
-      },
-      "additionalProperties": false
-    },
-    "repository_input_evidence": {
+    "repository_evidence": {
       "type": "object",
       "required": ["observed", "verdict", "evidence_ref"],
       "properties": {
         "observed": {
           "oneOf": [
-            {"$ref": "#/$defs/repository_observation"},
-            {"type": "null"}
-          ]
-        },
-        "verdict": {"enum": ["verified", "unknown", "failed"]},
-        "evidence_ref": {"type": ["string", "null"]}
-      },
-      "additionalProperties": false
-    },
-    "scalar_control_evidence": {
-      "type": "object",
-      "required": ["observed_fingerprint", "verdict", "evidence_ref"],
-      "properties": {
-        "observed_fingerprint": {"type": ["string", "null"]},
-        "verdict": {"enum": ["verified", "unknown", "failed"]},
-        "evidence_ref": {"type": ["string", "null"]}
-      },
-      "additionalProperties": false
-    },
-    "rules_control_evidence": {
-      "type": "object",
-      "required": ["observed_refs", "verdict", "evidence_ref"],
-      "properties": {
-        "observed_refs": {
-          "oneOf": [
-            {
-              "type": "array",
-              "items": {"type": "string", "minLength": 1},
-              "uniqueItems": true
-            },
+            {"type": "object", "required": ["repository_url", "base_revision"], "properties": {
+              "repository_url": {"type": "string", "minLength": 1}, "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+            }, "additionalProperties": false},
             {"type": "null"}
           ]
         },
@@ -218,33 +99,33 @@
       "type": "object",
       "required": ["main_session_route", "permissions", "tool_surface", "project_rules"],
       "properties": {
-        "main_session_route": {"$ref": "#/$defs/scalar_control_evidence"},
-        "permissions": {"$ref": "#/$defs/scalar_control_evidence"},
-        "tool_surface": {"$ref": "#/$defs/scalar_control_evidence"},
-        "project_rules": {"$ref": "#/$defs/rules_control_evidence"}
+        "main_session_route": {"$ref": "#/$defs/scalar_evidence"},
+        "permissions": {"$ref": "#/$defs/scalar_evidence"},
+        "tool_surface": {"$ref": "#/$defs/scalar_evidence"},
+        "project_rules": {
+          "type": "object",
+          "required": ["observed_refs", "verdict", "evidence_ref"],
+          "properties": {
+            "observed_refs": {"oneOf": [{"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}, {"type": "null"}]},
+            "verdict": {"enum": ["verified", "unknown", "failed"]},
+            "evidence_ref": {"type": ["string", "null"]}
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },
     "input_evidence": {
       "type": "object",
-      "required": [
-        "plugin_candidate",
-        "host",
-        "repository",
-        "task_sha256",
-        "reset_procedure_sha256",
-        "acceptance_sha256",
-        "responsibility_packet_sha256",
-        "controls"
-      ],
+      "required": ["plugin_candidate", "host", "repository", "task_sha256", "reset_procedure_sha256", "acceptance_sha256", "responsibility_packet_sha256", "controls"],
       "properties": {
-        "plugin_candidate": {"$ref": "#/$defs/scalar_input_evidence"},
-        "host": {"$ref": "#/$defs/host_input_evidence"},
-        "repository": {"$ref": "#/$defs/repository_input_evidence"},
-        "task_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
-        "reset_procedure_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
-        "acceptance_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
-        "responsibility_packet_sha256": {"$ref": "#/$defs/scalar_input_evidence"},
+        "plugin_candidate": {"$ref": "#/$defs/scalar_evidence"},
+        "host": {"$ref": "#/$defs/host_evidence"},
+        "repository": {"$ref": "#/$defs/repository_evidence"},
+        "task_sha256": {"$ref": "#/$defs/scalar_evidence"},
+        "reset_procedure_sha256": {"$ref": "#/$defs/scalar_evidence"},
+        "acceptance_sha256": {"$ref": "#/$defs/scalar_evidence"},
+        "responsibility_packet_sha256": {"$ref": "#/$defs/scalar_evidence"},
         "controls": {"$ref": "#/$defs/control_evidence"}
       },
       "additionalProperties": false
@@ -261,23 +142,11 @@
     },
     "execution": {
       "type": "object",
-      "required": [
-        "status",
-        "acceptance_status",
-        "oracle_refs",
-        "quality_score",
-        "quality_score_ref",
-        "result_ref",
-        "failure_ref"
-      ],
+      "required": ["status", "acceptance_status", "oracle_refs", "quality_score", "quality_score_ref", "result_ref", "failure_ref"],
       "properties": {
         "status": {"enum": ["completed", "failed", "interrupted", "unknown"]},
         "acceptance_status": {"enum": ["passed", "failed", "unknown"]},
-        "oracle_refs": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        },
+        "oracle_refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
         "quality_score": {"type": ["number", "null"], "minimum": 0},
         "quality_score_ref": {"type": ["string", "null"]},
         "result_ref": {"type": ["string", "null"]},
@@ -285,83 +154,72 @@
       },
       "additionalProperties": false
     },
-    "observed_route": {
+    "route_request": {
       "type": "object",
-      "required": ["model", "effort", "sandbox_policy_type", "permission_profile_type", "agent_path", "model_provider"],
+      "required": ["agent_type", "model", "effort", "evidence_ref"],
       "properties": {
+        "agent_type": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "effort": {"type": "string", "minLength": 1},
+        "evidence_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "route_acceptance": {
+      "type": "object",
+      "required": ["agent_type", "model", "effort", "verdict", "evidence_ref"],
+      "properties": {
+        "agent_type": {"type": ["string", "null"]},
         "model": {"type": ["string", "null"]},
-        "effort": {"type": ["string", "null"], "enum": [null, "minimal", "low", "medium", "high", "xhigh", "max"]},
+        "effort": {"type": ["string", "null"]},
+        "verdict": {"enum": ["verified", "unknown", "failed"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "route_observation": {
+      "type": "object",
+      "required": ["agent_type", "model", "effort", "sandbox_policy_type", "permission_profile_type", "model_provider", "evidence_source", "evidence_ref"],
+      "properties": {
+        "agent_type": {"type": ["string", "null"]},
+        "model": {"type": ["string", "null"]},
+        "effort": {"type": ["string", "null"]},
         "sandbox_policy_type": {"type": ["string", "null"]},
-        "permission_profile_type": {"type": ["string", "null"]}
-        ,"agent_path": {"type": ["string", "null"]}
-        ,"model_provider": {"type": ["string", "null"]}
+        "permission_profile_type": {"type": ["string", "null"]},
+        "model_provider": {"type": ["string", "null"]},
+        "evidence_source": {"enum": ["native", "local", "both", "none"]},
+        "evidence_ref": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "permission_provenance": {
+      "type": "object",
+      "required": ["source_kind", "source_id", "sandbox_policy_type", "permission_profile_type", "evidence_source", "evidence_ref", "selection_evidence_ref", "verdict"],
+      "properties": {
+        "source_kind": {"type": ["string", "null"], "enum": [null, "parent_turn", "selected_environment"]},
+        "source_id": {"type": ["string", "null"]},
+        "sandbox_policy_type": {"type": ["string", "null"]},
+        "permission_profile_type": {"type": ["string", "null"]},
+        "evidence_source": {"enum": ["native", "local", "both", "none"]},
+        "evidence_ref": {"type": ["string", "null"]},
+        "selection_evidence_ref": {"type": ["string", "null"]},
+        "verdict": {"enum": ["verified", "unknown", "failed"]}
       },
       "additionalProperties": false
     },
     "child_route": {
       "type": "object",
-      "required": [
-        "child_thread_id",
-        "parent_thread_id",
-        "agent_type",
-        "role",
-        "observed",
-        "permission_state_verdict",
-        "permission_provenance",
-        "verdict",
-        "evidence_source",
-        "evidence_ref"
-      ],
+      "required": ["child_thread_id", "parent_thread_id", "role", "requested", "accepted", "observed", "permission_state_verdict", "permission_provenance", "verdict"],
       "properties": {
         "child_thread_id": {"type": "string", "minLength": 1},
         "parent_thread_id": {"type": "string", "minLength": 1},
-        "agent_type": {"type": "string", "minLength": 1},
-        "requested_agent_type": {"type": "string", "minLength": 1},
-        "accepted_agent_type": {"type": ["string", "null"]},
-        "accepted_agent_type_verdict": {"enum": ["verified", "unknown", "failed"]},
-        "accepted_agent_type_evidence_ref": {"type": ["string", "null"]},
-        "observed_agent_type": {"type": "string", "minLength": 1},
-        "semantic_role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
-        "materialized_agent_type": {"type": "string", "minLength": 1},
-        "role_contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "configured_model": {"type": "string", "minLength": 1},
-        "configured_effort": {"enum": ["minimal", "low", "medium", "high", "xhigh", "max"]},
-        "expected_profile_path": {"type": "string", "minLength": 1},
-        "expected_profile_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "profile_origin_verdict": {"enum": ["verified", "unknown", "failed"]},
-        "provider_control_verdict": {"enum": ["verified", "unknown", "failed"]},
-        "runtime_evidence_ref": {"type": "string", "minLength": 1},
-        "runtime_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
-        "observed": {"$ref": "#/$defs/observed_route"},
+        "role": {"$ref": "#/$defs/role_id"},
+        "requested": {"$ref": "#/$defs/route_request"},
+        "accepted": {"$ref": "#/$defs/route_acceptance"},
+        "observed": {"$ref": "#/$defs/route_observation"},
         "permission_state_verdict": {"enum": ["verified", "unknown", "failed"]},
-        "permission_provenance": {
-          "type": "object",
-          "required": [
-            "source_kind",
-            "source_id",
-            "sandbox_policy_type",
-            "permission_profile_type",
-            "evidence_source",
-            "evidence_ref",
-            "selection_evidence_ref",
-            "verdict"
-          ],
-          "properties": {
-            "source_kind": {"type": ["string", "null"], "enum": [null, "parent_turn", "selected_environment"]},
-            "source_id": {"type": ["string", "null"]},
-            "sandbox_policy_type": {"type": ["string", "null"]},
-            "permission_profile_type": {"type": ["string", "null"]},
-            "evidence_source": {"enum": ["native", "local", "both", "none"]},
-            "evidence_ref": {"type": ["string", "null"]},
-            "selection_evidence_ref": {"type": ["string", "null"]},
-            "verdict": {"enum": ["verified", "unknown", "failed"]}
-          },
-          "additionalProperties": false
-        },
-        "verdict": {"enum": ["verified", "unknown", "failed"]},
-        "evidence_source": {"enum": ["native", "local", "both", "none"]},
-        "evidence_ref": {"type": ["string", "null"]}
+        "permission_provenance": {"$ref": "#/$defs/permission_provenance"},
+        "verdict": {"enum": ["verified", "unknown", "failed"]}
       },
       "additionalProperties": false
     },
@@ -377,18 +235,7 @@
     },
     "metrics": {
       "type": "object",
-      "required": [
-        "wall_clock_ms",
-        "main_total_tokens",
-        "child_total_tokens",
-        "aggregate_total_tokens",
-        "main_context_peak_tokens",
-        "user_interventions",
-        "semantic_reworks",
-        "retries",
-        "review_rounds",
-        "compactions"
-      ],
+      "required": ["wall_clock_ms", "main_total_tokens", "child_total_tokens", "aggregate_total_tokens", "main_context_peak_tokens", "user_interventions", "semantic_reworks", "retries", "review_rounds", "compactions"],
       "properties": {
         "wall_clock_ms": {"$ref": "#/$defs/measurement"},
         "main_total_tokens": {"$ref": "#/$defs/measurement"},

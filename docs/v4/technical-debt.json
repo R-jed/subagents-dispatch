@@ -6,6 +6,11 @@
       "id": "TD-V4-STATE-STORAGE-DECOUPLE",
       "status": "CLOSED_PRE_N0",
       "resolution": "schema-neutral state_storage.py now owns path, lock, timestamp, private-file and atomic-write primitives; Native Core state no longer imports the retired V3 orchestration engine; the 1.0.0 clean break removes the retired stale-state cleanup implementation instead of carrying it as a compatibility path"
+    },
+    {
+      "id": "TD-V4-EXPERIMENT-PLANE-CONSOLIDATION",
+      "status": "CLOSED_PRE_1_0",
+      "resolution": "Role calibration now uses canonical role profiles plus campaign-frozen explicit spawn model/effort. Temporary calibration profile materialization, adapter/core patching, staging, nonce, manifest, cleanup and recovery machinery were removed; campaign/run provenance validation remains."
     }
   ],
   "items": [
@@ -15,13 +20,6 @@
       "status": "OPEN_POST_N0_OBSERVATION",
       "current_condition": "Doctor can validate caller-supplied Native Host capability evidence, but ordinary users do not yet have a simple product-owned capture flow",
       "target": "Use N0-N7 Host observations to decide whether a smaller evidence-capture UX is justified without introducing another runtime control plane"
-    },
-    {
-      "id": "TD-V4-EXPERIMENT-PLANE-CONSOLIDATION",
-      "priority": "P2",
-      "status": "OPEN_NON_RUNTIME",
-      "current_condition": "scripts/calibration_profiles_core.py still contains the original Reader-oriented evaluator transaction implementation, while calibration_profiles.py generalizes it to all roles by replacing selected core functions at import/runtime; these helpers are excluded from runtime package integrity and have no production routing, lifecycle, Doctor, or release authority",
-      "target": "After V4 release-critical Native Core and exact-candidate Host validation stabilize, consolidate calibration profile transactions behind one role-neutral evaluator implementation without changing frozen experiment evidence or production policy"
     },
     {
       "id": "TD-V4-STATE-PATH-TOCTOU-HARDENING",

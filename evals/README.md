@@ -6,7 +6,7 @@ Current product behavior is owned by the two public Skills, `Orchestrate` and `D
 
 ## Static and live-behavior fixtures
 
-- `routing-cases.json` checks the fixed production profile contract and routing/reclassification decisions.
+- `routing-cases.json` checks the three-role production route contract and routing/reclassification decisions.
 - `coordination-cases.json` checks semantic independence, mutation authority, integration ordering, and requested/configured/observed truth separation.
 - `interaction-cases.json` checks the current Orchestrate/Doctor surface, one-shot Status, exact control targeting, WriterLease takeover settlement, fresh-context spawn, UNKNOWN handling, Handoff evidence, and optional factual execution receipts.
 - `behavioral-workloads.json` contains frozen workload shapes for repeated live behavioral tests. It contains no benchmark results.
@@ -40,23 +40,11 @@ A run cannot prove candidate identity, Host version, repository revision, task b
 
 ## Role calibration
 
-Calibration is evaluator-only. The production route used as a control is read from `contracts/policy.json`; challengers may intentionally vary model or effort for measurement without changing production policy.
+Calibration is evaluator-only. One campaign targets exactly one of the current semantic roles: Programmer, Product Manager, or Department Director. The control is a current `policy.json` route; challengers may vary model/effort outside production policy while preserving the same responsibility mutation authority.
 
-The current production controls are:
+Calibration uses the canonical role profile for every arm and sends the frozen model/effort explicitly on spawn. It does **not** create temporary Agent profiles or mutate the real Agent registry. The run must independently prove requested, accepted, and observed role/model/effort plus permission state; model/effort calibration also binds runtime model-provider evidence. Missing/conflicting evidence remains unknown/failed.
 
-```text
-Reader        gpt-5.6-luna   max
-Worker        gpt-5.6-luna   max
-Investigator  gpt-5.6-terra  high
-Solver        gpt-5.6-sol    high
-Advisor       gpt-5.6-sol    high
-```
-
-`calibration_profiles.py` can materialize one semantic role at a time under an evaluator-owned Codex home. It preserves the canonical role contract while changing only campaign-approved route fields. Generated calibration Agent identities cannot collide with production Agent identities.
-
-Calibration helpers are excluded from the runtime package-integrity set. Their profile transaction implementation is evaluator infrastructure and has no authority over production routing, lifecycle, Doctor, release readiness, or the five packaged profiles.
-
-Each workload binds an evaluator-owned responsibility packet hash. Each run must attest the packet actually used. Configured route values and model self-report do not count as observed runtime evidence.
+Each workload binds an evaluator-owned responsibility packet hash so route arms compare the same responsibility rather than different prompts. Configured route values and model self-report do not count as observed runtime evidence.
 
 ## Product benchmark
 

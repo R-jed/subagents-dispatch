@@ -2,9 +2,9 @@
 """Normalize optional subagents-dispatch runtime evidence.
 
 This helper is diagnostic. Ordinary routing must not depend on telemetry that the
-runtime did not expose. Main-session evidence only suppresses a redundant Sol uplift
-when the observed main route meets the policy reference. Child evidence verifies exact
-route, ancestry, and permission claims only when those facts are material.
+runtime did not expose. Child evidence verifies exact route, ancestry, and permission
+claims only when those facts are material. Main model/effort does not participate in
+managed-role admission or capability deduplication.
 
 Route truth is kept in three layers when the host exposes them: requested, accepted,
 and observed. Platform acceptance never counts as observed runtime proof. For child
@@ -25,7 +25,6 @@ from typing import Any, NoReturn
 from policy import load_policy_contract
 
 CHILD_ROUTE_FIELDS = ("agent_role", "model", "effort")
-MAIN_ROUTE_FIELDS = ("model", "effort")
 IDENTITY_FIELDS = ("thread_id", "parent_thread_id")
 PERMISSION_FIELDS = ("sandbox_policy_type", "permission_profile_type")
 AUXILIARY_OBSERVED_FIELDS = ("agent_path", "model_provider", "cwd")
@@ -57,33 +56,6 @@ def canonical_sandbox(value: str | None) -> str | None:
     return aliases.get(normalized, normalized)
 
 
-def load_main_coverage_policy() -> tuple[str, str, tuple[str, ...], tuple[str, ...]]:
-    try:
-        payload = load_policy_contract()
-        dedup = payload["capability_dedup"]
-        role = dedup["reference_role"]
-        order = dedup["reasoning_effort_order"]
-        aliases = dedup.get("model_aliases", [])
-        reference = payload["roles"][role]
-        model = reference["model"]
-        effort = reference["effort"]
-    except (RuntimeError, KeyError, TypeError) as exc:
-        fail(f"invalid policy contract for capability dedup: {exc}")
-    if not isinstance(model, str) or not model.strip() or not isinstance(effort, str) or not effort.strip():
-        fail("capability dedup reference route is invalid")
-    if not isinstance(order, list) or not order or not all(isinstance(x, str) and x for x in order):
-        fail("reasoning_effort_order must be a non-empty string list")
-    if not isinstance(aliases, list) or not all(isinstance(x, str) and x.strip() for x in aliases):
-        fail("model_aliases must be a string list when present")
-    normalized_order = tuple(x.strip().lower() for x in order)
-    normalized_aliases = tuple(x.strip().lower() for x in aliases)
-    if effort.strip().lower() not in normalized_order or len(set(normalized_order)) != len(normalized_order):
-        fail("reasoning_effort_order does not contain a unique reference effort")
-    if len(set(normalized_aliases)) != len(normalized_aliases):
-        fail("model_aliases contains duplicates")
-    return model.strip().lower(), effort.strip().lower(), normalized_order, normalized_aliases
-
-
 def load_permission_policy() -> tuple[frozenset[str], frozenset[str]]:
     try:
         policy = load_policy_contract()
@@ -113,7 +85,6 @@ def load_permission_policy() -> tuple[frozenset[str], frozenset[str]]:
     return frozenset(agent_types), frozenset(sources)
 
 
-REFERENCE_MODEL, REFERENCE_EFFORT, EFFORT_ORDER, REFERENCE_MODEL_ALIASES = load_main_coverage_policy()
 MANAGED_AGENT_TYPES, PERMISSION_SOURCE_KINDS = load_permission_policy()
 
 
@@ -459,79 +430,6 @@ def runtime_fields_complete(
     return True
 
 
-def model_matches(model: str) -> bool:
-    normalized = model.lower()
-    if normalized in REFERENCE_MODEL_ALIASES:
-        return True
-    return normalized == REFERENCE_MODEL or normalized.startswith(REFERENCE_MODEL + "-")
-
-
-def effort_coverage(effort: str) -> str:
-    normalized = effort.lower()
-    if normalized not in EFFORT_ORDER:
-        return "unknown"
-    return "covered" if EFFORT_ORDER.index(normalized) >= EFFORT_ORDER.index(REFERENCE_EFFORT) else "uncovered"
-
-
-def main_session_result(payload: dict[str, Any]) -> dict[str, Any]:
-    requested = obj(payload.get("requested"), "requested")
-    accepted = normalize(obj(payload.get("accepted"), "accepted"))
-    native = normalize(obj(payload.get("native"), "native"))
-    local = normalize(obj(payload.get("local"), "local"))
-    violations = source_conflicts(native, local, MAIN_ROUTE_FIELDS)
-    if requested is not None and accepted is not None:
-        violations.extend(compare_expected(requested, accepted, "accepted", fields=MAIN_ROUTE_FIELDS))
-    violations.extend(layer_conflicts(accepted, native, MAIN_ROUTE_FIELDS))
-    native_fields, local_fields = seen(native, MAIN_ROUTE_FIELDS), seen(local, MAIN_ROUTE_FIELDS)
-    observed_fields = sorted(set(native_fields + local_fields))
-    native_complete = native is not None and all(native.get(field) for field in MAIN_ROUTE_FIELDS)
-    local_complete = local is not None and all(local.get(field) for field in MAIN_ROUTE_FIELDS)
-    conflict = bool(violations)
-
-    if conflict:
-        status = "conflict"
-    elif native_complete or local_complete:
-        status = "observed"
-    elif observed_fields:
-        status = "partial"
-    else:
-        status = "not_observed"
-
-    coverage = "unknown"
-    if native_complete and not conflict and native is not None:
-        model = str(native.get("model") or "")
-        effort = str(native.get("effort") or "")
-        coverage = "uncovered" if not model_matches(model) else effort_coverage(effort)
-
-    trusted = native_complete and not conflict
-    return {
-        "subject": "main_session",
-        "status": status,
-        "decision": "quarantine_main_route_claim" if conflict else "use_observed_coverage",
-        "evidence_grade": grade(native_complete, local_complete, conflict),
-        "truth_layers": {
-            "requested": requested_layer(requested, MAIN_ROUTE_FIELDS),
-            "accepted": accepted_layer(accepted, MAIN_ROUTE_FIELDS, violations),
-            "observed": observed_layer(native, MAIN_ROUTE_FIELDS, violations),
-        },
-        "route_evidence": {
-            "status": status,
-            "source": evidence_source(native_complete, local_complete),
-            "observed_fields": observed_fields,
-            "native_observed_fields": native_fields,
-            "local_observed_fields": local_fields,
-        },
-        "main_judgment_coverage": coverage,
-        "coverage_source": "trusted_session_metadata" if trusted else "not_observed",
-        "coverage_reference_model": REFERENCE_MODEL,
-        "coverage_reference_model_aliases": list(REFERENCE_MODEL_ALIASES),
-        "coverage_reference_effort": REFERENCE_EFFORT,
-        "observed_main_model": native.get("model") if trusted and native is not None else None,
-        "observed_main_effort": native.get("effort") if trusted and native is not None else None,
-        "violations": sorted(set(violations)),
-    }
-
-
 def validate_expected(expected: dict[str, Any]) -> None:
     missing = [field for field in CHILD_ROUTE_FIELDS if text(expected.get(field)) is None]
     if missing:
@@ -545,9 +443,7 @@ def validate_expected(expected: dict[str, Any]) -> None:
         if not isinstance(expected.get(flag, False), bool):
             fail(f"expected.{flag} must be boolean when present")
     agent_role = text(expected.get("agent_role"))
-    if agent_role not in MANAGED_AGENT_TYPES and not (
-        agent_role and agent_role.startswith("subagents_dispatch_calibration_")
-    ):
+    if agent_role not in MANAGED_AGENT_TYPES:
         fail("expected.agent_role is not a managed policy role")
     canonical_v2_agent_path(expected.get("agent_path"), "expected.agent_path")
 
@@ -967,12 +863,9 @@ def main() -> None:
         except SystemExit as exc:
             fail(f"rollout evidence unavailable: {str(exc).removeprefix('ERROR: ')}")
     subject = payload.get("subject", "child")
-    if subject == "main_session":
-        result = main_session_result(payload)
-    elif subject == "child":
-        result = child_result(payload)
-    else:
-        fail("subject must be 'main_session' or 'child'")
+    if subject != "child":
+        fail("subject must be 'child'; Main model/effort is not a managed routing authority")
+    result = child_result(payload)
     json.dump(result, sys.stdout, sort_keys=True, separators=(",", ":"))
     sys.stdout.write("\n")
 

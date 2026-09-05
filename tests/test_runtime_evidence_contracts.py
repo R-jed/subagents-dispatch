@@ -29,7 +29,15 @@ def run_runtime_evidence(payload: dict) -> dict:
 
 
 def managed_routes() -> list[dict]:
-    return list(POLICY["roles"].values())
+    programmer = POLICY["roles"]["programmer"]
+    product_manager = POLICY["roles"]["product_manager"]
+    department_director = POLICY["roles"]["department_director"]
+    return [
+        {**programmer, "effort": "max"},
+        {**product_manager, "effort": "medium"},
+        {**product_manager, "effort": "high"},
+        {**department_director, "effort": "high"},
+    ]
 
 
 def expected_for(route: dict) -> dict:
@@ -85,7 +93,7 @@ def test_exact_observed_route_and_permission_can_close_formal_attestation(route:
 
 
 def test_configured_or_accepted_route_does_not_impersonate_observed_route():
-    route = POLICY["roles"]["worker"]
+    route = managed_routes()[0]
     data = run_runtime_evidence(
         {"subject": "child", "expected": expected_for(route), "accepted": observed_for(route)}
     )
@@ -96,10 +104,10 @@ def test_configured_or_accepted_route_does_not_impersonate_observed_route():
 
 
 def test_cross_source_route_conflict_quarantines():
-    route = POLICY["roles"]["worker"]
+    route = managed_routes()[0]
     native = observed_for(route)
     local = observed_for(route)
-    local["model"] = "gpt-5.6-terra"
+    local["model"] = "gpt-5.6-sol"
     data = run_runtime_evidence(
         {"subject": "child", "expected": expected_for(route), "native": native, "local": local}
     )
@@ -109,7 +117,7 @@ def test_cross_source_route_conflict_quarantines():
 
 
 def test_permission_source_identity_mismatch_is_independent_and_quarantined():
-    route = POLICY["roles"]["reader"]
+    route = managed_routes()[3]
     data = run_runtime_evidence(
         {
             "subject": "child",

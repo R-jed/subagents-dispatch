@@ -2,23 +2,39 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "subagents-dispatch static routing cases",
   "type": "object",
-  "required": ["schema_version", "skill_name", "cases"],
+  "required": [
+    "schema_version",
+    "skill_name",
+    "cases"
+  ],
   "properties": {
-    "schema_version": {"const": "2.0"},
-    "skill_name": {"const": "subagents-dispatch"},
+    "schema_version": {
+      "const": "2.0"
+    },
+    "skill_name": {
+      "const": "subagents-dispatch"
+    },
     "cases": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "category", "input", "expected"],
+        "required": [
+          "id",
+          "category",
+          "input",
+          "expected"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
           "category": {
             "enum": [
               "delegation",
               "role_choice",
-              "main_coverage",
+              "main_independence",
               "rerouting",
               "fanout",
               "consent",
@@ -26,54 +42,136 @@
               "final_review"
             ]
           },
-          "input": {"type": "object"},
+          "input": {
+            "type": "object"
+          },
           "expected": {
             "type": "object",
-            "required": ["action", "nodes"],
+            "required": [
+              "action",
+              "nodes"
+            ],
             "properties": {
-              "action": {"enum": ["main_session", "delegate", "ask_consent", "reject_result"]},
+              "action": {
+                "enum": [
+                  "main_session",
+                  "delegate",
+                  "ask_consent",
+                  "reject_result"
+                ]
+              },
               "nodes": {
                 "type": "array",
                 "uniqueItems": true,
                 "items": {
                   "type": "object",
-                  "required": ["unit_id", "role", "agent_type", "model", "effort", "mutation_authority"],
+                  "required": [
+                    "unit_id",
+                    "role",
+                    "agent_type",
+                    "model",
+                    "effort",
+                    "mutation_authority"
+                  ],
                   "properties": {
-                    "unit_id": {"type": "string", "pattern": "^U[1-9][0-9]*$"},
-                    "role": {"enum": ["reader", "worker", "solver", "investigator", "advisor"]},
-                    "agent_type": {
+                    "unit_id": {
+                      "type": "string",
+                      "pattern": "^U[1-9][0-9]*$"
+                    },
+                    "role": {
                       "enum": [
-                        "subagents_dispatch_reader",
-                        "subagents_dispatch_worker",
-                        "subagents_dispatch_solver",
-                        "subagents_dispatch_investigator",
-                        "subagents_dispatch_advisor"
+                        "programmer",
+                        "product_manager",
+                        "department_director"
                       ]
                     },
-                    "model": {"enum": ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]},
-                    "effort": {"enum": ["high", "xhigh", "max"]},
-                    "mutation_authority": {"enum": ["none", "bounded-source-write"]},
-                    "fresh_context": {"type": "boolean"}
+                    "agent_type": {
+                      "enum": [
+                        "subagents_dispatch_programmer",
+                        "subagents_dispatch_product_manager",
+                        "subagents_dispatch_department_director"
+                      ]
+                    },
+                    "model": {
+                      "enum": [
+                        "gpt-5.6-luna",
+                        "gpt-5.6-sol",
+                        "gpt-6-astra"
+                      ]
+                    },
+                    "effort": {
+                      "enum": [
+                        "medium",
+                        "high",
+                        "max"
+                      ]
+                    },
+                    "mutation_authority": {
+                      "enum": [
+                        "none",
+                        "bounded-source-write"
+                      ]
+                    },
+                    "fresh_context": {
+                      "type": "boolean"
+                    }
                   },
                   "additionalProperties": false
                 }
               },
-              "main_judgment_coverage": {
-                "type": ["string", "null"],
-                "enum": [null, "covered", "uncovered", "unknown"]
-              },
               "task_blocker": {
-                "type": ["string", "null"],
-                "enum": [null, "contract", "judgment", "investigation", "stalled"]
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  null,
+                  "contract",
+                  "judgment",
+                  "investigation",
+                  "stalled"
+                ]
               },
               "recovery_action": {
-                "type": ["string", "null"],
-                "enum": [null, "same_agent_followup", "same_role_retry", "semantic_reroute", "main_takeover"]
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  null,
+                  "same_agent_followup",
+                  "same_role_retry",
+                  "semantic_reroute",
+                  "main_takeover"
+                ]
               },
-              "consent_reason": {"type": ["string", "null"], "minLength": 1},
-              "main_reason": {"type": ["string", "null"], "minLength": 1},
-              "policy_violation": {"type": ["string", "null"], "minLength": 1},
-              "independent_review_required": {"type": ["boolean", "null"]}
+              "consent_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "main_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "policy_violation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "independent_review_required": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
             },
             "additionalProperties": false
           }
