@@ -2,7 +2,7 @@
   "algorithm": "sha256",
   "files": {
     ".agents/plugins/marketplace.json": "8f6923cb4b1245426a85dc3fe4a1b7710a7f1d1d2530d650861d387c6c200750",
-    ".codex-plugin/plugin.json": "bdd2f44eba37a93b97d5b0525044be339757d4d7f6d922859a9a429d9e5d707b",
+    ".codex-plugin/plugin.json": "972b9ac78491f43d76440f4dca982f351c12442f01f9a6d2ade50ba68e27cf84",
     "agent-profiles/subagents-dispatch-department-director.toml": "c982cca5660e955a3fafaf18882cfcd432aca94c4e6f8b4356dab11707b3a1f5",
     "agent-profiles/subagents-dispatch-product-manager.toml": "18311dc7875a8206f5df448cb53401692726a84847d9c82c72b139e880d84236",
     "agent-profiles/subagents-dispatch-programmer.toml": "5c73e168ab6a3db1cef77262ba49c1920529b2c4d23cc3d6830ced40f03d2836",

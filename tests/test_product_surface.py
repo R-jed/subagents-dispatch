@@ -36,6 +36,8 @@ def test_plugin_manifest_is_v1_two_skill_identity_and_validator_compatible():
     assert payload["name"] == "subagents-dispatch"
     assert payload["version"] == "1.0.0"
     assert payload["skills"] == "./skills/"
+    assert "gpt-6-astra" in payload["keywords"]
+    assert "gpt-5.6-terra" not in payload["keywords"]
     for unsupported in ("mcpServers", "apps", "agents"):
         assert unsupported not in payload
     interface = payload["interface"]
